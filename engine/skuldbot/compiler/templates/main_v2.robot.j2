@@ -1,0 +1,221 @@
+*** Settings ***
+Documentation     {{ bot.bot.name }}
+...               {{ bot.bot.description or '' }}
+Library           Collections
+Library           String
+Library           OperatingSystem
+{% set node_types = bot.nodes | map(attribute='type') | list %}
+{% if node_types | select('match', 'web\\..*|browser\\..*') | list %}
+Library           RPA.Browser.Selenium
+{% endif %}
+{% if node_types | select('match', 'excel\\..*') | list %}
+Library           RPA.Excel.Files
+{% endif %}
+{% if node_types | select('match', 'files\\..*') | list %}
+Library           RPA.FileSystem
+{% endif %}
+Library           skuldbot.nodes.ControlLibrary
+Resource          resources/error_handler.robot
+{% if bot.variables %}
+Variables         variables/config.yaml
+{% endif %}
+
+*** Variables ***
+${BOT_ID}         {{ bot.bot.id }}
+${BOT_NAME}       {{ bot.bot.name }}
+${BOT_STATUS}     RUNNING
+
+*** Tasks ***
+Execute Bot
+    [Documentation]    Entry point del bot
+    [Tags]             main
+    
+    Log    Starting bot: ${BOT_NAME}    console=yes
+    Set Global Variable    ${BOT_STATUS}    RUNNING
+    
+    TRY
+        Run Bot Flow
+        Set Global Variable    ${BOT_STATUS}    SUCCESS
+        Log    Bot completed successfully    console=yes
+    EXCEPT    AS    ${error_msg}
+        Set Global Variable    ${BOT_STATUS}    FAILED
+        Log    Bot failed: ${error_msg}    level=ERROR    console=yes
+    END
+
+*** Keywords ***
+Run Bot Flow
+    [Documentation]    Ejecuta el flujo completo del bot
+    
+{% set start_node = bot.get_start_node() %}
+{% if start_node %}
+    ${current_node}=    Set Variable    {{ start_node.id }}
+{% else %}
+    ${current_node}=    Set Variable    {{ bot.nodes[0].id }}
+{% endif %}
+    
+    # Loop principal - ejecuta nodos hasta llegar a END
+    WHILE    '${current_node}' != 'END'    limit=1000
+        Log    → Executing node: ${current_node}    console=yes
+        
+        ${current_node}=    Execute Node By ID    ${current_node}
+    END
+    
+    Log    Flow completed    console=yes
+
+Execute Node By ID
+    [Arguments]    ${node_id}
+    [Documentation]    Ejecuta un nodo por su ID y retorna el siguiente nodo
+    
+{% for node in bot.nodes %}
+    IF    '${node_id}' == '{{ node.id }}'
+        TRY
+            # Node: {{ node.id }} ({{ node.type }})
+{# ===== TRIGGERS ===== #}
+{% if node.type == 'trigger.manual' or node.type == 'trigger.form' or node.type == 'trigger.schedule' or node.type == 'trigger.webhook' %}
+            # Trigger node - initializes the bot
+            Log    Bot triggered: {{ node.type }}    console=yes
+
+{# ===== LOGGING ===== #}
+{% elif node.type == 'control.log' or node.type == 'logging.log' %}
+            Log    {{ node.config.get('message', 'Log message') | transform_vars }}    level={{ node.config.get('level', 'INFO') }}    console=yes
+{% elif node.type == 'logging.screenshot' %}
+            Capture Page Screenshot    filename={{ node.config.get('description', 'screenshot') }}.png
+            Log    Screenshot captured: {{ node.config.get('description', 'screenshot') }}    console=yes
+
+{# ===== CONTROL FLOW ===== #}
+{% elif node.type == 'control.wait' %}
+            Sleep    {{ node.config.get('seconds', 1) }}s
+{% elif node.type == 'control.set_variable' %}
+            Set Global Variable    ${{ '{' }}{{ node.config.get('name', 'VAR') }}{{ '}' }}    {{ node.config.get('value', '') | transform_vars }}
+{% elif node.type == 'control.stop' %}
+            Log    Bot stopping with status: {{ node.config.get('status', 'success') }}    console=yes
+            RETURN    END
+
+{# ===== WEB AUTOMATION ===== #}
+{% elif node.type == 'web.open_browser' or node.type == 'browser.open' %}
+            Open Available Browser    {{ node.config.get('url', 'about:blank') | transform_vars }}    browser={{ node.config.get('browser', 'chromium') }}    headless={{ node.config.get('headless', False)|lower }}
+{% elif node.type == 'web.navigate' %}
+            Go To    {{ node.config.get('url', '') | transform_vars }}
+{% elif node.type == 'web.click' or node.type == 'browser.click' %}
+            Click Element    {{ node.config.get('selector', '') | transform_vars }}
+{% elif node.type == 'web.type' or node.type == 'browser.fill' %}
+            {% if node.config.get('clear', True) %}
+            Clear Element Text    {{ node.config.get('selector', '') | transform_vars }}
+            {% endif %}
+            Input Text    {{ node.config.get('selector', '') | transform_vars }}    {{ node.config.get('text', node.config.get('value', '')) | transform_vars }}
+{% elif node.type == 'web.select_option' %}
+            Select From List By Value    {{ node.config.get('selector', '') | transform_vars }}    {{ node.config.get('value', '') | transform_vars }}
+{% elif node.type == 'web.get_text' %}
+            ${text}=    Get Text    {{ node.config.get('selector', '') | transform_vars }}
+            Set Global Variable    ${LAST_TEXT}    ${text}
+            Log    Got text: ${text}    console=yes
+{% elif node.type == 'web.get_attribute' %}
+            ${value}=    Get Element Attribute    {{ node.config.get('selector', '') | transform_vars }}    {{ node.config.get('attribute', '') }}
+            Set Global Variable    ${LAST_ATTRIBUTE}    ${value}
+            Log    Got attribute: ${value}    console=yes
+{% elif node.type == 'web.screenshot' %}
+            {% if node.config.get('full_page', False) %}
+            Capture Page Screenshot    {{ node.config.get('path', 'screenshot.png') | transform_vars }}
+            {% else %}
+            Capture Page Screenshot    {{ node.config.get('path', 'screenshot.png') | transform_vars }}
+            {% endif %}
+{% elif node.type == 'web.wait_element' %}
+            Wait Until Element Is Visible    {{ node.config.get('selector', '') | transform_vars }}    timeout={{ node.config.get('timeout', 30000) // 1000 }}s
+{% elif node.type == 'web.execute_js' %}
+            ${result}=    Execute Javascript    {{ node.config.get('script', '') | transform_vars }}
+            Set Global Variable    ${JS_RESULT}    ${result}
+{% elif node.type == 'web.scroll' %}
+            {% if node.config.get('direction') == 'to_element' %}
+            Scroll Element Into View    {{ node.config.get('selector', '') | transform_vars }}
+            {% else %}
+            Execute Javascript    window.scrollBy(0, {{ '500' if node.config.get('direction') == 'down' else '-500' }})
+            {% endif %}
+{% elif node.type == 'web.close_browser' or node.type == 'browser.close' %}
+            Close Browser
+
+{# ===== EXCEL ===== #}
+{% elif node.type == 'excel.open' %}
+            Open Workbook    {{ node.config.get('path', '') | transform_vars }}
+{% elif node.type == 'excel.read_range' or node.type == 'excel.read' %}
+            ${data}=    Read Worksheet As Table    header={{ node.config.get('header', True)|lower }}
+            Set Global Variable    ${EXCEL_DATA}    ${data}
+{% elif node.type == 'excel.write_range' or node.type == 'excel.write' %}
+            Log    Excel write - using EXCEL_DATA variable    console=yes
+{% elif node.type == 'excel.read_cell' %}
+            ${value}=    Get Cell Value    {{ node.config.get('cell', 'A1') | transform_vars }}
+            Set Global Variable    ${CELL_VALUE}    ${value}
+            Log    Cell value: ${value}    console=yes
+{% elif node.type == 'excel.write_cell' %}
+            Set Cell Value    {{ node.config.get('cell', 'A1') | transform_vars }}    {{ node.config.get('value', '') | transform_vars }}
+{% elif node.type == 'excel.save' %}
+            Save Workbook    {% if node.config.get('path') %}{{ node.config.get('path') | transform_vars }}{% endif %}
+{% elif node.type == 'excel.close' %}
+            Close Workbook
+
+{# ===== FILES ===== #}
+{% elif node.type == 'files.read' %}
+            ${content}=    Get File    {{ node.config.get('path', '') | transform_vars }}    encoding={{ node.config.get('encoding', 'utf-8') }}
+            Set Global Variable    ${FILE_CONTENT}    ${content}
+            Log    File read: {{ node.config.get('path', '') | transform_vars }}    console=yes
+{% elif node.type == 'files.write' %}
+            {% if node.config.get('append', False) %}
+            Append To File    {{ node.config.get('path', '') | transform_vars }}    {{ node.config.get('content', '') | transform_vars }}    encoding=utf-8
+            {% else %}
+            Create File    {{ node.config.get('path', '') | transform_vars }}    {{ node.config.get('content', '') | transform_vars }}    encoding=utf-8
+            {% endif %}
+            Log    File written: {{ node.config.get('path', '') | transform_vars }}    console=yes
+{% elif node.type == 'files.copy' %}
+            Copy File    {{ node.config.get('source', '') | transform_vars }}    {{ node.config.get('destination', '') | transform_vars }}
+            Log    File copied    console=yes
+{% elif node.type == 'files.move' %}
+            Move File    {{ node.config.get('source', '') | transform_vars }}    {{ node.config.get('destination', '') | transform_vars }}
+            Log    File moved    console=yes
+{% elif node.type == 'files.delete' %}
+            Remove File    {{ node.config.get('path', '') | transform_vars }}
+            Log    File deleted    console=yes
+{% elif node.type == 'files.create_folder' %}
+            Create Directory    {{ node.config.get('path', '') | transform_vars }}
+            Log    Folder created    console=yes
+{% elif node.type == 'files.exists' %}
+            ${exists}=    Does File Exist    {{ node.config.get('path', '') | transform_vars }}
+            Set Global Variable    ${FILE_EXISTS}    ${exists}
+            Log    File exists check: ${exists}    console=yes
+
+{# ===== API ===== #}
+{% elif node.type == 'api.http_request' %}
+            ${response}=    Evaluate    __import__('requests').{{ node.config.get('method', 'get').lower() }}('{{ node.config.get('url', '') | transform_vars }}'{% if node.config.get('headers') %}, headers={{ node.config.get('headers') | transform_vars }}{% endif %}{% if node.config.get('body') %}, json={{ node.config.get('body') | transform_vars }}{% endif %})
+            Set Global Variable    ${HTTP_RESPONSE}    ${response.text}
+            Set Global Variable    ${HTTP_STATUS}    ${response.status_code}
+            Log    HTTP ${HTTP_STATUS}    console=yes
+{% elif node.type == 'api.rest_get' %}
+            ${response}=    Evaluate    __import__('requests').get('{{ node.config.get('url', '') | transform_vars }}'{% if node.config.get('headers') %}, headers={{ node.config.get('headers') | transform_vars }}{% endif %})
+            Set Global Variable    ${HTTP_RESPONSE}    ${response.text}
+            Set Global Variable    ${HTTP_STATUS}    ${response.status_code}
+            Log    GET ${HTTP_STATUS}    console=yes
+{% elif node.type == 'api.rest_post' %}
+            ${response}=    Evaluate    __import__('requests').post('{{ node.config.get('url', '') | transform_vars }}', json={{ node.config.get('body', '{}') | transform_vars }}{% if node.config.get('headers') %}, headers={{ node.config.get('headers') | transform_vars }}{% endif %})
+            Set Global Variable    ${HTTP_RESPONSE}    ${response.text}
+            Set Global Variable    ${HTTP_STATUS}    ${response.status_code}
+            Log    POST ${HTTP_STATUS}    console=yes
+
+{# ===== DEFAULT ===== #}
+{% else %}
+            Log    Node type {{ node.type }} not implemented yet    level=WARN    console=yes
+{% endif %}
+            
+            # Success
+            Log    ✓ Node {{ node.id }} completed    console=yes
+            RETURN    {{ node.outputs.success }}
+            
+        EXCEPT    AS    ${error_msg}
+            # Error
+            Log    ✗ Node {{ node.id }} failed: ${error_msg}    level=ERROR    console=yes
+            RETURN    {{ node.outputs.error }}
+        END
+    END
+{% endfor %}
+    
+    # Node no encontrado
+    Log    Unknown node: ${node_id}    level=ERROR
+    RETURN    END
+

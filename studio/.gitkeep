@@ -1,0 +1,9 @@
+# Studio - Editor Visual RPA
+
+**Estado**: 🔜 Por implementar
+
+**Tecnología**: Tauri + React + Vite + React Flow + TailwindCSS + shadcn/ui
+
+Este directorio contendrá el editor visual de flujos RPA.
+
+

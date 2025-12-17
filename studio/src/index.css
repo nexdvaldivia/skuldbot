@@ -1,0 +1,193 @@
+@import url('https://rsms.me/inter/inter.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Background & Foreground - Slate Blue tinted */
+    --background: 210 20% 98%;           /* Very light slate blue */
+    --foreground: 215 25% 17%;           /* Dark slate */
+
+    /* Card - Slightly warmer white */
+    --card: 210 20% 99%;
+    --card-foreground: 215 25% 17%;
+
+    /* Popover */
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 17%;
+
+    /* Primary - Jade Green (#00A36C) */
+    --primary: 156 100% 32%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - Slate tinted */
+    --secondary: 210 18% 96%;
+    --secondary-foreground: 215 20% 25%;
+
+    /* Muted - Soft slate */
+    --muted: 210 18% 95%;
+    --muted-foreground: 215 15% 50%;
+
+    /* Accent - Light slate blue */
+    --accent: 210 18% 94%;
+    --accent-foreground: 215 20% 25%;
+
+    /* Destructive */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Border & Input - Soft slate borders */
+    --border: 214 20% 88%;
+    --input: 214 20% 88%;
+    --ring: 156 100% 32%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 160 84% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 160 84% 45%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: 'Inter var', 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.3);
+}
+
+/* Selection */
+::selection {
+  background: hsl(var(--primary) / 0.15);
+  color: hsl(var(--primary));
+}
+
+/* React Flow Overrides */
+.react-flow {
+  -webkit-user-select: none;
+  user-select: none;
+  background-color: #f1f5f9 !important; /* slate-100 */
+}
+
+.react-flow__node {
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+}
+
+.react-flow__node:active {
+  cursor: grabbing;
+}
+
+.react-flow__pane {
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+}
+
+.react-flow__handle {
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.react-flow__handle:hover {
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+}
+
+.react-flow__edge-path {
+  stroke-linecap: round;
+}
+
+.react-flow__controls {
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1) !important;
+}
+
+.react-flow__controls-button {
+  background: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.react-flow__controls-button:hover {
+  background: hsl(var(--accent)) !important;
+}
+
+.react-flow__minimap {
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1) !important;
+}
+
+/* Animated gradient for AI nodes */
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.ai-gradient {
+  background: linear-gradient(135deg, #8b5cf6, #d946ef, #8b5cf6);
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+/* Pulse animation for handles */
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+/* Smooth edge animation */
+@keyframes dash-flow {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -20; }
+}
+
+.animated-edge {
+  animation: dash-flow 1s linear infinite;
+}

@@ -1,0 +1,9 @@
+# Runner - Agente de Ejecución
+
+**Estado**: 🔜 Por implementar
+
+**Tecnología**: Python + Robot Framework + rpaframework
+
+Este directorio contendrá el agente que ejecuta bots en producción.
+
+

@@ -1,0 +1,39 @@
+*** Settings ***
+Documentation     Keywords helper para el bot
+Library           Collections
+Library           OperatingSystem
+
+*** Keywords ***
+Load Manifest
+    [Documentation]    Carga el manifest.json con las configs de los nodos
+    
+    ${manifest_path}=    Set Variable    ${EXECDIR}/manifest.json
+    ${manifest_exists}=    Run Keyword And Return Status    File Should Exist    ${manifest_path}
+    
+    IF    ${manifest_exists}
+        ${manifest_json}=    Get File    ${manifest_path}
+        ${manifest}=    Evaluate    json.loads('''${manifest_json}''')    json
+        Set Global Variable    ${MANIFEST}    ${manifest}
+        Log    Manifest loaded successfully
+    ELSE
+        Log    Manifest not found, using empty config    level=WARN
+        ${manifest}=    Create Dictionary
+        Set Global Variable    ${MANIFEST}    ${manifest}
+    END
+
+Get Node Config
+    [Arguments]    ${node_id}
+    [Documentation]    Obtiene la configuración de un nodo desde el manifest
+    
+    ${config_exists}=    Run Keyword And Return Status    Dictionary Should Contain Key    ${MANIFEST}[nodes]    ${node_id}
+    
+    IF    ${config_exists}
+        ${node_data}=    Get From Dictionary    ${MANIFEST}[nodes]    ${node_id}
+        ${config}=    Get From Dictionary    ${node_data}    config
+        RETURN    ${config}
+    ELSE
+        Log    Config not found for node: ${node_id}    level=WARN
+        ${empty_config}=    Create Dictionary
+        RETURN    ${empty_config}
+    END
+

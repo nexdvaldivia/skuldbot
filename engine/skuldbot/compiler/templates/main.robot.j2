@@ -1,0 +1,124 @@
+*** Settings ***
+Documentation     {{ bot.bot.name }}
+...               {{ bot.bot.description or '' }}
+Library           RPA.Browser.Selenium
+Library           RPA.Excel.Files
+Library           RPA.FileSystem
+Library           RPA.HTTP
+Library           Collections
+Library           String
+Library           skuldbot.nodes.BrowserLibrary
+Library           skuldbot.nodes.ExcelLibrary
+Library           skuldbot.nodes.ControlLibrary
+Resource          resources/keywords.robot
+Resource          resources/error_handler.robot
+Variables         variables/config.yaml
+
+*** Variables ***
+${BOT_ID}         {{ bot.bot.id }}
+${BOT_NAME}       {{ bot.bot.name }}
+${BOT_STATUS}     RUNNING
+
+*** Tasks ***
+Execute Bot
+    [Documentation]    Entry point del bot
+    [Tags]             main
+    
+    Log    Starting bot: ${BOT_NAME}
+    Set Global Variable    ${BOT_STATUS}    RUNNING
+    
+    # Cargar manifest con configs
+    Load Manifest
+    
+    TRY
+        Execute Flow
+        Set Global Variable    ${BOT_STATUS}    SUCCESS
+        Log    Bot completed successfully
+    EXCEPT    AS    ${error_msg}
+        Set Global Variable    ${BOT_STATUS}    FAILED
+        Handle Bot Error    ${error_msg}
+    END
+
+*** Keywords ***
+Execute Flow
+    [Documentation]    Ejecuta el flujo de nodos
+    
+{% set start_node = bot.get_start_node() %}
+{% if start_node %}
+    ${result}=    Execute Node    {{ start_node.id }}
+{% else %}
+    Log    No start node defined
+{% endif %}
+
+Execute Node
+    [Arguments]    ${node_id}
+    [Documentation]    Ejecuta un nodo específico
+    
+    Log    Executing node: ${node_id}
+    
+    # Routing de nodos
+{% for node in bot.nodes %}
+    IF    '${node_id}' == '{{ node.id }}'
+        ${next_node}=    Execute Node {{ node.id|replace('-', '_') }}
+        IF    '${next_node}' != 'END'
+            Execute Node    ${next_node}
+        END
+        RETURN    ${next_node}
+    END
+{% endfor %}
+    
+    Log    Unknown node: ${node_id}    level=WARN
+    RETURN    END
+
+# Implementación de nodos
+{% for node in bot.nodes %}
+Execute Node {{ node.id|replace('-', '_') }}
+    [Documentation]    Node {{ node.id }}: {{ node.type }}
+    
+    Log    Executing node {{ node.id }} ({{ node.type }})
+    
+    TRY
+        # Lógica del nodo {{ node.type }}
+{% if node.type == 'browser.open' %}
+        ${config}=    Create Dictionary    url={{ node.config.get('url', 'about:blank') }}    browser={{ node.config.get('browser', 'chromium') }}    headless={{ node.config.get('headless', False)|lower }}
+        Open Browser With Config    ${config}
+{% elif node.type == 'browser.click' %}
+        Click Element With Retry    {{ node.config.get('selector', '') }}    {{ node.config.get('retries', 3) }}
+{% elif node.type == 'browser.fill' %}
+        Fill Form Field    {{ node.config.get('selector', '') }}    {{ node.config.get('value', '') }}    {{ node.config.get('clear', True)|lower }}
+{% elif node.type == 'browser.close' %}
+        Close Browser Safe
+{% elif node.type == 'excel.open' %}
+        ${config}=    Create Dictionary    path={{ node.config.get('path', '') }}
+        Open Excel With Config    ${config}
+{% elif node.type == 'excel.read' %}
+        ${data}=    Read Excel As Dictionary    {{ node.config.get('sheet', None) or 'None' }}    {{ node.config.get('header', True)|lower }}
+        Set Global Variable    ${EXCEL_DATA}    ${data}
+{% elif node.type == 'excel.write' %}
+        Write Data To Excel    ${EXCEL_DATA}    {{ node.config.get('sheet', 'Sheet1') }}
+{% elif node.type == 'excel.close' %}
+        Save And Close Excel
+{% elif node.type == 'control.log' %}
+        Log Message With Level    {{ node.config.get('message', '') }}    {{ node.config.get('level', 'INFO') }}
+{% elif node.type == 'control.wait' %}
+        Wait Seconds    {{ node.config.get('seconds', 1) }}
+{% elif node.type == 'control.set_variable' %}
+        Set Bot Variable    {{ node.config.get('name', 'var') }}    {{ node.config.get('value', '') }}
+{% else %}
+        Log    Unknown node type: {{ node.type }}    level=WARN
+{% endif %}
+        
+        
+        # Success path
+        Log    Node {{ node.id }} completed successfully
+        RETURN    {{ node.outputs.success }}
+        
+    EXCEPT    AS    ${error_msg}
+        # Error path
+        Log    Node {{ node.id }} failed: ${error_msg}    level=ERROR
+        Handle Node Error    {{ node.id }}    ${error_msg}
+        RETURN    {{ node.outputs.error }}
+    END
+
+{% endfor %}
+
