@@ -540,10 +540,12 @@ export default function NodeConfigPanel() {
                     <div className="flex items-center gap-3">
                       <Switch
                         id={field.name}
-                        checked={node.data.config[field.name] || false}
+                        checked={node.data.config[field.name] ?? field.default ?? false}
                         onCheckedChange={(checked) => handleConfigChange(field.name, checked)}
                       />
-                      <Label htmlFor={field.name} className="text-sm font-normal text-slate-500">Enable</Label>
+                      <Label htmlFor={field.name} className="text-sm font-normal text-slate-500">
+                        {(node.data.config[field.name] ?? field.default ?? false) ? "Enabled" : "Disabled"}
+                      </Label>
                     </div>
                   )}
 

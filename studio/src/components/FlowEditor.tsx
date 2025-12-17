@@ -94,7 +94,7 @@ export default function FlowEditor() {
         data: {
           label: nodeData.label,
           nodeType: nodeData.type,
-          config: nodeData.defaultConfig || {},
+          config: { ...(nodeData.defaultConfig || {}) },
           category: nodeData.category,
           icon: nodeData.icon,
         },
@@ -234,7 +234,7 @@ export default function FlowEditor() {
         data: {
           label: pendingNode.label,
           nodeType: pendingNode.type,
-          config: pendingNode.defaultConfig || {},
+          config: { ...(pendingNode.defaultConfig || {}) },
           category: pendingNode.category,
           icon: pendingNode.icon,
         },
@@ -317,7 +317,7 @@ export default function FlowEditor() {
         data: {
           label: nodeData.label,
           nodeType: nodeData.type,
-          config: nodeData.defaultConfig || {},
+          config: { ...(nodeData.defaultConfig || {}) },
           category: nodeData.category,
           icon: nodeData.icon,
         },

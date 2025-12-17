@@ -36,26 +36,36 @@ struct ExecutionResult {
 
 // Get the path to the engine directory
 fn get_engine_path() -> PathBuf {
-    // In development: ../engine
-    // In production: bundle the engine with the app
-    let mut path = std::env::current_exe()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .to_path_buf();
-    
-    // Go up to find engine directory
-    for _ in 0..3 {
-        path.pop();
+    // Try multiple paths to find the engine
+    let possible_paths = vec![
+        // Absolute path (most reliable for development)
+        PathBuf::from("/Users/dubielvaldivia/Documents/khipus/skuldbot/engine"),
+        // Relative from executable
+        {
+            let mut path = std::env::current_exe()
+                .unwrap()
+                .parent()
+                .unwrap()
+                .to_path_buf();
+            for _ in 0..3 {
+                path.pop();
+            }
+            path.push("engine");
+            path
+        },
+        // Relative path (development)
+        PathBuf::from("../../engine"),
+    ];
+
+    for path in possible_paths {
+        if path.exists() && path.join(".venv").exists() {
+            println!("🔧 Engine found at: {}", path.display());
+            return path;
+        }
     }
-    path.push("engine");
-    
-    // If engine not found, try relative path (development)
-    if !path.exists() {
-        path = PathBuf::from("../../engine");
-    }
-    
-    path
+
+    // Fallback to absolute path
+    PathBuf::from("/Users/dubielvaldivia/Documents/khipus/skuldbot/engine")
 }
 
 // Get Python executable from the engine's venv
@@ -65,11 +75,16 @@ fn get_python_executable() -> String {
 
     // Use venv Python if available, otherwise fall back to system python
     if venv_python.exists() {
-        venv_python.to_string_lossy().to_string()
-    } else if Command::new("python3").arg("--version").output().is_ok() {
-        "python3".to_string()
+        let python_path = venv_python.to_string_lossy().to_string();
+        println!("🐍 Using venv Python: {}", python_path);
+        python_path
     } else {
-        "python".to_string()
+        println!("⚠️  Venv not found at: {}, falling back to system Python", venv_python.display());
+        if Command::new("python3").arg("--version").output().is_ok() {
+            "python3".to_string()
+        } else {
+            "python".to_string()
+        }
     }
 }
 

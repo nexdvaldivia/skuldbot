@@ -188,7 +188,7 @@ export const nodeTemplates: NodeTemplate[] = [
     configSchema: [
       { name: "url", label: "URL", type: "text", required: true, placeholder: "https://example.com" },
       { name: "browser", label: "Browser", type: "select", default: "chromium", options: [{ value: "chromium", label: "Chromium" }, { value: "firefox", label: "Firefox" }, { value: "webkit", label: "WebKit" }] },
-      { name: "headless", label: "Headless Mode", type: "boolean", default: false },
+      { name: "headless", label: "Headless Mode (invisible browser)", type: "boolean", default: false },
     ],
   },
   {

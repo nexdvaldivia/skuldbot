@@ -4,14 +4,14 @@ Documentation     {{ bot.bot.name }}
 Library           Collections
 Library           String
 Library           OperatingSystem
-{% set node_types = bot.nodes | map(attribute='type') | list %}
-{% if node_types | select('match', 'web\\..*|browser\\..*') | list %}
+{% set node_types_str = bot.nodes | map(attribute='type') | join(',') %}
+{% if 'web.' in node_types_str or 'browser.' in node_types_str %}
 Library           RPA.Browser.Selenium
 {% endif %}
-{% if node_types | select('match', 'excel\\..*') | list %}
+{% if 'excel.' in node_types_str %}
 Library           RPA.Excel.Files
 {% endif %}
-{% if node_types | select('match', 'files\\..*') | list %}
+{% if 'files.' in node_types_str %}
 Library           RPA.FileSystem
 {% endif %}
 Library           skuldbot.nodes.ControlLibrary
@@ -93,7 +93,7 @@ Execute Node By ID
 
 {# ===== WEB AUTOMATION ===== #}
 {% elif node.type == 'web.open_browser' or node.type == 'browser.open' %}
-            Open Available Browser    {{ node.config.get('url', 'about:blank') | transform_vars }}    browser={{ node.config.get('browser', 'chromium') }}    headless={{ node.config.get('headless', False)|lower }}
+            Open Available Browser    {{ node.config.get('url', 'about:blank') | transform_vars }}    browser={{ node.config.get('browser', 'chromium') }}    headless=${{ '{TRUE}' if node.config.get('headless', False) else '{FALSE}' }}
 {% elif node.type == 'web.navigate' %}
             Go To    {{ node.config.get('url', '') | transform_vars }}
 {% elif node.type == 'web.click' or node.type == 'browser.click' %}
