@@ -14,6 +14,13 @@ Library           skuldbot.libs.ExcelLibrary
 {% if 'files.' in node_types_str %}
 Library           RPA.FileSystem
 {% endif %}
+{% if 'data.' in node_types_str %}
+Library           skuldbot.libs.DataLibrary
+{% endif %}
+{% if 'secrets.' in node_types_str %}
+Library           skuldbot.libs.vault    WITH NAME    SkuldVault
+Library           skuldbot.libs.local_vault    WITH NAME    LocalVault
+{% endif %}
 Library           skuldbot.libs.ControlLibrary
 Resource          resources/error_handler.robot
 {% if bot.variables %}
@@ -24,6 +31,15 @@ Variables         variables/config.yaml
 ${BOT_ID}         {{ bot.bot.id }}
 ${BOT_NAME}       {{ bot.bot.name }}
 ${BOT_STATUS}     RUNNING
+# Global error variables (last error)
+${LAST_ERROR}     ${EMPTY}
+${LAST_ERROR_NODE}    ${EMPTY}
+${LAST_ERROR_TYPE}    ${EMPTY}
+# Per-node state dictionaries (status, output, error, data)
+# Using scalar syntax ${} to allow access like ${NODE_xxx}[key]
+{% for node in bot.nodes %}
+${NODE_{{ node.id | replace('-', '_') }}}    &{EMPTY}
+{% endfor %}
 
 *** Tasks ***
 Execute Bot
@@ -45,7 +61,13 @@ Execute Bot
 *** Keywords ***
 Run Bot Flow
     [Documentation]    Ejecuta el flujo completo del bot
-    
+
+    # Initialize per-node state dictionaries
+{% for node in bot.nodes %}
+    &{init_{{ node.id | replace('-', '_') }}}=    Create Dictionary    status=pending    output=${EMPTY}    error=${EMPTY}
+    Set Global Variable    ${NODE_{{ node.id | replace('-', '_') }}}    ${init_{{ node.id | replace('-', '_') }}}
+{% endfor %}
+
 {% set start_node = bot.get_start_node() %}
 {% if start_node %}
     ${current_node}=    Set Variable    {{ start_node.id }}
@@ -108,10 +130,14 @@ Execute Node By ID
 {% elif node.type == 'web.get_text' %}
             ${text}=    Get Text    {{ node.config.get('selector', '') | transform_vars }}
             Set Global Variable    ${LAST_TEXT}    ${text}
+            # Store in node-specific variable
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${text}    text=${text}
             Log    Got text: ${text}    console=yes
 {% elif node.type == 'web.get_attribute' %}
             ${value}=    Get Element Attribute    {{ node.config.get('selector', '') | transform_vars }}    {{ node.config.get('attribute', '') }}
             Set Global Variable    ${LAST_ATTRIBUTE}    ${value}
+            # Store in node-specific variable
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${value}    attribute=${value}
             Log    Got attribute: ${value}    console=yes
 {% elif node.type == 'web.screenshot' %}
             {% if node.config.get('full_page', False) %}
@@ -124,6 +150,8 @@ Execute Node By ID
 {% elif node.type == 'web.execute_js' %}
             ${result}=    Execute Javascript    {{ node.config.get('script', '') | transform_vars }}
             Set Global Variable    ${JS_RESULT}    ${result}
+            # Store in node-specific variable
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    jsResult=${result}
 {% elif node.type == 'web.scroll' %}
             {% if node.config.get('direction') == 'to_element' %}
             Scroll Element Into View    {{ node.config.get('selector', '') | transform_vars }}
@@ -146,12 +174,16 @@ Execute Node By ID
             ${EXCEL_ROW_COUNT}=    Set Variable    ${result}[rowCount]
             Set Global Variable    ${EXCEL_DATA}
             Set Global Variable    ${EXCEL_ROW_COUNT}
+            # Store in node-specific variable
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    data=${EXCEL_DATA}    rowCount=${EXCEL_ROW_COUNT}
             Log    Read ${EXCEL_ROW_COUNT} rows from Excel    console=yes
 {% elif node.type == 'excel.write_range' or node.type == 'excel.write' %}
             Write Data To Excel    ${EXCEL_DATA}    {{ node.config.get('sheet', 'Sheet1') | transform_vars }}
 {% elif node.type == 'excel.read_cell' %}
             ${value}=    Get Cell Value    {{ node.config.get('cell', 'A1') | transform_vars }}
             Set Global Variable    ${CELL_VALUE}    ${value}
+            # Store in node-specific variable
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${value}    cellValue=${value}
             Log    Cell value: ${value}    console=yes
 {% elif node.type == 'excel.write_cell' %}
             Set Cell Value    {{ node.config.get('cell', 'A1') | transform_vars }}    {{ node.config.get('value', '') | transform_vars }}
@@ -164,6 +196,8 @@ Execute Node By ID
 {% elif node.type == 'files.read' %}
             ${content}=    Get File    {{ node.config.get('path', '') | transform_vars }}    encoding={{ node.config.get('encoding', 'utf-8') }}
             Set Global Variable    ${FILE_CONTENT}    ${content}
+            # Store in node-specific variable
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${content}    content=${content}
             Log    File read: {{ node.config.get('path', '') | transform_vars }}    console=yes
 {% elif node.type == 'files.write' %}
             {% if node.config.get('append', False) %}
@@ -187,6 +221,8 @@ Execute Node By ID
 {% elif node.type == 'files.exists' %}
             ${exists}=    Does File Exist    {{ node.config.get('path', '') | transform_vars }}
             Set Global Variable    ${FILE_EXISTS}    ${exists}
+            # Store in node-specific variable
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${exists}    exists=${exists}
             Log    File exists check: ${exists}    console=yes
 
 {# ===== API ===== #}
@@ -194,29 +230,235 @@ Execute Node By ID
             ${response}=    Evaluate    __import__('requests').{{ node.config.get('method', 'get').lower() }}('{{ node.config.get('url', '') | transform_vars }}'{% if node.config.get('headers') %}, headers={{ node.config.get('headers') | transform_vars }}{% endif %}{% if node.config.get('body') %}, json={{ node.config.get('body') | transform_vars }}{% endif %})
             Set Global Variable    ${HTTP_RESPONSE}    ${response.text}
             Set Global Variable    ${HTTP_STATUS}    ${response.status_code}
+            # Store in node-specific variable
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${response.text}    response=${response.text}    status_code=${response.status_code}
             Log    HTTP ${HTTP_STATUS}    console=yes
 {% elif node.type == 'api.rest_get' %}
             ${response}=    Evaluate    __import__('requests').get('{{ node.config.get('url', '') | transform_vars }}'{% if node.config.get('headers') %}, headers={{ node.config.get('headers') | transform_vars }}{% endif %})
             Set Global Variable    ${HTTP_RESPONSE}    ${response.text}
             Set Global Variable    ${HTTP_STATUS}    ${response.status_code}
+            # Store in node-specific variable
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${response.text}    response=${response.text}    status_code=${response.status_code}
             Log    GET ${HTTP_STATUS}    console=yes
 {% elif node.type == 'api.rest_post' %}
             ${response}=    Evaluate    __import__('requests').post('{{ node.config.get('url', '') | transform_vars }}', json={{ node.config.get('body', '{}') | transform_vars }}{% if node.config.get('headers') %}, headers={{ node.config.get('headers') | transform_vars }}{% endif %})
             Set Global Variable    ${HTTP_RESPONSE}    ${response.text}
             Set Global Variable    ${HTTP_STATUS}    ${response.status_code}
+            # Store in node-specific variable
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${response.text}    response=${response.text}    status_code=${response.status_code}
             Log    POST ${HTTP_STATUS}    console=yes
+
+{# ===== DATA INTEGRATION (TAPS) ===== #}
+{% elif node.type.startswith('data.tap.') %}
+            {% set tap_type = node.type.replace('data.tap.', '') %}
+            {% if tap_type in ['sqlserver', 'oracle', 'postgres', 'mysql', 'db2', 'snowflake'] %}
+            # Database extraction: {{ tap_type }}
+            ${result}=    Extract From Database    db_type={{ tap_type }}
+            ...    host={{ node.config.get('host', '') | transform_vars }}
+            ...    database={{ node.config.get('database', '') | transform_vars }}
+            ...    username={{ node.config.get('username', '') | transform_vars }}
+            ...    password={{ node.config.get('password', '') | transform_vars }}
+            {% if node.config.get('port') %}...    port={{ node.config.get('port') }}{% endif %}
+            {% if node.config.get('query') %}...    query={{ node.config.get('query', '') | transform_vars }}{% endif %}
+            {% if node.config.get('table') %}...    table={{ node.config.get('table', '') | transform_vars }}{% endif %}
+            {% if node.config.get('columns') %}...    columns={{ node.config.get('columns', '') | transform_vars }}{% endif %}
+            {% if node.config.get('filter') %}...    filter={{ node.config.get('filter', '') | transform_vars }}{% endif %}
+            {% if node.config.get('limit') %}...    limit={{ node.config.get('limit') }}{% endif %}
+            ...    mode={{ node.config.get('mode', 'memory') }}
+            ...    batch_size={{ node.config.get('batch_size', 10000) }}
+            {% elif tap_type == 'csv' %}
+            # CSV extraction
+            ${result}=    Extract From CSV    path={{ node.config.get('path', '') | transform_vars }}
+            ...    delimiter={{ node.config.get('delimiter', ',') }}
+            ...    encoding={{ node.config.get('encoding', 'utf-8') }}
+            ...    header=${{ '{TRUE}' if node.config.get('header', True) else '{FALSE}' }}
+            {% if node.config.get('columns') %}...    columns={{ node.config.get('columns', '') | transform_vars }}{% endif %}
+            {% if node.config.get('limit') %}...    limit={{ node.config.get('limit') }}{% endif %}
+            {% elif tap_type == 'excel' %}
+            # Excel extraction
+            ${result}=    Extract From Excel    path={{ node.config.get('path', '') | transform_vars }}
+            {% if node.config.get('sheet') %}...    sheet={{ node.config.get('sheet', '') | transform_vars }}{% endif %}
+            ...    header=${{ '{TRUE}' if node.config.get('header', True) else '{FALSE}' }}
+            {% if node.config.get('columns') %}...    columns={{ node.config.get('columns', '') | transform_vars }}{% endif %}
+            {% if node.config.get('limit') %}...    limit={{ node.config.get('limit') }}{% endif %}
+            {% elif tap_type == 's3' %}
+            # S3 extraction
+            ${result}=    Extract From S3    bucket={{ node.config.get('bucket', '') | transform_vars }}
+            ...    key={{ node.config.get('key', '') | transform_vars }}
+            ...    aws_access_key={{ node.config.get('aws_access_key', '') | transform_vars }}
+            ...    aws_secret_key={{ node.config.get('aws_secret_key', '') | transform_vars }}
+            ...    region={{ node.config.get('region', 'us-east-1') }}
+            ...    file_type={{ node.config.get('file_type', 'csv') }}
+            {% elif tap_type == 'sftp' %}
+            # SFTP extraction
+            ${result}=    Extract From SFTP    host={{ node.config.get('host', '') | transform_vars }}
+            ...    path={{ node.config.get('path', '') | transform_vars }}
+            ...    username={{ node.config.get('username', '') | transform_vars }}
+            {% if node.config.get('password') %}...    password={{ node.config.get('password', '') | transform_vars }}{% endif %}
+            {% if node.config.get('private_key') %}...    private_key={{ node.config.get('private_key', '') | transform_vars }}{% endif %}
+            ...    port={{ node.config.get('port', 22) }}
+            ...    file_type={{ node.config.get('file_type', 'csv') }}
+            {% elif tap_type == 'salesforce' %}
+            # Salesforce extraction
+            ${result}=    Extract From Salesforce
+            ...    username={{ node.config.get('username', '') | transform_vars }}
+            ...    password={{ node.config.get('password', '') | transform_vars }}
+            ...    security_token={{ node.config.get('security_token', '') | transform_vars }}
+            ...    query={{ node.config.get('query', '') | transform_vars }}
+            ...    domain={{ node.config.get('domain', 'login') }}
+            {% elif tap_type == 'rest_api' %}
+            # REST API extraction
+            ${result}=    Extract From REST API    url={{ node.config.get('url', '') | transform_vars }}
+            ...    method={{ node.config.get('method', 'GET') }}
+            {% if node.config.get('headers') %}...    headers={{ node.config.get('headers', '') | transform_vars }}{% endif %}
+            {% if node.config.get('body') %}...    body={{ node.config.get('body', '') | transform_vars }}{% endif %}
+            {% if node.config.get('auth_type') %}...    auth_type={{ node.config.get('auth_type', '') }}{% endif %}
+            {% if node.config.get('auth_value') %}...    auth_value={{ node.config.get('auth_value', '') | transform_vars }}{% endif %}
+            {% if node.config.get('pagination_type') %}...    pagination_type={{ node.config.get('pagination_type', '') }}{% endif %}
+            {% if node.config.get('pagination_param') %}...    pagination_param={{ node.config.get('pagination_param', '') }}{% endif %}
+            {% if node.config.get('data_path') %}...    data_path={{ node.config.get('data_path', '') }}{% endif %}
+            {% if node.config.get('limit') %}...    limit={{ node.config.get('limit') }}{% endif %}
+            {% else %}
+            Log    Unknown tap type: {{ tap_type }}    level=WARN    console=yes
+            ${result}=    Create Dictionary    records=@{EMPTY}    columns=@{EMPTY}    recordCount=0
+            {% endif %}
+            # Store tap results in node variable
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    records=${result}[records]    columns=${result}[columns]    recordCount=${result}[recordCount]
+            Log    Extracted ${result}[recordCount] records    console=yes
+
+{# ===== DATA INTEGRATION (TARGETS) ===== #}
+{% elif node.type.startswith('data.target.') %}
+            {% set target_type = node.type.replace('data.target.', '') %}
+            {% if target_type in ['sqlserver', 'oracle', 'postgres', 'mysql', 'db2', 'snowflake'] %}
+            # Database load: {{ target_type }}
+            ${result}=    Load To Database    db_type={{ target_type }}
+            ...    host={{ node.config.get('host', '') | transform_vars }}
+            ...    database={{ node.config.get('database', '') | transform_vars }}
+            ...    username={{ node.config.get('username', '') | transform_vars }}
+            ...    password={{ node.config.get('password', '') | transform_vars }}
+            ...    table={{ node.config.get('table', '') | transform_vars }}
+            ...    records={{ node.config.get('records', '[]') | transform_vars }}
+            {% if node.config.get('port') %}...    port={{ node.config.get('port') }}{% endif %}
+            ...    mode={{ node.config.get('mode', 'insert') }}
+            ...    batch_size={{ node.config.get('batch_size', 5000) }}
+            {% elif target_type == 'bigquery' %}
+            # BigQuery load
+            ${result}=    Load To BigQuery
+            ...    project={{ node.config.get('project', '') | transform_vars }}
+            ...    dataset={{ node.config.get('dataset', '') | transform_vars }}
+            ...    table={{ node.config.get('table', '') | transform_vars }}
+            ...    records={{ node.config.get('records', '[]') | transform_vars }}
+            ...    credentials_json={{ node.config.get('credentials_json', '') | transform_vars }}
+            ...    mode={{ node.config.get('mode', 'append') }}
+            {% elif target_type == 'csv' %}
+            # CSV write
+            ${result}=    Load To CSV    path={{ node.config.get('path', '') | transform_vars }}
+            ...    records={{ node.config.get('records', '[]') | transform_vars }}
+            ...    delimiter={{ node.config.get('delimiter', ',') }}
+            ...    encoding={{ node.config.get('encoding', 'utf-8') }}
+            ...    append=${{ '{TRUE}' if node.config.get('append', False) else '{FALSE}' }}
+            {% elif target_type == 'excel' %}
+            # Excel write
+            ${result}=    Load To Excel    path={{ node.config.get('path', '') | transform_vars }}
+            ...    records={{ node.config.get('records', '[]') | transform_vars }}
+            ...    sheet={{ node.config.get('sheet', 'Sheet1') | transform_vars }}
+            {% elif target_type == 's3' %}
+            # S3 upload
+            ${result}=    Load To S3    bucket={{ node.config.get('bucket', '') | transform_vars }}
+            ...    key={{ node.config.get('key', '') | transform_vars }}
+            ...    records={{ node.config.get('records', '[]') | transform_vars }}
+            ...    aws_access_key={{ node.config.get('aws_access_key', '') | transform_vars }}
+            ...    aws_secret_key={{ node.config.get('aws_secret_key', '') | transform_vars }}
+            ...    region={{ node.config.get('region', 'us-east-1') }}
+            ...    file_type={{ node.config.get('file_type', 'csv') }}
+            {% elif target_type == 'sftp' %}
+            # SFTP upload
+            ${result}=    Load To SFTP    host={{ node.config.get('host', '') | transform_vars }}
+            ...    path={{ node.config.get('path', '') | transform_vars }}
+            ...    records={{ node.config.get('records', '[]') | transform_vars }}
+            ...    username={{ node.config.get('username', '') | transform_vars }}
+            {% if node.config.get('password') %}...    password={{ node.config.get('password', '') | transform_vars }}{% endif %}
+            {% if node.config.get('private_key') %}...    private_key={{ node.config.get('private_key', '') | transform_vars }}{% endif %}
+            ...    port={{ node.config.get('port', 22) }}
+            ...    file_type={{ node.config.get('file_type', 'csv') }}
+            {% else %}
+            Log    Unknown target type: {{ target_type }}    level=WARN    console=yes
+            ${result}=    Create Dictionary    insertedCount=0    updatedCount=0    errorCount=0    errors=@{EMPTY}
+            {% endif %}
+            # Store target results in node variable
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    insertedCount=${result}[insertedCount]    errorCount=${result}[errorCount]
+            Log    Loaded ${result}[insertedCount] records (${result}[errorCount] errors)    console=yes
+
+{# ===== SECRETS MANAGEMENT ===== #}
+{% elif node.type == 'secrets.azure_keyvault' %}
+            # Azure Key Vault - Load secrets into ${vault.xxx}
+            Log    Connecting to Azure Key Vault: {{ node.config.get('vault_url', '') }}    console=yes
+            ${secrets_list}=    Evaluate    [s.strip() for s in """{{ node.config.get('secrets', '') }}""".split('\\n') if s.strip()]
+            ${result}=    SkuldVault.Init Azure Vault
+            ...    vault_url={{ node.config.get('vault_url', '') | transform_vars }}
+            ...    tenant_id={{ node.config.get('tenant_id', '') }}
+            ...    client_id={{ node.config.get('client_id', '') }}
+            ...    use_managed_identity=${{ '{TRUE}' if node.config.get('use_managed_identity', False) else '{FALSE}' }}
+            ...    secrets=${secrets_list}
+            # Store results
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    loaded=${result}[loaded]    secretNames=${result}[secretNames]
+            Log    Loaded ${result}[loaded] secrets from Azure Key Vault    console=yes
+
+{% elif node.type == 'secrets.aws_secrets' %}
+            # AWS Secrets Manager - Load secrets into ${vault.xxx}
+            Log    Connecting to AWS Secrets Manager ({{ node.config.get('region', 'us-east-1') }})    console=yes
+            ${secrets_list}=    Evaluate    [s.strip() for s in """{{ node.config.get('secrets', '') }}""".split('\\n') if s.strip()]
+            ${result}=    SkuldVault.Init AWS Vault
+            ...    region={{ node.config.get('region', 'us-east-1') }}
+            ...    use_iam_role=${{ '{TRUE}' if node.config.get('use_iam_role', True) else '{FALSE}' }}
+            ...    secrets=${secrets_list}
+            # Store results
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    loaded=${result}[loaded]    secretNames=${result}[secretNames]
+            Log    Loaded ${result}[loaded] secrets from AWS Secrets Manager    console=yes
+
+{% elif node.type == 'secrets.hashicorp_vault' %}
+            # HashiCorp Vault - Load secrets into ${vault.xxx}
+            Log    Connecting to HashiCorp Vault: {{ node.config.get('vault_addr', '') }}    console=yes
+            ${secrets_list}=    Evaluate    [s.strip() for s in """{{ node.config.get('secrets', '') }}""".split('\\n') if s.strip()]
+            ${result}=    SkuldVault.Init HashiCorp Vault
+            ...    vault_addr={{ node.config.get('vault_addr', '') | transform_vars }}
+            ...    auth_method={{ node.config.get('auth_method', 'token') }}
+            ...    mount_point={{ node.config.get('mount_point', 'secret') }}
+            ...    secrets_path={{ node.config.get('secrets_path', '') | transform_vars }}
+            ...    secrets=${secrets_list}
+            # Store results
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    loaded=${result}[loaded]    secretNames=${result}[secretNames]
+            Log    Loaded ${result}[loaded] secrets from HashiCorp Vault    console=yes
+
+{% elif node.type == 'secrets.local_vault' %}
+            # Local Vault - Unlock and load secrets into ${vault.xxx}
+            Log    Unlocking Local Vault: {{ node.config.get('vault_path', '.skuldbot') }}    console=yes
+            ${secrets_list}=    Evaluate    [s.strip() for s in """{{ node.config.get('secrets', '') }}""".split('\\n') if s.strip()]
+            ${result}=    LocalVault.Unlock And Load
+            ...    vault_path={{ node.config.get('vault_path', '.skuldbot') | transform_vars }}
+            ...    secrets=${secrets_list}
+            # Store results
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    unlocked=${result}[unlocked]    secretCount=${result}[secretCount]    secretNames=${result}[secretNames]
+            Log    Local Vault unlocked, loaded ${result}[secretCount] secrets    console=yes
 
 {# ===== DEFAULT ===== #}
 {% else %}
             Log    Node type {{ node.type }} not implemented yet    level=WARN    console=yes
 {% endif %}
             
-            # Success
+            # Success - Store node status (output already stored by specific node handlers)
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    status=success
+            Set Global Variable    ${NODE_{{ node.id | replace('-', '_') }}}    ${NODE_{{ node.id | replace('-', '_') }}}
             Log    ✓ Node {{ node.id }} completed    console=yes
             RETURN    {{ node.outputs.success }}
-            
+
         EXCEPT    AS    ${error_msg}
-            # Error
+            # Error - Store in node-specific and global variables
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    status=error    error=${error_msg}
+            Set Global Variable    ${NODE_{{ node.id | replace('-', '_') }}}    ${NODE_{{ node.id | replace('-', '_') }}}
+            Set Global Variable    ${LAST_ERROR}    ${error_msg}
+            Set Global Variable    ${LAST_ERROR_NODE}    {{ node.id }}
+            Set Global Variable    ${LAST_ERROR_TYPE}    {{ node.type }}
             Log    ✗ Node {{ node.id }} failed: ${error_msg}    level=ERROR    console=yes
             RETURN    {{ node.outputs.error }}
         END

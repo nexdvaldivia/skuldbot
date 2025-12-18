@@ -8,9 +8,28 @@ jinja2>=3.1.0
 # Security - Local Vault (AES-256-GCM encryption)
 cryptography>=41.0.0
 
-# Optional - External Vault Providers
-# boto3>=1.26.0              # AWS Secrets Manager
-# azure-identity>=1.12.0     # Azure Key Vault
-# azure-keyvault-secrets>=4.7.0
-# hvac>=1.1.0                # HashiCorp Vault
+# Data Integration - Database Connectors (Pre-bundled)
+psycopg2-binary>=2.9.9       # PostgreSQL
+pymysql>=1.1.0               # MySQL / MariaDB
+pyodbc>=5.0.1                # SQL Server (requires ODBC Driver 17+)
+cx_Oracle>=8.3.0             # Oracle Database
+# ibm_db>=3.2.0              # IBM DB2 (uncomment when needed - requires system libs)
+snowflake-connector-python>=3.6.0  # Snowflake
+
+# Data Integration - Files & Cloud
+boto3>=1.34.0                # AWS S3
+paramiko>=3.4.0              # SFTP
+openpyxl>=3.1.2              # Excel files
+requests>=2.31.0             # REST APIs
+
+# Data Integration - SaaS Connectors
+simple-salesforce>=1.12.0    # Salesforce CRM
+
+# Data Integration - Cloud Data Warehouses
+google-cloud-bigquery>=3.14.0  # Google BigQuery
+
+# External Vault Providers (Enterprise Secrets Management)
+azure-identity>=1.12.0       # Azure Key Vault - Service Principal & Managed Identity
+azure-keyvault-secrets>=4.7.0  # Azure Key Vault - Secrets client
+hvac>=2.1.0                  # HashiCorp Vault
 

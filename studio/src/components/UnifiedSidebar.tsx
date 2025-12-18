@@ -466,7 +466,7 @@ function ExplorerContent() {
 function NodesContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Set<NodeCategory>>(
-    new Set(["trigger", "web", "ai"])
+    new Set() // Start with all categories collapsed
   );
 
   const toggleCategory = (categoryId: NodeCategory) => {

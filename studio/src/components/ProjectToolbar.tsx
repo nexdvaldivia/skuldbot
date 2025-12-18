@@ -139,7 +139,7 @@ export default function ProjectToolbar() {
     try {
       await saveBot(activeBotId);
       setTabDirty(`bot-${activeBotId}`, false);
-      toast.success("Saved", activeBot?.name || "Bot");
+      // Note: saveBot already shows a toast, no need to show another one
     } catch (error) {
       toast.error("Save failed", String(error));
     } finally {

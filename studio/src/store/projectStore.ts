@@ -6,10 +6,12 @@ import {
   BotState,
   RecentProject,
   EnvConfig,
+  EnvVariable,
   ProjectStructure,
 } from "../types/project";
-import { FlowNode, FlowEdge, BotDSL } from "../types/flow";
+import { FlowNode, FlowEdge, BotDSL, DSLNode, isContainerNodeType } from "../types/flow";
 import { useToastStore } from "./toastStore";
+import { useTabsStore } from "./tabsStore";
 
 // ============================================================
 // Project Store State
@@ -40,6 +42,14 @@ interface ProjectStoreState {
   openProject: (path: string) => Promise<void>;
   closeProject: () => void;
   saveProject: () => Promise<void>;
+  updateProjectSettings: (settings: {
+    name?: string;
+    description?: string;
+    defaultBrowser?: "chromium" | "firefox" | "webkit";
+    defaultHeadless?: boolean;
+    autoSaveEnabled?: boolean;
+    autoSaveInterval?: number;
+  }) => Promise<void>;
 
   // Actions - Bot
   createBot: (name: string, description?: string) => Promise<string | null>;
@@ -59,6 +69,12 @@ interface ProjectStoreState {
   // Actions - Recent projects
   loadRecentProjects: () => Promise<void>;
   removeRecentProject: (path: string) => Promise<void>;
+
+  // Actions - Environment Variables
+  loadEnvConfig: () => Promise<void>;
+  saveEnvConfig: (config: EnvConfig) => Promise<void>;
+  updateEnvVariable: (variable: EnvVariable) => void;
+  deleteEnvVariable: (name: string) => void;
 
   // Helpers
   getBotFullPath: (botId: string) => string | null;
@@ -80,21 +96,48 @@ function createProjectStructure(projectPath: string): ProjectStructure {
 }
 
 function dslToFlowNodes(dsl: BotDSL): { nodes: FlowNode[]; edges: FlowEdge[] } {
-  const nodes: FlowNode[] = dsl.nodes.map((dslNode, index) => ({
-    id: dslNode.id,
-    type: "customNode",
-    // Use saved position if available, otherwise calculate a default
-    position: dslNode.position || { x: 250, y: 100 + index * 150 },
-    data: {
-      label: dslNode.label || dslNode.type,
-      nodeType: dslNode.type,
-      config: dslNode.config,
-      category: dslNode.type.split(".")[0] as any,
-    },
-  }));
-
+  const nodes: FlowNode[] = [];
   const edges: FlowEdge[] = [];
-  dsl.nodes.forEach((dslNode) => {
+
+  // Process nodes recursively to handle container children
+  function processNode(dslNode: DSLNode, index: number, parentId?: string): void {
+    const isContainer = isContainerNodeType(dslNode.type);
+
+    const flowNode: FlowNode = {
+      id: dslNode.id,
+      type: isContainer ? "groupNode" : "customNode",
+      position: dslNode.position || { x: 250, y: 100 + index * 150 },
+      // Container nodes need explicit dimensions
+      ...(isContainer && {
+        style: { width: 400, height: 250 },
+      }),
+      // If this node is inside a container, set parentId (parentNode is deprecated in v12)
+      ...(parentId && {
+        parentId: parentId,
+        extent: "parent" as const,
+      }),
+      data: {
+        label: dslNode.label || dslNode.type,
+        nodeType: dslNode.type,
+        config: dslNode.config,
+        category: dslNode.type.split(".")[0] as any,
+        // Track child node IDs for containers
+        ...(isContainer && dslNode.children && {
+          childNodes: dslNode.children.map(c => c.id),
+        }),
+      },
+    };
+
+    nodes.push(flowNode);
+
+    // Process children if this is a container
+    if (isContainer && dslNode.children) {
+      dslNode.children.forEach((childNode, childIndex) => {
+        processNode(childNode, childIndex, dslNode.id);
+      });
+    }
+
+    // Create edges for outputs
     if (dslNode.outputs.success !== dslNode.id && dslNode.outputs.success !== "END") {
       edges.push({
         id: `${dslNode.id}-success-${dslNode.outputs.success}`,
@@ -115,6 +158,11 @@ function dslToFlowNodes(dsl: BotDSL): { nodes: FlowNode[]; edges: FlowEdge[] } {
         data: { edgeType: "error" },
       });
     }
+  }
+
+  // Process all top-level nodes
+  dsl.nodes.forEach((dslNode, index) => {
+    processNode(dslNode, index);
   });
 
   return { nodes, edges };
@@ -127,7 +175,24 @@ function flowNodesToDSL(
   nodes: FlowNode[],
   edges: FlowEdge[]
 ): BotDSL {
-  const dslNodes = nodes.map((node) => {
+  // Build a map of parentNode -> children for container nodes
+  const childrenByParent = new Map<string, FlowNode[]>();
+  const topLevelNodes: FlowNode[] = [];
+
+  nodes.forEach((node) => {
+    // parentId is the new name (v12+), parentNode is deprecated but still works
+    const parentId = node.parentId || node.parentNode;
+    if (parentId) {
+      const children = childrenByParent.get(parentId) || [];
+      children.push(node);
+      childrenByParent.set(parentId, children);
+    } else {
+      topLevelNodes.push(node);
+    }
+  });
+
+  // Convert a FlowNode to DSLNode recursively
+  function nodeToDSL(node: FlowNode): DSLNode {
     const successEdge = edges.find(
       (e) => e.source === node.id && e.sourceHandle === "success"
     );
@@ -135,7 +200,10 @@ function flowNodesToDSL(
       (e) => e.source === node.id && e.sourceHandle === "error"
     );
 
-    return {
+    const isContainer = isContainerNodeType(node.data.nodeType);
+    const children = childrenByParent.get(node.id);
+
+    const dslNode: DSLNode = {
       id: node.id,
       type: node.data.nodeType,
       config: node.data.config,
@@ -144,19 +212,29 @@ function flowNodesToDSL(
         error: errorEdge?.target || "END",
       },
       label: node.data.label,
-      position: node.position,  // Save visual position
+      position: node.position,
     };
-  });
 
-  const triggerNodes = nodes.filter((node) => node.data.category === "trigger");
+    // Add children for container nodes
+    if (isContainer && children && children.length > 0) {
+      dslNode.children = children.map(nodeToDSL);
+    }
+
+    return dslNode;
+  }
+
+  // Convert top-level nodes only (children are nested inside their parents)
+  const dslNodes = topLevelNodes.map(nodeToDSL);
+
+  const triggerNodes = topLevelNodes.filter((node) => node.data.category === "trigger");
   const triggerIds = triggerNodes.map((node) => node.id);
 
   // Determinar start_node: preferir nodo trigger, sino el primer nodo
   let startNode: string | undefined;
   if (triggerNodes.length > 0) {
     startNode = triggerNodes[0].id;
-  } else if (nodes.length > 0) {
-    startNode = nodes[0].id;
+  } else if (topLevelNodes.length > 0) {
+    startNode = topLevelNodes[0].id;
   }
 
   return {
@@ -228,12 +306,16 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   openProject: async (path) => {
     const toast = useToastStore.getState();
     set({ isLoading: true });
+    console.log("[projectStore] openProject called with path:", path);
 
     try {
+      console.log("[projectStore] Calling invoke open_project...");
       const manifest = await invoke<ProjectManifest>("open_project", { path });
+      console.log("[projectStore] Manifest received:", manifest);
       const projectDir = path.endsWith(".skuld")
         ? path.substring(0, path.lastIndexOf("/"))
         : path;
+      console.log("[projectStore] Project dir:", projectDir);
       const structure = createProjectStructure(projectDir);
 
       // Load bots metadata (not full content yet)
@@ -265,6 +347,22 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
 
       // Refresh recent projects
       get().loadRecentProjects();
+
+      // Auto-select the first bot if available
+      if (manifest.bots.length > 0) {
+        const firstBot = manifest.bots[0];
+        console.log("[projectStore] Auto-selecting first bot:", firstBot.id);
+        await get().openBot(firstBot.id);
+
+        // Also open a tab for the bot so it displays in the editor
+        useTabsStore.getState().openTab({
+          id: `bot-${firstBot.id}`,
+          type: "bot",
+          botId: firstBot.id,
+          title: firstBot.name,
+          isDirty: false,
+        });
+      }
     } catch (error) {
       console.error("Failed to open project:", error);
       toast.error("Error opening project", String(error));
@@ -313,6 +411,55 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       console.error("Failed to save project:", error);
       toast.error("Error saving project", String(error));
       set({ isSaving: false });
+    }
+  },
+
+  updateProjectSettings: async (settings) => {
+    const { project, projectPath, structure } = get();
+    const toast = useToastStore.getState();
+
+    if (!project || !projectPath || !structure) {
+      toast.warning("No project", "No project is currently open");
+      return;
+    }
+
+    // Build updated project manifest
+    const updatedProject: ProjectManifest = {
+      ...project,
+      project: {
+        ...project.project,
+        ...(settings.name !== undefined && { name: settings.name }),
+        ...(settings.description !== undefined && { description: settings.description }),
+        updated: new Date().toISOString(),
+      },
+      settings: {
+        ...project.settings,
+        ...(settings.defaultBrowser !== undefined && { defaultBrowser: settings.defaultBrowser }),
+        ...(settings.defaultHeadless !== undefined && { defaultHeadless: settings.defaultHeadless }),
+        ...(settings.autoSaveEnabled !== undefined || settings.autoSaveInterval !== undefined) && {
+          autoSave: {
+            enabled: settings.autoSaveEnabled ?? project.settings.autoSave?.enabled ?? true,
+            intervalMs: settings.autoSaveInterval ?? project.settings.autoSave?.intervalMs ?? 5000,
+          },
+        },
+      },
+    };
+
+    set({ isSaving: true, project: updatedProject });
+
+    try {
+      await invoke("save_project_manifest", {
+        path: structure.manifestPath,
+        manifest: updatedProject,
+      });
+
+      toast.success("Settings saved", "Project settings updated");
+      set({ isSaving: false });
+    } catch (error) {
+      console.error("Failed to save project settings:", error);
+      toast.error("Error saving settings", String(error));
+      // Revert to previous state on error
+      set({ isSaving: false, project });
     }
   },
 
@@ -681,6 +828,92 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     } catch (error) {
       console.error("Failed to remove recent project:", error);
     }
+  },
+
+  // ============================================================
+  // Environment Variables
+  // ============================================================
+
+  loadEnvConfig: async () => {
+    const { structure } = get();
+    if (!structure) return;
+
+    try {
+      const envPath = `${structure.configDir}/env.json`;
+      const config = await invoke<EnvConfig>("load_env_config", { path: envPath });
+      set({ envConfig: config });
+    } catch (error) {
+      // If file doesn't exist, initialize with empty config
+      console.log("No env config found, initializing empty config");
+      set({
+        envConfig: {
+          activeScope: "development",
+          variables: [],
+        },
+      });
+    }
+  },
+
+  saveEnvConfig: async (config) => {
+    const { structure } = get();
+    const toast = useToastStore.getState();
+
+    if (!structure) {
+      toast.warning("No project", "No project is currently open");
+      return;
+    }
+
+    set({ isSaving: true });
+
+    try {
+      const envPath = `${structure.configDir}/env.json`;
+      await invoke("save_env_config", {
+        path: envPath,
+        config,
+      });
+      set({ envConfig: config, isSaving: false });
+      toast.success("Environment saved", "Variables saved successfully");
+    } catch (error) {
+      console.error("Failed to save env config:", error);
+      toast.error("Error saving", String(error));
+      set({ isSaving: false });
+    }
+  },
+
+  updateEnvVariable: (variable) => {
+    const { envConfig } = get();
+    if (!envConfig) return;
+
+    const existingIndex = envConfig.variables.findIndex((v) => v.name === variable.name);
+    let newVariables: EnvVariable[];
+
+    if (existingIndex >= 0) {
+      // Update existing
+      newVariables = [...envConfig.variables];
+      newVariables[existingIndex] = variable;
+    } else {
+      // Add new
+      newVariables = [...envConfig.variables, variable];
+    }
+
+    set({
+      envConfig: {
+        ...envConfig,
+        variables: newVariables,
+      },
+    });
+  },
+
+  deleteEnvVariable: (name) => {
+    const { envConfig } = get();
+    if (!envConfig) return;
+
+    set({
+      envConfig: {
+        ...envConfig,
+        variables: envConfig.variables.filter((v) => v.name !== name),
+      },
+    });
   },
 
   // ============================================================

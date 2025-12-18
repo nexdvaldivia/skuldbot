@@ -615,3 +615,55 @@ class LocalVault:
             secrets_plain[name] = self.get_secret(name)
 
         return secrets_plain
+
+    def unlock_and_load(
+        self,
+        vault_path: str = None,
+        secrets: list = None,
+    ) -> Dict[str, Any]:
+        """
+        Unlocks the local vault and loads specified secrets.
+
+        Password is obtained from SKULDBOT_VAULT_PASSWORD environment variable.
+
+        Args:
+            vault_path: Path to vault directory (uses self.vault_dir if not specified)
+            secrets: List of secret names to load (loads all if empty)
+
+        Returns:
+            Dictionary with unlocked status, count and secret names
+        """
+        import os
+
+        password = os.getenv("SKULDBOT_VAULT_PASSWORD")
+        if not password:
+            raise VaultLockedError("SKULDBOT_VAULT_PASSWORD environment variable not set")
+
+        # Unlock if not already unlocked
+        if not self.is_unlocked:
+            self.unlock(password)
+
+        loaded_secrets = []
+        secrets_to_load = secrets if secrets else []
+
+        # If no specific secrets, load all
+        if not secrets_to_load:
+            for secret_info in self.list_secrets():
+                secrets_to_load.append(secret_info["name"])
+
+        # Get each secret value
+        for secret_name in secrets_to_load:
+            try:
+                if self.secret_exists(secret_name):
+                    # Just verify it's accessible
+                    _ = self.get_secret(secret_name)
+                    loaded_secrets.append(secret_name)
+                    logger.debug(f"Loaded secret: {secret_name}")
+            except Exception as e:
+                logger.warn(f"Could not load secret '{secret_name}': {e}")
+
+        return {
+            "unlocked": True,
+            "secretCount": len(loaded_secrets),
+            "secretNames": loaded_secrets
+        }

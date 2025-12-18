@@ -93,6 +93,24 @@ const categoryStyles: Record<NodeCategory, { bg: string; border: string; icon: s
     icon: "text-teal-600",
     accent: "bg-teal-500",
   },
+  compliance: {
+    bg: "bg-rose-50",
+    border: "border-rose-200",
+    icon: "text-rose-600",
+    accent: "bg-gradient-to-r from-rose-500 to-red-500",
+  },
+  dataquality: {
+    bg: "bg-sky-50",
+    border: "border-sky-200",
+    icon: "text-sky-600",
+    accent: "bg-gradient-to-r from-sky-500 to-blue-500",
+  },
+  data: {
+    bg: "bg-cyan-50",
+    border: "border-cyan-300",
+    icon: "text-cyan-600",
+    accent: "bg-gradient-to-r from-cyan-500 to-teal-500",
+  },
   trigger: {
     bg: "bg-emerald-50",
     border: "border-emerald-200",
@@ -147,20 +165,22 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
       `}
       style={{ minWidth: 180 }}
     >
-      {/* Breakpoint indicator */}
-      <div
-        className="absolute -left-3 top-1/2 -translate-y-1/2 cursor-pointer group"
+      {/* Breakpoint indicator - top right, outside the node */}
+      <button
+        type="button"
+        className="absolute -top-2 -left-2 z-20 w-5 h-5 rounded-full cursor-pointer flex items-center justify-center bg-white border border-slate-200 shadow-sm hover:border-red-300 hover:bg-red-50 transition-colors"
         onClick={handleBreakpointClick}
-        title={hasBreakpoint ? "Remove breakpoint (F9)" : "Add breakpoint (F9)"}
+        onMouseDown={(e) => e.stopPropagation()}
+        title={hasBreakpoint ? "Remove breakpoint" : "Add breakpoint"}
       >
         <Circle
-          className={`w-4 h-4 transition-colors ${
+          className={`w-3 h-3 ${
             hasBreakpoint
               ? "fill-red-500 text-red-500"
-              : "text-transparent group-hover:text-slate-300"
+              : "text-slate-400"
           }`}
         />
-      </div>
+      </button>
 
       {/* START Badge for Triggers */}
       {isTrigger && (

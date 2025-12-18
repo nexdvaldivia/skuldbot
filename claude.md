@@ -28,11 +28,167 @@ DECISIÓN TECNOLÓGICA CLAVE
 
 GESTIÓN DE ERRORES (OBLIGATORIA)
 Todos los nodos RPA deben tener salidas:
-- success
-- error
+- success (línea verde)
+- error (línea naranja)
 
 El error es un objeto estructurado con:
 code, message, nodeId, retryable, details
+
+SISTEMA DE VARIABLES POR NODO
+
+El sistema de variables permite que cada nodo tenga sus propias variables locales de estado,
+además de variables globales para el último error.
+
+1. Variables Por Nodo (Locales)
+   Cada nodo en Robot Framework tiene un diccionario de estado:
+   &{NODE_<node_id>}  con keys: status, output, error
+
+   En el Studio se accede usando el label del nodo:
+   - ${Node Label.output}  → Salida principal del nodo
+   - ${Node Label.error}   → Mensaje de error si el nodo falló
+   - ${Node Label.status}  → Estado: pending, success, error
+
+   El Compiler transforma automáticamente:
+   ${Read Excel.output} → ${NODE_node_123}[output]
+
+2. Variables Globales de Error
+   Disponibles cuando un nodo está conectado via línea naranja (error):
+   - ${LAST_ERROR}       → Mensaje del último error
+   - ${LAST_ERROR_NODE}  → ID del nodo que falló
+   - ${LAST_ERROR_TYPE}  → Tipo del nodo (ej: excel.read_range)
+
+3. Variables de Sistema
+   - ${BOT_ID}      → ID del bot
+   - ${BOT_NAME}    → Nombre del bot
+   - ${BOT_STATUS}  → Estado: RUNNING, SUCCESS, FAILED
+
+4. Variables de Salida por Tipo de Nodo
+   Excel:
+   - ${EXCEL_DATA}       → Datos leídos (lista de diccionarios)
+   - ${EXCEL_ROW_COUNT}  → Cantidad de filas
+   - ${CELL_VALUE}       → Valor de celda individual
+
+   Files:
+   - ${FILE_CONTENT}  → Contenido del archivo leído
+   - ${FILE_EXISTS}   → Boolean de existencia
+
+   API/HTTP:
+   - ${HTTP_RESPONSE}  → Cuerpo de respuesta
+   - ${HTTP_STATUS}    → Código de estado HTTP
+
+   Web:
+   - ${LAST_TEXT}       → Texto extraído de elemento
+   - ${LAST_ATTRIBUTE}  → Atributo extraído
+   - ${JS_RESULT}       → Resultado de JavaScript
+
+5. Transformación de Sintaxis (Compiler)
+   El filtro transform_vars en compiler.py convierte la sintaxis del Studio
+   a la sintaxis de Robot Framework:
+
+   Studio                          → Robot Framework
+   ${Form Trigger.formData.name}   → ${formData}[name]
+   ${Read Excel.output}            → ${NODE_node_id}[output]
+   ${Read Excel.data}              → ${NODE_node_id}[data]
+   ${LAST_ERROR}                   → ${LAST_ERROR}  (sin cambios)
+
+   El Compiler mantiene un node_id_map (label → id) para la conversión.
+
+6. Flujo de Datos Entre Nodos
+   ```
+   [Form Trigger] ──success──> [Read Excel] ──success──> [Log Data]
+        │                           │                        │
+        │ formData                  │ output, data           │ usa variables
+        │ formData.name             │ status, error          │ de nodos anteriores
+        │ formData.email            │ rowCount               │
+        └───────────────────────────┴────────────────────────┘
+                                    │
+                                    ├──error──> [Handle Error]
+                                                     │
+                                                     │ LAST_ERROR
+                                                     │ LAST_ERROR_NODE
+                                                     │ LAST_ERROR_TYPE
+                                                     │ Read Excel.error
+   ```
+
+7. Archivos Relacionados
+   - engine/skuldbot/compiler/compiler.py
+     - transform_variable_syntax() - Transforma sintaxis de variables
+     - _node_id_map - Mapeo de labels a IDs
+
+   - engine/skuldbot/compiler/templates/main_v2.robot.j2
+     - Define variables globales y per-nodo
+     - Implementa TRY/EXCEPT con almacenamiento de errores
+
+   - studio/src/components/NodeConfigPanel.tsx
+     - Muestra variables disponibles en panel INPUT
+     - Agrupa por nodo predecesor
+     - Click para copiar expresión
+
+SISTEMA DE DEBUG (MOTOR REAL)
+
+El Studio está conectado al motor real de Python/Robot Framework via Tauri IPC.
+NO usa simulaciones - ejecuta código Robot Framework real.
+
+1. Arquitectura de Ejecución
+   ```
+   Studio (React)
+       │
+       │ invoke("run_bot", { dsl: JSON.stringify(dsl) })
+       ▼
+   Tauri (Rust) ── main.rs: run_bot command
+       │
+       │ Python subprocess
+       ▼
+   Engine (Python)
+       │
+       ├── Compiler: DSL → Bot Package
+       │
+       └── Executor: Robot Framework
+           │
+           └── Output: logs, results
+   ```
+
+2. Flujo de Debug
+   - Usuario presiona "Debug" (Play) en DebugPanel
+   - debugStore.startDebug() genera DSL desde flowStore
+   - Si no hay trigger, auto-agrega Manual Trigger
+   - Llama invoke("run_bot") via Tauri IPC
+   - El Engine compila DSL a directorio temporal
+   - Robot Framework ejecuta main.robot
+   - Logs se parsean y muestran en tiempo real
+   - Estados de nodos se actualizan (pending → running → success/error)
+
+3. Comandos Tauri (main.rs)
+   - run_bot: Compila y ejecuta DSL
+   - compile_bot: Solo compila DSL a Bot Package
+   - get_excel_sheets: Lee hojas de archivo Excel
+
+4. Estados de Debug
+   - idle: Sin ejecución
+   - running: Ejecutando bot
+   - paused: Pausado (breakpoints - futuro)
+   - stopped: Ejecución terminada
+
+5. Breakpoints (Futuro)
+   - Se pueden agregar via click en nodo
+   - Se almacenan en debugStore.breakpoints
+   - Pendiente: integración con executor para pausar
+
+6. Archivos Relacionados
+   - studio/src/store/debugStore.ts
+     - Estado de debug, breakpoints, historial
+     - startDebug() ejecuta el bot real
+
+   - studio/src/components/DebugPanel.tsx
+     - UI de controles de debug
+     - Play, Pause, Stop, Step
+
+   - studio/src-tauri/src/main.rs
+     - Comando run_bot que llama al Engine
+
+   - engine/skuldbot/executor/executor.py
+     - Ejecuta Robot Framework
+     - Parsea output.xml para resultados
 
 INTEGRACIÓN CON PYTHON (ELECTRONEEK-STYLE)
 Nodo Python Project Executor:

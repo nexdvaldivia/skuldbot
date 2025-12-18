@@ -16,6 +16,12 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "path", label: "Watch Path", type: "text", required: true, placeholder: "/path/to/folder" },
       { name: "pattern", label: "File Pattern", type: "text", placeholder: "*.csv" },
     ],
+    outputSchema: [
+      { name: "filePath", type: "string", description: "Full path of the changed file" },
+      { name: "fileName", type: "string", description: "Name of the changed file" },
+      { name: "event", type: "string", description: "Event type: created, modified, deleted" },
+      { name: "timestamp", type: "string", description: "When the event occurred" },
+    ],
   },
   {
     type: "trigger.email_received",
@@ -56,6 +62,11 @@ export const nodeTemplates: NodeTemplate[] = [
     configSchema: [
       { name: "queue_name", label: "Queue Name", type: "text", required: true },
     ],
+    outputSchema: [
+      { name: "message", type: "object", description: "Message payload from queue" },
+      { name: "messageId", type: "string", description: "Unique message identifier" },
+      { name: "timestamp", type: "string", description: "When message was received" },
+    ],
   },
   {
     type: "trigger.manual",
@@ -65,6 +76,10 @@ export const nodeTemplates: NodeTemplate[] = [
     icon: "Play",
     defaultConfig: {},
     configSchema: [],
+    outputSchema: [
+      { name: "triggeredAt", type: "string", description: "Timestamp when manually triggered" },
+      { name: "triggeredBy", type: "string", description: "User who triggered the workflow" },
+    ],
   },
   {
     type: "trigger.form",
@@ -105,6 +120,11 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "headers", label: "Headers (JSON)", type: "textarea", placeholder: '{"Authorization": "Bearer ..."}' },
       { name: "condition", label: "Trigger Condition (JSONPath)", type: "text", placeholder: "$.status == 'ready'" },
     ],
+    outputSchema: [
+      { name: "response", type: "object", description: "API response data" },
+      { name: "statusCode", type: "number", description: "HTTP status code" },
+      { name: "headers", type: "object", description: "Response headers" },
+    ],
   },
   {
     type: "trigger.database_change",
@@ -118,6 +138,12 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "table", label: "Table Name", type: "text", required: true },
       { name: "event", label: "Event Type", type: "select", default: "INSERT", options: [{ value: "INSERT", label: "Insert" }, { value: "UPDATE", label: "Update" }, { value: "DELETE", label: "Delete" }, { value: "ALL", label: "All Changes" }] },
       { name: "filter", label: "Filter Condition", type: "text", placeholder: "status = 'pending'" },
+    ],
+    outputSchema: [
+      { name: "record", type: "object", description: "Changed record data" },
+      { name: "event", type: "string", description: "Event type: INSERT, UPDATE, DELETE" },
+      { name: "table", type: "string", description: "Table name" },
+      { name: "timestamp", type: "string", description: "When the change occurred" },
     ],
   },
   {
@@ -133,6 +159,13 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "event", label: "Event Type", type: "select", default: "ObjectCreated", options: [{ value: "ObjectCreated", label: "Object Created" }, { value: "ObjectRemoved", label: "Object Removed" }, { value: "ObjectModified", label: "Object Modified" }] },
       { name: "suffix", label: "File Suffix Filter", type: "text", placeholder: ".pdf" },
     ],
+    outputSchema: [
+      { name: "bucket", type: "string", description: "Bucket name" },
+      { name: "key", type: "string", description: "Object key/path" },
+      { name: "event", type: "string", description: "Event type" },
+      { name: "size", type: "number", description: "Object size in bytes" },
+      { name: "timestamp", type: "string", description: "When the event occurred" },
+    ],
   },
   {
     type: "trigger.message_bus",
@@ -146,6 +179,12 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "connection", label: "Connection String", type: "text", required: true, placeholder: "amqp://localhost:5672" },
       { name: "topic", label: "Topic/Queue Name", type: "text", required: true },
       { name: "consumer_group", label: "Consumer Group", type: "text", placeholder: "skuldbot-workers" },
+    ],
+    outputSchema: [
+      { name: "message", type: "object", description: "Message payload" },
+      { name: "messageId", type: "string", description: "Message identifier" },
+      { name: "topic", type: "string", description: "Topic/queue name" },
+      { name: "timestamp", type: "string", description: "When message was received" },
     ],
   },
   {
@@ -161,6 +200,13 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "channel", label: "Channel/Chat ID", type: "text", placeholder: "#general or C12345678" },
       { name: "command", label: "Command Prefix", type: "text", placeholder: "/runbot" },
       { name: "mention_only", label: "Only on Mention", type: "boolean", default: true },
+    ],
+    outputSchema: [
+      { name: "message", type: "string", description: "Chat message text" },
+      { name: "sender", type: "string", description: "Username/ID of sender" },
+      { name: "channel", type: "string", description: "Channel/chat ID" },
+      { name: "platform", type: "string", description: "Chat platform" },
+      { name: "timestamp", type: "string", description: "When message was sent" },
     ],
   },
 
@@ -179,6 +225,10 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "browser", label: "Browser", type: "select", default: "chromium", options: [{ value: "chromium", label: "Chromium" }, { value: "firefox", label: "Firefox" }, { value: "webkit", label: "WebKit" }] },
       { name: "headless", label: "Headless Mode (invisible browser)", type: "boolean", default: false },
     ],
+    outputSchema: [
+      { name: "title", type: "string", description: "Page title" },
+      { name: "url", type: "string", description: "Current URL" },
+    ],
   },
   {
     type: "web.navigate",
@@ -190,6 +240,10 @@ export const nodeTemplates: NodeTemplate[] = [
     configSchema: [
       { name: "url", label: "URL", type: "text", required: true, placeholder: "https://example.com" },
       { name: "wait_until", label: "Wait Until", type: "select", default: "load", options: [{ value: "load", label: "Page Load" }, { value: "domcontentloaded", label: "DOM Ready" }, { value: "networkidle", label: "Network Idle" }] },
+    ],
+    outputSchema: [
+      { name: "title", type: "string", description: "Page title" },
+      { name: "url", type: "string", description: "Final URL after navigation" },
     ],
   },
   {
@@ -203,6 +257,9 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "selector", label: "CSS Selector", type: "text", required: true, placeholder: "#button-id" },
       { name: "timeout", label: "Timeout (ms)", type: "number", default: 30000 },
     ],
+    outputSchema: [
+      { name: "clicked", type: "boolean", description: "Whether click was successful" },
+    ],
   },
   {
     type: "web.type",
@@ -215,6 +272,9 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "selector", label: "CSS Selector", type: "text", required: true },
       { name: "text", label: "Text to Type", type: "text", required: true },
       { name: "clear", label: "Clear Field First", type: "boolean", default: true },
+    ],
+    outputSchema: [
+      { name: "typed", type: "boolean", description: "Whether text was typed successfully" },
     ],
   },
   {
@@ -268,6 +328,11 @@ export const nodeTemplates: NodeTemplate[] = [
     configSchema: [
       { name: "path", label: "Save Path", type: "text", placeholder: "./screenshot.png" },
       { name: "full_page", label: "Full Page", type: "boolean", default: false },
+    ],
+    outputSchema: [
+      { name: "path", type: "string", description: "Path to saved screenshot" },
+      { name: "width", type: "number", description: "Screenshot width in pixels" },
+      { name: "height", type: "number", description: "Screenshot height in pixels" },
     ],
   },
   {
@@ -505,6 +570,11 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "path", label: "File Path", type: "text", required: true },
       { name: "encoding", label: "Encoding", type: "select", default: "utf-8", options: [{ value: "utf-8", label: "UTF-8" }, { value: "ascii", label: "ASCII" }, { value: "latin1", label: "Latin-1" }] },
     ],
+    outputSchema: [
+      { name: "content", type: "string", description: "File contents" },
+      { name: "size", type: "number", description: "File size in bytes" },
+      { name: "path", type: "string", description: "Full file path" },
+    ],
   },
   {
     type: "files.write",
@@ -518,6 +588,10 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "content", label: "Content", type: "textarea", required: true },
       { name: "append", label: "Append Mode", type: "boolean", default: false },
     ],
+    outputSchema: [
+      { name: "path", type: "string", description: "Written file path" },
+      { name: "bytesWritten", type: "number", description: "Bytes written" },
+    ],
   },
   {
     type: "files.copy",
@@ -529,6 +603,10 @@ export const nodeTemplates: NodeTemplate[] = [
     configSchema: [
       { name: "source", label: "Source Path", type: "text", required: true },
       { name: "destination", label: "Destination", type: "text", required: true },
+    ],
+    outputSchema: [
+      { name: "destination", type: "string", description: "Destination path" },
+      { name: "copied", type: "boolean", description: "Copy successful" },
     ],
   },
   {
@@ -542,6 +620,10 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "source", label: "Source Path", type: "text", required: true },
       { name: "destination", label: "Destination", type: "text", required: true },
     ],
+    outputSchema: [
+      { name: "destination", type: "string", description: "New file path" },
+      { name: "moved", type: "boolean", description: "Move successful" },
+    ],
   },
   {
     type: "files.delete",
@@ -554,6 +636,10 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "path", label: "Path", type: "text", required: true },
       { name: "recursive", label: "Recursive (folders)", type: "boolean", default: false },
     ],
+    outputSchema: [
+      { name: "deleted", type: "boolean", description: "Deletion successful" },
+      { name: "path", type: "string", description: "Deleted path" },
+    ],
   },
   {
     type: "files.create_folder",
@@ -564,6 +650,10 @@ export const nodeTemplates: NodeTemplate[] = [
     defaultConfig: {},
     configSchema: [
       { name: "path", label: "Folder Path", type: "text", required: true },
+    ],
+    outputSchema: [
+      { name: "path", type: "string", description: "Created folder path" },
+      { name: "created", type: "boolean", description: "Creation successful" },
     ],
   },
   {
@@ -578,6 +668,10 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "pattern", label: "Pattern", type: "text", placeholder: "*.csv" },
       { name: "recursive", label: "Recursive", type: "boolean", default: false },
     ],
+    outputSchema: [
+      { name: "files", type: "array", description: "List of file paths" },
+      { name: "count", type: "number", description: "Number of files found" },
+    ],
   },
   {
     type: "files.exists",
@@ -588,6 +682,11 @@ export const nodeTemplates: NodeTemplate[] = [
     defaultConfig: {},
     configSchema: [
       { name: "path", label: "File Path", type: "text", required: true },
+    ],
+    outputSchema: [
+      { name: "exists", type: "boolean", description: "Whether file exists" },
+      { name: "isFile", type: "boolean", description: "Is a file (not folder)" },
+      { name: "isDirectory", type: "boolean", description: "Is a directory" },
     ],
   },
   {
@@ -601,6 +700,11 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "source", label: "Source Path", type: "text", required: true },
       { name: "destination", label: "ZIP Path", type: "text", required: true },
     ],
+    outputSchema: [
+      { name: "path", type: "string", description: "Created ZIP path" },
+      { name: "size", type: "number", description: "ZIP file size" },
+      { name: "filesCount", type: "number", description: "Number of files compressed" },
+    ],
   },
   {
     type: "files.unzip",
@@ -613,6 +717,11 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "source", label: "ZIP Path", type: "text", required: true },
       { name: "destination", label: "Extract To", type: "text", required: true },
     ],
+    outputSchema: [
+      { name: "path", type: "string", description: "Extraction folder path" },
+      { name: "files", type: "array", description: "List of extracted files" },
+      { name: "filesCount", type: "number", description: "Number of files extracted" },
+    ],
   },
   {
     type: "files.get_info",
@@ -623,6 +732,13 @@ export const nodeTemplates: NodeTemplate[] = [
     defaultConfig: {},
     configSchema: [
       { name: "path", label: "File Path", type: "text", required: true },
+    ],
+    outputSchema: [
+      { name: "name", type: "string", description: "File name" },
+      { name: "size", type: "number", description: "File size in bytes" },
+      { name: "extension", type: "string", description: "File extension" },
+      { name: "created", type: "string", description: "Creation timestamp" },
+      { name: "modified", type: "string", description: "Last modified timestamp" },
     ],
   },
   {
@@ -635,6 +751,11 @@ export const nodeTemplates: NodeTemplate[] = [
     configSchema: [
       { name: "path", label: "Folder Path", type: "text", required: true },
       { name: "pattern", label: "File Pattern", type: "text", placeholder: "*.*" },
+    ],
+    outputSchema: [
+      { name: "changedFile", type: "string", description: "Path of changed file" },
+      { name: "event", type: "string", description: "Event type: created, modified, deleted" },
+      { name: "timestamp", type: "string", description: "When change occurred" },
     ],
   },
 
@@ -1335,24 +1456,45 @@ export const nodeTemplates: NodeTemplate[] = [
     type: "database.connect",
     category: "database",
     label: "Connect Database",
-    description: "Connect to database",
+    description: "Connect to database using individual credentials (supports vault references)",
     icon: "Database",
-    defaultConfig: { type: "postgresql" },
+    defaultConfig: { type: "postgresql", port: 5432 },
     configSchema: [
-      { name: "type", label: "Database Type", type: "select", default: "postgresql", options: [{ value: "postgresql", label: "PostgreSQL" }, { value: "mysql", label: "MySQL" }, { value: "mssql", label: "SQL Server" }, { value: "oracle", label: "Oracle" }, { value: "sqlite", label: "SQLite" }] },
-      { name: "connection_string", label: "Connection String", type: "text", required: true },
+      { name: "type", label: "Database Type", type: "select", default: "postgresql", options: [
+        { value: "postgresql", label: "PostgreSQL" },
+        { value: "mysql", label: "MySQL" },
+        { value: "mssql", label: "SQL Server" },
+        { value: "oracle", label: "Oracle" },
+        { value: "sqlite", label: "SQLite" },
+      ]},
+      { name: "host", label: "Host", type: "text", required: true, placeholder: "localhost or ${vault.db_host}", supportsExpressions: true },
+      { name: "port", label: "Port", type: "number", default: 5432, placeholder: "5432" },
+      { name: "database", label: "Database Name", type: "text", required: true, placeholder: "mydb", supportsExpressions: true },
+      { name: "username", label: "Username", type: "text", required: true, placeholder: "${vault.db_user}", supportsExpressions: true },
+      { name: "password", label: "Password", type: "password", required: true, placeholder: "${vault.db_password}", supportsExpressions: true },
+    ],
+    outputSchema: [
+      { name: "connected", type: "boolean", description: "Connection status" },
+      { name: "connectionId", type: "string", description: "Connection identifier for use in subsequent nodes" },
+      { name: "database", type: "string", description: "Connected database name" },
     ],
   },
   {
     type: "database.query",
     category: "database",
     label: "Execute Query",
-    description: "Run SQL query",
+    description: "Run SQL query on connected database",
     icon: "Code",
     defaultConfig: {},
     configSchema: [
-      { name: "query", label: "SQL Query", type: "textarea", required: true },
-      { name: "params", label: "Parameters (JSON)", type: "textarea" },
+      { name: "connection", label: "Connection", type: "text", placeholder: "${Connect Database.connectionId}", supportsExpressions: true },
+      { name: "query", label: "SQL Query", type: "textarea", required: true, supportsExpressions: true },
+      { name: "params", label: "Parameters (JSON)", type: "textarea", supportsExpressions: true },
+    ],
+    outputSchema: [
+      { name: "records", type: "array", description: "Query result rows" },
+      { name: "columns", type: "array", description: "Column names" },
+      { name: "recordCount", type: "number", description: "Number of rows returned" },
     ],
   },
   {
@@ -1363,8 +1505,13 @@ export const nodeTemplates: NodeTemplate[] = [
     icon: "Plus",
     defaultConfig: {},
     configSchema: [
-      { name: "table", label: "Table Name", type: "text", required: true },
-      { name: "data", label: "Data (JSON)", type: "textarea", required: true },
+      { name: "connection", label: "Connection", type: "text", placeholder: "${Connect Database.connectionId}", supportsExpressions: true },
+      { name: "table", label: "Table Name", type: "text", required: true, supportsExpressions: true },
+      { name: "data", label: "Data (JSON)", type: "textarea", required: true, supportsExpressions: true },
+    ],
+    outputSchema: [
+      { name: "insertedId", type: "string", description: "ID of inserted row" },
+      { name: "rowsAffected", type: "number", description: "Number of rows inserted" },
     ],
   },
   {
@@ -1375,9 +1522,13 @@ export const nodeTemplates: NodeTemplate[] = [
     icon: "RefreshCw",
     defaultConfig: {},
     configSchema: [
-      { name: "table", label: "Table Name", type: "text", required: true },
-      { name: "data", label: "Data (JSON)", type: "textarea", required: true },
-      { name: "where", label: "WHERE Clause", type: "text", required: true },
+      { name: "connection", label: "Connection", type: "text", placeholder: "${Connect Database.connectionId}", supportsExpressions: true },
+      { name: "table", label: "Table Name", type: "text", required: true, supportsExpressions: true },
+      { name: "data", label: "Data (JSON)", type: "textarea", required: true, supportsExpressions: true },
+      { name: "where", label: "WHERE Clause", type: "text", required: true, supportsExpressions: true },
+    ],
+    outputSchema: [
+      { name: "rowsAffected", type: "number", description: "Number of rows updated" },
     ],
   },
   {
@@ -1388,8 +1539,12 @@ export const nodeTemplates: NodeTemplate[] = [
     icon: "Trash2",
     defaultConfig: {},
     configSchema: [
-      { name: "table", label: "Table Name", type: "text", required: true },
-      { name: "where", label: "WHERE Clause", type: "text", required: true },
+      { name: "connection", label: "Connection", type: "text", placeholder: "${Connect Database.connectionId}", supportsExpressions: true },
+      { name: "table", label: "Table Name", type: "text", required: true, supportsExpressions: true },
+      { name: "where", label: "WHERE Clause", type: "text", required: true, supportsExpressions: true },
+    ],
+    outputSchema: [
+      { name: "rowsAffected", type: "number", description: "Number of rows deleted" },
     ],
   },
   {
@@ -1402,6 +1557,10 @@ export const nodeTemplates: NodeTemplate[] = [
     configSchema: [
       { name: "procedure", label: "Procedure Name", type: "text", required: true },
       { name: "params", label: "Parameters (JSON)", type: "textarea" },
+    ],
+    outputSchema: [
+      { name: "result", type: "object", description: "Procedure return value" },
+      { name: "outParams", type: "object", description: "Output parameters" },
     ],
   },
   {
@@ -1851,15 +2010,19 @@ export const nodeTemplates: NodeTemplate[] = [
   // ============================================
   // CONTROL - Control Flow
   // ============================================
+  // === CONTAINER NODES (rendered as GroupNode) ===
   {
     type: "control.if",
     category: "control",
     label: "If Condition",
-    description: "Branch based on condition",
+    description: "Container: branch based on condition. Drag nodes inside to execute when condition is true.",
     icon: "GitBranch",
     defaultConfig: {},
     configSchema: [
-      { name: "condition", label: "Condition", type: "text", required: true, placeholder: "${count} > 10" },
+      { name: "condition", label: "Condition", type: "text", required: true, placeholder: "${count} > 10", supportsExpressions: true },
+    ],
+    outputSchema: [
+      { name: "result", type: "boolean", description: "Condition evaluation result" },
     ],
   },
   {
@@ -1870,32 +2033,51 @@ export const nodeTemplates: NodeTemplate[] = [
     icon: "GitFork",
     defaultConfig: {},
     configSchema: [
-      { name: "expression", label: "Expression", type: "text", required: true },
+      { name: "expression", label: "Expression", type: "text", required: true, supportsExpressions: true },
       { name: "cases", label: "Cases (JSON)", type: "textarea", required: true },
+    ],
+    outputSchema: [
+      { name: "matched_case", type: "string", description: "Which case was matched" },
     ],
   },
   {
     type: "control.loop",
     category: "control",
-    label: "Loop",
-    description: "Loop over items",
+    label: "For Each",
+    description: "Container: iterate over a collection. Drag nodes inside to process each item. Use 'done' output to continue after loop completes.",
     icon: "Repeat",
-    defaultConfig: {},
+    defaultConfig: { item_var: "item", accumulator_var: "results" },
     configSchema: [
-      { name: "items", label: "Items Array", type: "text", required: true, placeholder: "${items}" },
-      { name: "item_var", label: "Item Variable Name", type: "text", default: "item" },
+      { name: "items", label: "Items Array", type: "text", required: true, placeholder: "${Query.records}", supportsExpressions: true },
+      { name: "item_var", label: "Item Variable Name (access as ${item})", type: "text", default: "item", placeholder: "item" },
+      { name: "accumulator_var", label: "Accumulator Variable (use control.append)", type: "text", default: "results", placeholder: "results" },
+    ],
+    outputSchema: [
+      { name: "index", type: "number", description: "Current iteration index (0-based)" },
+      { name: "total", type: "number", description: "Total number of items" },
+      { name: "isFirst", type: "boolean", description: "True if first iteration" },
+      { name: "isLast", type: "boolean", description: "True if last iteration" },
+      { name: "results", type: "array", description: "Accumulated results array (available after loop completes)" },
+      { name: "iterations", type: "number", description: "Total iterations completed" },
     ],
   },
   {
     type: "control.while",
     category: "control",
     label: "While Loop",
-    description: "Loop while condition true",
+    description: "Container: loop while condition is true. Use 'done' output to continue after loop ends.",
     icon: "RefreshCw",
-    defaultConfig: { max_iterations: 100 },
+    defaultConfig: { max_iterations: 100, accumulator_var: "results" },
     configSchema: [
-      { name: "condition", label: "Condition", type: "text", required: true },
-      { name: "max_iterations", label: "Max Iterations", type: "number", default: 100 },
+      { name: "condition", label: "Condition", type: "text", required: true, placeholder: "${hasMore} == true", supportsExpressions: true },
+      { name: "max_iterations", label: "Max Iterations (safety limit)", type: "number", default: 100 },
+      { name: "accumulator_var", label: "Accumulator Variable (use control.append)", type: "text", default: "results", placeholder: "results" },
+    ],
+    outputSchema: [
+      { name: "iteration", type: "number", description: "Current iteration number (1-based)" },
+      { name: "total_iterations", type: "number", description: "Total iterations executed" },
+      { name: "results", type: "array", description: "Accumulated results array (available after loop completes)" },
+      { name: "exit_reason", type: "string", description: "Why loop exited: 'condition_false' | 'max_iterations' | 'break'" },
     ],
   },
   {
@@ -1913,23 +2095,37 @@ export const nodeTemplates: NodeTemplate[] = [
     type: "control.set_variable",
     category: "control",
     label: "Set Variable",
-    description: "Define a variable",
+    description: "Define or update a variable. Use 'global' scope to access outside loops.",
     icon: "Variable",
-    defaultConfig: {},
+    defaultConfig: { scope: "global" },
     configSchema: [
-      { name: "name", label: "Variable Name", type: "text", required: true },
-      { name: "value", label: "Value", type: "text", required: true },
+      { name: "name", label: "Variable Name", type: "text", required: true, placeholder: "my_variable" },
+      { name: "value", label: "Value", type: "textarea", required: true, placeholder: "${some_value} or literal", supportsExpressions: true },
+      { name: "scope", label: "Scope", type: "select", default: "global", options: [
+        { value: "global", label: "Global - Available everywhere" },
+        { value: "local", label: "Local - Only in current container" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "value", type: "any", description: "The value that was set" },
+      { name: "name", type: "string", description: "The variable name" },
     ],
   },
   {
     type: "control.try_catch",
     category: "control",
     label: "Try/Catch",
-    description: "Handle errors gracefully",
+    description: "Container: handle errors gracefully. Drag nodes inside to execute with error handling.",
     icon: "ShieldAlert",
-    defaultConfig: {},
+    defaultConfig: { retry_count: 0 },
     configSchema: [
       { name: "retry_count", label: "Retry Count", type: "number", default: 0 },
+      { name: "retry_delay", label: "Retry Delay (seconds)", type: "number", default: 1 },
+    ],
+    outputSchema: [
+      { name: "success", type: "boolean", description: "True if executed without errors" },
+      { name: "error_message", type: "string", description: "Error message if failed" },
+      { name: "retry_attempts", type: "number", description: "Number of retry attempts made" },
     ],
   },
   {
@@ -1963,6 +2159,75 @@ export const nodeTemplates: NodeTemplate[] = [
     defaultConfig: {},
     configSchema: [
       { name: "target_node", label: "Target Node ID", type: "text", required: true },
+    ],
+  },
+  {
+    type: "control.map",
+    category: "control",
+    label: "Map/Transform",
+    description: "Transform each item in a collection using an expression",
+    icon: "Shuffle",
+    defaultConfig: {},
+    configSchema: [
+      { name: "items", label: "Input Array", type: "text", required: true, placeholder: "${Query.records}", supportsExpressions: true },
+      { name: "expression", label: "Transform Expression", type: "textarea", required: true, placeholder: "{ id: ${item.id}, fullName: ${item.first} + ' ' + ${item.last} }", supportsExpressions: true },
+      { name: "item_var", label: "Item Variable Name", type: "text", default: "item", placeholder: "item" },
+    ],
+    outputSchema: [
+      { name: "results", type: "array", description: "Transformed array" },
+      { name: "count", type: "number", description: "Number of items transformed" },
+    ],
+  },
+  {
+    type: "control.append",
+    category: "control",
+    label: "Append to List",
+    description: "Add an item to the end of a list",
+    icon: "ListPlus",
+    defaultConfig: {},
+    configSchema: [
+      { name: "list", label: "Target List Variable", type: "text", required: true, placeholder: "results", supportsExpressions: false },
+      { name: "item", label: "Item to Append", type: "textarea", required: true, placeholder: "${transformed_item}", supportsExpressions: true },
+    ],
+    outputSchema: [
+      { name: "length", type: "number", description: "New length of the list" },
+      { name: "list", type: "array", description: "Updated list reference" },
+    ],
+  },
+  {
+    type: "control.filter",
+    category: "control",
+    label: "Filter List",
+    description: "Filter items that match a condition",
+    icon: "Filter",
+    defaultConfig: {},
+    configSchema: [
+      { name: "items", label: "Input Array", type: "text", required: true, placeholder: "${Query.records}", supportsExpressions: true },
+      { name: "condition", label: "Filter Condition", type: "text", required: true, placeholder: "${item.status} == 'active'", supportsExpressions: true },
+      { name: "item_var", label: "Item Variable Name", type: "text", default: "item", placeholder: "item" },
+    ],
+    outputSchema: [
+      { name: "results", type: "array", description: "Filtered array (matching items)" },
+      { name: "rejected", type: "array", description: "Rejected array (non-matching items)" },
+      { name: "count", type: "number", description: "Number of matching items" },
+    ],
+  },
+  {
+    type: "control.reduce",
+    category: "control",
+    label: "Reduce/Aggregate",
+    description: "Reduce array to a single value (sum, count, etc.)",
+    icon: "Combine",
+    defaultConfig: { initial: "0" },
+    configSchema: [
+      { name: "items", label: "Input Array", type: "text", required: true, placeholder: "${Query.records}", supportsExpressions: true },
+      { name: "expression", label: "Reducer Expression", type: "text", required: true, placeholder: "${acc} + ${item.amount}", supportsExpressions: true },
+      { name: "initial", label: "Initial Value", type: "text", default: "0", placeholder: "0", supportsExpressions: true },
+      { name: "item_var", label: "Item Variable Name", type: "text", default: "item", placeholder: "item" },
+    ],
+    outputSchema: [
+      { name: "result", type: "any", description: "Final accumulated value" },
+      { name: "count", type: "number", description: "Number of items processed" },
     ],
   },
 
@@ -2139,6 +2404,94 @@ export const nodeTemplates: NodeTemplate[] = [
     ],
   },
 
+  // --- Vault Providers (Enterprise Secrets Management) ---
+  {
+    type: "secrets.azure_keyvault",
+    category: "security",
+    label: "Azure Key Vault",
+    description: "Connect to Azure Key Vault (credentials from BotRunner env)",
+    icon: "KeyRound",
+    defaultConfig: { use_managed_identity: false },
+    configSchema: [
+      { name: "vault_url", label: "Vault URL", type: "text", required: true, placeholder: "https://myvault.vault.azure.net", supportsExpressions: true },
+      { name: "tenant_id", label: "Tenant ID", type: "text", required: true, placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" },
+      { name: "client_id", label: "Client ID", type: "text", required: true, placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" },
+      { name: "use_managed_identity", label: "Use Managed Identity", type: "boolean", default: false },
+      { name: "secrets", label: "Secrets to Load", type: "textarea", placeholder: "db_password\napi_key\nconnection_string" },
+    ],
+    outputSchema: [
+      { name: "loaded", type: "number", description: "Number of secrets loaded" },
+      { name: "secretNames", type: "array", description: "Names of loaded secrets" },
+    ],
+  },
+  {
+    type: "secrets.aws_secrets",
+    category: "security",
+    label: "AWS Secrets Manager",
+    description: "Connect to AWS Secrets Manager (credentials from BotRunner env or IAM Role)",
+    icon: "KeyRound",
+    defaultConfig: { region: "us-east-1", use_iam_role: true },
+    configSchema: [
+      { name: "region", label: "AWS Region", type: "select", default: "us-east-1", options: [
+        { value: "us-east-1", label: "US East (N. Virginia)" },
+        { value: "us-east-2", label: "US East (Ohio)" },
+        { value: "us-west-1", label: "US West (N. California)" },
+        { value: "us-west-2", label: "US West (Oregon)" },
+        { value: "eu-west-1", label: "Europe (Ireland)" },
+        { value: "eu-west-2", label: "Europe (London)" },
+        { value: "eu-central-1", label: "Europe (Frankfurt)" },
+        { value: "ap-southeast-1", label: "Asia Pacific (Singapore)" },
+        { value: "ap-northeast-1", label: "Asia Pacific (Tokyo)" },
+        { value: "sa-east-1", label: "South America (São Paulo)" },
+      ]},
+      { name: "use_iam_role", label: "Use IAM Role", type: "boolean", default: true },
+      { name: "secrets", label: "Secrets to Load", type: "textarea", placeholder: "prod/db/password\nprod/api/key" },
+    ],
+    outputSchema: [
+      { name: "loaded", type: "number", description: "Number of secrets loaded" },
+      { name: "secretNames", type: "array", description: "Names of loaded secrets" },
+    ],
+  },
+  {
+    type: "secrets.hashicorp_vault",
+    category: "security",
+    label: "HashiCorp Vault",
+    description: "Connect to HashiCorp Vault (credentials from BotRunner env)",
+    icon: "KeyRound",
+    defaultConfig: { auth_method: "token", mount_point: "secret" },
+    configSchema: [
+      { name: "vault_addr", label: "Vault Address", type: "text", required: true, placeholder: "https://vault.example.com:8200", supportsExpressions: true },
+      { name: "auth_method", label: "Auth Method", type: "select", default: "token", options: [
+        { value: "token", label: "Token (from VAULT_TOKEN env)" },
+        { value: "approle", label: "AppRole (from VAULT_ROLE_ID + VAULT_SECRET_ID env)" },
+      ]},
+      { name: "mount_point", label: "Secrets Engine Mount", type: "text", default: "secret", placeholder: "secret" },
+      { name: "secrets_path", label: "Secrets Path", type: "text", required: true, placeholder: "myapp/prod" },
+      { name: "secrets", label: "Keys to Load (optional)", type: "textarea", placeholder: "db_password\napi_key" },
+    ],
+    outputSchema: [
+      { name: "loaded", type: "number", description: "Number of secrets loaded" },
+      { name: "secretNames", type: "array", description: "Names of loaded secrets" },
+    ],
+  },
+  {
+    type: "secrets.local_vault",
+    category: "security",
+    label: "Local Vault",
+    description: "Unlock local encrypted vault on BotRunner (AES-256-GCM)",
+    icon: "Lock",
+    defaultConfig: { vault_path: ".skuldbot" },
+    configSchema: [
+      { name: "vault_path", label: "Vault Path", type: "text", default: ".skuldbot", placeholder: ".skuldbot or /etc/skuldbot/vault" },
+      { name: "secrets", label: "Secrets to Load (optional)", type: "textarea", placeholder: "db_password\napi_key" },
+    ],
+    outputSchema: [
+      { name: "unlocked", type: "boolean", description: "Vault unlock status" },
+      { name: "secretCount", type: "number", description: "Number of secrets loaded" },
+      { name: "secretNames", type: "array", description: "Names of loaded secrets" },
+    ],
+  },
+
   // ============================================
   // HUMAN - Human-in-the-loop
   // ============================================
@@ -2277,8 +2630,8 @@ export const nodeTemplates: NodeTemplate[] = [
   {
     type: "compliance.mask_data",
     category: "compliance",
-    label: "Mask Sensitive Data",
-    description: "HIPAA Safe Harbor Method 1: Mask PII/PHI with characters",
+    label: "Mask PII/PHI",
+    description: "Mask personally identifiable information with characters (***)",
     icon: "EyeOff",
     defaultConfig: { mask_char: "*", preserve_length: true, partial_mask: false },
     configSchema: [
@@ -2296,8 +2649,8 @@ export const nodeTemplates: NodeTemplate[] = [
   {
     type: "compliance.redact_data",
     category: "compliance",
-    label: "Redact Sensitive Data",
-    description: "HIPAA Safe Harbor Method 2: Remove sensitive data completely",
+    label: "Redact PII/PHI",
+    description: "Remove sensitive data completely and replace with [REDACTED]",
     icon: "Eraser",
     defaultConfig: { replacement: "[REDACTED]" },
     configSchema: [
@@ -2313,8 +2666,8 @@ export const nodeTemplates: NodeTemplate[] = [
   {
     type: "compliance.pseudonymize",
     category: "compliance",
-    label: "Pseudonymize Data",
-    description: "HIPAA Safe Harbor Method 3: Replace with consistent pseudonyms",
+    label: "Pseudonymize PII/PHI",
+    description: "Replace sensitive data with consistent fake identifiers",
     icon: "UserX",
     defaultConfig: { consistent: true, prefix: "PSEUDO_" },
     configSchema: [
@@ -2331,8 +2684,8 @@ export const nodeTemplates: NodeTemplate[] = [
   {
     type: "compliance.hash_data",
     category: "compliance",
-    label: "Hash Sensitive Data",
-    description: "HIPAA Safe Harbor Method 4: Apply cryptographic hash to sensitive data",
+    label: "Hash PII/PHI",
+    description: "Apply cryptographic hash (SHA-256) to sensitive data for anonymization",
     icon: "Hash",
     defaultConfig: { algorithm: "sha256", truncate: 8 },
     configSchema: [
@@ -2352,8 +2705,8 @@ export const nodeTemplates: NodeTemplate[] = [
   {
     type: "compliance.generalize",
     category: "compliance",
-    label: "Generalize Data",
-    description: "HIPAA Safe Harbor Method 5: Generalize data (age -> range, zip -> partial)",
+    label: "Generalize PII/PHI",
+    description: "Generalize data to reduce identifiability (age -> range, zip -> partial)",
     icon: "Minimize2",
     defaultConfig: {},
     configSchema: [
@@ -2662,12 +3015,12 @@ export const nodeTemplates: NodeTemplate[] = [
     type: "dataquality.run_suite",
     category: "dataquality",
     label: "Run Validation Suite",
-    description: "Run multiple validations defined in an expectation suite",
+    description: "Run multiple validations using the visual builder",
     icon: "ListTodo",
-    defaultConfig: {},
+    defaultConfig: { rules: [] },
     configSchema: [
-      { name: "data", label: "Data", type: "textarea", required: true, supportsExpressions: true },
-      { name: "suite", label: "Expectation Suite (JSON)", type: "textarea", required: true, placeholder: '[{"type": "not_null", "column": "email"}, {"type": "unique", "column": "id"}]' },
+      { name: "data", label: "Data Source", type: "expression", required: true, placeholder: "${PreviousNode.data}" },
+      { name: "rules", label: "Validation Rules", type: "validation-builder" },
     ],
     outputSchema: [
       { name: "success", type: "boolean", description: "Whether all validations passed" },
@@ -2841,6 +3194,631 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "success", type: "boolean", description: "Whether profile was created" },
       { name: "profile_name", type: "string", description: "Name of created profile" },
       { name: "expectation_count", type: "number", description: "Number of expectations in profile" },
+    ],
+  },
+
+  // ============================================
+  // DATA - Data Integration (Taps & Targets)
+  // ============================================
+
+  // --- DATABASE TAPS (Extractors) ---
+  {
+    type: "data.tap.sqlserver",
+    category: "data",
+    label: "Extract SQL Server",
+    description: "Extract data from Microsoft SQL Server",
+    icon: "Database",
+    defaultConfig: { mode: "memory", batch_size: 10000 },
+    configSchema: [
+      { name: "host", label: "Host", type: "text", required: true, placeholder: "localhost or ${vault.db_host}", supportsExpressions: true },
+      { name: "port", label: "Port", type: "number", default: 1433 },
+      { name: "database", label: "Database", type: "text", required: true, supportsExpressions: true },
+      { name: "username", label: "Username", type: "text", required: true, placeholder: "${vault.db_user}", supportsExpressions: true },
+      { name: "password", label: "Password", type: "password", required: true, placeholder: "${vault.db_password}", supportsExpressions: true },
+      { name: "query", label: "SQL Query", type: "textarea", placeholder: "SELECT * FROM customers WHERE active = 1" },
+      { name: "table", label: "Table (if no query)", type: "text", placeholder: "customers" },
+      { name: "columns", label: "Columns (comma-separated)", type: "text", placeholder: "id, name, email" },
+      { name: "filter", label: "WHERE Filter", type: "text", placeholder: "status = 'active'" },
+      { name: "limit", label: "Row Limit", type: "number" },
+      { name: "mode", label: "Mode", type: "select", default: "memory", options: [
+        { value: "memory", label: "Memory (< 50K rows)" },
+        { value: "batch", label: "Batch (large datasets)" },
+        { value: "stream", label: "Stream (direct pipe)" },
+      ]},
+      { name: "batch_size", label: "Batch Size", type: "number", default: 10000 },
+    ],
+    outputSchema: [
+      { name: "records", type: "array", description: "Extracted records" },
+      { name: "columns", type: "array", description: "Column names" },
+      { name: "recordCount", type: "number", description: "Number of records" },
+    ],
+  },
+  {
+    type: "data.tap.oracle",
+    category: "data",
+    label: "Extract Oracle",
+    description: "Extract data from Oracle Database",
+    icon: "Database",
+    defaultConfig: { mode: "memory", batch_size: 10000 },
+    configSchema: [
+      { name: "host", label: "Host", type: "text", required: true, placeholder: "${vault.db_host}", supportsExpressions: true },
+      { name: "port", label: "Port", type: "number", default: 1521 },
+      { name: "database", label: "Service Name", type: "text", required: true, supportsExpressions: true },
+      { name: "username", label: "Username", type: "text", required: true, placeholder: "${vault.db_user}", supportsExpressions: true },
+      { name: "password", label: "Password", type: "password", required: true, placeholder: "${vault.db_password}", supportsExpressions: true },
+      { name: "query", label: "SQL Query", type: "textarea", placeholder: "SELECT * FROM customers WHERE ROWNUM <= 1000" },
+      { name: "table", label: "Table (if no query)", type: "text" },
+      { name: "columns", label: "Columns", type: "text" },
+      { name: "filter", label: "WHERE Filter", type: "text" },
+      { name: "limit", label: "Row Limit", type: "number" },
+      { name: "mode", label: "Mode", type: "select", default: "memory", options: [
+        { value: "memory", label: "Memory" },
+        { value: "batch", label: "Batch" },
+      ]},
+      { name: "batch_size", label: "Batch Size", type: "number", default: 10000 },
+    ],
+    outputSchema: [
+      { name: "records", type: "array", description: "Extracted records" },
+      { name: "columns", type: "array", description: "Column names" },
+      { name: "recordCount", type: "number", description: "Number of records" },
+    ],
+  },
+  {
+    type: "data.tap.postgres",
+    category: "data",
+    label: "Extract PostgreSQL",
+    description: "Extract data from PostgreSQL",
+    icon: "Database",
+    defaultConfig: { mode: "memory", batch_size: 10000 },
+    configSchema: [
+      { name: "host", label: "Host", type: "text", required: true, placeholder: "${vault.db_host}", supportsExpressions: true },
+      { name: "port", label: "Port", type: "number", default: 5432 },
+      { name: "database", label: "Database", type: "text", required: true, supportsExpressions: true },
+      { name: "username", label: "Username", type: "text", required: true, placeholder: "${vault.db_user}", supportsExpressions: true },
+      { name: "password", label: "Password", type: "password", required: true, placeholder: "${vault.db_password}", supportsExpressions: true },
+      { name: "query", label: "SQL Query", type: "textarea", placeholder: "SELECT * FROM users LIMIT 1000" },
+      { name: "table", label: "Table (if no query)", type: "text" },
+      { name: "columns", label: "Columns", type: "text" },
+      { name: "filter", label: "WHERE Filter", type: "text" },
+      { name: "limit", label: "Row Limit", type: "number" },
+      { name: "mode", label: "Mode", type: "select", default: "memory", options: [
+        { value: "memory", label: "Memory" },
+        { value: "batch", label: "Batch" },
+      ]},
+      { name: "batch_size", label: "Batch Size", type: "number", default: 10000 },
+    ],
+    outputSchema: [
+      { name: "records", type: "array", description: "Extracted records" },
+      { name: "columns", type: "array", description: "Column names" },
+      { name: "recordCount", type: "number", description: "Number of records" },
+    ],
+  },
+  {
+    type: "data.tap.mysql",
+    category: "data",
+    label: "Extract MySQL",
+    description: "Extract data from MySQL/MariaDB",
+    icon: "Database",
+    defaultConfig: { mode: "memory", batch_size: 10000 },
+    configSchema: [
+      { name: "host", label: "Host", type: "text", required: true, placeholder: "${vault.db_host}", supportsExpressions: true },
+      { name: "port", label: "Port", type: "number", default: 3306 },
+      { name: "database", label: "Database", type: "text", required: true, supportsExpressions: true },
+      { name: "username", label: "Username", type: "text", required: true, placeholder: "${vault.db_user}", supportsExpressions: true },
+      { name: "password", label: "Password", type: "password", required: true, placeholder: "${vault.db_password}", supportsExpressions: true },
+      { name: "query", label: "SQL Query", type: "textarea" },
+      { name: "table", label: "Table (if no query)", type: "text" },
+      { name: "columns", label: "Columns", type: "text" },
+      { name: "filter", label: "WHERE Filter", type: "text" },
+      { name: "limit", label: "Row Limit", type: "number" },
+      { name: "mode", label: "Mode", type: "select", default: "memory", options: [
+        { value: "memory", label: "Memory" },
+        { value: "batch", label: "Batch" },
+      ]},
+      { name: "batch_size", label: "Batch Size", type: "number", default: 10000 },
+    ],
+    outputSchema: [
+      { name: "records", type: "array", description: "Extracted records" },
+      { name: "columns", type: "array", description: "Column names" },
+      { name: "recordCount", type: "number", description: "Number of records" },
+    ],
+  },
+  {
+    type: "data.tap.db2",
+    category: "data",
+    label: "Extract DB2",
+    description: "Extract data from IBM DB2",
+    icon: "Database",
+    defaultConfig: { mode: "memory", batch_size: 10000 },
+    configSchema: [
+      { name: "host", label: "Host", type: "text", required: true, placeholder: "${vault.db_host}", supportsExpressions: true },
+      { name: "port", label: "Port", type: "number", default: 50000 },
+      { name: "database", label: "Database", type: "text", required: true, supportsExpressions: true },
+      { name: "username", label: "Username", type: "text", required: true, placeholder: "${vault.db_user}", supportsExpressions: true },
+      { name: "password", label: "Password", type: "password", required: true, placeholder: "${vault.db_password}", supportsExpressions: true },
+      { name: "query", label: "SQL Query", type: "textarea" },
+      { name: "table", label: "Table (if no query)", type: "text" },
+      { name: "columns", label: "Columns", type: "text" },
+      { name: "filter", label: "WHERE Filter", type: "text" },
+      { name: "limit", label: "Row Limit", type: "number" },
+      { name: "mode", label: "Mode", type: "select", default: "memory", options: [
+        { value: "memory", label: "Memory" },
+        { value: "batch", label: "Batch" },
+      ]},
+      { name: "batch_size", label: "Batch Size", type: "number", default: 10000 },
+    ],
+    outputSchema: [
+      { name: "records", type: "array", description: "Extracted records" },
+      { name: "columns", type: "array", description: "Column names" },
+      { name: "recordCount", type: "number", description: "Number of records" },
+    ],
+  },
+  {
+    type: "data.tap.snowflake",
+    category: "data",
+    label: "Extract Snowflake",
+    description: "Extract data from Snowflake",
+    icon: "Snowflake",
+    defaultConfig: { mode: "memory", batch_size: 10000 },
+    configSchema: [
+      { name: "account", label: "Account Identifier", type: "text", required: true, placeholder: "${vault.sf_account}", supportsExpressions: true },
+      { name: "database", label: "Database", type: "text", required: true, supportsExpressions: true },
+      { name: "schema", label: "Schema", type: "text", default: "PUBLIC", supportsExpressions: true },
+      { name: "warehouse", label: "Warehouse", type: "text", supportsExpressions: true },
+      { name: "username", label: "Username", type: "text", required: true, placeholder: "${vault.sf_user}", supportsExpressions: true },
+      { name: "password", label: "Password", type: "password", required: true, placeholder: "${vault.sf_password}", supportsExpressions: true },
+      { name: "query", label: "SQL Query", type: "textarea" },
+      { name: "table", label: "Table (if no query)", type: "text" },
+      { name: "columns", label: "Columns", type: "text" },
+      { name: "filter", label: "WHERE Filter", type: "text" },
+      { name: "limit", label: "Row Limit", type: "number" },
+      { name: "mode", label: "Mode", type: "select", default: "memory", options: [
+        { value: "memory", label: "Memory" },
+        { value: "batch", label: "Batch" },
+      ]},
+      { name: "batch_size", label: "Batch Size", type: "number", default: 10000 },
+    ],
+    outputSchema: [
+      { name: "records", type: "array", description: "Extracted records" },
+      { name: "columns", type: "array", description: "Column names" },
+      { name: "recordCount", type: "number", description: "Number of records" },
+    ],
+  },
+
+  // --- FILE TAPS ---
+  {
+    type: "data.tap.csv",
+    category: "data",
+    label: "Read CSV",
+    description: "Extract data from CSV file",
+    icon: "FileSpreadsheet",
+    defaultConfig: { delimiter: ",", encoding: "utf-8", header: true },
+    configSchema: [
+      { name: "path", label: "File Path", type: "text", required: true, supportsExpressions: true },
+      { name: "delimiter", label: "Delimiter", type: "text", default: "," },
+      { name: "encoding", label: "Encoding", type: "select", default: "utf-8", options: [
+        { value: "utf-8", label: "UTF-8" },
+        { value: "latin-1", label: "Latin-1" },
+        { value: "cp1252", label: "Windows-1252" },
+      ]},
+      { name: "header", label: "Has Header Row", type: "boolean", default: true },
+      { name: "columns", label: "Column Names (if no header)", type: "text" },
+      { name: "limit", label: "Row Limit", type: "number" },
+    ],
+    outputSchema: [
+      { name: "records", type: "array", description: "Extracted records" },
+      { name: "columns", type: "array", description: "Column names" },
+      { name: "recordCount", type: "number", description: "Number of records" },
+    ],
+  },
+  {
+    type: "data.tap.excel",
+    category: "data",
+    label: "Read Excel (Data)",
+    description: "Extract data from Excel file for data integration",
+    icon: "FileSpreadsheet",
+    defaultConfig: { header: true },
+    configSchema: [
+      { name: "path", label: "File Path", type: "text", required: true, supportsExpressions: true },
+      { name: "sheet", label: "Sheet Name", type: "text" },
+      { name: "header", label: "Has Header Row", type: "boolean", default: true },
+      { name: "columns", label: "Column Names (if no header)", type: "text" },
+      { name: "limit", label: "Row Limit", type: "number" },
+    ],
+    outputSchema: [
+      { name: "records", type: "array", description: "Extracted records" },
+      { name: "columns", type: "array", description: "Column names" },
+      { name: "recordCount", type: "number", description: "Number of records" },
+    ],
+  },
+
+  // --- CLOUD/TRANSFER TAPS ---
+  {
+    type: "data.tap.s3",
+    category: "data",
+    label: "Read from S3",
+    description: "Extract data from AWS S3",
+    icon: "Cloud",
+    defaultConfig: { file_type: "csv", region: "us-east-1" },
+    configSchema: [
+      { name: "bucket", label: "Bucket Name", type: "text", required: true },
+      { name: "key", label: "Object Key (path)", type: "text", required: true, placeholder: "data/customers.csv" },
+      { name: "aws_access_key", label: "AWS Access Key", type: "text", required: true, supportsExpressions: true },
+      { name: "aws_secret_key", label: "AWS Secret Key", type: "password", required: true, supportsExpressions: true },
+      { name: "region", label: "Region", type: "text", default: "us-east-1" },
+      { name: "file_type", label: "File Type", type: "select", default: "csv", options: [
+        { value: "csv", label: "CSV" },
+        { value: "json", label: "JSON" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "records", type: "array", description: "Extracted records" },
+      { name: "columns", type: "array", description: "Column names" },
+      { name: "recordCount", type: "number", description: "Number of records" },
+    ],
+  },
+  {
+    type: "data.tap.sftp",
+    category: "data",
+    label: "Read from SFTP",
+    description: "Extract data from SFTP server",
+    icon: "Server",
+    defaultConfig: { file_type: "csv", port: 22 },
+    configSchema: [
+      { name: "host", label: "Host", type: "text", required: true },
+      { name: "port", label: "Port", type: "number", default: 22 },
+      { name: "path", label: "File Path", type: "text", required: true, placeholder: "/data/file.csv" },
+      { name: "username", label: "Username", type: "text", required: true },
+      { name: "password", label: "Password", type: "password", supportsExpressions: true },
+      { name: "private_key", label: "Private Key Path", type: "text" },
+      { name: "file_type", label: "File Type", type: "select", default: "csv", options: [
+        { value: "csv", label: "CSV" },
+        { value: "json", label: "JSON" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "records", type: "array", description: "Extracted records" },
+      { name: "columns", type: "array", description: "Column names" },
+      { name: "recordCount", type: "number", description: "Number of records" },
+    ],
+  },
+
+  // --- SAAS TAPS ---
+  {
+    type: "data.tap.salesforce",
+    category: "data",
+    label: "Extract Salesforce",
+    description: "Extract data from Salesforce using SOQL",
+    icon: "Cloud",
+    defaultConfig: { domain: "login" },
+    configSchema: [
+      { name: "username", label: "Username", type: "text", required: true, placeholder: "user@company.com" },
+      { name: "password", label: "Password", type: "password", required: true, supportsExpressions: true },
+      { name: "security_token", label: "Security Token", type: "password", required: true, supportsExpressions: true },
+      { name: "query", label: "SOQL Query", type: "textarea", required: true, placeholder: "SELECT Id, Name, Email FROM Contact WHERE CreatedDate > LAST_MONTH" },
+      { name: "domain", label: "Domain", type: "select", default: "login", options: [
+        { value: "login", label: "Production (login)" },
+        { value: "test", label: "Sandbox (test)" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "records", type: "array", description: "Salesforce records" },
+      { name: "columns", type: "array", description: "Field names" },
+      { name: "recordCount", type: "number", description: "Number of records" },
+    ],
+  },
+  {
+    type: "data.tap.rest_api",
+    category: "data",
+    label: "Extract REST API",
+    description: "Extract data from any REST API with pagination support",
+    icon: "Globe",
+    defaultConfig: { method: "GET" },
+    configSchema: [
+      { name: "url", label: "API URL", type: "text", required: true, supportsExpressions: true },
+      { name: "method", label: "HTTP Method", type: "select", default: "GET", options: [
+        { value: "GET", label: "GET" },
+        { value: "POST", label: "POST" },
+      ]},
+      { name: "headers", label: "Headers (JSON)", type: "textarea", placeholder: '{"Authorization": "Bearer ${token}"}' },
+      { name: "body", label: "Request Body (JSON)", type: "textarea" },
+      { name: "auth_type", label: "Auth Type", type: "select", options: [
+        { value: "", label: "None" },
+        { value: "bearer", label: "Bearer Token" },
+        { value: "api_key", label: "API Key" },
+      ]},
+      { name: "auth_value", label: "Auth Value", type: "password", supportsExpressions: true },
+      { name: "pagination_type", label: "Pagination", type: "select", options: [
+        { value: "", label: "None" },
+        { value: "offset", label: "Offset" },
+        { value: "page", label: "Page Number" },
+        { value: "cursor", label: "Cursor" },
+      ]},
+      { name: "pagination_param", label: "Pagination Param", type: "text", placeholder: "offset or page or cursor" },
+      { name: "data_path", label: "Data Path (JSONPath)", type: "text", placeholder: "$.data or $.results" },
+      { name: "limit", label: "Max Records", type: "number" },
+    ],
+    outputSchema: [
+      { name: "records", type: "array", description: "API response records" },
+      { name: "columns", type: "array", description: "Field names" },
+      { name: "recordCount", type: "number", description: "Number of records" },
+    ],
+  },
+
+  // --- DATABASE TARGETS (Loaders) ---
+  {
+    type: "data.target.sqlserver",
+    category: "data",
+    label: "Load to SQL Server",
+    description: "Load data into Microsoft SQL Server",
+    icon: "DatabaseBackup",
+    defaultConfig: { mode: "insert", batch_size: 5000 },
+    configSchema: [
+      { name: "host", label: "Host", type: "text", required: true, placeholder: "${vault.db_host}", supportsExpressions: true },
+      { name: "port", label: "Port", type: "number", default: 1433 },
+      { name: "database", label: "Database", type: "text", required: true, supportsExpressions: true },
+      { name: "username", label: "Username", type: "text", required: true, placeholder: "${vault.db_user}", supportsExpressions: true },
+      { name: "password", label: "Password", type: "password", required: true, placeholder: "${vault.db_password}", supportsExpressions: true },
+      { name: "table", label: "Target Table", type: "text", required: true },
+      { name: "records", label: "Records", type: "text", required: true, supportsExpressions: true, placeholder: "${Extract SQL Server.records}" },
+      { name: "mode", label: "Mode", type: "select", default: "insert", options: [
+        { value: "insert", label: "Insert" },
+        { value: "upsert", label: "Upsert" },
+        { value: "replace", label: "Replace" },
+      ]},
+      { name: "batch_size", label: "Batch Size", type: "number", default: 5000 },
+    ],
+    outputSchema: [
+      { name: "insertedCount", type: "number", description: "Records inserted" },
+      { name: "updatedCount", type: "number", description: "Records updated" },
+      { name: "errorCount", type: "number", description: "Errors" },
+      { name: "errors", type: "array", description: "Error details" },
+    ],
+  },
+  {
+    type: "data.target.oracle",
+    category: "data",
+    label: "Load to Oracle",
+    description: "Load data into Oracle Database",
+    icon: "DatabaseBackup",
+    defaultConfig: { mode: "insert", batch_size: 5000 },
+    configSchema: [
+      { name: "host", label: "Host", type: "text", required: true, placeholder: "${vault.db_host}", supportsExpressions: true },
+      { name: "port", label: "Port", type: "number", default: 1521 },
+      { name: "database", label: "Service Name", type: "text", required: true, supportsExpressions: true },
+      { name: "username", label: "Username", type: "text", required: true, placeholder: "${vault.db_user}", supportsExpressions: true },
+      { name: "password", label: "Password", type: "password", required: true, placeholder: "${vault.db_password}", supportsExpressions: true },
+      { name: "table", label: "Target Table", type: "text", required: true },
+      { name: "records", label: "Records", type: "text", required: true, supportsExpressions: true },
+      { name: "mode", label: "Mode", type: "select", default: "insert", options: [
+        { value: "insert", label: "Insert" },
+        { value: "upsert", label: "Upsert" },
+      ]},
+      { name: "batch_size", label: "Batch Size", type: "number", default: 5000 },
+    ],
+    outputSchema: [
+      { name: "insertedCount", type: "number", description: "Records inserted" },
+      { name: "updatedCount", type: "number", description: "Records updated" },
+      { name: "errorCount", type: "number", description: "Errors" },
+    ],
+  },
+  {
+    type: "data.target.postgres",
+    category: "data",
+    label: "Load to PostgreSQL",
+    description: "Load data into PostgreSQL",
+    icon: "DatabaseBackup",
+    defaultConfig: { mode: "insert", batch_size: 5000 },
+    configSchema: [
+      { name: "host", label: "Host", type: "text", required: true, placeholder: "${vault.db_host}", supportsExpressions: true },
+      { name: "port", label: "Port", type: "number", default: 5432 },
+      { name: "database", label: "Database", type: "text", required: true, supportsExpressions: true },
+      { name: "username", label: "Username", type: "text", required: true, placeholder: "${vault.db_user}", supportsExpressions: true },
+      { name: "password", label: "Password", type: "password", required: true, placeholder: "${vault.db_password}", supportsExpressions: true },
+      { name: "table", label: "Target Table", type: "text", required: true },
+      { name: "records", label: "Records", type: "text", required: true, supportsExpressions: true },
+      { name: "mode", label: "Mode", type: "select", default: "insert", options: [
+        { value: "insert", label: "Insert" },
+        { value: "upsert", label: "Upsert" },
+      ]},
+      { name: "batch_size", label: "Batch Size", type: "number", default: 5000 },
+    ],
+    outputSchema: [
+      { name: "insertedCount", type: "number", description: "Records inserted" },
+      { name: "updatedCount", type: "number", description: "Records updated" },
+      { name: "errorCount", type: "number", description: "Errors" },
+    ],
+  },
+  {
+    type: "data.target.mysql",
+    category: "data",
+    label: "Load to MySQL",
+    description: "Load data into MySQL/MariaDB",
+    icon: "DatabaseBackup",
+    defaultConfig: { mode: "insert", batch_size: 5000 },
+    configSchema: [
+      { name: "host", label: "Host", type: "text", required: true, placeholder: "${vault.db_host}", supportsExpressions: true },
+      { name: "port", label: "Port", type: "number", default: 3306 },
+      { name: "database", label: "Database", type: "text", required: true, supportsExpressions: true },
+      { name: "username", label: "Username", type: "text", required: true, placeholder: "${vault.db_user}", supportsExpressions: true },
+      { name: "password", label: "Password", type: "password", required: true, placeholder: "${vault.db_password}", supportsExpressions: true },
+      { name: "table", label: "Target Table", type: "text", required: true },
+      { name: "records", label: "Records", type: "text", required: true, supportsExpressions: true },
+      { name: "mode", label: "Mode", type: "select", default: "insert", options: [
+        { value: "insert", label: "Insert" },
+        { value: "upsert", label: "Upsert" },
+      ]},
+      { name: "batch_size", label: "Batch Size", type: "number", default: 5000 },
+    ],
+    outputSchema: [
+      { name: "insertedCount", type: "number", description: "Records inserted" },
+      { name: "updatedCount", type: "number", description: "Records updated" },
+      { name: "errorCount", type: "number", description: "Errors" },
+    ],
+  },
+  {
+    type: "data.target.db2",
+    category: "data",
+    label: "Load to DB2",
+    description: "Load data into IBM DB2",
+    icon: "DatabaseBackup",
+    defaultConfig: { mode: "insert", batch_size: 5000 },
+    configSchema: [
+      { name: "host", label: "Host", type: "text", required: true, placeholder: "${vault.db_host}", supportsExpressions: true },
+      { name: "port", label: "Port", type: "number", default: 50000 },
+      { name: "database", label: "Database", type: "text", required: true, supportsExpressions: true },
+      { name: "username", label: "Username", type: "text", required: true, placeholder: "${vault.db_user}", supportsExpressions: true },
+      { name: "password", label: "Password", type: "password", required: true, placeholder: "${vault.db_password}", supportsExpressions: true },
+      { name: "table", label: "Target Table", type: "text", required: true },
+      { name: "records", label: "Records", type: "text", required: true, supportsExpressions: true },
+      { name: "mode", label: "Mode", type: "select", default: "insert", options: [
+        { value: "insert", label: "Insert" },
+      ]},
+      { name: "batch_size", label: "Batch Size", type: "number", default: 5000 },
+    ],
+    outputSchema: [
+      { name: "insertedCount", type: "number", description: "Records inserted" },
+      { name: "errorCount", type: "number", description: "Errors" },
+    ],
+  },
+  {
+    type: "data.target.snowflake",
+    category: "data",
+    label: "Load to Snowflake",
+    description: "Load data into Snowflake",
+    icon: "Snowflake",
+    defaultConfig: { mode: "insert", batch_size: 5000 },
+    configSchema: [
+      { name: "account", label: "Account Identifier", type: "text", required: true, placeholder: "${vault.sf_account}", supportsExpressions: true },
+      { name: "database", label: "Database", type: "text", required: true, supportsExpressions: true },
+      { name: "schema", label: "Schema", type: "text", default: "PUBLIC", supportsExpressions: true },
+      { name: "warehouse", label: "Warehouse", type: "text", supportsExpressions: true },
+      { name: "username", label: "Username", type: "text", required: true, placeholder: "${vault.sf_user}", supportsExpressions: true },
+      { name: "password", label: "Password", type: "password", required: true, placeholder: "${vault.sf_password}", supportsExpressions: true },
+      { name: "table", label: "Target Table", type: "text", required: true },
+      { name: "records", label: "Records", type: "text", required: true, supportsExpressions: true },
+      { name: "mode", label: "Mode", type: "select", default: "insert", options: [
+        { value: "insert", label: "Insert" },
+        { value: "upsert", label: "Upsert" },
+      ]},
+      { name: "batch_size", label: "Batch Size", type: "number", default: 5000 },
+    ],
+    outputSchema: [
+      { name: "insertedCount", type: "number", description: "Records inserted" },
+      { name: "updatedCount", type: "number", description: "Records updated" },
+      { name: "errorCount", type: "number", description: "Errors" },
+    ],
+  },
+  {
+    type: "data.target.bigquery",
+    category: "data",
+    label: "Load to BigQuery",
+    description: "Load data into Google BigQuery",
+    icon: "Cloud",
+    defaultConfig: { mode: "append" },
+    configSchema: [
+      { name: "project", label: "GCP Project ID", type: "text", required: true },
+      { name: "dataset", label: "Dataset", type: "text", required: true },
+      { name: "table", label: "Table", type: "text", required: true },
+      { name: "credentials_json", label: "Credentials JSON Path", type: "text", required: true },
+      { name: "records", label: "Records", type: "text", required: true, supportsExpressions: true },
+      { name: "mode", label: "Mode", type: "select", default: "append", options: [
+        { value: "append", label: "Append" },
+        { value: "truncate", label: "Truncate & Load" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "insertedCount", type: "number", description: "Records inserted" },
+      { name: "errorCount", type: "number", description: "Errors" },
+    ],
+  },
+
+  // --- FILE TARGETS ---
+  {
+    type: "data.target.csv",
+    category: "data",
+    label: "Write CSV",
+    description: "Write data to CSV file",
+    icon: "FileSpreadsheet",
+    defaultConfig: { delimiter: ",", encoding: "utf-8" },
+    configSchema: [
+      { name: "path", label: "File Path", type: "text", required: true, supportsExpressions: true },
+      { name: "records", label: "Records", type: "text", required: true, supportsExpressions: true },
+      { name: "delimiter", label: "Delimiter", type: "text", default: "," },
+      { name: "encoding", label: "Encoding", type: "select", default: "utf-8", options: [
+        { value: "utf-8", label: "UTF-8" },
+        { value: "latin-1", label: "Latin-1" },
+        { value: "cp1252", label: "Windows-1252" },
+      ]},
+      { name: "append", label: "Append to Existing", type: "boolean", default: false },
+    ],
+    outputSchema: [
+      { name: "insertedCount", type: "number", description: "Records written" },
+    ],
+  },
+  {
+    type: "data.target.excel",
+    category: "data",
+    label: "Write Excel (Data)",
+    description: "Write data to Excel file",
+    icon: "FileSpreadsheet",
+    defaultConfig: {},
+    configSchema: [
+      { name: "path", label: "File Path", type: "text", required: true, supportsExpressions: true },
+      { name: "records", label: "Records", type: "text", required: true, supportsExpressions: true },
+      { name: "sheet", label: "Sheet Name", type: "text", default: "Sheet1" },
+    ],
+    outputSchema: [
+      { name: "insertedCount", type: "number", description: "Records written" },
+    ],
+  },
+
+  // --- CLOUD TARGETS ---
+  {
+    type: "data.target.s3",
+    category: "data",
+    label: "Write to S3",
+    description: "Upload data to AWS S3",
+    icon: "CloudUpload",
+    defaultConfig: { file_type: "csv", region: "us-east-1" },
+    configSchema: [
+      { name: "bucket", label: "Bucket Name", type: "text", required: true },
+      { name: "key", label: "Object Key (path)", type: "text", required: true, supportsExpressions: true },
+      { name: "records", label: "Records", type: "text", required: true, supportsExpressions: true },
+      { name: "aws_access_key", label: "AWS Access Key", type: "text", required: true, supportsExpressions: true },
+      { name: "aws_secret_key", label: "AWS Secret Key", type: "password", required: true, supportsExpressions: true },
+      { name: "region", label: "Region", type: "text", default: "us-east-1" },
+      { name: "file_type", label: "File Type", type: "select", default: "csv", options: [
+        { value: "csv", label: "CSV" },
+        { value: "json", label: "JSON" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "insertedCount", type: "number", description: "Records uploaded" },
+    ],
+  },
+  {
+    type: "data.target.sftp",
+    category: "data",
+    label: "Write to SFTP",
+    description: "Upload data to SFTP server",
+    icon: "ServerCog",
+    defaultConfig: { file_type: "csv", port: 22 },
+    configSchema: [
+      { name: "host", label: "Host", type: "text", required: true },
+      { name: "port", label: "Port", type: "number", default: 22 },
+      { name: "path", label: "Target Path", type: "text", required: true, supportsExpressions: true },
+      { name: "records", label: "Records", type: "text", required: true, supportsExpressions: true },
+      { name: "username", label: "Username", type: "text", required: true },
+      { name: "password", label: "Password", type: "password", supportsExpressions: true },
+      { name: "private_key", label: "Private Key Path", type: "text" },
+      { name: "file_type", label: "File Type", type: "select", default: "csv", options: [
+        { value: "csv", label: "CSV" },
+        { value: "json", label: "JSON" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "insertedCount", type: "number", description: "Records uploaded" },
     ],
   },
 ];

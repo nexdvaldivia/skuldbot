@@ -1,4 +1,8 @@
 import { create } from "zustand";
+import { invoke } from "@tauri-apps/api/tauri";
+import { useFlowStore } from "./flowStore";
+import { useLogsStore } from "./logsStore";
+import { useToastStore } from "./toastStore";
 
 export type DebugState = "idle" | "running" | "paused" | "stopped";
 
@@ -9,6 +13,13 @@ interface NodeExecutionState {
   endTime?: number;
   output?: any;
   error?: string;
+}
+
+interface ExecutionResult {
+  success: boolean;
+  message: string;
+  output?: string;
+  logs?: string[];
 }
 
 interface DebugStoreState {
@@ -33,7 +44,7 @@ interface DebugStoreState {
   clearBreakpoints: () => void;
 
   // Debug control
-  startDebug: () => void;
+  startDebug: () => Promise<void>;
   pauseDebug: () => void;
   resumeDebug: () => void;
   stopDebug: () => void;
@@ -100,12 +111,112 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
   },
 
   // Debug control
-  startDebug: () => {
+  startDebug: async () => {
+    const flowStore = useFlowStore.getState();
+    const logs = useLogsStore.getState();
+    const toast = useToastStore.getState();
+
+    if (flowStore.nodes.length === 0) {
+      toast.warning("No nodes", "Add at least one node before debugging");
+      return;
+    }
+
+    // Reset state
     set({
       state: "running",
       currentNodeId: null,
       executionHistory: [],
     });
+
+    // Mark all nodes as pending
+    const nodeIds = flowStore.nodes.map((n) => n.id);
+    nodeIds.forEach((nodeId) => {
+      get().markNodeStatus(nodeId, "pending");
+    });
+
+    logs.info("Starting debug execution...");
+    logs.openPanel();
+
+    // Check for triggers and auto-add Manual if none exists
+    const hasTrigger = flowStore.nodes.some(
+      (node) => node.data.category === "trigger"
+    );
+
+    let dsl = flowStore.generateDSL();
+
+    if (!hasTrigger) {
+      const manualTriggerId = `trigger-manual-${Date.now()}`;
+      const firstNodeId = dsl.nodes[0]?.id;
+
+      const manualTriggerNode = {
+        id: manualTriggerId,
+        type: "trigger.manual",
+        config: {},
+        outputs: {
+          success: firstNodeId || manualTriggerId,
+          error: manualTriggerId,
+        },
+        label: "Manual Trigger",
+      };
+
+      dsl.nodes.unshift(manualTriggerNode);
+      dsl.triggers = [manualTriggerId];
+      dsl.start_node = manualTriggerId;
+
+      logs.info("Auto-added Manual Trigger");
+    }
+
+    try {
+      logs.info("Compiling and executing bot...");
+
+      const result = await invoke<ExecutionResult>("run_bot", {
+        dsl: JSON.stringify(dsl)
+      });
+
+      // Parse and show logs
+      if (result.logs && Array.isArray(result.logs)) {
+        result.logs.forEach((log: string) => {
+          // Try to extract node info from log lines
+          const nodeMatch = log.match(/\[NODE:(\w+[-\w]*)\]/);
+          if (nodeMatch) {
+            const nodeId = nodeMatch[1];
+            get().setCurrentNode(nodeId);
+            get().markNodeStatus(nodeId, "running");
+          }
+
+          if (log.includes("ERROR") || log.includes("FAIL")) {
+            logs.error(log);
+          } else if (log.includes("WARNING") || log.includes("WARN")) {
+            logs.warning(log);
+          } else if (log.includes("PASS") || log.includes("SUCCESS")) {
+            logs.success(log);
+          } else {
+            logs.info(log);
+          }
+        });
+      } else if (result.output) {
+        logs.info("Bot output", result.output);
+      }
+
+      if (result.success) {
+        // Mark all nodes as success
+        nodeIds.forEach((nodeId) => {
+          get().markNodeStatus(nodeId, "success");
+        });
+        logs.success("Debug execution completed successfully");
+        toast.success("Debug complete", "Bot executed successfully");
+        set({ state: "stopped" });
+      } else {
+        logs.error("Debug execution failed");
+        toast.error("Debug failed", "Check the logs for details");
+        set({ state: "stopped" });
+      }
+    } catch (error) {
+      const errorMsg = String(error);
+      logs.error("Debug error", errorMsg);
+      toast.error("Debug error", errorMsg.substring(0, 100));
+      set({ state: "stopped" });
+    }
   },
 
   pauseDebug: () => {

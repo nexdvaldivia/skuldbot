@@ -18,17 +18,48 @@ import "reactflow/dist/style.css";
 
 import { useFlowStore, getDraggedNodeData, clearDraggedNodeData, getPendingNodeTemplate, clearPendingNodeTemplate } from "../store/flowStore";
 import CustomNode from "./CustomNode";
+import GroupNode from "./GroupNode";
 import AnimatedEdge from "./AnimatedEdge";
 import EmptyState from "./EmptyState";
-import { FlowNode, FlowEdge } from "../types/flow";
+import { FlowNode, FlowEdge, isContainerNodeType } from "../types/flow";
 
 const nodeTypes: NodeTypes = {
   customNode: CustomNode,
+  groupNode: GroupNode,
 };
 
 const edgeTypes: EdgeTypes = {
   animated: AnimatedEdge,
 };
+
+// Helper to find if a position is inside a GroupNode (container)
+function findParentGroupNode(
+  position: { x: number; y: number },
+  nodes: FlowNode[]
+): FlowNode | null {
+  // Only consider GroupNodes (containers)
+  const groupNodes = nodes.filter((n) => n.type === "groupNode");
+
+  // Check each group node to see if position is inside it
+  // We need to account for the header height (~52px) when determining drop zone
+  const HEADER_HEIGHT = 52;
+
+  for (const group of groupNodes) {
+    const width = (group.style?.width as number) || 400;
+    const height = (group.style?.height as number) || 250;
+
+    // Check if position is inside the group's drop zone (below header)
+    if (
+      position.x >= group.position.x &&
+      position.x <= group.position.x + width &&
+      position.y >= group.position.y + HEADER_HEIGHT &&
+      position.y <= group.position.y + height
+    ) {
+      return group;
+    }
+  }
+  return null;
+}
 
 export default function FlowEditor() {
   const { nodes, edges, setNodes, setEdges, setSelectedNode, selectedNode } = useFlowStore();
@@ -87,20 +118,63 @@ export default function FlowEditor() {
         y: event.clientY,
       });
 
+      // Use groupNode type for container nodes (Loop, While, If, Try/Catch)
+      const isContainer = isContainerNodeType(nodeData.type);
+
+      // Check if dropping inside a GroupNode (container)
+      const parentGroup = !isContainer ? findParentGroupNode(position, nodesRef.current) : null;
+
+      // Calculate position relative to parent if dropping inside a container
+      let finalPosition = position;
+      if (parentGroup) {
+        finalPosition = {
+          x: position.x - parentGroup.position.x,
+          y: position.y - parentGroup.position.y,
+        };
+      }
+
       const newNode: FlowNode = {
         id: `${nodeData.type}-${Date.now()}`,
-        type: "customNode",
-        position,
+        type: isContainer ? "groupNode" : "customNode",
+        position: finalPosition,
+        // Container nodes need explicit dimensions
+        ...(isContainer && {
+          style: { width: 400, height: 250 },
+        }),
+        // Set parent if dropping inside a container
+        ...(parentGroup && {
+          parentId: parentGroup.id,
+          extent: "parent" as const,
+        }),
+        // Child nodes need higher zIndex to render edges above container
+        zIndex: parentGroup ? 1000 : undefined,
         data: {
           label: nodeData.label,
           nodeType: nodeData.type,
           config: { ...(nodeData.defaultConfig || {}) },
           category: nodeData.category,
           icon: nodeData.icon,
+          ...(isContainer && { childNodes: [] }),
         },
       };
 
-      setNodes([...nodesRef.current, newNode]);
+      // Update parent's childNodes list if dropping inside a container
+      let updatedNodes = [...nodesRef.current];
+      if (parentGroup) {
+        updatedNodes = nodesRef.current.map((n) =>
+          n.id === parentGroup.id
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  childNodes: [...(n.data.childNodes || []), newNode.id],
+                },
+              }
+            : n
+        );
+      }
+
+      setNodes([...updatedNodes, newNode]);
       clearDraggedNodeData();
     };
 
@@ -177,7 +251,16 @@ export default function FlowEditor() {
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
-      const updatedNodes = applyNodeChanges(changes, nodes) as FlowNode[];
+      let updatedNodes = applyNodeChanges(changes, nodes) as FlowNode[];
+
+      // Ensure child nodes always have high zIndex for proper edge rendering
+      updatedNodes = updatedNodes.map(node => {
+        if (node.parentId && (node.zIndex === undefined || node.zIndex < 1000)) {
+          return { ...node, zIndex: 1000 };
+        }
+        return node;
+      });
+
       setNodes(updatedNodes);
     },
     [nodes, setNodes]
@@ -211,7 +294,17 @@ export default function FlowEditor() {
     [edges, setEdges]
   );
 
+  // Single click just selects the node (React Flow handles this automatically)
+  // We don't open the config panel on single click anymore
   const onNodeClick = useCallback(
+    (_event: React.MouseEvent, _node: FlowNode) => {
+      // Don't open config panel - just let React Flow handle selection
+    },
+    []
+  );
+
+  // Double click opens the configuration panel
+  const onNodeDoubleClick = useCallback(
     (_event: React.MouseEvent, node: FlowNode) => {
       setSelectedNode(node);
     },
@@ -227,20 +320,63 @@ export default function FlowEditor() {
         y: event.clientY,
       });
 
+      // Use groupNode type for container nodes (Loop, While, If, Try/Catch)
+      const isContainer = isContainerNodeType(pendingNode.type);
+
+      // Check if clicking inside a GroupNode (container)
+      const parentGroup = !isContainer ? findParentGroupNode(position, nodes) : null;
+
+      // Calculate position relative to parent if placing inside a container
+      let finalPosition = position;
+      if (parentGroup) {
+        finalPosition = {
+          x: position.x - parentGroup.position.x,
+          y: position.y - parentGroup.position.y,
+        };
+      }
+
       const newNode: FlowNode = {
         id: `${pendingNode.type}-${Date.now()}`,
-        type: "customNode",
-        position,
+        type: isContainer ? "groupNode" : "customNode",
+        position: finalPosition,
+        // Container nodes need explicit dimensions
+        ...(isContainer && {
+          style: { width: 400, height: 250 },
+        }),
+        // Set parent if placing inside a container
+        ...(parentGroup && {
+          parentId: parentGroup.id,
+          extent: "parent" as const,
+        }),
+        // Child nodes need higher zIndex to render edges above container
+        zIndex: parentGroup ? 1000 : undefined,
         data: {
           label: pendingNode.label,
           nodeType: pendingNode.type,
           config: { ...(pendingNode.defaultConfig || {}) },
           category: pendingNode.category,
           icon: pendingNode.icon,
+          ...(isContainer && { childNodes: [] }),
         },
       };
 
-      setNodes([...nodes, newNode]);
+      // Update parent's childNodes list if placing inside a container
+      let updatedNodes = [...nodes];
+      if (parentGroup) {
+        updatedNodes = nodes.map((n) =>
+          n.id === parentGroup.id
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  childNodes: [...(n.data.childNodes || []), newNode.id],
+                },
+              }
+            : n
+        );
+      }
+
+      setNodes([...updatedNodes, newNode]);
       clearPendingNodeTemplate();
       return;
     }
@@ -310,23 +446,67 @@ export default function FlowEditor() {
       });
       console.log("Calculated position:", position);
 
+      // Use groupNode type for container nodes (Loop, While, If, Try/Catch)
+      const isContainer = isContainerNodeType(nodeData.type);
+
+      // Check if dropping inside a GroupNode (container)
+      // Don't allow nesting containers inside containers
+      const parentGroup = !isContainer ? findParentGroupNode(position, nodes) : null;
+
+      // Calculate position relative to parent if dropping inside a container
+      let finalPosition = position;
+      if (parentGroup) {
+        finalPosition = {
+          x: position.x - parentGroup.position.x,
+          y: position.y - parentGroup.position.y,
+        };
+        console.log("Dropping inside container:", parentGroup.id, "Relative position:", finalPosition);
+      }
+
       const newNode: FlowNode = {
         id: `${nodeData.type}-${Date.now()}`,
-        type: "customNode",
-        position,
+        type: isContainer ? "groupNode" : "customNode",
+        position: finalPosition,
+        // Container nodes need explicit dimensions
+        ...(isContainer && {
+          style: { width: 400, height: 250 },
+        }),
+        // Set parent if dropping inside a container
+        ...(parentGroup && {
+          parentId: parentGroup.id,
+          extent: "parent" as const,
+        }),
+        // Child nodes need higher zIndex to render edges above container
+        zIndex: parentGroup ? 1000 : undefined,
         data: {
           label: nodeData.label,
           nodeType: nodeData.type,
           config: { ...(nodeData.defaultConfig || {}) },
           category: nodeData.category,
           icon: nodeData.icon,
+          ...(isContainer && { childNodes: [] }),
         },
       };
-      console.log("Creating new node:", newNode);
+      console.log("Creating new node:", newNode, parentGroup ? `(child of ${parentGroup.id})` : "(top-level)");
 
-      const newNodes = [...nodes, newNode];
-      console.log("Setting nodes, total count:", newNodes.length);
-      setNodes(newNodes);
+      // Update parent's childNodes list if dropping inside a container
+      let updatedNodes = [...nodes];
+      if (parentGroup) {
+        updatedNodes = nodes.map((n) =>
+          n.id === parentGroup.id
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  childNodes: [...(n.data.childNodes || []), newNode.id],
+                },
+              }
+            : n
+        );
+      }
+
+      setNodes([...updatedNodes, newNode]);
+      console.log("Setting nodes, total count:", updatedNodes.length + 1);
       clearDraggedNodeData();
       console.log("=== DROP COMPLETE ===");
     },
@@ -348,6 +528,7 @@ export default function FlowEditor() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={onNodeClick}
+        onNodeDoubleClick={onNodeDoubleClick}
         onPaneClick={onPaneClick}
         onDrop={onDrop}
         onDragOver={onDragOver}
@@ -358,8 +539,10 @@ export default function FlowEditor() {
         elementsSelectable={true}
         deleteKeyCode={null}
         proOptions={{ hideAttribution: true }}
+        elevateEdgesOnSelect={true}
         defaultEdgeOptions={{
           type: "animated",
+          zIndex: 1000,
         }}
         connectionLineStyle={{
           strokeWidth: 2,

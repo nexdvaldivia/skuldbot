@@ -163,8 +163,14 @@ export default function WelcomeScreen() {
   };
 
   const handleOpenRecent = async (project: RecentProject) => {
-    await openProject(project.path);
-    setView("project");
+    try {
+      console.log("Opening recent project:", project.path);
+      await openProject(project.path);
+      console.log("Project opened successfully, switching view");
+      setView("project");
+    } catch (error) {
+      console.error("Failed to open recent project:", error);
+    }
   };
 
   const handleRemoveRecent = async (
@@ -202,19 +208,25 @@ export default function WelcomeScreen() {
 
         <div className="flex-1 flex flex-col justify-center">
           <h2 className="text-3xl font-bold text-white mb-4">
-            Intelligent
+            Enterprise
             <br />
-            Automation
+            Intelligent Automation
           </h2>
           <p className="text-primary-200 text-lg leading-relaxed">
-            Build powerful RPA + AI automations with our intuitive visual editor.
-            Combine robotic process automation with artificial intelligence.
+            Build powerful RPA + AI automations for regulated industries.
+            HIPAA-compliant data processing, AI-powered data quality,
+            and enterprise-grade security built-in.
           </p>
-          <div className="flex gap-2 mt-4">
+          <div className="flex flex-wrap gap-2 mt-4">
             <span className="px-2 py-1 bg-white/10 rounded text-xs text-primary-100">RPA</span>
             <span className="px-2 py-1 bg-white/10 rounded text-xs text-primary-100">AI</span>
-            <span className="px-2 py-1 bg-white/10 rounded text-xs text-primary-100">No-Code</span>
-            <span className="px-2 py-1 bg-white/10 rounded text-xs text-primary-100">Low-Code</span>
+            <span className="px-2 py-1 bg-white/10 rounded text-xs text-primary-100">Data Quality</span>
+            <span className="px-2 py-1 bg-white/10 rounded text-xs text-primary-100">Compliance</span>
+          </div>
+          <div className="flex flex-wrap gap-2 mt-2">
+            <span className="px-2 py-1 bg-emerald-500/20 rounded text-xs text-emerald-200">HIPAA</span>
+            <span className="px-2 py-1 bg-emerald-500/20 rounded text-xs text-emerald-200">SOC2</span>
+            <span className="px-2 py-1 bg-emerald-500/20 rounded text-xs text-emerald-200">PCI-DSS</span>
           </div>
         </div>
 

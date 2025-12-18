@@ -15,7 +15,7 @@ import {
 import { Settings, Globe, Eye, Save, Clock, FileText } from "lucide-react";
 
 export default function SettingsPanel() {
-  const { project } = useProjectStore();
+  const { project, updateProjectSettings, isSaving } = useProjectStore();
   const [hasChanges, setHasChanges] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -32,8 +32,15 @@ export default function SettingsPanel() {
     setHasChanges(true);
   };
 
-  const handleSave = () => {
-    // Here you would call updateProjectSettings
+  const handleSave = async () => {
+    await updateProjectSettings({
+      name: formData.name,
+      description: formData.description,
+      defaultBrowser: formData.defaultBrowser as "chromium" | "firefox" | "webkit",
+      defaultHeadless: formData.defaultHeadless,
+      autoSaveEnabled: formData.autoSaveEnabled,
+      autoSaveInterval: formData.autoSaveInterval,
+    });
     setHasChanges(false);
   };
 
@@ -55,9 +62,9 @@ export default function SettingsPanel() {
               </p>
             </div>
           </div>
-          <Button onClick={handleSave} disabled={!hasChanges}>
+          <Button onClick={handleSave} disabled={!hasChanges || isSaving}>
             <Save className="w-4 h-4" />
-            Save Changes
+            {isSaving ? "Saving..." : "Save Changes"}
           </Button>
         </div>
 

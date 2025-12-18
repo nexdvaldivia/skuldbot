@@ -23,7 +23,8 @@ import {
 } from "./ui/select";
 import { FormBuilder } from "./FormBuilder";
 import { FormPreview } from "./FormPreview";
-import { FormFieldDefinition, OutputField, FlowNode } from "../types/flow";
+import { ValidationBuilder } from "./ValidationBuilder";
+import { FormFieldDefinition, OutputField, FlowNode, ValidationRule } from "../types/flow";
 
 interface AvailableVariable {
   nodeId: string;
@@ -86,9 +87,9 @@ function OutputTreeNode({
                 key={field.id}
                 className="group pl-4 py-0.5 hover:bg-emerald-50 rounded cursor-pointer flex items-center gap-1"
                 onClick={() => copyExpression(expression)}
-                title={`Click to copy: ${expression}`}
+                title={field.label ? `${field.label}\nClick to copy: ${expression}` : `Click to copy: ${expression}`}
               >
-                <span className="text-emerald-600">&quot;{field.label || `Field ${i + 1}`}&quot;</span>
+                <span className="text-emerald-600">&quot;{field.id}&quot;</span>
                 <span className="text-slate-400">:</span>
                 <span className={`ml-1 ${
                   fieldType === "string" ? "text-green-600" :
@@ -158,14 +159,14 @@ function InputNodeTree({
         <div className="mt-1 pl-2 border-l-2 border-slate-100 ml-1.5">
           {/* Regular fields */}
           {regularFields.map((v, i) => {
-            // Get a readable name from the field
-            const displayName = v.field.description || v.field.name;
+            // Show the field name (not description) so users know the actual variable name
+            const displayName = v.field.name;
             return (
               <div
                 key={i}
                 className="group py-0.5 hover:bg-blue-50 rounded cursor-pointer flex items-center gap-1 px-1"
                 onClick={() => copyExpression(v.expression)}
-                title={`Click to copy: ${v.expression}`}
+                title={v.field.description ? `${v.field.description}\nClick to copy: ${v.expression}` : `Click to copy: ${v.expression}`}
               >
                 <span className="text-blue-600">&quot;{displayName}&quot;</span>
                 <span className="text-slate-400">:</span>
@@ -213,16 +214,17 @@ function InputNodeTree({
               {isFormDataExpanded && (
                 <div className="pl-4">
                   {formDataFields.map((v, i) => {
-                    // Use the description as the readable name (which contains the form field label)
-                    const displayName = v.field.description || v.field.name.replace('formData.', '');
+                    // Show the field ID (from name) so users know the actual variable name
+                    // field.name is "formData.fieldId", so extract just the fieldId
+                    const fieldId = v.field.name.replace('formData.', '');
                     return (
                       <div
                         key={i}
                         className="group py-0.5 hover:bg-blue-50 rounded cursor-pointer flex items-center gap-1 px-1"
                         onClick={() => copyExpression(v.expression)}
-                        title={`Click to copy: ${v.expression}`}
+                        title={v.field.description ? `${v.field.description}\nClick to copy: ${v.expression}` : `Click to copy: ${v.expression}`}
                       >
-                        <span className="text-blue-600">&quot;{displayName}&quot;</span>
+                        <span className="text-blue-600">&quot;{fieldId}&quot;</span>
                         <span className="text-slate-400">:</span>
                         <span className={`ml-1 ${
                           v.field.type === "string" ? "text-green-600" :
@@ -329,12 +331,93 @@ export default function NodeConfigPanel() {
     return predecessors;
   }, [node, nodes, edges]);
 
+  // Check if this node is connected via an error (orange) edge
+  const hasErrorConnection = useMemo(() => {
+    if (!node) return false;
+    return edges.some(e => e.target === node.id && e.sourceHandle === "error");
+  }, [node, edges]);
+
   // Get available variables from predecessor nodes
   const availableVariables = useMemo((): AvailableVariable[] => {
     const variables: AvailableVariable[] = [];
 
+    // If connected via error edge, add error variables (global Robot Framework vars)
+    if (hasErrorConnection) {
+      variables.push({
+        nodeId: "_system",
+        nodeLabel: "Error Info",
+        nodeType: "system.error",
+        field: {
+          name: "LAST_ERROR",
+          type: "string",
+          description: "The error message from the failed node",
+        },
+        expression: "${LAST_ERROR}",
+      });
+      variables.push({
+        nodeId: "_system",
+        nodeLabel: "Error Info",
+        nodeType: "system.error",
+        field: {
+          name: "LAST_ERROR_NODE",
+          type: "string",
+          description: "The ID of the node that failed",
+        },
+        expression: "${LAST_ERROR_NODE}",
+      });
+      variables.push({
+        nodeId: "_system",
+        nodeLabel: "Error Info",
+        nodeType: "system.error",
+        field: {
+          name: "LAST_ERROR_TYPE",
+          type: "string",
+          description: "The type of node that failed (e.g., excel.read_range)",
+        },
+        expression: "${LAST_ERROR_TYPE}",
+      });
+    }
+
     for (const predNode of predecessorNodes) {
       const template = getNodeTemplate(predNode.data.nodeType);
+
+      // Add per-node state variables (output, error, status) for all nodes
+      // These are stored in Robot Framework as &{NODE_<node_id>} dictionaries
+      variables.push({
+        nodeId: predNode.id,
+        nodeLabel: predNode.data.label,
+        nodeType: predNode.data.nodeType,
+        field: {
+          name: "output",
+          type: "string",
+          description: "Main output/result from this node",
+        },
+        expression: `\${${predNode.data.label}.output}`,
+      });
+      variables.push({
+        nodeId: predNode.id,
+        nodeLabel: predNode.data.label,
+        nodeType: predNode.data.nodeType,
+        field: {
+          name: "error",
+          type: "string",
+          description: "Error message if node failed",
+        },
+        expression: `\${${predNode.data.label}.error}`,
+      });
+      variables.push({
+        nodeId: predNode.id,
+        nodeLabel: predNode.data.label,
+        nodeType: predNode.data.nodeType,
+        field: {
+          name: "status",
+          type: "string",
+          description: "Node execution status (pending, success, error)",
+        },
+        expression: `\${${predNode.data.label}.status}`,
+      });
+
+      // Add template-defined output schema fields
       if (template?.outputSchema) {
         for (const field of template.outputSchema) {
           variables.push({
@@ -364,10 +447,56 @@ export default function NodeConfigPanel() {
           });
         }
       }
+
+      // For Excel Read nodes, add dynamic column fields from column_names config
+      const isExcelReadType = predNode.data.nodeType === "excel.read_range" || predNode.data.nodeType === "excel.read_csv";
+      if (isExcelReadType && predNode.data.config?.column_names) {
+        const columnNames = predNode.data.config.column_names as string;
+        if (typeof columnNames === "string" && columnNames.trim()) {
+          const columns = columnNames.split(",").map(c => c.trim()).filter(c => c.length > 0);
+          for (const colName of columns) {
+            variables.push({
+              nodeId: predNode.id,
+              nodeLabel: predNode.data.label,
+              nodeType: predNode.data.nodeType,
+              field: {
+                name: `row.${colName}`,
+                type: "string",
+                description: `Column: ${colName}`,
+              },
+              expression: `\${${predNode.data.label}.row.${colName}}`,
+            });
+          }
+        }
+      }
+
+      // For Secrets/Vault nodes, add dynamic vault variables from secrets config
+      const isSecretsNode = predNode.data.nodeType.startsWith("secrets.");
+      if (isSecretsNode && predNode.data.config?.secrets) {
+        const secretsConfig = predNode.data.config.secrets as string;
+        if (typeof secretsConfig === "string" && secretsConfig.trim()) {
+          const secretNames = secretsConfig.split("\n").map(s => s.trim()).filter(s => s.length > 0);
+          for (const secretName of secretNames) {
+            // Extract just the secret name (last part after any slashes for AWS ARN-style paths)
+            const displayName = secretName.includes("/") ? secretName.split("/").pop() || secretName : secretName;
+            variables.push({
+              nodeId: predNode.id,
+              nodeLabel: predNode.data.label,
+              nodeType: predNode.data.nodeType,
+              field: {
+                name: `vault.${displayName}`,
+                type: "string",
+                description: `Secret: ${secretName}`,
+              },
+              expression: `\${vault.${displayName}}`,
+            });
+          }
+        }
+      }
     }
 
     return variables;
-  }, [predecessorNodes]);
+  }, [predecessorNodes, hasErrorConnection]);
 
   // Check if this is an Excel node and load sheets when file path changes
   const isExcelNode = node?.data.nodeType?.startsWith("excel.");
@@ -417,6 +546,46 @@ export default function NodeConfigPanel() {
 
     loadSheets();
   }, [isExcelNode, excelFilePath]);
+
+  // Get dynamic Excel column fields for output (from column_names config)
+  // This must be before any early returns to follow Rules of Hooks
+  const isExcelReadNode = node?.data.nodeType === "excel.read_range" || node?.data.nodeType === "excel.read_csv";
+  const columnNamesConfig = node?.data.config?.column_names;
+  const dynamicExcelColumns: { id: string; label: string }[] = useMemo(() => {
+    if (!isExcelReadNode) return [];
+    if (!columnNamesConfig || typeof columnNamesConfig !== "string") return [];
+
+    return columnNamesConfig
+      .split(",")
+      .map(name => name.trim())
+      .filter(name => name.length > 0)
+      .map(name => ({
+        id: name,
+        label: name,
+      }));
+  }, [isExcelReadNode, columnNamesConfig]);
+
+  // Get dynamic secrets fields for output (from secrets config in vault nodes)
+  const isSecretsNode = node?.data.nodeType?.startsWith("secrets.");
+  const secretsConfig = node?.data.config?.secrets;
+  const dynamicSecrets: { id: string; label: string; fullPath: string }[] = useMemo(() => {
+    if (!isSecretsNode) return [];
+    if (!secretsConfig || typeof secretsConfig !== "string") return [];
+
+    return secretsConfig
+      .split("\n")
+      .map(name => name.trim())
+      .filter(name => name.length > 0)
+      .map(name => {
+        // Extract just the secret name (last part after any slashes for AWS ARN-style paths)
+        const displayName = name.includes("/") ? name.split("/").pop() || name : name;
+        return {
+          id: displayName,
+          label: displayName,
+          fullPath: name,
+        };
+      });
+  }, [isSecretsNode, secretsConfig]);
 
   if (!node) return null;
 
@@ -766,6 +935,14 @@ export default function NodeConfigPanel() {
                       onChange={(fields) => handleConfigChange(field.name, fields)}
                     />
                   )}
+
+                  {field.type === "validation-builder" && (
+                    <ValidationBuilder
+                      value={(node.data.config[field.name] as ValidationRule[]) || []}
+                      onChange={(rules) => handleConfigChange(field.name, rules)}
+                      availableFields={availableVariables.map(v => v.field.name)}
+                    />
+                  )}
                 </div>
                 );
               })}
@@ -787,7 +964,7 @@ export default function NodeConfigPanel() {
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                 <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">Output</span>
                 <span className="text-[10px] text-emerald-500 ml-auto bg-emerald-100 px-1.5 py-0.5 rounded-full">
-                  {(template.outputSchema?.length || 0) + dynamicFormFields.length}
+                  {(template.outputSchema?.length || 0) + dynamicFormFields.length + dynamicExcelColumns.length + dynamicSecrets.length}
                 </span>
               </div>
 
@@ -800,13 +977,13 @@ export default function NodeConfigPanel() {
                   {/* Standard output fields */}
                   {template.outputSchema?.map((field, i) => {
                     const expression = `\${${node.data.label}.${field.name}}`;
-                    const isLast = i === (template.outputSchema?.length || 0) - 1 && dynamicFormFields.length === 0;
+                    const isLast = i === (template.outputSchema?.length || 0) - 1 && dynamicFormFields.length === 0 && dynamicExcelColumns.length === 0 && dynamicSecrets.length === 0;
                     return (
                       <div
                         key={i}
                         className="group pl-4 py-0.5 hover:bg-emerald-50 rounded cursor-pointer flex items-center gap-1"
                         onClick={() => copyExpression(expression)}
-                        title={`Click to copy: ${expression}`}
+                        title={field.description ? `${field.description}\nClick to copy: ${expression}` : `Click to copy: ${expression}`}
                       >
                         <span className="text-emerald-600">&quot;{field.name}&quot;</span>
                         <span className="text-slate-400">:</span>
@@ -844,8 +1021,86 @@ export default function NodeConfigPanel() {
                       fields={dynamicFormFields}
                       copyExpression={copyExpression}
                       copiedExpression={copiedExpression}
-                      isLast={true}
+                      isLast={dynamicExcelColumns.length === 0 && dynamicSecrets.length === 0}
                     />
+                  )}
+
+                  {/* Excel Row Fields (nested object for Excel Read nodes) */}
+                  {dynamicExcelColumns.length > 0 && (
+                    <div className="pl-4">
+                      {/* row object header */}
+                      <div
+                        className="flex items-center gap-1 py-0.5 cursor-pointer hover:bg-slate-50 rounded -ml-3 pl-1"
+                      >
+                        <ChevronDown className="w-3 h-3 text-slate-400" />
+                        <span className="text-orange-600">&quot;row&quot;</span>
+                        <span className="text-slate-400">:</span>
+                        <span className="text-slate-500 ml-1">{"{"}</span>
+                      </div>
+                      {/* Column fields */}
+                      {dynamicExcelColumns.map((col, i) => {
+                        const expression = `\${${node.data.label}.row.${col.id}}`;
+                        const colIsLast = i === dynamicExcelColumns.length - 1;
+                        return (
+                          <div
+                            key={col.id}
+                            className="group pl-4 py-0.5 hover:bg-emerald-50 rounded cursor-pointer flex items-center gap-1"
+                            onClick={() => copyExpression(expression)}
+                            title={`Click to copy: ${expression}`}
+                          >
+                            <span className="text-emerald-600">&quot;{col.label}&quot;</span>
+                            <span className="text-slate-400">:</span>
+                            <span className="text-green-600 ml-1">&quot;...&quot;</span>
+                            {!colIsLast && <span className="text-slate-400">,</span>}
+                            {copiedExpression === expression ? (
+                              <Check className="w-3 h-3 text-green-500 ml-auto opacity-100" />
+                            ) : (
+                              <Copy className="w-3 h-3 text-slate-300 ml-auto opacity-0 group-hover:opacity-100" />
+                            )}
+                          </div>
+                        );
+                      })}
+                      <div className="text-slate-500 pl-0">{"}"}{dynamicSecrets.length > 0 && ","}</div>
+                    </div>
+                  )}
+
+                  {/* Vault Secrets (for secrets.* nodes) */}
+                  {dynamicSecrets.length > 0 && (
+                    <div className="pl-4">
+                      {/* vault object header */}
+                      <div
+                        className="flex items-center gap-1 py-0.5 cursor-pointer hover:bg-slate-50 rounded -ml-3 pl-1"
+                      >
+                        <ChevronDown className="w-3 h-3 text-slate-400" />
+                        <span className="text-yellow-600">&quot;vault&quot;</span>
+                        <span className="text-slate-400">:</span>
+                        <span className="text-slate-500 ml-1">{"{"}</span>
+                      </div>
+                      {/* Secret fields */}
+                      {dynamicSecrets.map((secret, i) => {
+                        const expression = `\${vault.${secret.id}}`;
+                        const secretIsLast = i === dynamicSecrets.length - 1;
+                        return (
+                          <div
+                            key={secret.id}
+                            className="group pl-4 py-0.5 hover:bg-yellow-50 rounded cursor-pointer flex items-center gap-1"
+                            onClick={() => copyExpression(expression)}
+                            title={`Click to copy: ${expression}\nFull path: ${secret.fullPath}`}
+                          >
+                            <span className="text-yellow-600">&quot;{secret.label}&quot;</span>
+                            <span className="text-slate-400">:</span>
+                            <span className="text-green-600 ml-1">&quot;••••••&quot;</span>
+                            {!secretIsLast && <span className="text-slate-400">,</span>}
+                            {copiedExpression === expression ? (
+                              <Check className="w-3 h-3 text-green-500 ml-auto opacity-100" />
+                            ) : (
+                              <Copy className="w-3 h-3 text-slate-300 ml-auto opacity-0 group-hover:opacity-100" />
+                            )}
+                          </div>
+                        );
+                      })}
+                      <div className="text-slate-500 pl-0">{"}"}</div>
+                    </div>
                   )}
 
                   <div className="text-slate-500">{"}"}</div>

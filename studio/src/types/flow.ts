@@ -25,6 +25,8 @@ export interface DSLNode {
   label?: string;
   description?: string;
   position?: { x: number; y: number };  // Visual position in editor
+  // Container nodes: nested nodes that execute inside this container
+  children?: DSLNode[];
 }
 
 export interface VariableDefinition {
@@ -52,6 +54,7 @@ export type NodeCategory =
   | "human"        // Human-in-the-loop
   | "compliance"   // PII/PHI Protection & HIPAA Safe Harbor
   | "dataquality"  // Data Quality Gates (Great Expectations)
+  | "data"         // Data Integration (Taps & Targets)
   | "trigger";     // Scheduling & Triggers
 
 // Output field definition - what data a node produces
@@ -76,12 +79,34 @@ export interface NodeTemplate {
 export interface ConfigField {
   name: string;
   label: string;
-  type: "text" | "number" | "boolean" | "select" | "textarea" | "password" | "form-builder" | "expression";
+  type: "text" | "number" | "boolean" | "select" | "textarea" | "password" | "form-builder" | "expression" | "validation-builder";
   required?: boolean;
   default?: any;
   options?: { value: string; label: string }[];
   placeholder?: string;
   supportsExpressions?: boolean;  // Allow ${node.field} syntax in this field
+}
+
+// Validation Builder Types (for dataquality.run_suite)
+export type ValidationRuleType =
+  | "not_null"
+  | "unique"
+  | "regex"
+  | "in_set"
+  | "not_in_set"
+  | "between"
+  | "greater_than"
+  | "less_than"
+  | "length_between"
+  | "email"
+  | "date_format"
+  | "json_schema";
+
+export interface ValidationRule {
+  id: string;
+  field: string;
+  type: ValidationRuleType;
+  params?: Record<string, any>;  // pattern, values, min, max, etc.
 }
 
 // Form Builder Types (for trigger.form)
@@ -100,6 +125,21 @@ export interface FormFieldDefinition {
   };
 }
 
+// Container Node Types - nodes that can hold other nodes inside
+export const CONTAINER_NODE_TYPES = [
+  "control.loop",       // For Each loop
+  "control.while",      // While loop
+  "control.if",         // If/Else branch
+  "control.try_catch",  // Try/Catch block
+] as const;
+
+export type ContainerNodeType = typeof CONTAINER_NODE_TYPES[number];
+
+// Check if a node type is a container
+export function isContainerNodeType(nodeType: string): boolean {
+  return CONTAINER_NODE_TYPES.includes(nodeType as ContainerNodeType);
+}
+
 // React Flow Node Data
 export interface FlowNodeData {
   label: string;
@@ -107,6 +147,8 @@ export interface FlowNodeData {
   config: Record<string, any>;
   category: NodeCategory;
   icon?: string;
+  // Container node specific - holds IDs of child nodes
+  childNodes?: string[];
 }
 
 // React Flow Edge Data

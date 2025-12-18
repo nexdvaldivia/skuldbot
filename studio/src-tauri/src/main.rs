@@ -939,6 +939,313 @@ async fn remove_recent_project(path: String) -> Result<(), String> {
 }
 
 // ============================================================
+// Vault Commands (Local Vault Management)
+// ============================================================
+
+#[derive(Debug, Serialize, Deserialize)]
+struct VaultSecret {
+    name: String,
+    description: Option<String>,
+    created_at: Option<String>,
+    updated_at: Option<String>,
+}
+
+#[tauri::command]
+async fn vault_exists(path: String) -> Result<bool, String> {
+    let vault_path = PathBuf::from(&path).join("secrets.vault");
+    Ok(vault_path.exists())
+}
+
+#[tauri::command]
+async fn vault_is_unlocked(path: String) -> Result<bool, String> {
+    // For now, we can't check unlock status without trying to unlock
+    // Return false to force unlock
+    Ok(false)
+}
+
+#[tauri::command]
+async fn vault_create(password: String, path: String) -> Result<bool, String> {
+    println!("Creating vault at: {}", path);
+
+    let engine_path = get_engine_path();
+    let python_exe = get_python_executable();
+
+    let output = Command::new(&python_exe)
+        .arg("-c")
+        .arg(format!(
+            r#"
+import sys
+sys.path.insert(0, '{}')
+from skuldbot.libs.local_vault import LocalVault
+
+vault = LocalVault('{}')
+vault.create('{}')
+print('OK')
+"#,
+            engine_path.display(),
+            path.replace("'", "\\'"),
+            password.replace("'", "\\'")
+        ))
+        .output()
+        .map_err(|e| format!("Failed to execute Python: {}", e))?;
+
+    if output.status.success() {
+        println!("Vault created successfully");
+        Ok(true)
+    } else {
+        let error = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Failed to create vault: {}", error))
+    }
+}
+
+#[tauri::command]
+async fn vault_unlock(password: String, path: String) -> Result<bool, String> {
+    println!("Unlocking vault at: {}", path);
+
+    let engine_path = get_engine_path();
+    let python_exe = get_python_executable();
+
+    let output = Command::new(&python_exe)
+        .arg("-c")
+        .arg(format!(
+            r#"
+import sys
+sys.path.insert(0, '{}')
+from skuldbot.libs.local_vault import LocalVault
+
+vault = LocalVault('{}')
+vault.unlock('{}')
+print('OK')
+"#,
+            engine_path.display(),
+            path.replace("'", "\\'"),
+            password.replace("'", "\\'")
+        ))
+        .output()
+        .map_err(|e| format!("Failed to execute Python: {}", e))?;
+
+    if output.status.success() {
+        println!("Vault unlocked successfully");
+        Ok(true)
+    } else {
+        let error = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Failed to unlock vault: {}", error))
+    }
+}
+
+#[tauri::command]
+async fn vault_lock(path: String) -> Result<bool, String> {
+    // Lock is handled by not storing the password
+    // In a real implementation, we'd clear any cached state
+    println!("Vault locked: {}", path);
+    Ok(true)
+}
+
+#[tauri::command]
+async fn vault_list_secrets(path: String) -> Result<Vec<VaultSecret>, String> {
+    println!("Listing secrets from vault: {}", path);
+
+    let engine_path = get_engine_path();
+    let python_exe = get_python_executable();
+
+    // Get password from environment
+    let password = std::env::var("SKULDBOT_VAULT_PASSWORD")
+        .map_err(|_| "SKULDBOT_VAULT_PASSWORD not set. Set it in your environment to use the vault.".to_string())?;
+
+    let output = Command::new(&python_exe)
+        .arg("-c")
+        .arg(format!(
+            r#"
+import sys
+import json
+sys.path.insert(0, '{}')
+from skuldbot.libs.local_vault import LocalVault
+
+vault = LocalVault('{}')
+vault.unlock('{}')
+secrets = vault.list_secrets()
+print(json.dumps(secrets))
+"#,
+            engine_path.display(),
+            path.replace("'", "\\'"),
+            password.replace("'", "\\'")
+        ))
+        .output()
+        .map_err(|e| format!("Failed to execute Python: {}", e))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let secrets: Vec<VaultSecret> = serde_json::from_str(&stdout)
+            .map_err(|e| format!("Failed to parse secrets: {}", e))?;
+        Ok(secrets)
+    } else {
+        let error = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Failed to list secrets: {}", error))
+    }
+}
+
+#[tauri::command]
+async fn vault_get_secret(name: String, path: String) -> Result<String, String> {
+    println!("Getting secret '{}' from vault: {}", name, path);
+
+    let engine_path = get_engine_path();
+    let python_exe = get_python_executable();
+
+    let password = std::env::var("SKULDBOT_VAULT_PASSWORD")
+        .map_err(|_| "SKULDBOT_VAULT_PASSWORD not set".to_string())?;
+
+    let output = Command::new(&python_exe)
+        .arg("-c")
+        .arg(format!(
+            r#"
+import sys
+sys.path.insert(0, '{}')
+from skuldbot.libs.local_vault import LocalVault
+
+vault = LocalVault('{}')
+vault.unlock('{}')
+value = vault.get_secret('{}')
+print(value, end='')
+"#,
+            engine_path.display(),
+            path.replace("'", "\\'"),
+            password.replace("'", "\\'"),
+            name.replace("'", "\\'")
+        ))
+        .output()
+        .map_err(|e| format!("Failed to execute Python: {}", e))?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        let error = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Failed to get secret: {}", error))
+    }
+}
+
+#[tauri::command]
+async fn vault_set_secret(name: String, value: String, description: Option<String>, path: String) -> Result<bool, String> {
+    println!("Setting secret '{}' in vault: {}", name, path);
+
+    let engine_path = get_engine_path();
+    let python_exe = get_python_executable();
+
+    let password = std::env::var("SKULDBOT_VAULT_PASSWORD")
+        .map_err(|_| "SKULDBOT_VAULT_PASSWORD not set".to_string())?;
+
+    let desc_arg = description.map(|d| format!("description='{}'", d.replace("'", "\\'"))).unwrap_or_default();
+
+    let output = Command::new(&python_exe)
+        .arg("-c")
+        .arg(format!(
+            r#"
+import sys
+sys.path.insert(0, '{}')
+from skuldbot.libs.local_vault import LocalVault
+
+vault = LocalVault('{}')
+vault.unlock('{}')
+vault.set_secret('{}', '{}'{})
+print('OK')
+"#,
+            engine_path.display(),
+            path.replace("'", "\\'"),
+            password.replace("'", "\\'"),
+            name.replace("'", "\\'"),
+            value.replace("'", "\\'"),
+            if desc_arg.is_empty() { "".to_string() } else { format!(", {}", desc_arg) }
+        ))
+        .output()
+        .map_err(|e| format!("Failed to execute Python: {}", e))?;
+
+    if output.status.success() {
+        println!("Secret '{}' saved", name);
+        Ok(true)
+    } else {
+        let error = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Failed to set secret: {}", error))
+    }
+}
+
+#[tauri::command]
+async fn vault_delete_secret(name: String, path: String) -> Result<bool, String> {
+    println!("Deleting secret '{}' from vault: {}", name, path);
+
+    let engine_path = get_engine_path();
+    let python_exe = get_python_executable();
+
+    let password = std::env::var("SKULDBOT_VAULT_PASSWORD")
+        .map_err(|_| "SKULDBOT_VAULT_PASSWORD not set".to_string())?;
+
+    let output = Command::new(&python_exe)
+        .arg("-c")
+        .arg(format!(
+            r#"
+import sys
+sys.path.insert(0, '{}')
+from skuldbot.libs.local_vault import LocalVault
+
+vault = LocalVault('{}')
+vault.unlock('{}')
+vault.delete_secret('{}')
+print('OK')
+"#,
+            engine_path.display(),
+            path.replace("'", "\\'"),
+            password.replace("'", "\\'"),
+            name.replace("'", "\\'")
+        ))
+        .output()
+        .map_err(|e| format!("Failed to execute Python: {}", e))?;
+
+    if output.status.success() {
+        println!("Secret '{}' deleted", name);
+        Ok(true)
+    } else {
+        let error = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Failed to delete secret: {}", error))
+    }
+}
+
+#[tauri::command]
+async fn vault_change_password(old_password: String, new_password: String, path: String) -> Result<bool, String> {
+    println!("Changing vault password: {}", path);
+
+    let engine_path = get_engine_path();
+    let python_exe = get_python_executable();
+
+    let output = Command::new(&python_exe)
+        .arg("-c")
+        .arg(format!(
+            r#"
+import sys
+sys.path.insert(0, '{}')
+from skuldbot.libs.local_vault import LocalVault
+
+vault = LocalVault('{}')
+vault.unlock('{}')
+vault.change_password('{}', '{}')
+print('OK')
+"#,
+            engine_path.display(),
+            path.replace("'", "\\'"),
+            old_password.replace("'", "\\'"),
+            old_password.replace("'", "\\'"),
+            new_password.replace("'", "\\'")
+        ))
+        .output()
+        .map_err(|e| format!("Failed to execute Python: {}", e))?;
+
+    if output.status.success() {
+        println!("Vault password changed");
+        Ok(true)
+    } else {
+        let error = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Failed to change password: {}", error))
+    }
+}
+
+// ============================================================
 // Utility Commands
 // ============================================================
 
@@ -1069,6 +1376,17 @@ fn main() {
             get_recent_projects,
             add_recent_project,
             remove_recent_project,
+            // Vault commands
+            vault_exists,
+            vault_is_unlocked,
+            vault_create,
+            vault_unlock,
+            vault_lock,
+            vault_list_secrets,
+            vault_get_secret,
+            vault_set_secret,
+            vault_delete_secret,
+            vault_change_password,
             // Utility commands
             read_directory,
             file_exists,

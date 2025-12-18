@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Input } from "./ui/Input";
 import { Switch } from "./ui/switch";
 import { Button } from "./ui/Button";
@@ -14,64 +14,93 @@ import {
   Server,
   Code,
   Rocket,
+  Save,
 } from "lucide-react";
+import { useProjectStore } from "../store/projectStore";
+import { EnvScope, EnvVariable } from "../types/project";
 
-interface EnvVariable {
+interface LocalEnvVariable extends EnvVariable {
   id: string;
-  name: string;
-  value: string;
-  isSecret: boolean;
 }
 
-const defaultEnvs: Record<string, EnvVariable[]> = {
-  development: [],
-  staging: [],
-  production: [],
-};
-
-const envConfig = {
+const envIcons = {
   development: { icon: Code, color: "blue", label: "Development" },
   staging: { icon: Server, color: "amber", label: "Staging" },
   production: { icon: Rocket, color: "primary", label: "Production" },
 };
 
 export default function EnvPanel() {
-  const [activeEnv, setActiveEnv] = useState<"development" | "staging" | "production">("development");
-  const [envVariables, setEnvVariables] = useState<Record<string, EnvVariable[]>>(defaultEnvs);
+  const { envConfig, loadEnvConfig, saveEnvConfig, isSaving } = useProjectStore();
+  const [activeEnv, setActiveEnv] = useState<EnvScope>("development");
+  const [localVariables, setLocalVariables] = useState<LocalEnvVariable[]>([]);
   const [visibleSecrets, setVisibleSecrets] = useState<Set<string>>(new Set());
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Load env config on mount
+  useEffect(() => {
+    loadEnvConfig();
+  }, [loadEnvConfig]);
+
+  // Sync local state with store when config changes
+  useEffect(() => {
+    if (envConfig) {
+      // Filter variables for active scope and add local IDs
+      const scopeVars = envConfig.variables
+        .filter((v) => v.scope.includes(activeEnv))
+        .map((v) => ({ ...v, id: `var-${v.name}` }));
+      setLocalVariables(scopeVars);
+      setHasChanges(false);
+    }
+  }, [envConfig, activeEnv]);
 
   const handleAddVariable = () => {
-    const newVar: EnvVariable = {
+    const newVar: LocalEnvVariable = {
       id: `var-${Date.now()}`,
       name: "",
       value: "",
       isSecret: false,
+      scope: [activeEnv],
     };
-    setEnvVariables((prev) => ({
-      ...prev,
-      [activeEnv]: [...prev[activeEnv], newVar],
-    }));
+    setLocalVariables((prev) => [...prev, newVar]);
+    setHasChanges(true);
   };
 
   const handleUpdateVariable = (
     id: string,
-    field: keyof EnvVariable,
+    field: keyof LocalEnvVariable,
     value: any
   ) => {
-    setEnvVariables((prev) => ({
-      ...prev,
-      [activeEnv]: prev[activeEnv].map((v) =>
-        v.id === id ? { ...v, [field]: value } : v
-      ),
-    }));
+    setLocalVariables((prev) =>
+      prev.map((v) => (v.id === id ? { ...v, [field]: value } : v))
+    );
+    setHasChanges(true);
   };
 
   const handleDeleteVariable = (id: string) => {
-    setEnvVariables((prev) => ({
-      ...prev,
-      [activeEnv]: prev[activeEnv].filter((v) => v.id !== id),
-    }));
+    setLocalVariables((prev) => prev.filter((v) => v.id !== id));
+    setHasChanges(true);
   };
+
+  const handleSave = useCallback(async () => {
+    if (!envConfig) return;
+
+    // Get all variables from other scopes
+    const otherScopeVars = envConfig.variables.filter(
+      (v) => !v.scope.includes(activeEnv)
+    );
+
+    // Merge with local variables (remove id field)
+    const newVariables: EnvVariable[] = [
+      ...otherScopeVars,
+      ...localVariables.map(({ id, ...rest }) => rest),
+    ];
+
+    await saveEnvConfig({
+      activeScope: activeEnv,
+      variables: newVariables,
+    });
+    setHasChanges(false);
+  }, [envConfig, activeEnv, localVariables, saveEnvConfig]);
 
   const toggleSecretVisibility = (id: string) => {
     setVisibleSecrets((prev) => {
@@ -89,31 +118,35 @@ export default function EnvPanel() {
     navigator.clipboard.writeText(value);
   };
 
-  const currentVars = envVariables[activeEnv] || [];
-
   return (
     <div className="flex-1 bg-slate-50 overflow-auto">
       <div className="max-w-4xl mx-auto p-6">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center">
-            <KeyRound className="w-5 h-5 text-primary-600" />
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center">
+              <KeyRound className="w-5 h-5 text-primary-600" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold text-slate-800">
+                Environment Variables
+              </h1>
+              <p className="text-sm text-slate-500">
+                Manage secrets and configuration for different environments
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-semibold text-slate-800">
-              Environment Variables
-            </h1>
-            <p className="text-sm text-slate-500">
-              Manage secrets and configuration for different environments
-            </p>
-          </div>
+          <Button onClick={handleSave} disabled={!hasChanges || isSaving}>
+            <Save className="w-4 h-4" />
+            {isSaving ? "Saving..." : "Save Changes"}
+          </Button>
         </div>
 
         {/* Environment Tabs */}
         <div className="bg-white rounded-xl border border-slate-200 p-1 mb-4">
           <div className="grid grid-cols-3 gap-1">
-            {(Object.keys(envConfig) as Array<keyof typeof envConfig>).map((env) => {
-              const config = envConfig[env];
+            {(Object.keys(envIcons) as Array<keyof typeof envIcons>).map((env) => {
+              const config = envIcons[env];
               const Icon = config.icon;
               const isActive = activeEnv === env;
               return (
@@ -145,7 +178,7 @@ export default function EnvPanel() {
               }`} />
               <span className="font-medium text-slate-800 capitalize">{activeEnv}</span>
               <span className="px-2 py-0.5 text-xs font-medium text-slate-500 bg-slate-100 rounded-full">
-                {currentVars.length} variables
+                {localVariables.length} variables
               </span>
             </div>
             <Button onClick={handleAddVariable} size="sm">
@@ -163,7 +196,7 @@ export default function EnvPanel() {
 
           {/* Card Content */}
           <div className="p-5">
-            {currentVars.length === 0 ? (
+            {localVariables.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-4">
                   <KeyRound className="w-6 h-6 text-slate-400" />
@@ -193,7 +226,7 @@ export default function EnvPanel() {
                   <div className="h-px bg-slate-100" />
 
                   {/* Variable Rows */}
-                  {currentVars.map((variable) => (
+                  {localVariables.map((variable) => (
                     <div
                       key={variable.id}
                       className="grid grid-cols-12 gap-3 items-center group py-1"

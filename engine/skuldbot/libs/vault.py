@@ -772,3 +772,275 @@ class SkuldVault:
             | Run Keyword If | not ${unlocked} | Unlock Local Vault | ${password} |
         """
         return self._local_vault is not None and self._local_vault.is_unlocked
+
+    # ==================== Enterprise Vault Initialization Keywords ====================
+    # These keywords initialize vault providers and load secrets into the global vault context
+    # Secrets are loaded into ${vault.xxx} variables for use in subsequent nodes
+
+    @keyword("Init Azure Vault")
+    def init_azure_vault(
+        self,
+        vault_url: str,
+        tenant_id: str,
+        client_id: str,
+        use_managed_identity: bool = False,
+        secrets: list = None,
+    ) -> Dict[str, Any]:
+        """
+        Initializes Azure Key Vault and loads specified secrets.
+
+        Credentials are obtained from:
+        - Managed Identity (if use_managed_identity=True and running in Azure)
+        - Environment variable AZURE_CLIENT_SECRET (Service Principal)
+
+        Args:
+            vault_url: Azure Key Vault URL (https://myvault.vault.azure.net)
+            tenant_id: Azure AD Tenant ID
+            client_id: Azure AD Application (Client) ID
+            use_managed_identity: Use Azure Managed Identity instead of Service Principal
+            secrets: List of secret names to load (loads all if empty)
+
+        Returns:
+            Dictionary with loaded count and secret names
+
+        Example:
+            | ${result}= | Init Azure Vault | https://myvault.vault.azure.net | tenant-id | client-id |
+            | ...        | secrets=${secrets_list} |
+        """
+        try:
+            from azure.identity import DefaultAzureCredential, ClientSecretCredential, ManagedIdentityCredential
+            from azure.keyvault.secrets import SecretClient
+
+            # Choose credential based on configuration
+            if use_managed_identity:
+                credential = ManagedIdentityCredential()
+                logger.info("Using Azure Managed Identity")
+            else:
+                client_secret = os.getenv("AZURE_CLIENT_SECRET")
+                if not client_secret:
+                    raise ValueError("AZURE_CLIENT_SECRET environment variable not set")
+                credential = ClientSecretCredential(
+                    tenant_id=tenant_id,
+                    client_id=client_id,
+                    client_secret=client_secret
+                )
+                logger.info("Using Azure Service Principal")
+
+            client = SecretClient(vault_url=vault_url, credential=credential)
+
+            loaded_secrets = []
+            secrets_to_load = secrets if secrets else []
+
+            # If no specific secrets, list all secrets
+            if not secrets_to_load:
+                try:
+                    for secret_props in client.list_properties_of_secrets():
+                        secrets_to_load.append(secret_props.name)
+                except Exception as e:
+                    logger.warn(f"Could not list secrets: {e}")
+
+            # Load each secret into cache
+            for secret_name in secrets_to_load:
+                try:
+                    secret = client.get_secret(secret_name)
+                    cache_key = f"azure:{secret_name}"
+                    self._cache[cache_key] = SecretValue(
+                        name=secret_name,
+                        value=secret.value,
+                        provider=VaultProvider.AZURE,
+                        cached=True
+                    )
+                    loaded_secrets.append(secret_name)
+                    logger.info(f"Loaded secret: {secret_name}")
+                except Exception as e:
+                    logger.warn(f"Could not load secret '{secret_name}': {e}")
+
+            return {
+                "loaded": len(loaded_secrets),
+                "secretNames": loaded_secrets
+            }
+
+        except ImportError:
+            raise ValueError("azure-identity and azure-keyvault-secrets packages not installed")
+        except Exception as e:
+            raise ValueError(f"Azure Key Vault initialization failed: {e}")
+
+    @keyword("Init AWS Vault")
+    def init_aws_vault(
+        self,
+        region: str = "us-east-1",
+        use_iam_role: bool = True,
+        secrets: list = None,
+    ) -> Dict[str, Any]:
+        """
+        Initializes AWS Secrets Manager and loads specified secrets.
+
+        Credentials are obtained from:
+        - IAM Role (if use_iam_role=True and running in AWS EC2/ECS/Lambda)
+        - Environment variables AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+
+        Args:
+            region: AWS region
+            use_iam_role: Use IAM Role (default) or Access Keys from env
+            secrets: List of secret names/ARNs to load
+
+        Returns:
+            Dictionary with loaded count and secret names
+
+        Example:
+            | ${result}= | Init AWS Vault | region=us-east-1 | secrets=${secrets_list} |
+        """
+        try:
+            import boto3
+            from botocore.exceptions import ClientError
+
+            # boto3 automatically uses IAM role if available, then env vars
+            if not use_iam_role:
+                access_key = os.getenv("AWS_ACCESS_KEY_ID")
+                secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+                if not access_key or not secret_key:
+                    raise ValueError("AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY not set")
+                client = boto3.client(
+                    'secretsmanager',
+                    region_name=region,
+                    aws_access_key_id=access_key,
+                    aws_secret_access_key=secret_key
+                )
+            else:
+                client = boto3.client('secretsmanager', region_name=region)
+                logger.info("Using AWS IAM Role or default credentials")
+
+            loaded_secrets = []
+            secrets_to_load = secrets if secrets else []
+
+            # Load each secret into cache
+            for secret_name in secrets_to_load:
+                try:
+                    response = client.get_secret_value(SecretId=secret_name)
+                    if 'SecretString' in response:
+                        value = response['SecretString']
+                    else:
+                        value = base64.b64decode(response['SecretBinary']).decode()
+
+                    # Use last part of ARN or name as cache key
+                    simple_name = secret_name.split('/')[-1] if '/' in secret_name else secret_name
+                    cache_key = f"aws:{simple_name}"
+                    self._cache[cache_key] = SecretValue(
+                        name=simple_name,
+                        value=value,
+                        provider=VaultProvider.AWS,
+                        cached=True
+                    )
+                    loaded_secrets.append(simple_name)
+                    logger.info(f"Loaded secret: {simple_name}")
+                except ClientError as e:
+                    logger.warn(f"Could not load secret '{secret_name}': {e}")
+
+            return {
+                "loaded": len(loaded_secrets),
+                "secretNames": loaded_secrets
+            }
+
+        except ImportError:
+            raise ValueError("boto3 package not installed")
+        except Exception as e:
+            raise ValueError(f"AWS Secrets Manager initialization failed: {e}")
+
+    @keyword("Init HashiCorp Vault")
+    def init_hashicorp_vault(
+        self,
+        vault_addr: str,
+        auth_method: str = "token",
+        mount_point: str = "secret",
+        secrets_path: str = "",
+        secrets: list = None,
+    ) -> Dict[str, Any]:
+        """
+        Initializes HashiCorp Vault and loads specified secrets.
+
+        Credentials are obtained from environment variables:
+        - VAULT_TOKEN (for token auth)
+        - VAULT_ROLE_ID and VAULT_SECRET_ID (for AppRole auth)
+
+        Args:
+            vault_addr: Vault server address (https://vault.example.com:8200)
+            auth_method: Authentication method ('token' or 'approle')
+            mount_point: Secrets engine mount point (default: 'secret')
+            secrets_path: Path within the secrets engine
+            secrets: List of specific keys to load (loads all at path if empty)
+
+        Returns:
+            Dictionary with loaded count and secret names
+
+        Example:
+            | ${result}= | Init HashiCorp Vault | https://vault.example.com:8200 |
+            | ...        | secrets_path=myapp/prod | secrets=${keys_list} |
+        """
+        try:
+            import hvac
+
+            # Authenticate based on method
+            if auth_method == "token":
+                vault_token = os.getenv("VAULT_TOKEN")
+                if not vault_token:
+                    raise ValueError("VAULT_TOKEN environment variable not set")
+                client = hvac.Client(url=vault_addr, token=vault_token)
+            elif auth_method == "approle":
+                role_id = os.getenv("VAULT_ROLE_ID")
+                secret_id = os.getenv("VAULT_SECRET_ID")
+                if not role_id or not secret_id:
+                    raise ValueError("VAULT_ROLE_ID and VAULT_SECRET_ID not set")
+                client = hvac.Client(url=vault_addr)
+                client.auth.approle.login(role_id=role_id, secret_id=secret_id)
+            else:
+                raise ValueError(f"Unsupported auth method: {auth_method}")
+
+            if not client.is_authenticated():
+                raise ValueError("HashiCorp Vault authentication failed")
+
+            logger.info(f"Authenticated to HashiCorp Vault at {vault_addr}")
+
+            loaded_secrets = []
+
+            # Read secrets from path
+            try:
+                # Try KV v2 first
+                secret_data = client.secrets.kv.v2.read_secret_version(
+                    path=secrets_path,
+                    mount_point=mount_point
+                )
+                data = secret_data['data']['data']
+            except:
+                # Fallback to KV v1
+                secret_data = client.secrets.kv.v1.read_secret(
+                    path=secrets_path,
+                    mount_point=mount_point
+                )
+                data = secret_data['data']
+
+            # Filter to specific keys if provided
+            keys_to_load = secrets if secrets else list(data.keys())
+
+            for key in keys_to_load:
+                if key in data:
+                    cache_key = f"hashicorp:{key}"
+                    self._cache[cache_key] = SecretValue(
+                        name=key,
+                        value=str(data[key]),
+                        provider=VaultProvider.HASHICORP,
+                        cached=True
+                    )
+                    loaded_secrets.append(key)
+                    logger.info(f"Loaded secret: {key}")
+                else:
+                    logger.warn(f"Secret key '{key}' not found at path")
+
+            return {
+                "loaded": len(loaded_secrets),
+                "secretNames": loaded_secrets
+            }
+
+        except ImportError:
+            raise ValueError("hvac package not installed")
+        except Exception as e:
+            raise ValueError(f"HashiCorp Vault initialization failed: {e}")
