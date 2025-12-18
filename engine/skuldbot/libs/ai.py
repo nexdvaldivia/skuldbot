@@ -3,15 +3,35 @@ Librería SkuldAI para nodos de Inteligencia Artificial (Robot Framework)
 
 Proporciona keywords para integración con LLMs y servicios de IA.
 Soporta múltiples proveedores: OpenAI, Anthropic, Azure OpenAI, local (Ollama).
+
+Prompt Management:
+    This library uses versioned prompts from skuldbot.ai.prompt_loader.
+    Prompts are stored as .md files in engine/skuldbot/ai/prompts/
+    and loaded at runtime for auditability and compliance.
+
+Provider Recommendations:
+    - Healthcare (HIPAA): Azure OpenAI or Ollama (on-premise)
+    - Finance (SOX/PCI): Azure OpenAI or Ollama
+    - Insurance: Azure OpenAI or Ollama
+    - General: Any provider
 """
 
 import json
 import base64
+import uuid
 from typing import Any, Dict, List, Optional, Union
 from dataclasses import dataclass, field
 from enum import Enum
 from robot.api.deco import keyword, library
 from robot.api import logger
+
+# Import versioned prompt loader
+try:
+    from skuldbot.ai import PromptLoader, build_full_prompt, get_prompt_loader
+    PROMPT_LOADER_AVAILABLE = True
+except ImportError:
+    PROMPT_LOADER_AVAILABLE = False
+    PromptLoader = None
 
 
 class AIProvider(Enum):
@@ -1035,8 +1055,11 @@ Similarity score:"""
                 "message": "No repairable fields identified",
             }
 
-        # Construir prompt para reparación
-        repair_prompt = self._build_repair_prompt(
+        # Generate execution ID for audit trail
+        execution_id = str(uuid.uuid4())[:8]
+
+        # Construir prompt para reparación (usando prompts versionados)
+        repair_prompt, prompt_audit = self._build_repair_prompt(
             data=data,
             problem_fields=problem_fields,
             context=context,
@@ -1045,6 +1068,7 @@ Similarity score:"""
             allow_value_inference=allow_value_inference,
             allow_sensitive_repair=allow_sensitive_repair,
             min_confidence=min_confidence,
+            execution_id=execution_id,
         )
 
         # Llamar al LLM
@@ -1118,6 +1142,12 @@ Similarity score:"""
                 "allow_sensitive_repair": allow_sensitive_repair,
                 "min_confidence": min_confidence,
             },
+            # Audit trail for compliance (HIPAA, SOC2, etc.)
+            "audit": {
+                "execution_id": execution_id,
+                "prompt_info": prompt_audit,
+                "provider": self._config.provider.value if self._config else "unknown",
+            },
         }
 
         logger.info(f"AI Repair: {status} - Quality {original_quality:.1f}% → {repaired_quality:.1f}%")
@@ -1176,44 +1206,28 @@ Similarity score:"""
         allow_value_inference: bool,
         allow_sensitive_repair: bool,
         min_confidence: float,
-    ) -> str:
-        """Construye el prompt para reparación de datos"""
+        execution_id: Optional[str] = None,
+    ) -> tuple[str, Dict[str, Any]]:
+        """
+        Construye el prompt para reparación de datos usando prompts versionados.
+
+        Returns:
+            Tuple of (prompt_string, audit_metadata)
+
+        The prompt is loaded from versioned .md files in skuldbot/ai/prompts/repair/
+        This provides:
+        - Auditability for compliance (HIPAA, SOC2, etc.)
+        - Version control for prompt changes
+        - Industry-specific context (healthcare, insurance, finance)
+        """
+        # Generate execution ID for audit trail
+        exec_id = execution_id or str(uuid.uuid4())[:8]
 
         # Tomar muestra de datos con problemas
         sample_size = min(10, len(data))
         sample_data = data[:sample_size]
 
-        # Contexto específico por vertical
-        context_instructions = {
-            "insurance": """
-            Context: Insurance data processing
-            - Be extra careful with claim amounts, policy numbers
-            - Date formats should be standardized to ISO
-            - Status codes must match industry standards
-            - Never infer financial values
-            """,
-            "healthcare": """
-            Context: Healthcare data processing (HIPAA sensitive)
-            - Never modify medical record numbers or diagnosis codes
-            - Date of birth must be validated, not inferred
-            - Patient names can be normalized but not changed
-            - Medical codes (ICD, CPT) must be validated against standards
-            """,
-            "finance": """
-            Context: Financial data processing
-            - Account numbers must be validated, not modified
-            - Currency amounts need proper formatting
-            - Dates must be precise
-            - Never infer or estimate monetary values
-            """,
-            "general": """
-            Context: General data processing
-            - Apply standard data cleaning practices
-            - Normalize formats where clear
-            - Be conservative with inferences
-            """
-        }
-
+        # Build allowed actions list
         allowed_actions = []
         if allow_format_normalization:
             allowed_actions.append("Format normalization (dates, phone numbers, currency)")
@@ -1224,24 +1238,66 @@ Similarity score:"""
         if allow_sensitive_repair:
             allowed_actions.append("Sensitive field repair (IDs, financial data)")
 
-        prompt = f"""You are a data quality repair assistant. Your task is to suggest repairs for data quality issues.
+        # User config for audit
+        user_config = {
+            "allow_format_normalization": allow_format_normalization,
+            "allow_semantic_cleanup": allow_semantic_cleanup,
+            "allow_value_inference": allow_value_inference,
+            "allow_sensitive_repair": allow_sensitive_repair,
+            "min_confidence": min_confidence,
+            "context": context,
+        }
 
-CRITICAL RULES:
-1. You can ONLY repair data, never invent or guess values
-2. Each repair must have a confidence score (0.0 to 1.0)
-3. Only suggest repairs with confidence >= {min_confidence}
-4. If you cannot repair with high confidence, set confidence to 0
+        # Get provider name for audit
+        provider_name = self._config.provider.value if self._config else "unknown"
 
-{context_instructions.get(context, context_instructions["general"])}
+        # Try to use versioned prompt loader
+        audit_metadata = {}
+        if PROMPT_LOADER_AVAILABLE:
+            try:
+                # Load versioned system prompt and context
+                prompt_result = build_full_prompt(
+                    node_type="repair",
+                    version="v1",
+                    context=context,
+                    user_config=user_config,
+                    execution_id=exec_id,
+                    provider=provider_name,
+                )
+
+                system_prompt = prompt_result["full_prompt"]
+                audit_metadata = prompt_result.get("audit_log", {})
+
+                logger.info(
+                    f"Using versioned prompt: repair/system_v1 + context_{context} "
+                    f"(checksum: {prompt_result['metadata'].get('checksum', 'n/a')})"
+                )
+
+            except FileNotFoundError as e:
+                logger.warn(f"Versioned prompt not found, using fallback: {e}")
+                system_prompt = self._get_fallback_repair_prompt(context)
+                audit_metadata = {"fallback": True, "reason": str(e)}
+            except Exception as e:
+                logger.warn(f"Error loading versioned prompt, using fallback: {e}")
+                system_prompt = self._get_fallback_repair_prompt(context)
+                audit_metadata = {"fallback": True, "reason": str(e)}
+        else:
+            # Fallback when prompt loader not available
+            logger.debug("Prompt loader not available, using inline prompt")
+            system_prompt = self._get_fallback_repair_prompt(context)
+            audit_metadata = {"fallback": True, "reason": "prompt_loader_not_available"}
+
+        # Build the final prompt with data payload
+        prompt = f"""{system_prompt}
+
+## CONFIGURATION FOR THIS REPAIR
+
+Minimum confidence threshold: {min_confidence}
 
 ALLOWED ACTIONS:
 {chr(10).join(f"- {action}" for action in allowed_actions) if allowed_actions else "- None specified (be very conservative)"}
 
-FORBIDDEN ACTIONS:
-- Inventing values that don't exist in context
-- Guessing sensitive data (SSN, medical IDs, account numbers)
-- Modifying values that could have legal implications
-- Making assumptions about missing critical data
+## DATA TO REPAIR
 
 PROBLEM FIELDS TO FIX:
 {json.dumps(problem_fields, indent=2)}
@@ -1249,7 +1305,64 @@ PROBLEM FIELDS TO FIX:
 SAMPLE DATA (first {sample_size} rows):
 {json.dumps(sample_data, indent=2)}
 
-Respond with a JSON object containing an array of repairs:
+Respond with a JSON object containing an array of repairs. Only output valid JSON, no additional text."""
+
+        return prompt, audit_metadata
+
+    def _get_fallback_repair_prompt(self, context: str) -> str:
+        """
+        Fallback prompt when versioned prompts are not available.
+
+        This is kept for backwards compatibility but the versioned prompts
+        in skuldbot/ai/prompts/repair/ should be preferred.
+        """
+        context_instructions = {
+            "insurance": """
+Context: Insurance data processing
+- Be extra careful with claim amounts, policy numbers
+- Date formats should be standardized to ISO
+- Status codes must match industry standards
+- Never infer financial values
+""",
+            "healthcare": """
+Context: Healthcare data processing (HIPAA sensitive)
+- Never modify medical record numbers or diagnosis codes
+- Date of birth must be validated, not inferred
+- Patient names can be normalized but not changed
+- Medical codes (ICD, CPT) must be validated against standards
+""",
+            "finance": """
+Context: Financial data processing
+- Account numbers must be validated, not modified
+- Currency amounts need proper formatting
+- Dates must be precise
+- Never infer or estimate monetary values
+""",
+            "general": """
+Context: General data processing
+- Apply standard data cleaning practices
+- Normalize formats where clear
+- Be conservative with inferences
+"""
+        }
+
+        return f"""You are a data quality repair assistant. Your task is to suggest repairs for data quality issues.
+
+CRITICAL RULES:
+1. You can ONLY repair data, never invent or guess values
+2. Each repair must have a confidence score (0.0 to 1.0)
+3. If you cannot repair with high confidence, set confidence to 0
+
+{context_instructions.get(context, context_instructions["general"])}
+
+FORBIDDEN ACTIONS:
+- Inventing values that don't exist in context
+- Guessing sensitive data (SSN, medical IDs, account numbers)
+- Modifying values that could have legal implications
+- Making assumptions about missing critical data
+
+RESPONSE FORMAT:
+Return a JSON object with:
 {{
   "repairs": [
     {{
@@ -1268,11 +1381,7 @@ Respond with a JSON object containing an array of repairs:
       "reason": "Why this cannot be repaired"
     }}
   ]
-}}
-
-Only output valid JSON, no additional text."""
-
-        return prompt
+}}"""
 
     def _apply_repairs(
         self,
