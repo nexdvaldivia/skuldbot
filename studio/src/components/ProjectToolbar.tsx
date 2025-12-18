@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/tauri";
 import { useProjectStore } from "../store/projectStore";
 import { useTabsStore } from "../store/tabsStore";
 import { useFlowStore, FormTriggerConfig } from "../store/flowStore";
+import { useHistoryStore } from "../store/historyStore";
 import { useToastStore } from "../store/toastStore";
 import { useLogsStore } from "../store/logsStore";
 import { SkuldLogoBox } from "./ui/SkuldLogo";
@@ -56,9 +57,10 @@ function generateDSL(
 }
 
 export default function ProjectToolbar() {
-  const { project, activeBotId, saveBot, getActiveBot } = useProjectStore();
+  const { project, activeBotId, saveBot, getActiveBot, updateActiveBotNodes, updateActiveBotEdges } = useProjectStore();
   const { tabs, setTabDirty } = useTabsStore();
   useFlowStore(); // Keep store reference for potential future use
+  const { undo, redo, canUndo, canRedo } = useHistoryStore();
   const toast = useToastStore();
   const logs = useLogsStore();
 
@@ -72,6 +74,32 @@ export default function ProjectToolbar() {
   const activeTab = tabs.find((t) => t.botId === activeBotId);
   const hasNodes = (activeBot?.nodes.length || 0) > 0;
   const isDirty = activeTab?.isDirty || false;
+
+  // Handle undo
+  const handleUndo = () => {
+    if (!canUndo()) return;
+    const previousState = undo();
+    if (previousState) {
+      updateActiveBotNodes(previousState.nodes);
+      updateActiveBotEdges(previousState.edges);
+      if (activeBotId) {
+        setTabDirty(`bot-${activeBotId}`, true);
+      }
+    }
+  };
+
+  // Handle redo
+  const handleRedo = () => {
+    if (!canRedo()) return;
+    const nextState = redo();
+    if (nextState) {
+      updateActiveBotNodes(nextState.nodes);
+      updateActiveBotEdges(nextState.edges);
+      if (activeBotId) {
+        setTabDirty(`bot-${activeBotId}`, true);
+      }
+    }
+  };
 
   // Check if bot requires form input
   const requiresFormInput = () => {
@@ -387,11 +415,23 @@ export default function ProjectToolbar() {
           <Download className="h-4 w-4" />
         </Button>
 
-        {/* Undo/Redo placeholder */}
-        <Button variant="ghost" size="icon" disabled title="Undo (Ctrl+Z)">
+        {/* Undo/Redo */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleUndo}
+          disabled={!canUndo()}
+          title="Undo (Ctrl+Z)"
+        >
           <Undo className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="icon" disabled title="Redo (Ctrl+Y)">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleRedo}
+          disabled={!canRedo()}
+          title="Redo (Ctrl+Y)"
+        >
           <Redo className="h-4 w-4" />
         </Button>
       </div>

@@ -305,7 +305,7 @@ function ExplorerContent() {
       {/* Context Menu */}
       {contextMenu && createPortal(
         <div
-          className="fixed z-50 bg-card rounded-lg shadow-xl border py-1 min-w-[160px]"
+          className="fixed z-[9999] bg-card rounded-lg shadow-xl border py-1 min-w-[160px]"
           style={{ top: contextMenu.y, left: contextMenu.x }}
           onClick={(e) => e.stopPropagation()}
         >
