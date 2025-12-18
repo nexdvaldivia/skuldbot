@@ -19,6 +19,8 @@ import "reactflow/dist/style.css";
 import { useProjectStore } from "../store/projectStore";
 import { useTabsStore } from "../store/tabsStore";
 import { useFlowStore, getDraggedNodeData, clearDraggedNodeData, getPendingNodeTemplate, clearPendingNodeTemplate } from "../store/flowStore";
+import { useHistoryStore, generatePasteIds, duplicateNodes } from "../store/historyStore";
+import { useToastStore } from "../store/toastStore";
 import CustomNode from "./CustomNode";
 import AnimatedEdge from "./AnimatedEdge";
 import EmptyState from "./EmptyState";
@@ -33,12 +35,15 @@ const edgeTypes: EdgeTypes = {
 };
 
 export default function BotEditor() {
-  const { bots, activeBotId, updateActiveBotNodes, updateActiveBotEdges } = useProjectStore();
+  const { bots, activeBotId, updateActiveBotNodes, updateActiveBotEdges, saveBot } = useProjectStore();
   const { setTabDirty } = useTabsStore();
   const { setSelectedNode, selectedNode } = useFlowStore();
+  const { pushState, undo, redo, canUndo, canRedo, copy, paste, hasClipboard } = useHistoryStore();
+  const toast = useToastStore();
   const { screenToFlowPosition } = useReactFlow();
   const flowWrapperRef = useRef<HTMLDivElement>(null);
   const [hasPendingNode, setHasPendingNode] = useState(false);
+  const isUndoRedoRef = useRef(false);
 
   // Get active bot
   const activeBot = activeBotId ? bots.get(activeBotId) : null;
@@ -47,9 +52,13 @@ export default function BotEditor() {
 
   // Keep refs in sync
   const nodesRef = useRef(nodes);
+  const edgesRef = useRef(edges);
   useEffect(() => {
     nodesRef.current = nodes;
   }, [nodes]);
+  useEffect(() => {
+    edgesRef.current = edges;
+  }, [edges]);
 
   // Listen for pending node changes
   useEffect(() => {
@@ -60,12 +69,169 @@ export default function BotEditor() {
     return () => window.removeEventListener('pendingNodeChange', handlePendingChange as EventListener);
   }, []);
 
-  // Mark tab as dirty
+  // Mark tab as dirty and push to history
   const markDirty = useCallback(() => {
     if (activeBotId) {
       setTabDirty(`bot-${activeBotId}`, true);
     }
   }, [activeBotId, setTabDirty]);
+
+  // Push state to history (for undo/redo)
+  const pushToHistory = useCallback(() => {
+    if (!isUndoRedoRef.current) {
+      pushState(nodesRef.current, edgesRef.current);
+    }
+  }, [pushState]);
+
+  // Handle undo
+  const handleUndo = useCallback(() => {
+    if (!canUndo()) return;
+    isUndoRedoRef.current = true;
+    const previousState = undo();
+    if (previousState) {
+      updateActiveBotNodes(previousState.nodes);
+      updateActiveBotEdges(previousState.edges);
+      markDirty();
+    }
+    isUndoRedoRef.current = false;
+  }, [canUndo, undo, updateActiveBotNodes, updateActiveBotEdges, markDirty]);
+
+  // Handle redo
+  const handleRedo = useCallback(() => {
+    if (!canRedo()) return;
+    isUndoRedoRef.current = true;
+    const nextState = redo();
+    if (nextState) {
+      updateActiveBotNodes(nextState.nodes);
+      updateActiveBotEdges(nextState.edges);
+      markDirty();
+    }
+    isUndoRedoRef.current = false;
+  }, [canRedo, redo, updateActiveBotNodes, updateActiveBotEdges, markDirty]);
+
+  // Handle copy
+  const handleCopy = useCallback(() => {
+    const selectedNodes = nodes.filter((n) => n.selected);
+    if (selectedNodes.length === 0) return;
+    copy(selectedNodes, edges);
+    toast.success("Copied", `${selectedNodes.length} node(s) copied`);
+  }, [nodes, edges, copy, toast]);
+
+  // Handle paste
+  const handlePaste = useCallback(() => {
+    if (!hasClipboard()) return;
+    const clipboardData = paste();
+    if (!clipboardData) return;
+
+    pushToHistory();
+    const { nodes: newNodes, edges: newEdges } = generatePasteIds(clipboardData);
+
+    // Deselect all existing nodes
+    const deselectedNodes = nodes.map((n) => ({ ...n, selected: false }));
+
+    updateActiveBotNodes([...deselectedNodes, ...newNodes]);
+    updateActiveBotEdges([...edges, ...newEdges]);
+    markDirty();
+    toast.success("Pasted", `${newNodes.length} node(s) pasted`);
+  }, [hasClipboard, paste, pushToHistory, nodes, edges, updateActiveBotNodes, updateActiveBotEdges, markDirty, toast]);
+
+  // Handle duplicate (Ctrl+D)
+  const handleDuplicate = useCallback(() => {
+    const selectedNodes = nodes.filter((n) => n.selected);
+    if (selectedNodes.length === 0) return;
+
+    pushToHistory();
+    const { nodes: newNodes, edges: newEdges } = duplicateNodes(selectedNodes, edges);
+
+    // Deselect original nodes, select duplicates
+    const updatedNodes = nodes.map((n) => ({ ...n, selected: false }));
+
+    updateActiveBotNodes([...updatedNodes, ...newNodes.map((n) => ({ ...n, selected: true }))]);
+    updateActiveBotEdges([...edges, ...newEdges]);
+    markDirty();
+  }, [nodes, edges, pushToHistory, updateActiveBotNodes, updateActiveBotEdges, markDirty]);
+
+  // Handle save (Ctrl+S)
+  const handleSave = useCallback(async () => {
+    if (activeBotId) {
+      await saveBot(activeBotId);
+      setTabDirty(`bot-${activeBotId}`, false);
+    }
+  }, [activeBotId, saveBot, setTabDirty]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const targetTag = target?.tagName?.toLowerCase();
+      const isTyping = targetTag === 'input' || targetTag === 'textarea' ||
+                       target?.getAttribute("contenteditable") === "true";
+
+      // Allow Ctrl+S even when typing
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleSave();
+        return;
+      }
+
+      // Skip other shortcuts when typing
+      if (isTyping) return;
+
+      // Ctrl/Cmd + Z = Undo
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
+        e.preventDefault();
+        handleUndo();
+        return;
+      }
+
+      // Ctrl/Cmd + Shift + Z or Ctrl/Cmd + Y = Redo
+      if ((e.ctrlKey || e.metaKey) && (e.shiftKey && e.key === 'z' || e.key === 'y')) {
+        e.preventDefault();
+        handleRedo();
+        return;
+      }
+
+      // Ctrl/Cmd + C = Copy
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        e.preventDefault();
+        handleCopy();
+        return;
+      }
+
+      // Ctrl/Cmd + V = Paste
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        e.preventDefault();
+        handlePaste();
+        return;
+      }
+
+      // Ctrl/Cmd + D = Duplicate
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault();
+        handleDuplicate();
+        return;
+      }
+
+      // Ctrl/Cmd + A = Select all
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        const allSelected = nodes.map((n) => ({ ...n, selected: true }));
+        updateActiveBotNodes(allSelected);
+        return;
+      }
+
+      // Escape = Deselect all
+      if (e.key === 'Escape') {
+        const allDeselected = nodes.map((n) => ({ ...n, selected: false }));
+        updateActiveBotNodes(allDeselected);
+        setSelectedNode(null);
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleUndo, handleRedo, handleCopy, handlePaste, handleDuplicate, handleSave, nodes, updateActiveBotNodes, setSelectedNode]);
 
   // WebKit/Tauri workaround: drop event doesn't fire, so we use dragend event
   // Listen globally for dragend and check if mouse is over the canvas
@@ -85,6 +251,8 @@ export default function BotEditor() {
       if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
         return false;
       }
+
+      pushToHistory();
 
       const position = screenToFlowPosition({ x: clientX, y: clientY });
 
@@ -143,7 +311,7 @@ export default function BotEditor() {
       wrapper.removeEventListener("drop", handleDrop, true);
       window.removeEventListener("dragend", handleDragEnd, true);
     };
-  }, [screenToFlowPosition, updateActiveBotNodes, markDirty]);
+  }, [screenToFlowPosition, updateActiveBotNodes, markDirty, pushToHistory]);
 
   // Handle delete key
   useEffect(() => {
@@ -171,6 +339,7 @@ export default function BotEditor() {
 
       const selectedNodes = nodes.filter((n) => n.selected);
       if (selectedNodes.length > 0) {
+        pushToHistory();
         const selectedIds = selectedNodes.map((n) => n.id);
         updateActiveBotNodes(nodes.filter((n) => !selectedIds.includes(n.id)));
         updateActiveBotEdges(edges.filter((e) => !selectedIds.includes(e.source) && !selectedIds.includes(e.target)));
@@ -180,6 +349,7 @@ export default function BotEditor() {
 
       const selectedEdges = edges.filter((e) => e.selected);
       if (selectedEdges.length > 0) {
+        pushToHistory();
         const selectedEdgeIds = selectedEdges.map((e) => e.id);
         updateActiveBotEdges(edges.filter((e) => !selectedEdgeIds.includes(e.id)));
         markDirty();
@@ -188,11 +358,28 @@ export default function BotEditor() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [nodes, edges, updateActiveBotNodes, updateActiveBotEdges, setSelectedNode, selectedNode, markDirty]);
+  }, [nodes, edges, updateActiveBotNodes, updateActiveBotEdges, setSelectedNode, selectedNode, markDirty, pushToHistory]);
+
+  // Track if we need to push history on node drag end
+  const isDraggingRef = useRef(false);
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
       const updatedNodes = applyNodeChanges(changes, nodes) as FlowNode[];
+
+      // Check for drag start
+      const hasDragStart = changes.some(c => c.type === 'position' && c.dragging === true);
+      if (hasDragStart && !isDraggingRef.current) {
+        isDraggingRef.current = true;
+        pushToHistory();
+      }
+
+      // Check for drag end
+      const hasDragEnd = changes.some(c => c.type === 'position' && c.dragging === false);
+      if (hasDragEnd) {
+        isDraggingRef.current = false;
+      }
+
       updateActiveBotNodes(updatedNodes);
 
       // Check if any change is not just selection
@@ -201,11 +388,17 @@ export default function BotEditor() {
         markDirty();
       }
     },
-    [nodes, updateActiveBotNodes, markDirty]
+    [nodes, updateActiveBotNodes, markDirty, pushToHistory]
   );
 
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
+      // Push history for edge removal
+      const hasRemoval = changes.some(c => c.type === 'remove');
+      if (hasRemoval) {
+        pushToHistory();
+      }
+
       const updatedEdges = applyEdgeChanges(changes, edges) as FlowEdge[];
       updateActiveBotEdges(updatedEdges);
 
@@ -214,11 +407,13 @@ export default function BotEditor() {
         markDirty();
       }
     },
-    [edges, updateActiveBotEdges, markDirty]
+    [edges, updateActiveBotEdges, markDirty, pushToHistory]
   );
 
   const onConnect = useCallback(
     (connection: Connection) => {
+      pushToHistory();
+
       const edge: FlowEdge = {
         id: `${connection.source}-${connection.sourceHandle}-${connection.target}`,
         source: connection.source!,
@@ -235,7 +430,7 @@ export default function BotEditor() {
       updateActiveBotEdges(newEdges);
       markDirty();
     },
-    [edges, updateActiveBotEdges, markDirty]
+    [edges, updateActiveBotEdges, markDirty, pushToHistory]
   );
 
   const onNodeClick = useCallback(
@@ -248,6 +443,8 @@ export default function BotEditor() {
   const onPaneClick = useCallback((event: React.MouseEvent) => {
     const pendingNode = getPendingNodeTemplate();
     if (pendingNode) {
+      pushToHistory();
+
       const position = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
@@ -273,7 +470,7 @@ export default function BotEditor() {
     }
 
     setSelectedNode(null);
-  }, [setSelectedNode, screenToFlowPosition, nodes, updateActiveBotNodes, markDirty]);
+  }, [setSelectedNode, screenToFlowPosition, nodes, updateActiveBotNodes, markDirty, pushToHistory]);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -292,6 +489,8 @@ export default function BotEditor() {
         // Already processed by dragend or no data
         return;
       }
+
+      pushToHistory();
 
       const reactFlowBounds = flowWrapperRef.current?.getBoundingClientRect();
       if (!reactFlowBounds) return;
@@ -318,7 +517,7 @@ export default function BotEditor() {
       markDirty();
       clearDraggedNodeData();
     },
-    [screenToFlowPosition, updateActiveBotNodes, markDirty]
+    [screenToFlowPosition, updateActiveBotNodes, markDirty, pushToHistory]
   );
 
   return (

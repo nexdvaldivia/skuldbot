@@ -14,6 +14,7 @@ import ProjectToolbar from "./ProjectToolbar";
 import Toolbar from "./Toolbar";
 import SettingsPanel from "./SettingsPanel";
 import EnvPanel from "./EnvPanel";
+import ProblemsPanel from "./ProblemsPanel";
 import { AutoSaveManager } from "./AutoSaveManager";
 import { ToastContainer } from "./ui/ToastContainer";
 import { Bot } from "lucide-react";
@@ -56,6 +57,9 @@ function QuickStartWorkspace() {
         {/* Properties Panel */}
         <NodeConfigPanel />
       </div>
+
+      {/* Problems Panel */}
+      <ProblemsPanel />
 
       {/* Logs Panel */}
       <LogsPanel />
@@ -102,6 +106,9 @@ function ProjectWorkspace() {
           {/* Properties Panel */}
           {activeTab?.type === "bot" && <NodeConfigPanel />}
         </div>
+
+        {/* Problems Panel */}
+        <ProblemsPanel />
 
         {/* Logs Panel */}
         <LogsPanel />

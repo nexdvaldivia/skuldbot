@@ -2,7 +2,9 @@ import { memo } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
 import { FlowNodeData, NodeCategory } from "../types/flow";
 import { getNodeTemplate } from "../data/nodeTemplates";
+import { useValidationStore } from "../store/validationStore";
 import { Icon } from "./ui/Icon";
+import { AlertCircle, AlertTriangle } from "lucide-react";
 
 // Category color mapping - Light theme
 const categoryStyles: Record<NodeCategory, { bg: string; border: string; icon: string; accent: string }> = {
@@ -98,12 +100,18 @@ const categoryStyles: Record<NodeCategory, { bg: string; border: string; icon: s
   },
 };
 
-function CustomNode({ data, selected }: NodeProps<FlowNodeData>) {
+function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
   const template = getNodeTemplate(data.nodeType);
   const style = categoryStyles[data.category] || categoryStyles.control;
   const isAI = data.category === "ai";
   const isPython = data.category === "python";
   const isTrigger = data.category === "trigger";
+
+  // Get validation issues for this node
+  const { getNodeIssues } = useValidationStore();
+  const nodeIssues = getNodeIssues(id);
+  const hasErrors = nodeIssues.some((i) => i.severity === "error");
+  const hasWarnings = nodeIssues.some((i) => i.severity === "warning") && !hasErrors;
 
   return (
     <div
@@ -115,6 +123,8 @@ function CustomNode({ data, selected }: NodeProps<FlowNodeData>) {
         shadow-sm
         transition-all duration-200
         ${isTrigger ? "ring-2 ring-emerald-300" : ""}
+        ${hasErrors ? "ring-2 ring-red-400 border-red-400" : ""}
+        ${hasWarnings ? "ring-2 ring-yellow-400 border-yellow-400" : ""}
         ${selected
           ? "border-primary ring-2 ring-primary/20 shadow-lg scale-[1.02]"
           : `${style.border} hover:shadow-lg hover:scale-[1.01]`
@@ -126,6 +136,18 @@ function CustomNode({ data, selected }: NodeProps<FlowNodeData>) {
       {isTrigger && (
         <div className="absolute -top-2.5 left-3 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm uppercase tracking-wide">
           Start
+        </div>
+      )}
+
+      {/* Validation Error/Warning Badge */}
+      {hasErrors && (
+        <div className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-sm" title={nodeIssues.filter(i => i.severity === "error").map(i => i.message).join("\n")}>
+          <AlertCircle className="w-3 h-3 text-white" />
+        </div>
+      )}
+      {hasWarnings && (
+        <div className="absolute -top-2 -right-2 w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center shadow-sm" title={nodeIssues.filter(i => i.severity === "warning").map(i => i.message).join("\n")}>
+          <AlertTriangle className="w-3 h-3 text-white" />
         </div>
       )}
 
