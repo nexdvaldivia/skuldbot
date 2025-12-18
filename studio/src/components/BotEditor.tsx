@@ -20,10 +20,12 @@ import { useProjectStore } from "../store/projectStore";
 import { useTabsStore } from "../store/tabsStore";
 import { useFlowStore, getDraggedNodeData, clearDraggedNodeData, getPendingNodeTemplate, clearPendingNodeTemplate } from "../store/flowStore";
 import { useHistoryStore, generatePasteIds, duplicateNodes } from "../store/historyStore";
+import { useDebugStore } from "../store/debugStore";
 import { useToastStore } from "../store/toastStore";
 import CustomNode from "./CustomNode";
 import AnimatedEdge from "./AnimatedEdge";
 import EmptyState from "./EmptyState";
+import NodeSearchDialog, { useNodeSearch } from "./NodeSearchDialog";
 import { FlowNode, FlowEdge } from "../types/flow";
 
 const nodeTypes: NodeTypes = {
@@ -39,11 +41,13 @@ export default function BotEditor() {
   const { setTabDirty } = useTabsStore();
   const { setSelectedNode, selectedNode } = useFlowStore();
   const { pushState, undo, redo, canUndo, canRedo, copy, paste, hasClipboard } = useHistoryStore();
+  const { toggleBreakpoint } = useDebugStore();
   const toast = useToastStore();
   const { screenToFlowPosition } = useReactFlow();
   const flowWrapperRef = useRef<HTMLDivElement>(null);
   const [hasPendingNode, setHasPendingNode] = useState(false);
   const isUndoRedoRef = useRef(false);
+  const { isSearchOpen, closeSearch } = useNodeSearch();
 
   // Get active bot
   const activeBot = activeBotId ? bots.get(activeBotId) : null;
@@ -227,11 +231,21 @@ export default function BotEditor() {
         setSelectedNode(null);
         return;
       }
+
+      // F9 = Toggle breakpoint on selected node(s)
+      if (e.key === 'F9') {
+        e.preventDefault();
+        const selectedNodes = nodes.filter((n) => n.selected);
+        if (selectedNodes.length > 0) {
+          selectedNodes.forEach((node) => toggleBreakpoint(node.id));
+        }
+        return;
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleUndo, handleRedo, handleCopy, handlePaste, handleDuplicate, handleSave, nodes, updateActiveBotNodes, setSelectedNode]);
+  }, [handleUndo, handleRedo, handleCopy, handlePaste, handleDuplicate, handleSave, nodes, updateActiveBotNodes, setSelectedNode, toggleBreakpoint]);
 
   // WebKit/Tauri workaround: drop event doesn't fire, so we use dragend event
   // Listen globally for dragend and check if mouse is over the canvas
@@ -571,6 +585,9 @@ export default function BotEditor() {
       </ReactFlow>
 
       {nodes.length === 0 && <EmptyState />}
+
+      {/* Node Search Dialog */}
+      <NodeSearchDialog isOpen={isSearchOpen} onClose={closeSearch} />
     </div>
   );
 }

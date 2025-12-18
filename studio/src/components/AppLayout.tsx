@@ -15,9 +15,12 @@ import Toolbar from "./Toolbar";
 import SettingsPanel from "./SettingsPanel";
 import EnvPanel from "./EnvPanel";
 import ProblemsPanel from "./ProblemsPanel";
+import DebugPanel from "./DebugPanel";
 import { AutoSaveManager } from "./AutoSaveManager";
 import { ToastContainer } from "./ui/ToastContainer";
-import { Bot } from "lucide-react";
+import { useDebugStore } from "../store/debugStore";
+import { Bot, Bug, ChevronDown, ChevronRight } from "lucide-react";
+import { useState } from "react";
 
 function EmptyWorkspace() {
   return (
@@ -70,8 +73,12 @@ function QuickStartWorkspace() {
 function ProjectWorkspace() {
   const { tabs, activeTabId } = useTabsStore();
   const { activeBotId, project } = useProjectStore();
+  const { state: debugState, breakpoints } = useDebugStore();
+  const [isDebugPanelOpen, setIsDebugPanelOpen] = useState(false);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
+  const isDebugging = debugState !== "idle";
+  const hasBreakpoints = breakpoints.size > 0;
 
   return (
     <div className="h-screen w-screen flex bg-slate-100">
@@ -85,6 +92,36 @@ function ProjectWorkspace() {
 
         {/* Tab Bar */}
         <TabBar />
+
+        {/* Debug Panel Toggle & Panel */}
+        {activeTab?.type === "bot" && (
+          <div className="bg-white border-b">
+            {/* Debug toggle header */}
+            <button
+              onClick={() => setIsDebugPanelOpen(!isDebugPanelOpen)}
+              className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-slate-50 transition-colors text-left"
+            >
+              {isDebugPanelOpen ? (
+                <ChevronDown className="w-4 h-4 text-slate-400" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              )}
+              <Bug className="w-4 h-4 text-slate-500" />
+              <span className="text-sm font-medium text-slate-600">Debugger</span>
+              {(isDebugging || hasBreakpoints) && (
+                <span className={`ml-2 w-2 h-2 rounded-full ${isDebugging ? "bg-green-500 animate-pulse" : "bg-red-500"}`} />
+              )}
+              {hasBreakpoints && !isDebugging && (
+                <span className="text-xs text-slate-400 ml-auto">
+                  {breakpoints.size} breakpoint{breakpoints.size > 1 ? "s" : ""}
+                </span>
+              )}
+            </button>
+
+            {/* Debug panel content */}
+            {isDebugPanelOpen && <DebugPanel />}
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="flex-1 flex min-h-0">

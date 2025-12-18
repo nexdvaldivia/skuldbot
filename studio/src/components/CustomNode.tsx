@@ -3,8 +3,9 @@ import { Handle, Position, NodeProps } from "reactflow";
 import { FlowNodeData, NodeCategory } from "../types/flow";
 import { getNodeTemplate } from "../data/nodeTemplates";
 import { useValidationStore } from "../store/validationStore";
+import { useDebugStore, useNodeDebugState } from "../store/debugStore";
 import { Icon } from "./ui/Icon";
-import { AlertCircle, AlertTriangle } from "lucide-react";
+import { AlertCircle, AlertTriangle, Circle } from "lucide-react";
 
 // Category color mapping - Light theme
 const categoryStyles: Record<NodeCategory, { bg: string; border: string; icon: string; accent: string }> = {
@@ -113,6 +114,16 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
   const hasErrors = nodeIssues.some((i) => i.severity === "error");
   const hasWarnings = nodeIssues.some((i) => i.severity === "warning") && !hasErrors;
 
+  // Get debug state for this node
+  const { toggleBreakpoint } = useDebugStore();
+  const { isCurrentNode, hasBreakpoint, isDebugging, status } = useNodeDebugState(id);
+
+  // Handle breakpoint toggle on double-click on the left side
+  const handleBreakpointClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleBreakpoint(id);
+  };
+
   return (
     <div
       className={`
@@ -125,6 +136,10 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
         ${isTrigger ? "ring-2 ring-emerald-300" : ""}
         ${hasErrors ? "ring-2 ring-red-400 border-red-400" : ""}
         ${hasWarnings ? "ring-2 ring-yellow-400 border-yellow-400" : ""}
+        ${isCurrentNode && isDebugging ? "ring-2 ring-blue-500 border-blue-500" : ""}
+        ${status === "running" ? "animate-pulse ring-2 ring-blue-400" : ""}
+        ${status === "success" ? "ring-2 ring-green-400 border-green-400" : ""}
+        ${status === "error" ? "ring-2 ring-red-500 border-red-500" : ""}
         ${selected
           ? "border-primary ring-2 ring-primary/20 shadow-lg scale-[1.02]"
           : `${style.border} hover:shadow-lg hover:scale-[1.01]`
@@ -132,6 +147,21 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
       `}
       style={{ minWidth: 180 }}
     >
+      {/* Breakpoint indicator */}
+      <div
+        className="absolute -left-3 top-1/2 -translate-y-1/2 cursor-pointer group"
+        onClick={handleBreakpointClick}
+        title={hasBreakpoint ? "Remove breakpoint (F9)" : "Add breakpoint (F9)"}
+      >
+        <Circle
+          className={`w-4 h-4 transition-colors ${
+            hasBreakpoint
+              ? "fill-red-500 text-red-500"
+              : "text-transparent group-hover:text-slate-300"
+          }`}
+        />
+      </div>
+
       {/* START Badge for Triggers */}
       {isTrigger && (
         <div className="absolute -top-2.5 left-3 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm uppercase tracking-wide">
@@ -139,13 +169,20 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
         </div>
       )}
 
+      {/* Debug status indicator */}
+      {isDebugging && status === "running" && (
+        <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm animate-pulse">
+          Running
+        </div>
+      )}
+
       {/* Validation Error/Warning Badge */}
-      {hasErrors && (
+      {hasErrors && !isDebugging && (
         <div className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-sm" title={nodeIssues.filter(i => i.severity === "error").map(i => i.message).join("\n")}>
           <AlertCircle className="w-3 h-3 text-white" />
         </div>
       )}
-      {hasWarnings && (
+      {hasWarnings && !isDebugging && (
         <div className="absolute -top-2 -right-2 w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center shadow-sm" title={nodeIssues.filter(i => i.severity === "warning").map(i => i.message).join("\n")}>
           <AlertTriangle className="w-3 h-3 text-white" />
         </div>
