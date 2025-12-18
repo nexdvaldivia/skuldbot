@@ -24,6 +24,7 @@ export interface DSLNode {
   };
   label?: string;
   description?: string;
+  position?: { x: number; y: number };  // Visual position in editor
 }
 
 export interface VariableDefinition {
@@ -49,6 +50,8 @@ export type NodeCategory =
   | "logging"      // Logging & Monitoring
   | "security"     // Security & Secrets
   | "human"        // Human-in-the-loop
+  | "compliance"   // PII/PHI Protection & HIPAA Safe Harbor
+  | "dataquality"  // Data Quality Gates (Great Expectations)
   | "trigger";     // Scheduling & Triggers
 
 // Output field definition - what data a node produces

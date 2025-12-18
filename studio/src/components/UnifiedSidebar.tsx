@@ -16,7 +16,10 @@ import {
   Home,
   Variable,
   Play,
+  FolderOpen,
+  Copy,
 } from "lucide-react";
+import { open } from "@tauri-apps/api/shell";
 import { nodeTemplates } from "../data/nodeTemplates";
 import { NodeTemplate, NodeCategory } from "../types/flow";
 import { Icon } from "./ui/Icon";
@@ -94,12 +97,16 @@ export default function UnifiedSidebar() {
 // ============================================================
 
 function ExplorerContent() {
-  const { project, bots, activeBotId, setActiveBot, createBot, deleteBot } = useProjectStore();
-  const { openTab } = useTabsStore();
+  const { project, projectPath, bots, activeBotId, openBot, createBot, deleteBot, renameBot } = useProjectStore();
+  const { openTab, updateTabTitle } = useTabsStore();
   const { setView } = useNavigationStore();
   const [showCreateBot, setShowCreateBot] = useState(false);
   const [newBotName, setNewBotName] = useState("");
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; botId: string } | null>(null);
+  const [renamingBotId, setRenamingBotId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const renameInputRef = useRef<HTMLInputElement>(null);
+  const [copiedPath, setCopiedPath] = useState(false);
 
   const handleCreateBot = async () => {
     if (!newBotName.trim()) return;
@@ -112,11 +119,13 @@ function ExplorerContent() {
     }
   };
 
-  const handleOpenBot = (botId: string) => {
+  const handleOpenBot = async (botId: string) => {
     const bot = bots.get(botId);
     if (!bot) return;
 
-    setActiveBot(botId);
+    // Load bot content from disk if not already loaded
+    await openBot(botId);
+
     openTab({
       id: `bot-${botId}`,
       type: "bot",
@@ -128,17 +137,23 @@ function ExplorerContent() {
 
   const handleContextMenu = (e: React.MouseEvent, botId: string) => {
     e.preventDefault();
-    // Calculate position, ensuring menu doesn't go off-screen
+    e.stopPropagation();
+
+    // Get button position to place menu to its left
+    const button = e.currentTarget as HTMLElement;
+    const rect = button.getBoundingClientRect();
     const menuWidth = 160;
     const menuHeight = 140;
-    let x = e.clientX;
-    let y = e.clientY;
 
-    // If menu would go off right edge, position to the left of cursor
-    if (x + menuWidth > window.innerWidth) {
-      x = window.innerWidth - menuWidth - 8;
+    // Position menu to the left of the button
+    let x = rect.left - menuWidth - 4;
+    let y = rect.top;
+
+    // If menu would go off left edge, position to the right of button
+    if (x < 8) {
+      x = rect.right + 4;
     }
-    // If menu would go off bottom edge, position above cursor
+    // If menu would go off bottom edge, position above
     if (y + menuHeight > window.innerHeight) {
       y = window.innerHeight - menuHeight - 8;
     }
@@ -150,6 +165,66 @@ function ExplorerContent() {
     await deleteBot(botId);
     setContextMenu(null);
   };
+
+  const handleStartRename = (botId: string) => {
+    const bot = bots.get(botId);
+    if (!bot) return;
+    setRenamingBotId(botId);
+    setRenameValue(bot.name);
+    setContextMenu(null);
+  };
+
+  const handleConfirmRename = async () => {
+    if (!renamingBotId || !renameValue.trim()) {
+      setRenamingBotId(null);
+      return;
+    }
+    await renameBot(renamingBotId, renameValue.trim());
+    updateTabTitle(`bot-${renamingBotId}`, renameValue.trim());
+    setRenamingBotId(null);
+  };
+
+  const handleCancelRename = () => {
+    setRenamingBotId(null);
+    setRenameValue("");
+  };
+
+  const handleRevealInFinder = async (botId: string) => {
+    const bot = bots.get(botId);
+    if (!bot?.path) return;
+    try {
+      await open(bot.path);
+    } catch (err) {
+      console.error("Failed to open in Finder:", err);
+    }
+    setContextMenu(null);
+  };
+
+  const handleCopyPath = (botId: string) => {
+    const bot = bots.get(botId);
+    if (!bot?.path) return;
+    navigator.clipboard.writeText(bot.path);
+    setCopiedPath(true);
+    setTimeout(() => setCopiedPath(false), 2000);
+    setContextMenu(null);
+  };
+
+  const handleRevealProjectInFinder = async () => {
+    if (!projectPath) return;
+    try {
+      await open(projectPath);
+    } catch (err) {
+      console.error("Failed to open project in Finder:", err);
+    }
+  };
+
+  // Focus rename input when it appears
+  useEffect(() => {
+    if (renamingBotId && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [renamingBotId]);
 
   // Close context menu when clicking outside
   useEffect(() => {
@@ -177,6 +252,13 @@ function ExplorerContent() {
             </div>
           </div>
           <div className="flex items-center gap-1">
+            <button
+              onClick={handleRevealProjectInFinder}
+              className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              title="Reveal in Finder"
+            >
+              <FolderOpen className="w-4 h-4" />
+            </button>
             <button
               onClick={() => setShowCreateBot(true)}
               className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
@@ -235,31 +317,52 @@ function ExplorerContent() {
             </div>
             <div className="space-y-0.5">
               {Array.from(bots.values()).map((bot) => (
-                <button
+                <div
                   key={bot.id}
-                  onClick={() => handleOpenBot(bot.id)}
+                  onClick={() => renamingBotId !== bot.id && handleOpenBot(bot.id)}
                   onContextMenu={(e) => handleContextMenu(e, bot.id)}
-                  className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left transition-colors group ${
+                  className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left transition-colors group cursor-pointer ${
                     activeBotId === bot.id
                       ? "bg-primary/10 text-primary"
                       : "hover:bg-accent text-foreground"
                   }`}
                 >
                   <Bot className="w-4 h-4 flex-shrink-0" />
-                  <span className="flex-1 text-sm truncate">{bot.name}</span>
-                  {bot.isDirty && (
+                  {renamingBotId === bot.id ? (
+                    <input
+                      ref={renameInputRef}
+                      type="text"
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onBlur={handleConfirmRename}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          handleConfirmRename();
+                        } else if (e.key === "Escape") {
+                          handleCancelRename();
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex-1 text-sm bg-background border rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  ) : (
+                    <span className="flex-1 text-sm truncate">{bot.name}</span>
+                  )}
+                  {bot.isDirty && renamingBotId !== bot.id && (
                     <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
                   )}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleContextMenu(e, bot.id);
-                    }}
-                    className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-accent transition-all"
-                  >
-                    <MoreHorizontal className="w-3 h-3" />
-                  </button>
-                </button>
+                  {renamingBotId !== bot.id && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleContextMenu(e, bot.id);
+                      }}
+                      className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-accent transition-all"
+                    >
+                      <MoreHorizontal className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
               ))}
               {bots.size === 0 && (
                 <div className="text-center py-6">
@@ -321,10 +424,25 @@ function ExplorerContent() {
           </button>
           <button
             className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors"
-            onClick={() => setContextMenu(null)}
+            onClick={() => handleStartRename(contextMenu.botId)}
           >
             <Edit3 className="w-4 h-4" />
             <span>Rename</span>
+          </button>
+          <div className="border-t my-1" />
+          <button
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors"
+            onClick={() => handleRevealInFinder(contextMenu.botId)}
+          >
+            <FolderOpen className="w-4 h-4" />
+            <span>Reveal in Finder</span>
+          </button>
+          <button
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors"
+            onClick={() => handleCopyPath(contextMenu.botId)}
+          >
+            <Copy className="w-4 h-4" />
+            <span>{copiedPath ? "Copied!" : "Copy Path"}</span>
           </button>
           <div className="border-t my-1" />
           <button

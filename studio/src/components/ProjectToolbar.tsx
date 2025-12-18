@@ -43,6 +43,14 @@ function generateDSL(
   const triggerNodes = nodes.filter((node) => node.data.category === "trigger");
   const triggerIds = triggerNodes.map((node) => node.id);
 
+  // Determinar start_node: preferir nodo trigger, sino el primer nodo
+  let startNode: string | undefined;
+  if (triggerNodes.length > 0) {
+    startNode = triggerNodes[0].id;
+  } else if (nodes.length > 0) {
+    startNode = nodes[0].id;
+  }
+
   return {
     version: "1.0",
     bot: {
@@ -52,7 +60,7 @@ function generateDSL(
     },
     nodes: dslNodes,
     triggers: triggerIds.length > 0 ? triggerIds : undefined,
-    start_node: nodes.length > 0 ? nodes[0].id : undefined,
+    start_node: startNode,
   };
 }
 

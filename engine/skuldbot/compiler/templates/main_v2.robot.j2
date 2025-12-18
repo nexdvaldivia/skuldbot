@@ -9,12 +9,12 @@ Library           OperatingSystem
 Library           RPA.Browser.Selenium
 {% endif %}
 {% if 'excel.' in node_types_str %}
-Library           RPA.Excel.Files
+Library           skuldbot.libs.ExcelLibrary
 {% endif %}
 {% if 'files.' in node_types_str %}
 Library           RPA.FileSystem
 {% endif %}
-Library           skuldbot.nodes.ControlLibrary
+Library           skuldbot.libs.ControlLibrary
 Resource          resources/error_handler.robot
 {% if bot.variables %}
 Variables         variables/config.yaml
@@ -133,14 +133,22 @@ Execute Node By ID
 {% elif node.type == 'web.close_browser' or node.type == 'browser.close' %}
             Close Browser
 
-{# ===== EXCEL ===== #}
+{# ===== EXCEL (SkuldBot ExcelLibrary) ===== #}
 {% elif node.type == 'excel.open' %}
-            Open Workbook    {{ node.config.get('path', '') | transform_vars }}
+            Open Excel    {{ node.config.get('path', '') | transform_vars }}
 {% elif node.type == 'excel.read_range' or node.type == 'excel.read' %}
-            ${data}=    Read Worksheet As Table    header={{ node.config.get('header', True)|lower }}
-            Set Global Variable    ${EXCEL_DATA}    ${data}
+            {% if node.config.get('column_names') and not node.config.get('header', True) %}
+            ${result}=    Read Excel Range    sheet_name={{ node.config.get('sheet', 'None') | transform_vars }}    header=${FALSE}    column_names={{ node.config.get('column_names', '') }}
+            {% else %}
+            ${result}=    Read Excel Range    sheet_name={{ node.config.get('sheet', 'None') | transform_vars }}    header=${{ '{TRUE}' if node.config.get('header', True) else '{FALSE}' }}
+            {% endif %}
+            ${EXCEL_DATA}=    Set Variable    ${result}[data]
+            ${EXCEL_ROW_COUNT}=    Set Variable    ${result}[rowCount]
+            Set Global Variable    ${EXCEL_DATA}
+            Set Global Variable    ${EXCEL_ROW_COUNT}
+            Log    Read ${EXCEL_ROW_COUNT} rows from Excel    console=yes
 {% elif node.type == 'excel.write_range' or node.type == 'excel.write' %}
-            Log    Excel write - using EXCEL_DATA variable    console=yes
+            Write Data To Excel    ${EXCEL_DATA}    {{ node.config.get('sheet', 'Sheet1') | transform_vars }}
 {% elif node.type == 'excel.read_cell' %}
             ${value}=    Get Cell Value    {{ node.config.get('cell', 'A1') | transform_vars }}
             Set Global Variable    ${CELL_VALUE}    ${value}
@@ -148,9 +156,9 @@ Execute Node By ID
 {% elif node.type == 'excel.write_cell' %}
             Set Cell Value    {{ node.config.get('cell', 'A1') | transform_vars }}    {{ node.config.get('value', '') | transform_vars }}
 {% elif node.type == 'excel.save' %}
-            Save Workbook    {% if node.config.get('path') %}{{ node.config.get('path') | transform_vars }}{% endif %}
+            Save And Close Excel
 {% elif node.type == 'excel.close' %}
-            Close Workbook
+            Close Excel Without Saving
 
 {# ===== FILES ===== #}
 {% elif node.type == 'files.read' %}

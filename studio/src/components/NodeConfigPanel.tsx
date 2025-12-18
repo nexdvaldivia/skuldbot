@@ -1,10 +1,13 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { open } from "@tauri-apps/api/dialog";
+import { invoke } from "@tauri-apps/api/tauri";
 import { useFlowStore } from "../store/flowStore";
 import { useProjectStore } from "../store/projectStore";
 import { useNavigationStore } from "../store/navigationStore";
+import { useTabsStore } from "../store/tabsStore";
 import { getNodeTemplate } from "../data/nodeTemplates";
-import { X, Info, Eye, Copy, Check, ChevronRight, ChevronDown } from "lucide-react";
+import { X, Info, Eye, Copy, Check, ChevronRight, ChevronDown, FolderOpen } from "lucide-react";
 import { Icon } from "./ui/Icon";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
@@ -255,8 +258,11 @@ export default function NodeConfigPanel() {
   const { currentView } = useNavigationStore();
   const flowStore = useFlowStore();
   const projectStore = useProjectStore();
+  const { setTabDirty } = useTabsStore();
   const [showFormPreview, setShowFormPreview] = useState(false);
   const [copiedExpression, setCopiedExpression] = useState<string | null>(null);
+  const [excelSheets, setExcelSheets] = useState<string[]>([]);
+  const [loadingSheets, setLoadingSheets] = useState(false);
 
   // Determine which store to use based on current view
   const isProjectMode = currentView === "project";
@@ -267,16 +273,24 @@ export default function NodeConfigPanel() {
 
   // Get nodes and edges from appropriate store
   const activeBot = isProjectMode ? projectStore.bots.get(projectStore.activeBotId || "") : null;
+  const activeBotId = projectStore.activeBotId;
   const nodes = isProjectMode ? (activeBot?.nodes || []) : flowStore.nodes;
   const edges = isProjectMode ? (activeBot?.edges || []) : flowStore.edges;
 
   // Update function depends on mode
   const updateNode = (id: string, data: Partial<FlowNode["data"]>) => {
+    console.log("updateNode called", { id, data, isProjectMode, hasActiveBot: !!activeBot, activeBotId });
     if (isProjectMode && activeBot) {
       const updatedNodes = activeBot.nodes.map((node) =>
         node.id === id ? { ...node, data: { ...node.data, ...data } } : node
       );
       projectStore.updateActiveBotNodes(updatedNodes);
+
+      // Mark tab as dirty
+      if (activeBotId) {
+        console.log("Setting tab dirty:", `bot-${activeBotId}`);
+        setTabDirty(`bot-${activeBotId}`, true);
+      }
 
       // Also update selectedNode in flowStore
       if (selectedNode?.id === id) {
@@ -354,6 +368,55 @@ export default function NodeConfigPanel() {
 
     return variables;
   }, [predecessorNodes]);
+
+  // Check if this is an Excel node and load sheets when file path changes
+  const isExcelNode = node?.data.nodeType?.startsWith("excel.");
+
+  // Get Excel file path - either from this node or from a predecessor excel.open node
+  const excelFilePath = useMemo(() => {
+    if (!node) return null;
+
+    // First check if this node has its own path configured
+    const ownPath = node.data.config?.path || node.data.config?.file_path;
+    if (ownPath) return ownPath;
+
+    // If not, look for a predecessor excel.open node
+    const excelOpenNode = predecessorNodes.find(n => n.data.nodeType === "excel.open");
+    if (excelOpenNode) {
+      return excelOpenNode.data.config?.path || excelOpenNode.data.config?.file_path;
+    }
+
+    return null;
+  }, [node, predecessorNodes]);
+
+  useEffect(() => {
+    if (!isExcelNode || !excelFilePath) {
+      setExcelSheets([]);
+      return;
+    }
+
+    // Check if it's an Excel file
+    const isExcelFile = /\.(xlsx?|xlsm|xlsb)$/i.test(excelFilePath);
+    if (!isExcelFile) {
+      setExcelSheets([]);
+      return;
+    }
+
+    const loadSheets = async () => {
+      setLoadingSheets(true);
+      try {
+        const sheets = await invoke<string[]>("get_excel_sheets", { filePath: excelFilePath });
+        setExcelSheets(sheets);
+      } catch (err) {
+        console.error("Failed to load Excel sheets:", err);
+        setExcelSheets([]);
+      } finally {
+        setLoadingSheets(false);
+      }
+    };
+
+    loadSheets();
+  }, [isExcelNode, excelFilePath]);
 
   if (!node) return null;
 
@@ -529,7 +592,13 @@ export default function NodeConfigPanel() {
               )}
 
               {/* Config Fields */}
-              {template.configSchema.map((field) => (
+              {template.configSchema.map((field) => {
+                // Hide column_names field if header is true (only show when header is false)
+                if (field.name === "column_names" && node.data.config.header !== false) {
+                  return null;
+                }
+
+                return (
                 <div key={field.name} className="space-y-2">
                   <Label htmlFor={field.name} className="text-sm font-medium">
                     {field.label}
@@ -537,14 +606,94 @@ export default function NodeConfigPanel() {
                   </Label>
 
                   {field.type === "text" && (
-                    <Input
-                      id={field.name}
-                      type="text"
-                      value={node.data.config[field.name] || ""}
-                      onChange={(e) => handleConfigChange(field.name, e.target.value)}
-                      placeholder={field.placeholder}
-                      className="h-9"
-                    />
+                    (() => {
+                      const isPathField = /path|file|directory|folder/i.test(field.name) ||
+                                         /path|file|directory|folder/i.test(field.label);
+                      const isSheetField = isExcelNode && /^sheet$/i.test(field.name);
+
+                      const handleBrowse = async () => {
+                        try {
+                          const selected = await open({
+                            multiple: false,
+                            directory: /directory|folder/i.test(field.name) || /directory|folder/i.test(field.label),
+                            filters: isExcelNode ? [{ name: 'Excel', extensions: ['xlsx', 'xls', 'xlsm', 'xlsb'] }] : undefined,
+                          });
+                          if (selected && typeof selected === 'string') {
+                            handleConfigChange(field.name, selected);
+                          }
+                        } catch (err) {
+                          console.error('Failed to open file dialog:', err);
+                        }
+                      };
+
+                      // Sheet field with dynamic sheets from Excel file
+                      if (isSheetField && excelSheets.length > 0) {
+                        return (
+                          <Select
+                            value={node.data.config[field.name] || ""}
+                            onValueChange={(value) => handleConfigChange(field.name, value)}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder={loadingSheets ? "Loading sheets..." : "Select sheet..."} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {excelSheets.map((sheet) => (
+                                <SelectItem key={sheet} value={sheet}>
+                                  {sheet}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        );
+                      }
+
+                      // Sheet field but no sheets loaded yet - show input with hint
+                      if (isSheetField) {
+                        return (
+                          <Input
+                            id={field.name}
+                            type="text"
+                            value={node.data.config[field.name] || ""}
+                            onChange={(e) => handleConfigChange(field.name, e.target.value)}
+                            placeholder={loadingSheets ? "Loading sheets..." : "Select a file first or type sheet name"}
+                            className="h-9"
+                            disabled={loadingSheets}
+                          />
+                        );
+                      }
+
+                      return isPathField ? (
+                        <div className="flex gap-2">
+                          <Input
+                            id={field.name}
+                            type="text"
+                            value={node.data.config[field.name] || ""}
+                            onChange={(e) => handleConfigChange(field.name, e.target.value)}
+                            placeholder={field.placeholder}
+                            className="h-9 flex-1"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={handleBrowse}
+                            className="h-9 w-9 flex-shrink-0"
+                            title="Browse..."
+                          >
+                            <FolderOpen className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Input
+                          id={field.name}
+                          type="text"
+                          value={node.data.config[field.name] || ""}
+                          onChange={(e) => handleConfigChange(field.name, e.target.value)}
+                          placeholder={field.placeholder}
+                          className="h-9"
+                        />
+                      );
+                    })()
                   )}
 
                   {field.type === "textarea" && (
@@ -618,7 +767,8 @@ export default function NodeConfigPanel() {
                     />
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Footer */}

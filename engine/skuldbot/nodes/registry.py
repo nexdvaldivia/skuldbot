@@ -27,6 +27,8 @@ class NodeCategory(str, Enum):
     LOGGING = "logging"
     SECURITY = "security"
     HUMAN = "human"
+    COMPLIANCE = "compliance"
+    DATAQUALITY = "dataquality"
 
 
 @dataclass
@@ -1759,6 +1761,39 @@ register_node(NodeMapping(
     return_variable="embeddings",
 ))
 
+register_node(NodeMapping(
+    node_type="ai.repair_data",
+    category=NodeCategory.AI,
+    keyword="AI Repair Data",
+    library=LIB_SKULD_AI,
+    description="Intelligently repair data quality issues using AI",
+    config_mapping={
+        "data": "data",
+        "validation_report": "validation_report",
+        "context": "context",
+        "allow_format_normalization": "allow_format_normalization",
+        "allow_semantic_cleanup": "allow_semantic_cleanup",
+        "allow_value_inference": "allow_value_inference",
+        "allow_sensitive_repair": "allow_sensitive_repair",
+        "min_confidence": "min_confidence",
+    },
+    return_variable="repair_result",
+))
+
+register_node(NodeMapping(
+    node_type="ai.suggest_repairs",
+    category=NodeCategory.AI,
+    keyword="AI Suggest Data Repairs",
+    library=LIB_SKULD_AI,
+    description="Preview repair suggestions without applying (for human review)",
+    config_mapping={
+        "data": "data",
+        "validation_report": "validation_report",
+        "context": "context",
+    },
+    return_variable="repair_suggestions",
+))
+
 
 # =============================================================================
 # SECURITY NODES (SkuldVault Library - skuldbot.libs.vault)
@@ -2015,6 +2050,425 @@ def get_category_summary() -> Dict[str, int]:
         cat = node.category.value
         summary[cat] = summary.get(cat, 0) + 1
     return summary
+
+
+# =============================================================================
+# COMPLIANCE NODES (SkuldCompliance Library - skuldbot.libs.compliance)
+# =============================================================================
+
+# Librería SkuldCompliance con alias Compliance
+LIB_SKULD_COMPLIANCE = LibraryImport("skuldbot.libs.compliance.SkuldCompliance", alias="Compliance")
+
+register_node(NodeMapping(
+    node_type="compliance.detect_sensitive",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Detect Sensitive Data",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Detect PII and PHI in data",
+    config_mapping={
+        "data": "data",
+        "regulations": "regulations",
+    },
+    return_variable="detection_result",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.detect_pii",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Detect PII",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Detect PII (Personal Identifiable Information)",
+    config_mapping={
+        "data": "data",
+    },
+    return_variable="pii_result",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.detect_phi",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Detect PHI",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Detect PHI (Protected Health Information)",
+    config_mapping={
+        "data": "data",
+    },
+    return_variable="phi_result",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.mask_data",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Mask Sensitive Data",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Mask sensitive data with asterisks",
+    config_mapping={
+        "data": "data",
+        "fields": "fields",
+        "mask_char": "mask_char",
+        "visible_chars": "visible_chars",
+    },
+    return_variable="masked_data",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.redact_data",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Redact Sensitive Data",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Completely remove sensitive data",
+    config_mapping={
+        "data": "data",
+        "fields": "fields",
+        "replacement": "replacement",
+    },
+    return_variable="redacted_data",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.pseudonymize",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Pseudonymize Data",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Replace sensitive data with consistent fake IDs",
+    config_mapping={
+        "data": "data",
+        "fields": "fields",
+        "prefix": "prefix",
+    },
+    return_variable="pseudonymized_data",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.hash_data",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Hash Sensitive Data",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Cryptographically hash sensitive data",
+    config_mapping={
+        "data": "data",
+        "fields": "fields",
+        "algorithm": "algorithm",
+        "salt": "salt",
+    },
+    return_variable="hashed_data",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.generalize_data",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Generalize Data",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Generalize data (ages to ranges, zip to partial)",
+    config_mapping={
+        "data": "data",
+        "rules": "rules",
+    },
+    return_variable="generalized_data",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.safe_harbor",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Apply HIPAA Safe Harbor",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Apply all HIPAA Safe Harbor de-identification methods",
+    config_mapping={
+        "data": "data",
+        "phi_fields": "phi_fields",
+    },
+    return_variable="deidentified_data",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.validate_hipaa",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Validate HIPAA Compliance",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Validate that data is HIPAA compliant",
+    config_mapping={
+        "data": "data",
+    },
+    return_variable="compliance_result",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.sensitive_gate",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Check Sensitive Data Gate",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Gate that blocks flow if sensitive data detected",
+    config_mapping={
+        "data": "data",
+        "block_on_pii": "block_on_pii",
+        "block_on_phi": "block_on_phi",
+    },
+    return_variable="gate_result",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.audit_log",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Log Compliance Event",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Log compliance audit event",
+    config_mapping={
+        "event_type": "event_type",
+        "data_classification": "data_classification",
+        "action": "action",
+        "user": "user",
+    },
+    return_variable="audit_entry",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.classify_data",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Classify Data Sensitivity",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Classify data sensitivity level",
+    config_mapping={
+        "data": "data",
+    },
+    return_variable="classification",
+))
+
+
+# =============================================================================
+# DATA QUALITY NODES (SkuldDataQuality Library - skuldbot.libs.data_quality)
+# =============================================================================
+
+# Librería SkuldDataQuality con alias DataQuality
+LIB_SKULD_DATAQUALITY = LibraryImport("skuldbot.libs.data_quality.SkuldDataQuality", alias="DataQuality")
+
+register_node(NodeMapping(
+    node_type="dataquality.validate_schema",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Validate Schema",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate data against a schema",
+    config_mapping={
+        "data": "data",
+        "schema": "schema",
+    },
+    return_variable="schema_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.validate_not_null",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Validate Column Not Null",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate column has no null values",
+    config_mapping={
+        "data": "data",
+        "column": "column",
+        "threshold": "threshold",
+    },
+    return_variable="not_null_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.validate_unique",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Validate Column Unique",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate column has unique values",
+    config_mapping={
+        "data": "data",
+        "column": "column",
+    },
+    return_variable="unique_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.validate_in_set",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Validate Column In Set",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate column values are in allowed set",
+    config_mapping={
+        "data": "data",
+        "column": "column",
+        "allowed_values": "allowed_values",
+    },
+    return_variable="in_set_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.validate_between",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Validate Column Between",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate column values are within range",
+    config_mapping={
+        "data": "data",
+        "column": "column",
+        "min_value": "min_value",
+        "max_value": "max_value",
+    },
+    return_variable="between_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.validate_regex",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Validate Column Regex",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate column values match regex pattern",
+    config_mapping={
+        "data": "data",
+        "column": "column",
+        "pattern": "pattern",
+    },
+    return_variable="regex_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.validate_email",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Validate Email Format",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate column contains valid email addresses",
+    config_mapping={
+        "data": "data",
+        "column": "column",
+    },
+    return_variable="email_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.validate_date",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Validate Date Format",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate column contains valid dates",
+    config_mapping={
+        "data": "data",
+        "column": "column",
+        "format": "format",
+    },
+    return_variable="date_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.validate_row_count",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Validate Row Count",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate data has expected row count",
+    config_mapping={
+        "data": "data",
+        "min_rows": "min_rows",
+        "max_rows": "max_rows",
+    },
+    return_variable="row_count_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.profile_data",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Profile Data",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Generate automatic data profile with statistics",
+    config_mapping={
+        "data": "data",
+    },
+    return_variable="data_profile",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.run_suite",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Run Validation Suite",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Run multiple validations from expectation suite",
+    config_mapping={
+        "data": "data",
+        "suite": "suite",
+    },
+    return_variable="suite_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.generate_report",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Generate Quality Report",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Generate comprehensive data quality report",
+    config_mapping={
+        "data": "data",
+        "data_source": "data_source",
+    },
+    return_variable="quality_report",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.list_profiles",
+    category=NodeCategory.DATAQUALITY,
+    keyword="List Quality Profiles",
+    library=LIB_SKULD_DATAQUALITY,
+    description="List available quality profiles by vertical",
+    config_mapping={
+        "vertical": "vertical",
+    },
+    return_variable="profiles_list",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.get_profile",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Get Quality Profile",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Get a specific quality profile by name",
+    config_mapping={
+        "profile_name": "profile_id",
+    },
+    return_variable="profile",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.apply_profile",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Apply Quality Profile",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate data using a predefined quality profile",
+    config_mapping={
+        "data": "data",
+        "profile_name": "profile_id",
+        "fail_on_error": "strict",
+    },
+    return_variable="profile_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.validate_and_repair",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Validate With Profile And Repair",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate with profile and auto-repair with AI",
+    config_mapping={
+        "data": "data",
+        "profile_name": "profile_id",
+        "min_confidence": "min_confidence",
+    },
+    return_variable="repair_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.create_custom_profile",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Create Custom Profile",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Create a custom quality profile",
+    config_mapping={
+        "name": "profile_id",
+        "description": "description",
+        "vertical": "vertical",
+        "expectations": "expectations",
+    },
+    return_variable="custom_profile",
+))
 
 
 # Print summary when module loads (for debugging)

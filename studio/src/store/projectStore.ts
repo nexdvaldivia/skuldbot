@@ -83,7 +83,8 @@ function dslToFlowNodes(dsl: BotDSL): { nodes: FlowNode[]; edges: FlowEdge[] } {
   const nodes: FlowNode[] = dsl.nodes.map((dslNode, index) => ({
     id: dslNode.id,
     type: "customNode",
-    position: { x: 250, y: 100 + index * 150 },
+    // Use saved position if available, otherwise calculate a default
+    position: dslNode.position || { x: 250, y: 100 + index * 150 },
     data: {
       label: dslNode.label || dslNode.type,
       nodeType: dslNode.type,
@@ -143,11 +144,20 @@ function flowNodesToDSL(
         error: errorEdge?.target || "END",
       },
       label: node.data.label,
+      position: node.position,  // Save visual position
     };
   });
 
   const triggerNodes = nodes.filter((node) => node.data.category === "trigger");
   const triggerIds = triggerNodes.map((node) => node.id);
+
+  // Determinar start_node: preferir nodo trigger, sino el primer nodo
+  let startNode: string | undefined;
+  if (triggerNodes.length > 0) {
+    startNode = triggerNodes[0].id;
+  } else if (nodes.length > 0) {
+    startNode = nodes[0].id;
+  }
 
   return {
     version: "1.0",
@@ -158,7 +168,7 @@ function flowNodesToDSL(
     },
     nodes: dslNodes,
     triggers: triggerIds.length > 0 ? triggerIds : undefined,
-    start_node: nodes.length > 0 ? nodes[0].id : undefined,
+    start_node: startNode,
   };
 }
 

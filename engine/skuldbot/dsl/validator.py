@@ -110,10 +110,23 @@ class DSLValidator:
         dfs(start_node.id)
 
     def _validate_reachability(self, bot: BotDefinition) -> None:
-        """Valida que todos los nodos sean alcanzables desde el inicio"""
+        """Valida que todos los nodos sean alcanzables desde el inicio o triggers"""
+        # Obtener todos los puntos de entrada: start_node y triggers
+        entry_points: Set[str] = set()
+
+        # Agregar start_node si existe
         start_node = bot.get_start_node()
-        if not start_node:
-            self.errors.append("No hay nodo inicial definido")
+        if start_node:
+            entry_points.add(start_node.id)
+
+        # Agregar triggers como puntos de entrada
+        if bot.triggers:
+            for trigger_id in bot.triggers:
+                if bot.get_node(trigger_id):
+                    entry_points.add(trigger_id)
+
+        if not entry_points:
+            self.errors.append("No hay nodo inicial ni triggers definidos")
             return
 
         reachable: Set[str] = set()
@@ -132,7 +145,9 @@ class DSLValidator:
                 visit(node.outputs.success)
                 visit(node.outputs.error)
 
-        visit(start_node.id)
+        # Visitar desde todos los puntos de entrada
+        for entry_id in entry_points:
+            visit(entry_id)
 
         # Reportar nodos no alcanzables
         all_nodes = {node.id for node in bot.nodes}

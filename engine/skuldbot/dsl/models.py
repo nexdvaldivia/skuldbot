@@ -77,6 +77,7 @@ class BotDefinition(BaseModel):
     variables: Dict[str, VariableDefinition] = Field(
         default_factory=dict, description="Variables del bot"
     )
+    triggers: List[str] = Field(default_factory=list, description="IDs de nodos trigger")
     start_node: Optional[str] = Field(None, description="ID del nodo inicial")
 
     @field_validator("nodes")

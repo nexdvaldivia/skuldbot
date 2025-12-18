@@ -942,3 +942,422 @@ Similarity score:"""
         except Exception as e:
             logger.error(f"Vision call failed: {e}")
             return f"[Error: {str(e)}]"
+
+    # =========================================================================
+    # AI REPAIR DATA - Reparación inteligente de datos
+    # =========================================================================
+
+    @keyword("AI Repair Data")
+    def ai_repair_data(
+        self,
+        data: List[Dict[str, Any]],
+        validation_report: Dict[str, Any],
+        context: str = "general",
+        allow_format_normalization: bool = True,
+        allow_semantic_cleanup: bool = True,
+        allow_value_inference: bool = False,
+        allow_sensitive_repair: bool = False,
+        min_confidence: float = 0.9,
+    ) -> Dict[str, Any]:
+        """
+        Repara datos con problemas de calidad usando IA.
+
+        PRINCIPIO RECTOR: El nodo NO inventa datos.
+        Solo corrige, normaliza o completa con ALTA CONFIANZA.
+
+        Qué SÍ puede reparar:
+        - Formatos incorrectos (fechas, montos, IDs)
+        - Normalización (nombres, direcciones, códigos)
+        - Campos derivados (ej. full_name desde partes)
+        - Limpieza semántica (OCR, texto sucio)
+
+        Qué NO debe reparar:
+        - Datos faltantes críticos sin evidencia
+        - Valores legales/financieros sensibles (si no está habilitado)
+        - Diagnósticos médicos
+        - Decisiones de negocio
+
+        Args:
+            data: Lista de diccionarios con los datos a reparar
+            validation_report: Reporte de validación con reglas fallidas
+            context: Contexto del proceso (general, insurance, healthcare, finance)
+            allow_format_normalization: Permitir normalización de formatos
+            allow_semantic_cleanup: Permitir limpieza semántica
+            allow_value_inference: Permitir inferencia de valores (CUIDADO)
+            allow_sensitive_repair: Permitir reparar campos sensibles
+            min_confidence: Confianza mínima requerida (0.0 - 1.0)
+
+        Returns:
+            Diccionario con datos reparados, métricas y auditoría
+
+        Example:
+            | ${result}= | AI Repair Data | ${data} | ${validation_report} |
+            | Log | Repaired quality: ${result}[repaired_quality] |
+        """
+        if not self._config:
+            return {
+                "status": "failed",
+                "error": "AI provider not configured. Call Configure AI Provider first.",
+                "repaired_data": data,
+                "original_quality": 0,
+                "repaired_quality": 0,
+            }
+
+        # Extraer información del reporte de validación
+        failed_validations = validation_report.get("validation_results", [])
+        if not failed_validations:
+            failed_validations = validation_report.get("results", [])
+
+        original_quality = validation_report.get("success_rate",
+                          validation_report.get("summary", {}).get("data_quality_score", 100))
+
+        # Si no hay problemas, retornar directamente
+        if original_quality >= 95:
+            return {
+                "status": "repaired",
+                "original_quality": original_quality,
+                "repaired_quality": original_quality,
+                "repaired_data": data,
+                "repairs": [],
+                "message": "Data quality already acceptable, no repairs needed",
+            }
+
+        # Identificar campos con problemas
+        problem_fields = self._identify_problem_fields(failed_validations)
+
+        if not problem_fields:
+            return {
+                "status": "repaired",
+                "original_quality": original_quality,
+                "repaired_quality": original_quality,
+                "repaired_data": data,
+                "repairs": [],
+                "message": "No repairable fields identified",
+            }
+
+        # Construir prompt para reparación
+        repair_prompt = self._build_repair_prompt(
+            data=data,
+            problem_fields=problem_fields,
+            context=context,
+            allow_format_normalization=allow_format_normalization,
+            allow_semantic_cleanup=allow_semantic_cleanup,
+            allow_value_inference=allow_value_inference,
+            allow_sensitive_repair=allow_sensitive_repair,
+            min_confidence=min_confidence,
+        )
+
+        # Llamar al LLM
+        try:
+            response = self._call_llm(
+                messages=[{"role": "user", "content": repair_prompt}],
+                json_mode=True,
+            )
+
+            # Parsear respuesta
+            repair_result = json.loads(response)
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse AI repair response: {e}")
+            return {
+                "status": "failed",
+                "error": f"Invalid AI response format: {e}",
+                "repaired_data": data,
+                "original_quality": original_quality,
+                "repaired_quality": original_quality,
+            }
+        except Exception as e:
+            logger.error(f"AI repair failed: {e}")
+            return {
+                "status": "failed",
+                "error": str(e),
+                "repaired_data": data,
+                "original_quality": original_quality,
+                "repaired_quality": original_quality,
+            }
+
+        # Aplicar reparaciones con filtro de confianza
+        repaired_data, applied_repairs = self._apply_repairs(
+            data=data,
+            repairs=repair_result.get("repairs", []),
+            min_confidence=min_confidence,
+        )
+
+        # Calcular nueva calidad estimada
+        repair_count = len(applied_repairs)
+        total_issues = len(problem_fields)
+        improvement = (repair_count / total_issues * (100 - original_quality)) if total_issues > 0 else 0
+        repaired_quality = min(original_quality + improvement, 100)
+
+        # Determinar estado final
+        if repaired_quality >= 90:
+            status = "repaired"
+        elif repaired_quality > original_quality:
+            status = "partially_fixed"
+        else:
+            status = "failed"
+
+        result = {
+            "status": status,
+            "original_quality": round(original_quality, 2),
+            "repaired_quality": round(repaired_quality, 2),
+            "improvement": round(repaired_quality - original_quality, 2),
+            "repaired_data": repaired_data,
+            "repairs": applied_repairs,
+            "skipped_repairs": [
+                r for r in repair_result.get("repairs", [])
+                if r.get("confidence", 0) < min_confidence
+            ],
+            "total_issues": total_issues,
+            "issues_fixed": repair_count,
+            "context": context,
+            "settings": {
+                "allow_format_normalization": allow_format_normalization,
+                "allow_semantic_cleanup": allow_semantic_cleanup,
+                "allow_value_inference": allow_value_inference,
+                "allow_sensitive_repair": allow_sensitive_repair,
+                "min_confidence": min_confidence,
+            },
+        }
+
+        logger.info(f"AI Repair: {status} - Quality {original_quality:.1f}% → {repaired_quality:.1f}%")
+        return result
+
+    def _identify_problem_fields(self, failed_validations: List[Dict]) -> List[Dict]:
+        """Identifica campos con problemas de los reportes de validación"""
+        problem_fields = []
+
+        for validation in failed_validations:
+            if validation.get("valid", True):
+                continue
+
+            field_info = {
+                "column": validation.get("column"),
+                "expectation": validation.get("expectation", "unknown"),
+                "issue_type": self._classify_issue_type(validation),
+                "invalid_count": validation.get("invalid_count", validation.get("null_count", 0)),
+                "invalid_values": validation.get("invalid_values", validation.get("unexpected_values", []))[:5],
+            }
+
+            if field_info["column"]:
+                problem_fields.append(field_info)
+
+        return problem_fields
+
+    def _classify_issue_type(self, validation: Dict) -> str:
+        """Clasifica el tipo de problema"""
+        expectation = validation.get("expectation", "").lower()
+        message = validation.get("message", "").lower()
+
+        if "null" in expectation or "null" in message:
+            return "missing_value"
+        elif "unique" in expectation or "duplicate" in message:
+            return "duplicate"
+        elif "regex" in expectation or "format" in message or "pattern" in message:
+            return "format_error"
+        elif "between" in expectation or "range" in message:
+            return "out_of_range"
+        elif "in_set" in expectation or "allowed" in message:
+            return "invalid_value"
+        elif "email" in expectation or "email" in message:
+            return "invalid_email"
+        elif "date" in expectation or "date" in message:
+            return "invalid_date"
+        else:
+            return "other"
+
+    def _build_repair_prompt(
+        self,
+        data: List[Dict],
+        problem_fields: List[Dict],
+        context: str,
+        allow_format_normalization: bool,
+        allow_semantic_cleanup: bool,
+        allow_value_inference: bool,
+        allow_sensitive_repair: bool,
+        min_confidence: float,
+    ) -> str:
+        """Construye el prompt para reparación de datos"""
+
+        # Tomar muestra de datos con problemas
+        sample_size = min(10, len(data))
+        sample_data = data[:sample_size]
+
+        # Contexto específico por vertical
+        context_instructions = {
+            "insurance": """
+            Context: Insurance data processing
+            - Be extra careful with claim amounts, policy numbers
+            - Date formats should be standardized to ISO
+            - Status codes must match industry standards
+            - Never infer financial values
+            """,
+            "healthcare": """
+            Context: Healthcare data processing (HIPAA sensitive)
+            - Never modify medical record numbers or diagnosis codes
+            - Date of birth must be validated, not inferred
+            - Patient names can be normalized but not changed
+            - Medical codes (ICD, CPT) must be validated against standards
+            """,
+            "finance": """
+            Context: Financial data processing
+            - Account numbers must be validated, not modified
+            - Currency amounts need proper formatting
+            - Dates must be precise
+            - Never infer or estimate monetary values
+            """,
+            "general": """
+            Context: General data processing
+            - Apply standard data cleaning practices
+            - Normalize formats where clear
+            - Be conservative with inferences
+            """
+        }
+
+        allowed_actions = []
+        if allow_format_normalization:
+            allowed_actions.append("Format normalization (dates, phone numbers, currency)")
+        if allow_semantic_cleanup:
+            allowed_actions.append("Semantic cleanup (typos, case normalization, whitespace)")
+        if allow_value_inference:
+            allowed_actions.append("Value inference (ONLY when evidence is very clear)")
+        if allow_sensitive_repair:
+            allowed_actions.append("Sensitive field repair (IDs, financial data)")
+
+        prompt = f"""You are a data quality repair assistant. Your task is to suggest repairs for data quality issues.
+
+CRITICAL RULES:
+1. You can ONLY repair data, never invent or guess values
+2. Each repair must have a confidence score (0.0 to 1.0)
+3. Only suggest repairs with confidence >= {min_confidence}
+4. If you cannot repair with high confidence, set confidence to 0
+
+{context_instructions.get(context, context_instructions["general"])}
+
+ALLOWED ACTIONS:
+{chr(10).join(f"- {action}" for action in allowed_actions) if allowed_actions else "- None specified (be very conservative)"}
+
+FORBIDDEN ACTIONS:
+- Inventing values that don't exist in context
+- Guessing sensitive data (SSN, medical IDs, account numbers)
+- Modifying values that could have legal implications
+- Making assumptions about missing critical data
+
+PROBLEM FIELDS TO FIX:
+{json.dumps(problem_fields, indent=2)}
+
+SAMPLE DATA (first {sample_size} rows):
+{json.dumps(sample_data, indent=2)}
+
+Respond with a JSON object containing an array of repairs:
+{{
+  "repairs": [
+    {{
+      "row_index": 0,
+      "field": "field_name",
+      "original_value": "original",
+      "repaired_value": "fixed value",
+      "action": "format_normalization|semantic_cleanup|value_inference|validation_fix",
+      "confidence": 0.95,
+      "reason": "Brief explanation"
+    }}
+  ],
+  "unrepairable": [
+    {{
+      "field": "field_name",
+      "reason": "Why this cannot be repaired"
+    }}
+  ]
+}}
+
+Only output valid JSON, no additional text."""
+
+        return prompt
+
+    def _apply_repairs(
+        self,
+        data: List[Dict],
+        repairs: List[Dict],
+        min_confidence: float,
+    ) -> tuple:
+        """Aplica las reparaciones con filtro de confianza"""
+        repaired_data = [row.copy() for row in data]
+        applied_repairs = []
+
+        for repair in repairs:
+            confidence = repair.get("confidence", 0)
+
+            # Filtrar por confianza
+            if confidence < min_confidence:
+                logger.debug(f"Skipping repair for {repair.get('field')} - confidence {confidence} < {min_confidence}")
+                continue
+
+            row_index = repair.get("row_index", 0)
+            field = repair.get("field")
+            repaired_value = repair.get("repaired_value")
+
+            if row_index < len(repaired_data) and field and field in repaired_data[row_index]:
+                original_value = repaired_data[row_index][field]
+                repaired_data[row_index][field] = repaired_value
+
+                applied_repairs.append({
+                    "row_index": row_index,
+                    "field": field,
+                    "original_value": original_value,
+                    "repaired_value": repaired_value,
+                    "action": repair.get("action", "unknown"),
+                    "confidence": confidence,
+                    "reason": repair.get("reason", ""),
+                })
+
+                logger.info(f"Applied repair: {field}[{row_index}] '{original_value}' → '{repaired_value}' (conf: {confidence})")
+
+        return repaired_data, applied_repairs
+
+    @keyword("AI Suggest Data Repairs")
+    def ai_suggest_data_repairs(
+        self,
+        data: List[Dict[str, Any]],
+        validation_report: Dict[str, Any],
+        context: str = "general",
+    ) -> Dict[str, Any]:
+        """
+        Sugiere reparaciones sin aplicarlas (modo preview).
+
+        Útil para revisión humana antes de aplicar cambios.
+
+        Args:
+            data: Lista de diccionarios con los datos
+            validation_report: Reporte de validación
+            context: Contexto del proceso
+
+        Returns:
+            Sugerencias de reparación sin aplicar
+
+        Example:
+            | ${suggestions}= | AI Suggest Data Repairs | ${data} | ${report} |
+            | Log | Suggested ${suggestions}[suggestion_count] repairs |
+        """
+        result = self.ai_repair_data(
+            data=data,
+            validation_report=validation_report,
+            context=context,
+            allow_format_normalization=True,
+            allow_semantic_cleanup=True,
+            allow_value_inference=False,
+            allow_sensitive_repair=False,
+            min_confidence=0.0,  # Get all suggestions
+        )
+
+        # Reorganizar para modo preview
+        all_repairs = result.get("repairs", []) + result.get("skipped_repairs", [])
+
+        return {
+            "suggestion_count": len(all_repairs),
+            "high_confidence": [r for r in all_repairs if r.get("confidence", 0) >= 0.9],
+            "medium_confidence": [r for r in all_repairs if 0.7 <= r.get("confidence", 0) < 0.9],
+            "low_confidence": [r for r in all_repairs if r.get("confidence", 0) < 0.7],
+            "suggestions": all_repairs,
+            "original_quality": result.get("original_quality"),
+            "estimated_quality_after_repair": result.get("repaired_quality"),
+        }

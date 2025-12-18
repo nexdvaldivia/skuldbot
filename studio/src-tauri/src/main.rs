@@ -255,14 +255,24 @@ import json
 import subprocess
 from pathlib import Path
 from skuldbot import Compiler, Executor, ExecutionMode
+from skuldbot.dsl.validator import ValidationError
 
 with open('{}', 'r') as f:
     dsl = json.load(f)
 
-# Compile
-compiler = Compiler()
-output_dir = '{}'
-bot_dir = compiler.compile_to_disk(dsl, output_dir)
+try:
+    # Compile
+    compiler = Compiler()
+    output_dir = '{}'
+    bot_dir = compiler.compile_to_disk(dsl, output_dir)
+except ValidationError as e:
+    print('ERROR: Validation failed')
+    for err in e.errors:
+        print(f'  - {{err}}')
+    sys.exit(1)
+except Exception as e:
+    print(f'ERROR: {{e}}')
+    sys.exit(1)
 
 # Execute with captured output
 main_robot = Path(bot_dir) / "main.robot"
@@ -975,6 +985,58 @@ async fn file_exists(path: String) -> Result<bool, String> {
     Ok(PathBuf::from(&path).exists())
 }
 
+#[tauri::command]
+async fn get_excel_sheets(file_path: String) -> Result<Vec<String>, String> {
+    println!("📊 Getting Excel sheets from: {}", file_path);
+
+    let path = PathBuf::from(&file_path);
+    if !path.exists() {
+        return Err(format!("File not found: {}", file_path));
+    }
+
+    let python_exe = get_python_executable();
+
+    let output = Command::new(&python_exe)
+        .arg("-c")
+        .arg(format!(
+            r#"
+import json
+try:
+    import openpyxl
+    wb = openpyxl.load_workbook('{}', read_only=True)
+    sheets = wb.sheetnames
+    wb.close()
+    print(json.dumps(sheets))
+except ImportError:
+    # Try with xlrd for .xls files
+    try:
+        import xlrd
+        wb = xlrd.open_workbook('{}')
+        sheets = wb.sheet_names()
+        print(json.dumps(sheets))
+    except:
+        print(json.dumps([]))
+except Exception as e:
+    print(json.dumps([]))
+"#,
+            file_path.replace("'", "\\'"),
+            file_path.replace("'", "\\'")
+        ))
+        .output()
+        .map_err(|e| format!("Failed to execute Python: {}", e))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let sheets: Vec<String> = serde_json::from_str(&stdout)
+            .unwrap_or_else(|_| vec![]);
+        println!("✅ Found {} sheets", sheets.len());
+        Ok(sheets)
+    } else {
+        let error = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Failed to read Excel: {}", error))
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -1009,7 +1071,8 @@ fn main() {
             remove_recent_project,
             // Utility commands
             read_directory,
-            file_exists
+            file_exists,
+            get_excel_sheets
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
