@@ -99,7 +99,7 @@ function ProjectWorkspace() {
             {/* Debug toggle header */}
             <button
               onClick={() => setIsDebugPanelOpen(!isDebugPanelOpen)}
-              className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-slate-50 transition-colors text-left"
+              className="w-full px-4 py-2 flex items-center gap-2 hover:bg-slate-50 transition-colors text-left"
             >
               {isDebugPanelOpen ? (
                 <ChevronDown className="w-4 h-4 text-slate-400" />

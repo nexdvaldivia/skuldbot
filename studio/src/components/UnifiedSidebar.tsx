@@ -128,7 +128,22 @@ function ExplorerContent() {
 
   const handleContextMenu = (e: React.MouseEvent, botId: string) => {
     e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY, botId });
+    // Calculate position, ensuring menu doesn't go off-screen
+    const menuWidth = 160;
+    const menuHeight = 140;
+    let x = e.clientX;
+    let y = e.clientY;
+
+    // If menu would go off right edge, position to the left of cursor
+    if (x + menuWidth > window.innerWidth) {
+      x = window.innerWidth - menuWidth - 8;
+    }
+    // If menu would go off bottom edge, position above cursor
+    if (y + menuHeight > window.innerHeight) {
+      y = window.innerHeight - menuHeight - 8;
+    }
+
+    setContextMenu({ x, y, botId });
   };
 
   const handleDeleteBot = async (botId: string) => {
