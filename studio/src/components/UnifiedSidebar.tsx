@@ -51,12 +51,12 @@ export default function UnifiedSidebar() {
 
   return (
     <div className="w-72 bg-card border-r flex flex-col flex-shrink-0">
-      {/* Tab Headers */}
-      <div className="flex border-b bg-muted/30">
+      {/* Tab Headers - h-12 to align with ProjectToolbar */}
+      <div className="flex border-b bg-muted/30 h-12">
         {project && (
           <button
             onClick={() => setActiveTab("explorer")}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+            className={`flex-1 flex items-center justify-center gap-2 px-4 text-sm font-medium transition-colors ${
               activeTab === "explorer"
                 ? "text-primary border-b-2 border-primary bg-card"
                 : "text-muted-foreground hover:text-foreground"
@@ -68,7 +68,7 @@ export default function UnifiedSidebar() {
         )}
         <button
           onClick={() => setActiveTab("nodes")}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 text-sm font-medium transition-colors ${
             activeTab === "nodes"
               ? "text-primary border-b-2 border-primary bg-card"
               : "text-muted-foreground hover:text-foreground"
