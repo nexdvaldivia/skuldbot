@@ -1,10 +1,9 @@
 [package]
 name = "skuldbot-studio"
 version = "0.1.0"
-description = "Skuldbot Studio - Visual RPA Editor"
-authors = ["Khipus Team"]
-license = "MIT"
-repository = "https://github.com/khipus/skuldbot"
+description = "SkuldBot Studio - Visual RPA Editor"
+authors = ["Skuld, LLC"]
+license = "Proprietary"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -17,6 +16,10 @@ tauri = { version = "1.5", features = [ "shell-open", "dialog-all", "fs-all"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1", features = ["full"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.6", features = ["v4"] }
+slug = "0.1"
+dirs = "5.0"
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem

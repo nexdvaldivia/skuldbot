@@ -4,12 +4,16 @@ SkuldVault - Gestión segura de secrets y credenciales
 Esta librería provee acceso a secrets desde múltiples fuentes:
 - Variables de entorno
 - Archivos .env
+- Local Vault (encriptado AES-256-GCM, para desarrollo y bots standalone)
 - Orchestrator Vault (cuando está disponible)
 - AWS Secrets Manager
 - Azure Key Vault
 - HashiCorp Vault
 
 Los secrets NUNCA se loguean ni se exponen en reportes.
+
+Para industrias reguladas (HIPAA, HITECH, PCI-DSS), usar LOCAL o ORCHESTRATOR
+con encriptación AES-256-GCM y audit logging habilitado.
 """
 
 import os
@@ -28,6 +32,7 @@ class VaultProvider(str, Enum):
     """Proveedores de vault soportados"""
     ENV = "env"
     DOTENV = "dotenv"
+    LOCAL = "local"  # Vault local encriptado (AES-256-GCM)
     ORCHESTRATOR = "orchestrator"
     AWS = "aws"
     AZURE = "azure"
@@ -72,32 +77,80 @@ class SkuldVault:
         self,
         default_provider: str = "env",
         dotenv_path: Optional[str] = None,
+        local_vault_path: Optional[str] = None,
+        local_vault_password: Optional[str] = None,
         orchestrator_url: Optional[str] = None,
         orchestrator_token: Optional[str] = None,
         cache_secrets: bool = True,
+        enable_audit: bool = True,
     ):
         """
         Inicializa el vault.
 
         Args:
-            default_provider: Proveedor por defecto (env, dotenv, orchestrator, aws, azure, hashicorp)
+            default_provider: Proveedor por defecto (env, dotenv, local, orchestrator, aws, azure, hashicorp)
             dotenv_path: Ruta al archivo .env (default: .env en directorio actual)
+            local_vault_path: Ruta al vault local (default: .skuldbot en directorio actual)
+            local_vault_password: Master password para el vault local (o env SKULDBOT_VAULT_PASSWORD)
             orchestrator_url: URL del Orchestrator API
             orchestrator_token: Token de autenticación del Orchestrator
             cache_secrets: Si debe cachear secrets en memoria
+            enable_audit: Habilitar audit logging para vault local
         """
         self.default_provider = VaultProvider(default_provider)
         self.dotenv_path = Path(dotenv_path) if dotenv_path else Path(".env")
+        self.local_vault_path = Path(local_vault_path) if local_vault_path else Path(".skuldbot")
+        self.local_vault_password = local_vault_password or os.getenv("SKULDBOT_VAULT_PASSWORD")
         self.orchestrator_url = orchestrator_url or os.getenv("SKULDBOT_ORCHESTRATOR_URL")
         self.orchestrator_token = orchestrator_token or os.getenv("SKULDBOT_ORCHESTRATOR_TOKEN")
         self.cache_secrets = cache_secrets
+        self.enable_audit = enable_audit
 
         self._cache: Dict[str, SecretValue] = {}
         self._dotenv_loaded = False
         self._dotenv_vars: Dict[str, str] = {}
+        self._local_vault = None
 
         # Cargar .env si existe
         self._load_dotenv()
+
+        # Intentar inicializar vault local si está configurado
+        self._init_local_vault()
+
+    def _init_local_vault(self) -> None:
+        """Inicializa el vault local si está configurado"""
+        if not self.local_vault_password:
+            return
+
+        try:
+            from skuldbot.libs.local_vault import LocalVault
+
+            self._local_vault = LocalVault(
+                str(self.local_vault_path),
+                enable_audit=self.enable_audit
+            )
+
+            if self._local_vault.exists:
+                self._local_vault.unlock(self.local_vault_password)
+                logger.info(f"Local vault unlocked at {self.local_vault_path}")
+            else:
+                logger.debug(f"Local vault not found at {self.local_vault_path}")
+
+        except ImportError:
+            logger.warn("cryptography not installed, local vault disabled")
+        except Exception as e:
+            logger.warn(f"Could not initialize local vault: {e}")
+            self._local_vault = None
+
+    def _get_from_local(self, name: str) -> Optional[str]:
+        """Obtiene secret del vault local encriptado"""
+        if not self._local_vault or not self._local_vault.is_unlocked:
+            return None
+
+        try:
+            return self._local_vault.get_secret(name)
+        except Exception:
+            return None
 
     def _load_dotenv(self) -> None:
         """Carga variables desde archivo .env"""
@@ -275,6 +328,8 @@ class SkuldVault:
             value = self._get_from_env(name)
         elif prov == VaultProvider.DOTENV:
             value = self._get_from_dotenv(name)
+        elif prov == VaultProvider.LOCAL:
+            value = self._get_from_local(name)
         elif prov == VaultProvider.ORCHESTRATOR:
             value = self._get_from_orchestrator(name)
         elif prov == VaultProvider.AWS:
@@ -284,7 +339,9 @@ class SkuldVault:
         elif prov == VaultProvider.HASHICORP:
             value = self._get_from_hashicorp(name)
 
-        # Fallback chain: proveedor -> env -> dotenv -> default
+        # Fallback chain: proveedor -> local -> env -> dotenv -> default
+        if value is None and prov != VaultProvider.LOCAL:
+            value = self._get_from_local(name)
         if value is None and prov != VaultProvider.ENV:
             value = self._get_from_env(name)
         if value is None and prov != VaultProvider.DOTENV:
@@ -340,44 +397,59 @@ class SkuldVault:
         name: str,
         value: str,
         provider: Optional[str] = None,
+        description: Optional[str] = None,
     ) -> None:
         """
-        Guarda un secret en el vault (solo Orchestrator soportado).
+        Guarda un secret en el vault (LOCAL y ORCHESTRATOR soportados).
 
         Args:
             name: Nombre del secret
             value: Valor a guardar
-            provider: Proveedor (solo 'orchestrator' soportado para escritura)
+            provider: Proveedor ('local' o 'orchestrator')
+            description: Descripción opcional (solo para local vault)
 
         Example:
+            | Set Secret | API_KEY | ${key} | provider=local |
             | Set Secret | NEW_API_KEY | ${new_key} | provider=orchestrator |
         """
-        prov = VaultProvider(provider) if provider else VaultProvider.ORCHESTRATOR
+        prov = VaultProvider(provider) if provider else VaultProvider.LOCAL
 
-        if prov != VaultProvider.ORCHESTRATOR:
-            raise ValueError("Only 'orchestrator' provider supports writing secrets")
+        if prov == VaultProvider.LOCAL:
+            if not self._local_vault or not self._local_vault.is_unlocked:
+                raise ValueError("Local vault not configured or locked")
 
-        if not self.orchestrator_url or not self.orchestrator_token:
-            raise ValueError("Orchestrator not configured")
+            self._local_vault.set_secret(name, value, description)
+            logger.info(f"Secret '{name}' saved to local vault")
 
-        try:
-            import urllib.request
+            # Invalidar cache
+            cache_key = f"{prov}:{name}"
+            if cache_key in self._cache:
+                del self._cache[cache_key]
 
-            url = f"{self.orchestrator_url}/api/v1/vault/secrets"
-            data = json.dumps({"name": name, "value": value}).encode()
-            req = urllib.request.Request(url, data=data, method="POST")
-            req.add_header("Authorization", f"Bearer {self.orchestrator_token}")
-            req.add_header("Content-Type", "application/json")
+        elif prov == VaultProvider.ORCHESTRATOR:
+            if not self.orchestrator_url or not self.orchestrator_token:
+                raise ValueError("Orchestrator not configured")
 
-            with urllib.request.urlopen(req, timeout=10) as response:
-                if response.status == 201:
-                    logger.info(f"Secret '{name}' saved to Orchestrator")
-                    # Invalidar cache
-                    cache_key = f"{prov}:{name}"
-                    if cache_key in self._cache:
-                        del self._cache[cache_key]
-        except Exception as e:
-            raise ValueError(f"Could not save secret to Orchestrator: {e}")
+            try:
+                import urllib.request
+
+                url = f"{self.orchestrator_url}/api/v1/vault/secrets"
+                data = json.dumps({"name": name, "value": value}).encode()
+                req = urllib.request.Request(url, data=data, method="POST")
+                req.add_header("Authorization", f"Bearer {self.orchestrator_token}")
+                req.add_header("Content-Type", "application/json")
+
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    if response.status == 201:
+                        logger.info(f"Secret '{name}' saved to Orchestrator")
+                        # Invalidar cache
+                        cache_key = f"{prov}:{name}"
+                        if cache_key in self._cache:
+                            del self._cache[cache_key]
+            except Exception as e:
+                raise ValueError(f"Could not save secret to Orchestrator: {e}")
+        else:
+            raise ValueError(f"Provider '{prov}' does not support writing secrets")
 
     @keyword("Delete Secret")
     def delete_secret(
@@ -386,60 +458,81 @@ class SkuldVault:
         provider: Optional[str] = None,
     ) -> None:
         """
-        Elimina un secret del vault (solo Orchestrator soportado).
+        Elimina un secret del vault (LOCAL y ORCHESTRATOR soportados).
 
         Args:
             name: Nombre del secret
-            provider: Proveedor (solo 'orchestrator' soportado)
+            provider: Proveedor ('local' o 'orchestrator')
 
         Example:
+            | Delete Secret | OLD_API_KEY | provider=local |
             | Delete Secret | OLD_API_KEY | provider=orchestrator |
         """
-        prov = VaultProvider(provider) if provider else VaultProvider.ORCHESTRATOR
+        prov = VaultProvider(provider) if provider else VaultProvider.LOCAL
 
-        if prov != VaultProvider.ORCHESTRATOR:
-            raise ValueError("Only 'orchestrator' provider supports deleting secrets")
+        if prov == VaultProvider.LOCAL:
+            if not self._local_vault or not self._local_vault.is_unlocked:
+                raise ValueError("Local vault not configured or locked")
 
-        if not self.orchestrator_url or not self.orchestrator_token:
-            raise ValueError("Orchestrator not configured")
+            self._local_vault.delete_secret(name)
+            logger.info(f"Secret '{name}' deleted from local vault")
 
-        try:
-            import urllib.request
+            # Invalidar cache
+            cache_key = f"{prov}:{name}"
+            if cache_key in self._cache:
+                del self._cache[cache_key]
 
-            url = f"{self.orchestrator_url}/api/v1/vault/secrets/{name}"
-            req = urllib.request.Request(url, method="DELETE")
-            req.add_header("Authorization", f"Bearer {self.orchestrator_token}")
+        elif prov == VaultProvider.ORCHESTRATOR:
+            if not self.orchestrator_url or not self.orchestrator_token:
+                raise ValueError("Orchestrator not configured")
 
-            with urllib.request.urlopen(req, timeout=10) as response:
-                if response.status == 204:
-                    logger.info(f"Secret '{name}' deleted from Orchestrator")
-                    # Invalidar cache
-                    cache_key = f"{prov}:{name}"
-                    if cache_key in self._cache:
-                        del self._cache[cache_key]
-        except Exception as e:
-            raise ValueError(f"Could not delete secret from Orchestrator: {e}")
+            try:
+                import urllib.request
+
+                url = f"{self.orchestrator_url}/api/v1/vault/secrets/{name}"
+                req = urllib.request.Request(url, method="DELETE")
+                req.add_header("Authorization", f"Bearer {self.orchestrator_token}")
+
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    if response.status == 204:
+                        logger.info(f"Secret '{name}' deleted from Orchestrator")
+                        # Invalidar cache
+                        cache_key = f"{prov}:{name}"
+                        if cache_key in self._cache:
+                            del self._cache[cache_key]
+            except Exception as e:
+                raise ValueError(f"Could not delete secret from Orchestrator: {e}")
+        else:
+            raise ValueError(f"Provider '{prov}' does not support deleting secrets")
 
     @keyword("List Secrets")
     def list_secrets(self, provider: Optional[str] = None) -> list:
         """
-        Lista los nombres de secrets disponibles (solo Orchestrator).
+        Lista los nombres de secrets disponibles.
 
         Args:
-            provider: Proveedor (solo 'orchestrator' soportado)
+            provider: Proveedor ('local', 'dotenv', 'orchestrator')
 
         Returns:
             Lista de nombres de secrets
 
         Example:
+            | ${secrets}= | List Secrets | provider=local |
             | ${secrets}= | List Secrets | provider=orchestrator |
             | Log Many | @{secrets} |
         """
-        prov = VaultProvider(provider) if provider else VaultProvider.ORCHESTRATOR
+        prov = VaultProvider(provider) if provider else VaultProvider.LOCAL
 
-        if prov == VaultProvider.DOTENV:
+        if prov == VaultProvider.LOCAL:
+            if not self._local_vault or not self._local_vault.is_unlocked:
+                raise ValueError("Local vault not configured or locked")
+            secrets = self._local_vault.list_secrets()
+            return [s["name"] for s in secrets]
+
+        elif prov == VaultProvider.DOTENV:
             self._load_dotenv()
             return list(self._dotenv_vars.keys())
+
         elif prov == VaultProvider.ORCHESTRATOR:
             if not self.orchestrator_url or not self.orchestrator_token:
                 raise ValueError("Orchestrator not configured")
@@ -557,3 +650,125 @@ class SkuldVault:
             return hashlib.md5(secret_value.encode()).hexdigest()
         else:
             raise ValueError(f"Unsupported hash algorithm: {algorithm}")
+
+    # ==================== Local Vault Management Keywords ====================
+
+    @keyword("Create Local Vault")
+    def create_local_vault(self, master_password: str, vault_path: Optional[str] = None) -> None:
+        """
+        Crea un nuevo vault local encriptado.
+
+        Args:
+            master_password: Password maestro para el vault
+            vault_path: Ruta al directorio del vault (default: .skuldbot)
+
+        Example:
+            | Create Local Vault | mi-password-seguro |
+            | Create Local Vault | ${password} | vault_path=/path/to/.skuldbot |
+        """
+        try:
+            from skuldbot.libs.local_vault import LocalVault
+
+            path = Path(vault_path) if vault_path else self.local_vault_path
+            vault = LocalVault(str(path), enable_audit=self.enable_audit)
+            vault.create(master_password)
+
+            # Usar este vault
+            self._local_vault = vault
+            self.local_vault_password = master_password
+
+            logger.info(f"Local vault created at {path}")
+        except Exception as e:
+            raise ValueError(f"Could not create local vault: {e}")
+
+    @keyword("Unlock Local Vault")
+    def unlock_local_vault(self, master_password: str, vault_path: Optional[str] = None) -> None:
+        """
+        Desbloquea el vault local.
+
+        Args:
+            master_password: Password maestro
+            vault_path: Ruta al directorio del vault
+
+        Example:
+            | Unlock Local Vault | mi-password-seguro |
+        """
+        try:
+            from skuldbot.libs.local_vault import LocalVault
+
+            path = Path(vault_path) if vault_path else self.local_vault_path
+            vault = LocalVault(str(path), enable_audit=self.enable_audit)
+            vault.unlock(master_password)
+
+            self._local_vault = vault
+            self.local_vault_password = master_password
+
+            logger.info(f"Local vault unlocked at {path}")
+        except Exception as e:
+            raise ValueError(f"Could not unlock local vault: {e}")
+
+    @keyword("Lock Local Vault")
+    def lock_local_vault(self) -> None:
+        """
+        Bloquea el vault local, eliminando la clave de memoria.
+
+        Example:
+            | Lock Local Vault |
+        """
+        if self._local_vault:
+            self._local_vault.lock()
+            self._local_vault = None
+            logger.info("Local vault locked")
+
+    @keyword("Change Vault Password")
+    def change_vault_password(self, old_password: str, new_password: str) -> None:
+        """
+        Cambia el master password del vault local.
+
+        Args:
+            old_password: Password actual
+            new_password: Nuevo password
+
+        Example:
+            | Change Vault Password | old-pass | new-pass |
+        """
+        if not self._local_vault:
+            raise ValueError("Local vault not initialized")
+
+        self._local_vault.change_password(old_password, new_password)
+        self.local_vault_password = new_password
+        logger.info("Local vault password changed")
+
+    @keyword("Get Vault Audit Log")
+    def get_vault_audit_log(self, limit: int = 100) -> list:
+        """
+        Obtiene el log de auditoría del vault local.
+
+        Args:
+            limit: Número máximo de entradas
+
+        Returns:
+            Lista de entradas de auditoría
+
+        Example:
+            | ${log}= | Get Vault Audit Log | limit=50 |
+            | Log Many | @{log} |
+        """
+        if not self._local_vault:
+            raise ValueError("Local vault not initialized")
+
+        return self._local_vault.get_audit_log(limit)
+
+    @keyword("Local Vault Is Unlocked")
+    def local_vault_is_unlocked(self) -> bool:
+        """
+        Verifica si el vault local está desbloqueado.
+
+        Returns:
+            True si está desbloqueado
+
+        Example:
+            | ${unlocked}= | Local Vault Is Unlocked |
+            | Run Keyword If | not ${unlocked} | Unlock Local Vault | ${password} |
+        """
+        return self._local_vault is not None and self._local_vault.is_unlocked

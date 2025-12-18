@@ -4,18 +4,7 @@ export const nodeTemplates: NodeTemplate[] = [
   // ============================================
   // TRIGGER - Scheduling & Triggers
   // ============================================
-  {
-    type: "trigger.schedule",
-    category: "trigger",
-    label: "Schedule Trigger",
-    description: "Start workflow on schedule (cron)",
-    icon: "Calendar",
-    defaultConfig: { cron: "0 9 * * *" },
-    configSchema: [
-      { name: "cron", label: "Cron Expression", type: "text", required: true, placeholder: "0 9 * * * (every day at 9am)" },
-      { name: "timezone", label: "Timezone", type: "text", default: "UTC", placeholder: "America/New_York" },
-    ],
-  },
+  // NOTE: Schedule Trigger removed - scheduling is handled by the Orchestrator, not Studio
   {
     type: "trigger.file_watch",
     category: "trigger",

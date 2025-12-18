@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useFlowStore } from "../store/flowStore";
+import { useProjectStore } from "../store/projectStore";
+import { useNavigationStore } from "../store/navigationStore";
 import { getNodeTemplate } from "../data/nodeTemplates";
 import { X, Info, Eye, Copy, Check, ChevronRight, ChevronDown } from "lucide-react";
 import { Icon } from "./ui/Icon";
@@ -250,9 +252,40 @@ function InputNodeTree({
 }
 
 export default function NodeConfigPanel() {
-  const { selectedNode, nodes, edges, updateNode, setSelectedNode } = useFlowStore();
+  const { currentView } = useNavigationStore();
+  const flowStore = useFlowStore();
+  const projectStore = useProjectStore();
   const [showFormPreview, setShowFormPreview] = useState(false);
   const [copiedExpression, setCopiedExpression] = useState<string | null>(null);
+
+  // Determine which store to use based on current view
+  const isProjectMode = currentView === "project";
+
+  // Get selectedNode from flowStore (shared between modes)
+  const selectedNode = flowStore.selectedNode;
+  const setSelectedNode = flowStore.setSelectedNode;
+
+  // Get nodes and edges from appropriate store
+  const activeBot = isProjectMode ? projectStore.bots.get(projectStore.activeBotId || "") : null;
+  const nodes = isProjectMode ? (activeBot?.nodes || []) : flowStore.nodes;
+  const edges = isProjectMode ? (activeBot?.edges || []) : flowStore.edges;
+
+  // Update function depends on mode
+  const updateNode = (id: string, data: Partial<FlowNode["data"]>) => {
+    if (isProjectMode && activeBot) {
+      const updatedNodes = activeBot.nodes.map((node) =>
+        node.id === id ? { ...node, data: { ...node.data, ...data } } : node
+      );
+      projectStore.updateActiveBotNodes(updatedNodes);
+
+      // Also update selectedNode in flowStore
+      if (selectedNode?.id === id) {
+        setSelectedNode({ ...selectedNode, data: { ...selectedNode.data, ...data } });
+      }
+    } else {
+      flowStore.updateNode(id, data);
+    }
+  };
 
   const node = selectedNode ? nodes.find(n => n.id === selectedNode.id) ?? null : null;
 

@@ -3,7 +3,10 @@
 
 use std::process::Command;
 use std::path::PathBuf;
+use std::fs;
 use serde::{Deserialize, Serialize};
+use chrono::{DateTime, Utc};
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct BotDSL {
@@ -32,6 +35,93 @@ struct ExecutionResult {
     message: String,
     output: Option<String>,
     logs: Vec<String>,
+}
+
+// ============================================================
+// Project System Types
+// ============================================================
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct ProjectManifest {
+    version: String,
+    project: ProjectInfo,
+    settings: ProjectSettings,
+    bots: Vec<BotReference>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct ProjectInfo {
+    id: String,
+    name: String,
+    description: Option<String>,
+    created: String,
+    updated: String,
+    author: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct ProjectSettings {
+    #[serde(rename = "defaultBrowser")]
+    default_browser: Option<String>,
+    #[serde(rename = "defaultHeadless")]
+    default_headless: Option<bool>,
+    #[serde(rename = "logLevel")]
+    log_level: Option<String>,
+    #[serde(rename = "autoSave")]
+    auto_save: Option<AutoSaveSettings>,
+    #[serde(rename = "versionHistory")]
+    version_history: Option<VersionHistorySettings>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct AutoSaveSettings {
+    enabled: bool,
+    #[serde(rename = "intervalMs")]
+    interval_ms: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct VersionHistorySettings {
+    enabled: bool,
+    #[serde(rename = "maxVersions")]
+    max_versions: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct BotReference {
+    id: String,
+    name: String,
+    path: String,
+    description: Option<String>,
+    tags: Option<Vec<String>>,
+    created: String,
+    updated: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct RecentProject {
+    path: String,
+    name: String,
+    #[serde(rename = "lastOpened")]
+    last_opened: String,
+    thumbnail: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct FileInfo {
+    name: String,
+    path: String,
+    #[serde(rename = "isDir")]
+    is_dir: bool,
+    size: Option<u64>,
+    modified: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct CommandResult {
+    success: bool,
+    message: String,
+    data: Option<serde_json::Value>,
 }
 
 // Get the path to the engine directory
@@ -295,7 +385,7 @@ async fn load_project(path: String) -> Result<String, String> {
 async fn get_engine_info() -> Result<String, String> {
     let engine_path = get_engine_path();
     let python_exe = get_python_executable();
-    
+
     let output = Command::new(&python_exe)
         .arg("-c")
         .arg(format!(
@@ -314,19 +404,612 @@ except Exception as e:
         ))
         .output()
         .map_err(|e| format!("Failed to get engine info: {}", e))?;
-    
+
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+// ============================================================
+// Project Commands
+// ============================================================
+
+fn get_recent_projects_path() -> PathBuf {
+    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+    home.join(".skuldbot").join("recent_projects.json")
+}
+
+#[tauri::command]
+async fn create_project(path: String, name: String, description: Option<String>) -> Result<ProjectManifest, String> {
+    println!("📁 Creating project: {} at {}", name, path);
+
+    let project_path = PathBuf::from(&path);
+
+    // Create project directory structure
+    let dirs_to_create = vec![
+        project_path.clone(),
+        project_path.join("bots"),
+        project_path.join("shared"),
+        project_path.join("shared/assets"),
+        project_path.join("shared/scripts"),
+        project_path.join("shared/node-templates"),
+        project_path.join(".skuldbot"),
+        project_path.join(".skuldbot/cache"),
+    ];
+
+    for dir in dirs_to_create {
+        fs::create_dir_all(&dir).map_err(|e| format!("Failed to create directory: {}", e))?;
+    }
+
+    // Create project manifest
+    let now = Utc::now().to_rfc3339();
+    let manifest = ProjectManifest {
+        version: "1.0".to_string(),
+        project: ProjectInfo {
+            id: Uuid::new_v4().to_string(),
+            name: name.clone(),
+            description,
+            created: now.clone(),
+            updated: now,
+            author: None,
+        },
+        settings: ProjectSettings {
+            default_browser: Some("chromium".to_string()),
+            default_headless: Some(false),
+            log_level: Some("INFO".to_string()),
+            auto_save: Some(AutoSaveSettings {
+                enabled: true,
+                interval_ms: 5000,
+            }),
+            version_history: Some(VersionHistorySettings {
+                enabled: true,
+                max_versions: 50,
+            }),
+        },
+        bots: vec![],
+    };
+
+    // Write manifest
+    let manifest_path = project_path.join("proyecto.skuld");
+    let manifest_json = serde_json::to_string_pretty(&manifest)
+        .map_err(|e| format!("Failed to serialize manifest: {}", e))?;
+    fs::write(&manifest_path, manifest_json).map_err(|e| format!("Failed to write manifest: {}", e))?;
+
+    // Create .gitignore
+    let gitignore_content = r#"# SkuldBot
+.skuldbot/cache/
+.skuldbot/env.local
+*.log
+output/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+"#;
+    fs::write(project_path.join(".gitignore"), gitignore_content)
+        .map_err(|e| format!("Failed to write .gitignore: {}", e))?;
+
+    // Create local config
+    let local_config = serde_json::json!({
+        "lastOpenedBot": null,
+        "windowState": {
+            "width": 1200,
+            "height": 800
+        }
+    });
+    fs::write(
+        project_path.join(".skuldbot/config.json"),
+        serde_json::to_string_pretty(&local_config).unwrap()
+    ).map_err(|e| format!("Failed to write local config: {}", e))?;
+
+    // Add to recent projects
+    let _ = add_recent_project_internal(&path, &name).await;
+
+    println!("✅ Project created: {}", manifest_path.display());
+    Ok(manifest)
+}
+
+#[tauri::command]
+async fn open_project(path: String) -> Result<ProjectManifest, String> {
+    println!("📂 Opening project: {}", path);
+
+    let project_path = PathBuf::from(&path);
+    let manifest_path = if project_path.extension().map_or(false, |e| e == "skuld") {
+        project_path.clone()
+    } else {
+        project_path.join("proyecto.skuld")
+    };
+
+    if !manifest_path.exists() {
+        return Err(format!("Project manifest not found: {}", manifest_path.display()));
+    }
+
+    let manifest_content = fs::read_to_string(&manifest_path)
+        .map_err(|e| format!("Failed to read manifest: {}", e))?;
+
+    let manifest: ProjectManifest = serde_json::from_str(&manifest_content)
+        .map_err(|e| format!("Failed to parse manifest: {}", e))?;
+
+    // Add to recent projects
+    let project_dir = manifest_path.parent().unwrap().to_string_lossy().to_string();
+    let _ = add_recent_project_internal(&project_dir, &manifest.project.name).await;
+
+    println!("✅ Project opened: {}", manifest.project.name);
+    Ok(manifest)
+}
+
+#[tauri::command]
+async fn save_project_manifest(path: String, manifest: ProjectManifest) -> Result<(), String> {
+    println!("💾 Saving project manifest: {}", path);
+
+    let mut updated_manifest = manifest;
+    updated_manifest.project.updated = Utc::now().to_rfc3339();
+
+    let manifest_json = serde_json::to_string_pretty(&updated_manifest)
+        .map_err(|e| format!("Failed to serialize manifest: {}", e))?;
+    fs::write(&path, manifest_json).map_err(|e| format!("Failed to write manifest: {}", e))?;
+
+    println!("✅ Manifest saved");
+    Ok(())
+}
+
+// ============================================================
+// Bot Commands
+// ============================================================
+
+#[tauri::command]
+async fn create_bot(project_path: String, name: String, description: Option<String>) -> Result<BotReference, String> {
+    println!("🤖 Creating bot: {} in {}", name, project_path);
+
+    let project_dir = PathBuf::from(&project_path);
+    let bot_id = Uuid::new_v4().to_string();
+    let bot_slug = slug::slugify(&name);
+    let bot_path = format!("bots/{}", bot_slug);
+    let bot_dir = project_dir.join(&bot_path);
+
+    // Create bot directory structure
+    fs::create_dir_all(&bot_dir).map_err(|e| format!("Failed to create bot directory: {}", e))?;
+    fs::create_dir_all(bot_dir.join(".history")).map_err(|e| format!("Failed to create history directory: {}", e))?;
+    fs::create_dir_all(bot_dir.join("assets")).map_err(|e| format!("Failed to create assets directory: {}", e))?;
+
+    // Create empty bot.json
+    let now = Utc::now().to_rfc3339();
+    let bot_dsl = serde_json::json!({
+        "version": "1.0",
+        "bot": {
+            "id": bot_id,
+            "name": name,
+            "description": description
+        },
+        "nodes": [],
+        "variables": {}
+    });
+
+    fs::write(
+        bot_dir.join("bot.json"),
+        serde_json::to_string_pretty(&bot_dsl).unwrap()
+    ).map_err(|e| format!("Failed to write bot.json: {}", e))?;
+
+    let bot_ref = BotReference {
+        id: bot_id,
+        name: name.clone(),
+        path: bot_path,
+        description,
+        tags: None,
+        created: now.clone(),
+        updated: now,
+    };
+
+    println!("✅ Bot created: {}", bot_dir.display());
+    Ok(bot_ref)
+}
+
+#[tauri::command]
+async fn load_bot(bot_path: String) -> Result<serde_json::Value, String> {
+    println!("📂 Loading bot: {}", bot_path);
+
+    let bot_json_path = PathBuf::from(&bot_path).join("bot.json");
+    if !bot_json_path.exists() {
+        return Err(format!("Bot file not found: {}", bot_json_path.display()));
+    }
+
+    let content = fs::read_to_string(&bot_json_path)
+        .map_err(|e| format!("Failed to read bot file: {}", e))?;
+
+    let bot: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse bot file: {}", e))?;
+
+    println!("✅ Bot loaded");
+    Ok(bot)
+}
+
+#[tauri::command]
+async fn save_bot(bot_path: String, dsl: String) -> Result<(), String> {
+    println!("💾 Saving bot: {}", bot_path);
+
+    let bot_dir = PathBuf::from(&bot_path);
+
+    // Create bot directory if it doesn't exist
+    if !bot_dir.exists() {
+        fs::create_dir_all(&bot_dir).map_err(|e| format!("Failed to create bot directory: {}", e))?;
+        fs::create_dir_all(bot_dir.join(".history")).map_err(|e| format!("Failed to create history directory: {}", e))?;
+        fs::create_dir_all(bot_dir.join("assets")).map_err(|e| format!("Failed to create assets directory: {}", e))?;
+    }
+
+    let bot_json_path = bot_dir.join("bot.json");
+    fs::write(&bot_json_path, &dsl).map_err(|e| format!("Failed to write bot file: {}", e))?;
+
+    println!("✅ Bot saved");
+    Ok(())
+}
+
+#[tauri::command]
+async fn delete_bot(bot_path: String) -> Result<(), String> {
+    println!("🗑️ Deleting bot: {}", bot_path);
+
+    let bot_dir = PathBuf::from(&bot_path);
+    if bot_dir.exists() {
+        fs::remove_dir_all(&bot_dir).map_err(|e| format!("Failed to delete bot: {}", e))?;
+    }
+
+    println!("✅ Bot deleted");
+    Ok(())
+}
+
+// ============================================================
+// Version History Commands
+// ============================================================
+
+#[tauri::command]
+async fn save_bot_version(bot_path: String, dsl: String, description: Option<String>) -> Result<String, String> {
+    println!("📸 Saving bot version: {}", bot_path);
+
+    let history_dir = PathBuf::from(&bot_path).join(".history");
+    fs::create_dir_all(&history_dir).map_err(|e| format!("Failed to create history directory: {}", e))?;
+
+    let version_id = Uuid::new_v4().to_string();
+    let timestamp = Utc::now().to_rfc3339();
+
+    let version_data = serde_json::json!({
+        "id": version_id,
+        "timestamp": timestamp,
+        "description": description,
+        "dsl": serde_json::from_str::<serde_json::Value>(&dsl).unwrap_or(serde_json::json!({}))
+    });
+
+    let version_file = history_dir.join(format!("{}.json", version_id));
+    fs::write(&version_file, serde_json::to_string_pretty(&version_data).unwrap())
+        .map_err(|e| format!("Failed to write version file: {}", e))?;
+
+    println!("✅ Version saved: {}", version_id);
+    Ok(version_id)
+}
+
+#[tauri::command]
+async fn list_bot_versions(bot_path: String) -> Result<Vec<serde_json::Value>, String> {
+    println!("📋 Listing bot versions: {}", bot_path);
+
+    let history_dir = PathBuf::from(&bot_path).join(".history");
+    if !history_dir.exists() {
+        return Ok(vec![]);
+    }
+
+    let mut versions = vec![];
+
+    for entry in fs::read_dir(&history_dir).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
+
+        if path.extension().map_or(false, |e| e == "json") {
+            if let Ok(content) = fs::read_to_string(&path) {
+                if let Ok(version) = serde_json::from_str::<serde_json::Value>(&content) {
+                    versions.push(serde_json::json!({
+                        "id": version.get("id"),
+                        "timestamp": version.get("timestamp"),
+                        "description": version.get("description")
+                    }));
+                }
+            }
+        }
+    }
+
+    // Sort by timestamp descending
+    versions.sort_by(|a, b| {
+        let ts_a = a.get("timestamp").and_then(|v| v.as_str()).unwrap_or("");
+        let ts_b = b.get("timestamp").and_then(|v| v.as_str()).unwrap_or("");
+        ts_b.cmp(ts_a)
+    });
+
+    Ok(versions)
+}
+
+#[tauri::command]
+async fn load_bot_version(bot_path: String, version_id: String) -> Result<serde_json::Value, String> {
+    println!("📂 Loading bot version: {} - {}", bot_path, version_id);
+
+    let version_file = PathBuf::from(&bot_path).join(".history").join(format!("{}.json", version_id));
+    if !version_file.exists() {
+        return Err(format!("Version not found: {}", version_id));
+    }
+
+    let content = fs::read_to_string(&version_file)
+        .map_err(|e| format!("Failed to read version file: {}", e))?;
+
+    let version: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse version file: {}", e))?;
+
+    Ok(version.get("dsl").cloned().unwrap_or(serde_json::json!({})))
+}
+
+#[tauri::command]
+async fn cleanup_old_versions(bot_path: String, max_versions: u32) -> Result<u32, String> {
+    println!("🧹 Cleaning up old versions: {} (max: {})", bot_path, max_versions);
+
+    let history_dir = PathBuf::from(&bot_path).join(".history");
+    if !history_dir.exists() {
+        return Ok(0);
+    }
+
+    let mut version_files: Vec<_> = fs::read_dir(&history_dir)
+        .map_err(|e| e.to_string())?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().map_or(false, |ext| ext == "json"))
+        .collect();
+
+    // Sort by modified time (oldest first)
+    version_files.sort_by(|a, b| {
+        let time_a = a.metadata().and_then(|m| m.modified()).ok();
+        let time_b = b.metadata().and_then(|m| m.modified()).ok();
+        time_a.cmp(&time_b)
+    });
+
+    let mut deleted = 0;
+    while version_files.len() > max_versions as usize {
+        if let Some(oldest) = version_files.first() {
+            let _ = fs::remove_file(oldest.path());
+            deleted += 1;
+        }
+        version_files.remove(0);
+    }
+
+    println!("✅ Cleaned up {} old versions", deleted);
+    Ok(deleted)
+}
+
+// ============================================================
+// Asset Commands
+// ============================================================
+
+#[tauri::command]
+async fn list_assets(assets_path: String) -> Result<Vec<FileInfo>, String> {
+    println!("📂 Listing assets: {}", assets_path);
+
+    let assets_dir = PathBuf::from(&assets_path);
+    if !assets_dir.exists() {
+        return Ok(vec![]);
+    }
+
+    let mut assets = vec![];
+
+    for entry in fs::read_dir(&assets_dir).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
+        let metadata = entry.metadata().ok();
+
+        assets.push(FileInfo {
+            name: path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+            path: path.to_string_lossy().to_string(),
+            is_dir: path.is_dir(),
+            size: metadata.as_ref().map(|m| m.len()),
+            modified: metadata.and_then(|m| m.modified().ok())
+                .map(|t| DateTime::<Utc>::from(t).to_rfc3339()),
+        });
+    }
+
+    Ok(assets)
+}
+
+#[tauri::command]
+async fn copy_asset(source: String, destination: String) -> Result<(), String> {
+    println!("📋 Copying asset: {} -> {}", source, destination);
+
+    let dest_path = PathBuf::from(&destination);
+    if let Some(parent) = dest_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+
+    fs::copy(&source, &destination).map_err(|e| format!("Failed to copy asset: {}", e))?;
+
+    println!("✅ Asset copied");
+    Ok(())
+}
+
+#[tauri::command]
+async fn delete_asset(path: String) -> Result<(), String> {
+    println!("🗑️ Deleting asset: {}", path);
+
+    let asset_path = PathBuf::from(&path);
+    if asset_path.is_dir() {
+        fs::remove_dir_all(&asset_path).map_err(|e| e.to_string())?;
+    } else {
+        fs::remove_file(&asset_path).map_err(|e| e.to_string())?;
+    }
+
+    println!("✅ Asset deleted");
+    Ok(())
+}
+
+// ============================================================
+// Recent Projects Commands
+// ============================================================
+
+async fn add_recent_project_internal(path: &str, name: &str) -> Result<(), String> {
+    let recent_path = get_recent_projects_path();
+
+    if let Some(parent) = recent_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+
+    let mut recent: Vec<RecentProject> = if recent_path.exists() {
+        let content = fs::read_to_string(&recent_path).unwrap_or_default();
+        serde_json::from_str(&content).unwrap_or_default()
+    } else {
+        vec![]
+    };
+
+    // Remove existing entry with same path
+    recent.retain(|p| p.path != path);
+
+    // Add new entry at the beginning
+    recent.insert(0, RecentProject {
+        path: path.to_string(),
+        name: name.to_string(),
+        last_opened: Utc::now().to_rfc3339(),
+        thumbnail: None,
+    });
+
+    // Keep only last 10
+    recent.truncate(10);
+
+    let json = serde_json::to_string_pretty(&recent).unwrap();
+    fs::write(&recent_path, json).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_recent_projects() -> Result<Vec<RecentProject>, String> {
+    println!("📋 Getting recent projects");
+
+    let recent_path = get_recent_projects_path();
+
+    if !recent_path.exists() {
+        return Ok(vec![]);
+    }
+
+    let content = fs::read_to_string(&recent_path).map_err(|e| e.to_string())?;
+    let recent: Vec<RecentProject> = serde_json::from_str(&content).unwrap_or_default();
+
+    // Filter out non-existent projects
+    let valid_recent: Vec<RecentProject> = recent
+        .into_iter()
+        .filter(|p| PathBuf::from(&p.path).join("proyecto.skuld").exists())
+        .collect();
+
+    Ok(valid_recent)
+}
+
+#[tauri::command]
+async fn add_recent_project(path: String, name: String) -> Result<(), String> {
+    add_recent_project_internal(&path, &name).await
+}
+
+#[tauri::command]
+async fn remove_recent_project(path: String) -> Result<(), String> {
+    println!("🗑️ Removing from recent: {}", path);
+
+    let recent_path = get_recent_projects_path();
+
+    if !recent_path.exists() {
+        return Ok(());
+    }
+
+    let content = fs::read_to_string(&recent_path).map_err(|e| e.to_string())?;
+    let mut recent: Vec<RecentProject> = serde_json::from_str(&content).unwrap_or_default();
+
+    recent.retain(|p| p.path != path);
+
+    let json = serde_json::to_string_pretty(&recent).unwrap();
+    fs::write(&recent_path, json).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+// ============================================================
+// Utility Commands
+// ============================================================
+
+#[tauri::command]
+async fn read_directory(path: String) -> Result<Vec<FileInfo>, String> {
+    println!("📂 Reading directory: {}", path);
+
+    let dir_path = PathBuf::from(&path);
+    if !dir_path.exists() {
+        return Err(format!("Directory not found: {}", path));
+    }
+
+    let mut files = vec![];
+
+    for entry in fs::read_dir(&dir_path).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
+        let metadata = entry.metadata().ok();
+
+        files.push(FileInfo {
+            name: path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+            path: path.to_string_lossy().to_string(),
+            is_dir: path.is_dir(),
+            size: metadata.as_ref().map(|m| m.len()),
+            modified: metadata.and_then(|m| m.modified().ok())
+                .map(|t| DateTime::<Utc>::from(t).to_rfc3339()),
+        });
+    }
+
+    // Sort: directories first, then by name
+    files.sort_by(|a, b| {
+        if a.is_dir != b.is_dir {
+            b.is_dir.cmp(&a.is_dir)
+        } else {
+            a.name.to_lowercase().cmp(&b.name.to_lowercase())
+        }
+    });
+
+    Ok(files)
+}
+
+#[tauri::command]
+async fn file_exists(path: String) -> Result<bool, String> {
+    Ok(PathBuf::from(&path).exists())
 }
 
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
+            // Engine commands
             compile_dsl,
             run_bot,
             validate_dsl,
             save_project,
             load_project,
-            get_engine_info
+            get_engine_info,
+            // Project commands
+            create_project,
+            open_project,
+            save_project_manifest,
+            // Bot commands
+            create_bot,
+            load_bot,
+            save_bot,
+            delete_bot,
+            // Version history commands
+            save_bot_version,
+            list_bot_versions,
+            load_bot_version,
+            cleanup_old_versions,
+            // Asset commands
+            list_assets,
+            copy_asset,
+            delete_asset,
+            // Recent projects commands
+            get_recent_projects,
+            add_recent_project,
+            remove_recent_project,
+            // Utility commands
+            read_directory,
+            file_exists
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

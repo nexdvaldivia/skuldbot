@@ -1,7 +1,8 @@
-import { Play, Download, Upload, Trash2, Package, Settings, HelpCircle, Loader2 } from "lucide-react";
+import { Play, Download, Upload, Trash2, Package, Settings, HelpCircle, Loader2, Home } from "lucide-react";
 import { useState } from "react";
 import { useFlowStore, FormTriggerConfig } from "../store/flowStore";
 import { useToastStore } from "../store/toastStore";
+import { useNavigationStore } from "../store/navigationStore";
 import { SkuldLogoBox } from "./ui/SkuldLogo";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
@@ -11,6 +12,7 @@ export default function Toolbar() {
   const { compileBot, runBot, generateDSL, deleteNode, selectedNode, nodes, botInfo, setBotInfo, requiresFormInput, getFormTriggerConfig } =
     useFlowStore();
   const toast = useToastStore();
+  const { setView } = useNavigationStore();
   const [isCompiling, setIsCompiling] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [showFormModal, setShowFormModal] = useState(false);
@@ -124,10 +126,29 @@ export default function Toolbar() {
     <header className="h-14 bg-background border-b flex items-center justify-between px-4 flex-shrink-0">
       {/* Left: Logo & Bot Name */}
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2.5">
+        <button
+          onClick={() => setView("welcome")}
+          className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
+          title="Back to Home"
+        >
           <SkuldLogoBox size="md" />
-          <span className="text-sm font-semibold">Skuldbot</span>
-        </div>
+          <div>
+            <span className="text-sm font-semibold leading-tight block">SkuldBot<sup className="text-[8px] font-normal align-super ml-0.5">TM</sup></span>
+            <span className="text-[10px] text-muted-foreground -mt-0.5 block">Automation Designer</span>
+          </div>
+        </button>
+
+        <div className="w-px h-6 bg-border" />
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setView("welcome")}
+          title="Back to Home"
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <Home className="h-4 w-4" />
+        </Button>
 
         <div className="w-px h-6 bg-border" />
 
