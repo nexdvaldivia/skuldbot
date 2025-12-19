@@ -74,7 +74,7 @@ export default function BotEditor() {
   const { pushState, undo, redo, canUndo, canRedo, copy, paste, hasClipboard } = useHistoryStore();
   const { toggleBreakpoint } = useDebugStore();
   const toast = useToastStore();
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, fitView } = useReactFlow();
   const flowWrapperRef = useRef<HTMLDivElement>(null);
   const [hasPendingNode, setHasPendingNode] = useState(false);
   const isUndoRedoRef = useRef(false);
@@ -94,6 +94,14 @@ export default function BotEditor() {
   useEffect(() => {
     edgesRef.current = edges;
   }, [edges]);
+
+  // Handle ReactFlow initialization - fit view when flow is ready
+  const onInit = useCallback(() => {
+    // Small delay to ensure nodes are fully rendered
+    setTimeout(() => {
+      fitView({ padding: 0.2, duration: 300 });
+    }, 100);
+  }, [fitView]);
 
   // Listen for pending node changes
   useEffect(() => {
@@ -727,6 +735,7 @@ export default function BotEditor() {
         onPaneClick={onPaneClick}
         onDrop={onDrop}
         onDragOver={onDragOver}
+        onInit={onInit}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         nodesDraggable={true}

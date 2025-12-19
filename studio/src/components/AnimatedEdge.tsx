@@ -1,4 +1,5 @@
-import { EdgeProps, getSmoothStepPath } from "reactflow";
+import { EdgeProps, getSmoothStepPath, useReactFlow, EdgeLabelRenderer } from "reactflow";
+import { Trash2 } from "lucide-react";
 
 export default function AnimatedEdge({
   id,
@@ -10,8 +11,11 @@ export default function AnimatedEdge({
   targetPosition,
   markerEnd,
   data,
+  selected,
 }: EdgeProps) {
-  const [edgePath] = getSmoothStepPath({
+  const { deleteElements } = useReactFlow();
+
+  const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
     sourceY,
     sourcePosition,
@@ -24,6 +28,11 @@ export default function AnimatedEdge({
   const isSuccess = data?.edgeType === "success";
   const strokeColor = isSuccess ? "#10b981" : "#f97316";
 
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    deleteElements({ edges: [{ id }] });
+  };
+
   return (
     <>
       {/* Background edge for better visibility */}
@@ -31,7 +40,7 @@ export default function AnimatedEdge({
         d={edgePath}
         fill="none"
         stroke="white"
-        strokeWidth={4}
+        strokeWidth={selected ? 6 : 4}
         strokeLinecap="round"
       />
       {/* Animated dashed edge */}
@@ -40,12 +49,30 @@ export default function AnimatedEdge({
         d={edgePath}
         fill="none"
         stroke={strokeColor}
-        strokeWidth={2}
+        strokeWidth={selected ? 3 : 2}
         strokeLinecap="round"
         strokeDasharray="6 4"
         className="animated-edge"
         markerEnd={markerEnd}
       />
+      {/* Delete button when selected */}
+      {selected && (
+        <EdgeLabelRenderer>
+          <button
+            type="button"
+            className="nodrag nopan absolute w-7 h-7 rounded-full cursor-pointer flex items-center justify-center bg-orange-500 border-2 border-white shadow-lg hover:bg-orange-600 transition-colors"
+            style={{
+              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+              pointerEvents: "all",
+              zIndex: 9999,
+            }}
+            onClick={handleDelete}
+            title="Delete connection"
+          >
+            <Trash2 className="w-4 h-4 text-white" />
+          </button>
+        </EdgeLabelRenderer>
+      )}
     </>
   );
 }

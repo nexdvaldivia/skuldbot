@@ -79,7 +79,7 @@ export interface NodeTemplate {
 export interface ConfigField {
   name: string;
   label: string;
-  type: "text" | "number" | "boolean" | "select" | "textarea" | "password" | "form-builder" | "expression" | "validation-builder";
+  type: "text" | "number" | "boolean" | "select" | "textarea" | "password" | "form-builder" | "expression" | "validation-builder" | "protection-builder";
   required?: boolean;
   default?: any;
   options?: { value: string; label: string }[];
@@ -107,6 +107,25 @@ export interface ValidationRule {
   field: string;
   type: ValidationRuleType;
   params?: Record<string, any>;  // pattern, values, min, max, etc.
+}
+
+// Protection Builder Types (for compliance.protect_pii and compliance.protect_phi)
+export type ProtectionMethodType =
+  | "skip"          // Pass through unchanged (no transformation)
+  | "mask"          // Replace with *** (preserving length)
+  | "redact"        // Replace with [REDACTED]
+  | "pseudonymize"  // Replace with consistent fake values
+  | "hash"          // Apply cryptographic hash
+  | "generalize"    // Reduce precision (age -> range, zip -> partial)
+  | "encrypt"       // Reversible encryption
+  | "tokenize";     // Replace with tokens (reversible via lookup)
+
+export interface ProtectionRule {
+  id: string;
+  field: string;
+  method: ProtectionMethodType;
+  outputName?: string;  // Rename the field in output (optional)
+  params?: Record<string, any>;  // mask_char, hash_algorithm, preserve_last, etc.
 }
 
 // Form Builder Types (for trigger.form)

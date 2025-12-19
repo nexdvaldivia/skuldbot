@@ -24,7 +24,8 @@ import {
 import { FormBuilder } from "./FormBuilder";
 import { FormPreview } from "./FormPreview";
 import { ValidationBuilder } from "./ValidationBuilder";
-import { FormFieldDefinition, OutputField, FlowNode, ValidationRule } from "../types/flow";
+import { ProtectionBuilder } from "./ProtectionBuilder";
+import { FormFieldDefinition, OutputField, FlowNode, ValidationRule, ProtectionRule } from "../types/flow";
 
 interface AvailableVariable {
   nodeId: string;
@@ -940,7 +941,20 @@ export default function NodeConfigPanel() {
                     <ValidationBuilder
                       value={(node.data.config[field.name] as ValidationRule[]) || []}
                       onChange={(rules) => handleConfigChange(field.name, rules)}
-                      availableFields={availableVariables.map(v => v.field.name)}
+                      availableFields={availableVariables
+                        .filter(v => !["output", "error", "status", "LAST_ERROR", "LAST_ERROR_NODE", "LAST_ERROR_TYPE"].includes(v.field.name))
+                        .map(v => v.field.name)}
+                    />
+                  )}
+
+                  {field.type === "protection-builder" && (
+                    <ProtectionBuilder
+                      value={(node.data.config[field.name] as ProtectionRule[]) || []}
+                      onChange={(rules) => handleConfigChange(field.name, rules)}
+                      availableFields={availableVariables
+                        .filter(v => !["output", "error", "status", "LAST_ERROR", "LAST_ERROR_NODE", "LAST_ERROR_TYPE"].includes(v.field.name))
+                        .map(v => v.field.name)}
+                      dataType={node.data.nodeType.includes("phi") ? "phi" : "pii"}
                     />
                   )}
                 </div>

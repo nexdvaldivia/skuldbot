@@ -1,11 +1,11 @@
 import { memo } from "react";
-import { Handle, Position, NodeProps } from "reactflow";
+import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
 import { FlowNodeData, NodeCategory } from "../types/flow";
 import { getNodeTemplate } from "../data/nodeTemplates";
 import { useValidationStore } from "../store/validationStore";
 import { useDebugStore, useNodeDebugState } from "../store/debugStore";
 import { Icon } from "./ui/Icon";
-import { AlertCircle, AlertTriangle, Circle } from "lucide-react";
+import { AlertCircle, AlertTriangle, Circle, Trash2 } from "lucide-react";
 
 // Category color mapping - Light theme
 const categoryStyles: Record<NodeCategory, { bg: string; border: string; icon: string; accent: string }> = {
@@ -136,10 +136,19 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
   const { toggleBreakpoint } = useDebugStore();
   const { isCurrentNode, hasBreakpoint, isDebugging, status } = useNodeDebugState(id);
 
+  // React Flow instance for deletion
+  const { deleteElements } = useReactFlow();
+
   // Handle breakpoint toggle on double-click on the left side
   const handleBreakpointClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     toggleBreakpoint(id);
+  };
+
+  // Handle node deletion
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    deleteElements({ nodes: [{ id }] });
   };
 
   return (
@@ -165,7 +174,7 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
       `}
       style={{ minWidth: 180 }}
     >
-      {/* Breakpoint indicator - top right, outside the node */}
+      {/* Breakpoint indicator - top left, outside the node */}
       <button
         type="button"
         className="absolute -top-2 -left-2 z-20 w-5 h-5 rounded-full cursor-pointer flex items-center justify-center bg-white border border-slate-200 shadow-sm hover:border-red-300 hover:bg-red-50 transition-colors"
@@ -182,6 +191,20 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
         />
       </button>
 
+      {/* Delete button - shown when selected */}
+      {selected && (
+        <button
+          type="button"
+          className="absolute -top-3 -right-3 w-7 h-7 rounded-full cursor-pointer flex items-center justify-center bg-orange-500 border-2 border-white shadow-lg hover:bg-orange-600 transition-colors"
+          style={{ zIndex: 9999 }}
+          onClick={handleDeleteClick}
+          onMouseDown={(e) => e.stopPropagation()}
+          title="Delete node"
+        >
+          <Trash2 className="w-4 h-4 text-white" />
+        </button>
+      )}
+
       {/* START Badge for Triggers */}
       {isTrigger && (
         <div className="absolute -top-2.5 left-3 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm uppercase tracking-wide">
@@ -196,14 +219,14 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
         </div>
       )}
 
-      {/* Validation Error/Warning Badge */}
-      {hasErrors && !isDebugging && (
-        <div className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-sm" title={nodeIssues.filter(i => i.severity === "error").map(i => i.message).join("\n")}>
+      {/* Validation Error/Warning Badge - shown when NOT selected (delete button takes priority) */}
+      {hasErrors && !isDebugging && !selected && (
+        <div className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-sm z-10" title={nodeIssues.filter(i => i.severity === "error").map(i => i.message).join("\n")}>
           <AlertCircle className="w-3 h-3 text-white" />
         </div>
       )}
-      {hasWarnings && !isDebugging && (
-        <div className="absolute -top-2 -right-2 w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center shadow-sm" title={nodeIssues.filter(i => i.severity === "warning").map(i => i.message).join("\n")}>
+      {hasWarnings && !isDebugging && !selected && (
+        <div className="absolute -top-2 -right-2 w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center shadow-sm z-10" title={nodeIssues.filter(i => i.severity === "warning").map(i => i.message).join("\n")}>
           <AlertTriangle className="w-3 h-3 text-white" />
         </div>
       )}
