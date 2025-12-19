@@ -1246,6 +1246,714 @@ print('OK')
 }
 
 // ============================================================
+// AI Planner Commands (LLM Integration)
+// ============================================================
+
+#[derive(Debug, Serialize, Deserialize)]
+struct AIPlanStep {
+    #[serde(rename = "nodeType")]
+    node_type: String,
+    label: String,
+    description: String,
+    config: serde_json::Value,
+    reasoning: Option<String>,
+    #[serde(default)]
+    id: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct AIPlanResponse {
+    success: bool,
+    plan: Option<Vec<AIPlanStep>>,
+    error: Option<String>,
+    #[serde(rename = "clarifyingQuestions")]
+    clarifying_questions: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize)]
+struct LicenseValidationResult {
+    valid: bool,
+    module: String,
+    #[serde(rename = "expiresAt")]
+    expires_at: String,
+    features: Vec<String>,
+    error: Option<String>,
+}
+
+// OpenAI API types
+#[derive(Debug, Serialize)]
+struct OpenAIMessage {
+    role: String,
+    content: String,
+}
+
+#[derive(Debug, Serialize)]
+struct OpenAIRequest {
+    model: String,
+    messages: Vec<OpenAIMessage>,
+    temperature: f64,
+    max_tokens: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenAIChoice {
+    message: OpenAIResponseMessage,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenAIResponseMessage {
+    content: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenAIResponse {
+    choices: Vec<OpenAIChoice>,
+}
+
+// Anthropic API types
+#[derive(Debug, Serialize)]
+struct AnthropicMessage {
+    role: String,
+    content: String,
+}
+
+#[derive(Debug, Serialize)]
+struct AnthropicRequest {
+    model: String,
+    messages: Vec<AnthropicMessage>,
+    max_tokens: u32,
+    system: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AnthropicContent {
+    text: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct AnthropicResponse {
+    content: Vec<AnthropicContent>,
+}
+
+const AI_PLANNER_SYSTEM_PROMPT: &str = r#"You are an expert RPA architect for SkuldBot Studio.
+Your task is to convert natural language automation descriptions into structured step-by-step plans.
+
+AVAILABLE NODE CATEGORIES AND TYPES:
+
+TRIGGERS:
+- trigger.manual: Manual start button
+- trigger.schedule: Run on schedule (cron)
+- trigger.webhook: HTTP webhook trigger
+- trigger.file_watch: Watch for file changes
+- trigger.email_received: Trigger on email
+
+WEB AUTOMATION:
+- web.open_browser: Open browser (chromium/firefox/webkit)
+- web.navigate: Navigate to URL
+- web.click: Click element by selector
+- web.fill: Fill input field
+- web.select: Select from dropdown
+- web.extract_text: Extract text from element
+- web.extract_table: Extract HTML table data
+- web.screenshot: Take screenshot
+- web.wait: Wait for element/condition
+- web.close_browser: Close browser
+
+EMAIL:
+- email.send: Send email (SMTP)
+- email.read: Read emails (IMAP)
+- email.download_attachment: Download email attachments
+
+FILES:
+- files.read: Read file contents
+- files.write: Write to file
+- files.copy: Copy file
+- files.move: Move file
+- files.delete: Delete file
+- files.zip: Create ZIP archive
+- files.unzip: Extract ZIP archive
+- files.list_directory: List files in directory
+
+EXCEL:
+- excel.open: Open Excel workbook
+- excel.read_sheet: Read sheet data
+- excel.write_sheet: Write to sheet
+- excel.add_row: Add row to sheet
+- excel.create_workbook: Create new workbook
+
+API:
+- api.rest_call: Make REST API call
+- api.graphql: Make GraphQL query
+
+CONTROL FLOW:
+- control.if: Conditional branch
+- control.loop: Loop/iterate
+- control.for_each: For each item in collection
+- control.try_catch: Error handling
+- control.wait: Wait/delay
+
+LOGGING:
+- logging.log: Log message
+- logging.screenshot: Take screenshot for logs
+
+DATA:
+- data.set_variable: Set variable value
+- data.transform: Transform data (JSON path, regex)
+
+AI (requires SkuldAI license):
+- ai.llm_prompt: Send prompt to LLM
+- ai.extract_data: Extract structured data from text
+- ai.summarize: Summarize text
+- ai.classify: Classify text into categories
+
+OUTPUT FORMAT:
+Return ONLY a valid JSON array of steps. Each step must have:
+{
+  "nodeType": "category.action",
+  "label": "Human readable name",
+  "description": "What this step does",
+  "config": { /* pre-filled configuration */ },
+  "reasoning": "Why this step is needed"
+}
+
+RULES:
+1. Always start with a trigger node
+2. Use specific node types from the list above
+3. Include error handling where appropriate
+4. Provide realistic placeholder values in config
+5. Return ONLY the JSON array, no markdown, no explanation
+6. Each step should connect logically to the next"#;
+
+fn get_api_key_from_env(provider: &str) -> Option<String> {
+    match provider {
+        "openai" => std::env::var("OPENAI_API_KEY").ok(),
+        "anthropic" => std::env::var("ANTHROPIC_API_KEY").ok(),
+        _ => None,
+    }
+}
+
+// ============================================================
+// Connections Commands (LLM Credentials Management)
+// ============================================================
+
+fn get_connections_path() -> PathBuf {
+    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+    home.join(".skuldbot").join("connections.json")
+}
+
+#[tauri::command]
+async fn save_connections(connections_json: String) -> Result<bool, String> {
+    println!("💾 Saving LLM connections...");
+
+    let connections_path = get_connections_path();
+
+    // Create directory if it doesn't exist
+    if let Some(parent) = connections_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
+    }
+
+    // TODO: In production, encrypt the JSON before storing
+    // For now, store as-is (the connections contain API keys)
+    fs::write(&connections_path, &connections_json)
+        .map_err(|e| format!("Failed to save connections: {}", e))?;
+
+    println!("✅ Connections saved to: {}", connections_path.display());
+    Ok(true)
+}
+
+#[tauri::command]
+async fn load_connections() -> Result<String, String> {
+    println!("📂 Loading LLM connections...");
+
+    let connections_path = get_connections_path();
+
+    if !connections_path.exists() {
+        println!("ℹ️  No connections file found");
+        return Ok("[]".to_string());
+    }
+
+    let content = fs::read_to_string(&connections_path)
+        .map_err(|e| format!("Failed to read connections: {}", e))?;
+
+    println!("✅ Loaded connections from: {}", connections_path.display());
+    Ok(content)
+}
+
+#[tauri::command]
+async fn test_llm_connection(
+    provider: String,
+    api_key: String,
+    base_url: Option<String>,
+) -> Result<serde_json::Value, String> {
+    println!("🔌 Testing {} connection...", provider);
+
+    let client = reqwest::Client::new();
+
+    match provider.as_str() {
+        "openai" | "local" => {
+            let url = base_url
+                .map(|u| format!("{}/models", u.trim_end_matches('/')))
+                .unwrap_or_else(|| "https://api.openai.com/v1/models".to_string());
+
+            let response = client
+                .get(&url)
+                .header("Authorization", format!("Bearer {}", api_key))
+                .send()
+                .await
+                .map_err(|e| format!("Connection failed: {}", e))?;
+
+            if response.status().is_success() {
+                println!("✅ Connection successful!");
+                Ok(serde_json::json!({
+                    "success": true,
+                    "message": "Connection successful! API key is valid."
+                }))
+            } else {
+                let status = response.status();
+                let error_text = response.text().await.unwrap_or_default();
+                println!("❌ Connection failed: {} - {}", status, error_text);
+                Ok(serde_json::json!({
+                    "success": false,
+                    "message": format!("Authentication failed ({}). Please check your API key.", status.as_u16())
+                }))
+            }
+        }
+        "anthropic" => {
+            // Anthropic uses a different endpoint for validation
+            let response = client
+                .post("https://api.anthropic.com/v1/messages")
+                .header("x-api-key", &api_key)
+                .header("anthropic-version", "2023-06-01")
+                .header("Content-Type", "application/json")
+                .json(&serde_json::json!({
+                    "model": "claude-3-haiku-20240307",
+                    "max_tokens": 1,
+                    "messages": [{"role": "user", "content": "Hi"}]
+                }))
+                .send()
+                .await
+                .map_err(|e| format!("Connection failed: {}", e))?;
+
+            if response.status().is_success() {
+                println!("✅ Anthropic connection successful!");
+                Ok(serde_json::json!({
+                    "success": true,
+                    "message": "Connection successful! API key is valid."
+                }))
+            } else {
+                let status = response.status();
+                let error_text = response.text().await.unwrap_or_default();
+                println!("❌ Anthropic connection failed: {} - {}", status, error_text);
+                Ok(serde_json::json!({
+                    "success": false,
+                    "message": format!("Authentication failed ({}). Please check your API key.", status.as_u16())
+                }))
+            }
+        }
+        _ => Ok(serde_json::json!({
+            "success": false,
+            "message": format!("Unknown provider: {}", provider)
+        })),
+    }
+}
+
+async fn call_openai_api(
+    prompt: &str,
+    system_prompt: &str,
+    model: &str,
+    temperature: f64,
+    base_url: Option<&str>,
+    api_key: &str,
+) -> Result<String, String> {
+    let client = reqwest::Client::new();
+
+    let url = base_url
+        .map(|u| format!("{}/chat/completions", u.trim_end_matches('/')))
+        .unwrap_or_else(|| "https://api.openai.com/v1/chat/completions".to_string());
+
+    let request = OpenAIRequest {
+        model: model.to_string(),
+        messages: vec![
+            OpenAIMessage {
+                role: "system".to_string(),
+                content: system_prompt.to_string(),
+            },
+            OpenAIMessage {
+                role: "user".to_string(),
+                content: prompt.to_string(),
+            },
+        ],
+        temperature,
+        max_tokens: Some(4000),
+    };
+
+    let response = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&request)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to call OpenAI API: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let error_text = response.text().await.unwrap_or_default();
+        return Err(format!("OpenAI API error ({}): {}", status, error_text));
+    }
+
+    let openai_response: OpenAIResponse = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse OpenAI response: {}", e))?;
+
+    openai_response
+        .choices
+        .first()
+        .map(|c| c.message.content.clone())
+        .ok_or_else(|| "No response from OpenAI".to_string())
+}
+
+async fn call_anthropic_api(
+    prompt: &str,
+    system_prompt: &str,
+    model: &str,
+    api_key: &str,
+) -> Result<String, String> {
+    let client = reqwest::Client::new();
+
+    let request = AnthropicRequest {
+        model: model.to_string(),
+        messages: vec![AnthropicMessage {
+            role: "user".to_string(),
+            content: prompt.to_string(),
+        }],
+        max_tokens: 4000,
+        system: Some(system_prompt.to_string()),
+    };
+
+    let response = client
+        .post("https://api.anthropic.com/v1/messages")
+        .header("x-api-key", api_key)
+        .header("anthropic-version", "2023-06-01")
+        .header("Content-Type", "application/json")
+        .json(&request)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to call Anthropic API: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let error_text = response.text().await.unwrap_or_default();
+        return Err(format!("Anthropic API error ({}): {}", status, error_text));
+    }
+
+    let anthropic_response: AnthropicResponse = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse Anthropic response: {}", e))?;
+
+    anthropic_response
+        .content
+        .first()
+        .map(|c| c.text.clone())
+        .ok_or_else(|| "No response from Anthropic".to_string())
+}
+
+fn parse_plan_from_response(response: &str) -> Result<Vec<AIPlanStep>, String> {
+    // Try to extract JSON from the response
+    let json_str = if response.contains('[') {
+        // Find the JSON array in the response
+        let start = response.find('[').unwrap_or(0);
+        let end = response.rfind(']').map(|i| i + 1).unwrap_or(response.len());
+        &response[start..end]
+    } else {
+        response
+    };
+
+    serde_json::from_str(json_str)
+        .map_err(|e| format!("Failed to parse LLM response as JSON: {}. Response: {}", e, json_str))
+}
+
+#[tauri::command]
+async fn ai_generate_plan(
+    description: String,
+    provider: String,
+    model: String,
+    temperature: f64,
+    base_url: Option<String>,
+    api_key: Option<String>,
+) -> Result<AIPlanResponse, String> {
+    println!("🤖 AI Generating plan for: {}", description);
+    println!("   Provider: {}, Model: {}", provider, model);
+
+    // Get API key from parameter or fall back to environment
+    let api_key = match api_key.filter(|k| !k.is_empty()) {
+        Some(key) => key,
+        None => match get_api_key_from_env(&provider) {
+            Some(key) => key,
+            None => {
+                // Return mock response if no API key
+                println!("⚠️  No API key found for {}, using mock response", provider);
+                let mock_plan = vec![
+                    AIPlanStep {
+                        id: None,
+                        node_type: "trigger.manual".to_string(),
+                        label: "Start Automation".to_string(),
+                        description: "Manually trigger the automation".to_string(),
+                        config: serde_json::json!({}),
+                        reasoning: Some("Every automation needs a trigger to start".to_string()),
+                    },
+                    AIPlanStep {
+                        id: None,
+                        node_type: "logging.log".to_string(),
+                        label: "Log Start".to_string(),
+                        description: "Log that the automation has started".to_string(),
+                        config: serde_json::json!({ "message": "Automation started", "level": "INFO" }),
+                        reasoning: Some("Good practice to log automation start for debugging".to_string()),
+                    },
+                ];
+
+                return Ok(AIPlanResponse {
+                    success: true,
+                    plan: Some(mock_plan),
+                    error: None,
+                    clarifying_questions: Some(vec![
+                        "Note: Configure an LLM connection in Settings for real AI planning.".to_string()
+                    ]),
+                });
+            }
+        }
+    };
+
+    let prompt = format!(
+        "Create an automation plan for the following task:\n\n{}",
+        description
+    );
+
+    let result = match provider.as_str() {
+        "openai" | "local" => {
+            call_openai_api(
+                &prompt,
+                AI_PLANNER_SYSTEM_PROMPT,
+                &model,
+                temperature,
+                base_url.as_deref(),
+                &api_key,
+            )
+            .await
+        }
+        "anthropic" => {
+            call_anthropic_api(&prompt, AI_PLANNER_SYSTEM_PROMPT, &model, &api_key).await
+        }
+        _ => Err(format!("Unsupported provider: {}", provider)),
+    };
+
+    match result {
+        Ok(response) => {
+            println!("📝 LLM Response received ({} chars)", response.len());
+            match parse_plan_from_response(&response) {
+                Ok(plan) => {
+                    println!("✅ Parsed {} steps from LLM response", plan.len());
+                    Ok(AIPlanResponse {
+                        success: true,
+                        plan: Some(plan),
+                        error: None,
+                        clarifying_questions: None,
+                    })
+                }
+                Err(e) => {
+                    println!("❌ Failed to parse LLM response: {}", e);
+                    Ok(AIPlanResponse {
+                        success: false,
+                        plan: None,
+                        error: Some(e),
+                        clarifying_questions: None,
+                    })
+                }
+            }
+        }
+        Err(e) => {
+            println!("❌ LLM API call failed: {}", e);
+            Ok(AIPlanResponse {
+                success: false,
+                plan: None,
+                error: Some(e),
+                clarifying_questions: None,
+            })
+        }
+    }
+}
+
+#[tauri::command]
+async fn ai_refine_plan(
+    current_plan: String,
+    user_request: String,
+    conversation_history: String,
+    provider: String,
+    model: String,
+    temperature: f64,
+    base_url: Option<String>,
+    api_key: Option<String>,
+) -> Result<AIPlanResponse, String> {
+    println!("🤖 AI Refining plan based on: {}", user_request);
+
+    // Parse current plan
+    let plan: Vec<AIPlanStep> = serde_json::from_str(&current_plan)
+        .map_err(|e| format!("Failed to parse current plan: {}", e))?;
+
+    // Get API key from parameter or fall back to environment
+    let api_key = match api_key.filter(|k| !k.is_empty()) {
+        Some(key) => key,
+        None => match get_api_key_from_env(&provider) {
+            Some(key) => key,
+            None => {
+                // Return same plan if no API key
+                println!("⚠️  No API key found for {}, returning original plan", provider);
+                return Ok(AIPlanResponse {
+                    success: true,
+                    plan: Some(plan),
+                    error: None,
+                    clarifying_questions: Some(vec![
+                        "Note: Configure an LLM connection in Settings for AI refinement.".to_string()
+                    ]),
+                });
+            }
+        }
+    };
+
+    let refinement_prompt = format!(
+        r#"You are refining an existing automation plan.
+
+CURRENT PLAN:
+{}
+
+USER REQUEST:
+{}
+
+CONVERSATION HISTORY:
+{}
+
+Please modify the plan according to the user's request. Return ONLY the updated JSON array of steps.
+Follow the same format as the original plan with nodeType, label, description, config, and reasoning fields."#,
+        current_plan, user_request, conversation_history
+    );
+
+    let result = match provider.as_str() {
+        "openai" | "local" => {
+            call_openai_api(
+                &refinement_prompt,
+                AI_PLANNER_SYSTEM_PROMPT,
+                &model,
+                temperature,
+                base_url.as_deref(),
+                &api_key,
+            )
+            .await
+        }
+        "anthropic" => {
+            call_anthropic_api(&refinement_prompt, AI_PLANNER_SYSTEM_PROMPT, &model, &api_key).await
+        }
+        _ => Err(format!("Unsupported provider: {}", provider)),
+    };
+
+    match result {
+        Ok(response) => {
+            match parse_plan_from_response(&response) {
+                Ok(refined_plan) => {
+                    println!("✅ Refined plan has {} steps", refined_plan.len());
+                    Ok(AIPlanResponse {
+                        success: true,
+                        plan: Some(refined_plan),
+                        error: None,
+                        clarifying_questions: None,
+                    })
+                }
+                Err(e) => {
+                    // If parsing fails, return original plan with error
+                    Ok(AIPlanResponse {
+                        success: false,
+                        plan: Some(plan),
+                        error: Some(format!("Failed to parse refined plan: {}", e)),
+                        clarifying_questions: None,
+                    })
+                }
+            }
+        }
+        Err(e) => {
+            // On API error, return original plan with error
+            Ok(AIPlanResponse {
+                success: false,
+                plan: Some(plan),
+                error: Some(e),
+                clarifying_questions: None,
+            })
+        }
+    }
+}
+
+// ============================================================
+// License Validation Commands
+// ============================================================
+
+#[tauri::command]
+async fn validate_license(license_key: String) -> Result<LicenseValidationResult, String> {
+    println!("🔑 Validating license: {}...", &license_key[..8.min(license_key.len())]);
+
+    // TODO: Implement actual license validation against Orchestrator API
+    // For development, we'll validate based on key format
+
+    // Mock validation logic
+    // In production: call POST /api/licenses/validate on Orchestrator
+
+    let key_upper = license_key.to_uppercase();
+
+    // Check key format and determine module
+    let (valid, module, features) = if key_upper.starts_with("STUDIO-") {
+        (true, "studio", vec!["flowEditor", "localExecution", "projectManagement", "170+BaseNodes"])
+    } else if key_upper.starts_with("SKULDAI-") {
+        (true, "skuldai", vec!["aiPlanner", "aiRefinement", "localLLM", "ai.llm_prompt", "ai.extract_data"])
+    } else if key_upper.starts_with("COMPLY-") {
+        (true, "skuldcompliance", vec!["compliance.protect_pii", "compliance.protect_phi", "compliance.audit_log"])
+    } else if key_upper.starts_with("DATAQ-") {
+        (true, "skulddataquality", vec!["dataquality.validate", "dataquality.profile_data", "ai.repair_data"])
+    } else if key_upper.starts_with("DEMO-") {
+        // Demo key activates all modules for testing
+        (true, "studio", vec!["flowEditor", "localExecution", "projectManagement"])
+    } else {
+        (false, "", vec![])
+    };
+
+    if valid {
+        // Set expiration to 1 year from now for demo
+        let expires_at = chrono::Utc::now()
+            .checked_add_signed(chrono::Duration::days(365))
+            .unwrap_or_else(chrono::Utc::now)
+            .to_rfc3339();
+
+        println!("✅ License valid for module: {}", module);
+
+        Ok(LicenseValidationResult {
+            valid: true,
+            module: module.to_string(),
+            expires_at,
+            features: features.into_iter().map(String::from).collect(),
+            error: None,
+        })
+    } else {
+        println!("❌ Invalid license key");
+
+        Ok(LicenseValidationResult {
+            valid: false,
+            module: String::new(),
+            expires_at: String::new(),
+            features: vec![],
+            error: Some("Invalid license key format".to_string()),
+        })
+    }
+}
+
+// ============================================================
 // Utility Commands
 // ============================================================
 
@@ -1387,6 +2095,15 @@ fn main() {
             vault_set_secret,
             vault_delete_secret,
             vault_change_password,
+            // Connections commands
+            save_connections,
+            load_connections,
+            test_llm_connection,
+            // AI Planner commands
+            ai_generate_plan,
+            ai_refine_plan,
+            // License commands
+            validate_license,
             // Utility commands
             read_directory,
             file_exists,

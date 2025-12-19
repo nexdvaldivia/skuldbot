@@ -23,9 +23,10 @@ export type LLMProvider = "openai" | "anthropic" | "local";
 export interface LLMConfig {
   provider: LLMProvider;
   model: string;
-  apiKey?: string;            // Stored in vault, not here
+  apiKey?: string;            // From connection, not stored directly
   baseUrl?: string;           // For local LLMs (Ollama, LM Studio)
   temperature: number;
+  connectionId?: string;      // Reference to saved connection
 }
 
 export type PlannerPhase = "input" | "plan" | "refining";

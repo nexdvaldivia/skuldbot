@@ -168,6 +168,10 @@ export interface FlowNodeData {
   icon?: string;
   // Container node specific - holds IDs of child nodes
   childNodes?: string[];
+  // AI Planner fields
+  description?: string;
+  aiGenerated?: boolean;
+  aiReasoning?: string;
 }
 
 // React Flow Edge Data

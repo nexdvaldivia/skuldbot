@@ -18,6 +18,7 @@ import ProblemsPanel from "./ProblemsPanel";
 import DebugPanel from "./DebugPanel";
 import { AutoSaveManager } from "./AutoSaveManager";
 import { ToastContainer } from "./ui/ToastContainer";
+import { AIPlannerPanel } from "./ai-planner";
 import { useDebugStore } from "../store/debugStore";
 import { Bot, Bug, ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
@@ -189,6 +190,7 @@ export default function AppLayout() {
     return (
       <>
         <ProjectWorkspace />
+        <AIPlannerPanel />
         <ToastContainer />
       </>
     );

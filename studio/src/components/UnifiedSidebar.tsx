@@ -18,6 +18,7 @@ import {
   Play,
   FolderOpen,
   Copy,
+  Wand2,
 } from "lucide-react";
 import { open } from "@tauri-apps/api/shell";
 import { nodeTemplates } from "../data/nodeTemplates";
@@ -30,12 +31,14 @@ import { setDraggedNodeData, getDraggedNodeData, clearDraggedNodeData, setPendin
 import { useProjectStore } from "../store/projectStore";
 import { useTabsStore } from "../store/tabsStore";
 import { useNavigationStore } from "../store/navigationStore";
+import { useAIPlannerStore } from "../store/aiPlannerStore";
+import { useCanUseAIPlanner } from "../store/licenseStore";
 
 // ============================================================
 // Sidebar Tab Types
 // ============================================================
 
-type SidebarTab = "explorer" | "nodes";
+type SidebarTab = "explorer" | "nodes" | "ai-planner";
 
 // ============================================================
 // Unified Sidebar Component
@@ -44,6 +47,8 @@ type SidebarTab = "explorer" | "nodes";
 export default function UnifiedSidebar() {
   const { project } = useProjectStore();
   const [activeTab, setActiveTab] = useState<SidebarTab>(project ? "explorer" : "nodes");
+  const { openPanel } = useAIPlannerStore();
+  const canUseAI = useCanUseAIPlanner();
 
   // Switch to explorer when project opens
   useEffect(() => {
@@ -51,6 +56,10 @@ export default function UnifiedSidebar() {
       setActiveTab("explorer");
     }
   }, [project]);
+
+  const handleAIPlannerClick = () => {
+    openPanel();
+  };
 
   return (
     <div className="w-72 bg-card border-r flex flex-col flex-shrink-0">
@@ -79,6 +88,21 @@ export default function UnifiedSidebar() {
         >
           <Sparkles className="w-4 h-4" />
           <span>Nodes</span>
+        </button>
+        <button
+          onClick={handleAIPlannerClick}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 text-sm font-medium transition-colors relative ${
+            activeTab === "ai-planner"
+              ? "text-primary border-b-2 border-primary bg-card"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+          title={canUseAI ? "AI Planner" : "AI Planner (License Required)"}
+        >
+          <Wand2 className="w-4 h-4" />
+          <span>AI</span>
+          {!canUseAI && (
+            <span className="absolute top-1 right-1 w-2 h-2 bg-amber-400 rounded-full" title="License required" />
+          )}
         </button>
       </div>
 
