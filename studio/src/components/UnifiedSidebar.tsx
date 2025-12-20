@@ -19,6 +19,7 @@ import {
   FolderOpen,
   Copy,
   Wand2,
+  Key,
 } from "lucide-react";
 import { open } from "@tauri-apps/api/shell";
 import { nodeTemplates } from "../data/nodeTemplates";
@@ -32,7 +33,8 @@ import { useProjectStore } from "../store/projectStore";
 import { useTabsStore } from "../store/tabsStore";
 import { useNavigationStore } from "../store/navigationStore";
 import { useAIPlannerStore } from "../store/aiPlannerStore";
-import { useCanUseAIPlanner } from "../store/licenseStore";
+import { useCanUseAIPlanner, useLicenseStatus } from "../store/licenseStore";
+import { LicenseDialog } from "./LicenseDialog";
 
 // ============================================================
 // Sidebar Tab Types
@@ -124,6 +126,7 @@ function ExplorerContent() {
   const { project, projectPath, bots, activeBotId, openBot, createBot, deleteBot, renameBot } = useProjectStore();
   const { openTab, updateTabTitle } = useTabsStore();
   const { setView } = useNavigationStore();
+  const { isActivated, modules } = useLicenseStatus();
   const [showCreateBot, setShowCreateBot] = useState(false);
   const [newBotName, setNewBotName] = useState("");
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; botId: string } | null>(null);
@@ -131,6 +134,7 @@ function ExplorerContent() {
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
   const [copiedPath, setCopiedPath] = useState(false);
+  const [showLicenseDialog, setShowLicenseDialog] = useState(false);
 
   const handleCreateBot = async () => {
     if (!newBotName.trim()) return;
@@ -424,10 +428,32 @@ function ExplorerContent() {
                 <Variable className="w-4 h-4" />
                 <span className="text-sm">Environment Variables</span>
               </button>
+              <button
+                onClick={() => setShowLicenseDialog(true)}
+                className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left hover:bg-accent text-foreground transition-colors"
+              >
+                <Key className="w-4 h-4" />
+                <span className="text-sm flex-1">Licenses</span>
+                {isActivated ? (
+                  <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full">
+                    {modules.length} active
+                  </span>
+                ) : (
+                  <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full">
+                    Inactive
+                  </span>
+                )}
+              </button>
             </div>
           </div>
         </div>
       </ScrollArea>
+
+      {/* License Dialog */}
+      <LicenseDialog
+        isOpen={showLicenseDialog}
+        onClose={() => setShowLicenseDialog(false)}
+      />
 
       {/* Context Menu */}
       {contextMenu && createPortal(

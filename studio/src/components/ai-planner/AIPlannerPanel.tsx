@@ -253,9 +253,10 @@ export function AIPlannerPanel() {
       </div>
 
       {/* LLM Config Dialog */}
-      {showLLMConfig && (
-        <LLMConfigDialog onClose={() => setShowLLMConfig(false)} />
-      )}
+      <LLMConfigDialog
+        isOpen={showLLMConfig}
+        onClose={() => setShowLLMConfig(false)}
+      />
     </>
   );
 }

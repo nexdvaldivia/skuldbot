@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/tauri";
 import {
   PlanStep,
@@ -76,17 +77,19 @@ const DEFAULT_LLM_CONFIG: LLMConfig = {
 // AI Planner Store
 // ============================================================
 
-export const useAIPlannerStore = create<AIPlannerStoreState>((set, get) => ({
-  // Initial state
-  isPanelOpen: false,
-  currentPhase: "input",
-  userDescription: "",
-  planSteps: [],
-  isGenerating: false,
-  error: null,
-  conversation: [],
-  refinementInput: "",
-  llmConfig: DEFAULT_LLM_CONFIG,
+export const useAIPlannerStore = create<AIPlannerStoreState>()(
+  persist(
+    (set, get) => ({
+      // Initial state
+      isPanelOpen: false,
+      currentPhase: "input",
+      userDescription: "",
+      planSteps: [],
+      isGenerating: false,
+      error: null,
+      conversation: [],
+      refinementInput: "",
+      llmConfig: DEFAULT_LLM_CONFIG,
 
   // ============================================================
   // Panel Actions
@@ -409,7 +412,16 @@ export const useAIPlannerStore = create<AIPlannerStoreState>((set, get) => ({
       refinementInput: "",
     });
   },
-}));
+}),
+    {
+      name: "skuldbot-ai-planner",
+      // Only persist LLM config, not panel state or current work
+      partialize: (state) => ({
+        llmConfig: state.llmConfig,
+      }),
+    }
+  )
+);
 
 // ============================================================
 // Helper Hooks

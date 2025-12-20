@@ -1909,7 +1909,17 @@ async fn validate_license(license_key: String) -> Result<LicenseValidationResult
     let key_upper = license_key.to_uppercase();
 
     // Check key format and determine module
-    let (valid, module, features) = if key_upper.starts_with("STUDIO-") {
+    // DEV-ALL-ACCESS: Special development key that activates all modules
+    let (valid, module, features) = if key_upper == "DEV-ALL-ACCESS" || key_upper == "KHIPUS-DEV-2024" {
+        // Development key - returns studio but store will handle activating all modules
+        println!("🔓 DEV MODE: All-access key detected");
+        (true, "studio", vec![
+            "flowEditor", "localExecution", "projectManagement", "170+BaseNodes",
+            "aiPlanner", "aiRefinement", "localLLM", "ai.llm_prompt", "ai.extract_data",
+            "compliance.protect_pii", "compliance.protect_phi", "compliance.audit_log",
+            "dataquality.validate", "dataquality.profile_data", "ai.repair_data"
+        ])
+    } else if key_upper.starts_with("STUDIO-") {
         (true, "studio", vec!["flowEditor", "localExecution", "projectManagement", "170+BaseNodes"])
     } else if key_upper.starts_with("SKULDAI-") {
         (true, "skuldai", vec!["aiPlanner", "aiRefinement", "localLLM", "ai.llm_prompt", "ai.extract_data"])
@@ -2052,6 +2062,30 @@ except Exception as e:
     }
 }
 
+fn kill_dev_server() {
+    // Kill the Vite dev server on port 1420 when the app closes
+    #[cfg(target_os = "macos")]
+    {
+        let _ = Command::new("sh")
+            .arg("-c")
+            .arg("lsof -ti:1420 | xargs kill -9 2>/dev/null || true")
+            .spawn();
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let _ = Command::new("sh")
+            .arg("-c")
+            .arg("fuser -k 1420/tcp 2>/dev/null || true")
+            .spawn();
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let _ = Command::new("cmd")
+            .args(["/C", "FOR /F \"tokens=5\" %a IN ('netstat -aon ^| find \":1420\"') DO taskkill /F /PID %a"])
+            .spawn();
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -2109,6 +2143,12 @@ fn main() {
             file_exists,
             get_excel_sheets
         ])
+        .on_window_event(|event| {
+            if let tauri::WindowEvent::Destroyed = event.event() {
+                println!("🛑 Window destroyed, killing dev server...");
+                kill_dev_server();
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

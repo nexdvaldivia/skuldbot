@@ -133,6 +133,10 @@ export const useLicenseStore = create<LicenseStoreState>()(
         set({ isValidating: true });
 
         try {
+          // Check for dev all-access key
+          const keyUpper = key.toUpperCase();
+          const isDevKey = keyUpper === "DEV-ALL-ACCESS" || keyUpper === "KHIPUS-DEV-2024";
+
           // Call Tauri backend to validate license with server
           const response = await invoke<LicenseValidationResponse>("validate_license", {
             licenseKey: key,
@@ -142,6 +146,32 @@ export const useLicenseStore = create<LicenseStoreState>()(
             set({ isValidating: false });
             toast.error("Invalid License", response.error || "License key is invalid or expired");
             return { success: false, error: response.error || "Invalid license key" };
+          }
+
+          // For dev key, activate ALL modules at once
+          if (isDevKey) {
+            const allModules: LicenseModule[] = ["studio", "skuldai", "skuldcompliance", "skulddataquality"];
+            const devLicenses: LicenseInfo[] = allModules.map((module) => ({
+              module,
+              licenseKey: key,
+              expiresAt: response.expiresAt,
+              isValid: true,
+            }));
+
+            set({
+              activeLicenses: devLicenses,
+              isValidating: false,
+              lastValidated: new Date().toISOString(),
+            });
+
+            get()._updateEnabledFeatures();
+
+            toast.success(
+              "Dev License Activated",
+              "All modules activated for development"
+            );
+
+            return { success: true, module: "studio" as LicenseModule };
           }
 
           // Add to active licenses
