@@ -1,6 +1,8 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod protection;
+
 use std::process::Command;
 use std::path::PathBuf;
 use std::fs;
@@ -36,6 +38,73 @@ struct ExecutionResult {
     output: Option<String>,
     logs: Vec<String>,
 }
+
+// ============================================================
+// Debug Session Types
+// ============================================================
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct DebugNodeExecution {
+    #[serde(rename = "nodeId")]
+    node_id: String,
+    #[serde(rename = "nodeType")]
+    node_type: String,
+    label: String,
+    status: String,
+    #[serde(rename = "startTime")]
+    start_time: Option<f64>,
+    #[serde(rename = "endTime")]
+    end_time: Option<f64>,
+    output: Option<serde_json::Value>,
+    error: Option<String>,
+    variables: serde_json::Value,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct DebugSessionState {
+    #[serde(rename = "sessionId")]
+    session_id: String,
+    state: String,
+    #[serde(rename = "currentNodeId")]
+    current_node_id: Option<String>,
+    breakpoints: Vec<String>,
+    #[serde(rename = "executionOrder")]
+    execution_order: Vec<String>,
+    #[serde(rename = "nodeExecutions")]
+    node_executions: std::collections::HashMap<String, DebugNodeExecution>,
+    #[serde(rename = "globalVariables")]
+    global_variables: serde_json::Value,
+    #[serde(rename = "startTime")]
+    start_time: f64,
+    #[serde(rename = "pausedAtBreakpoint")]
+    paused_at_breakpoint: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct DebugMessage {
+    #[serde(rename = "type")]
+    msg_type: String,
+    #[serde(flatten)]
+    data: serde_json::Value,
+}
+
+#[derive(Debug, Serialize)]
+struct DebugCommandResult {
+    success: bool,
+    message: Option<String>,
+    #[serde(rename = "sessionState")]
+    session_state: Option<DebugSessionState>,
+    #[serde(rename = "lastEvent")]
+    last_event: Option<serde_json::Value>,
+}
+
+// Global debug process handle
+use std::sync::Arc;
+use tokio::sync::Mutex as TokioMutex;
+use std::process::{Child, Stdio};
+use std::io::{BufRead, BufReader, Write};
+
+static DEBUG_PROCESS: Lazy<Arc<TokioMutex<Option<Child>>>> = Lazy::new(|| Arc::new(TokioMutex::new(None)));
 
 // ============================================================
 // Project System Types
@@ -178,6 +247,152 @@ fn get_python_executable() -> String {
     }
 }
 
+// Setup status for UI notification
+#[derive(Clone, serde::Serialize)]
+pub struct SetupStatus {
+    pub stage: String,
+    pub message: String,
+    pub progress: u8,
+    pub is_complete: bool,
+    pub is_error: bool,
+}
+
+// Global setup status
+static SETUP_COMPLETE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static SETUP_HAD_INSTALL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+// Setup engine: create venv if needed and install dependencies
+fn setup_engine() {
+    println!("🔧 Setting up SkuldBot engine...");
+    let engine_path = get_engine_path();
+    let venv_path = engine_path.join(".venv");
+    let requirements_path = engine_path.join("requirements.txt");
+
+    // Check if venv exists, if not create it
+    if !venv_path.exists() {
+        println!("📦 Creating Python virtual environment...");
+        println!("══════════════════════════════════════════════════════════");
+        println!("   FIRST TIME SETUP: Creating Python environment...");
+        println!("══════════════════════════════════════════════════════════");
+
+        let status = Command::new("python3")
+            .args(["-m", "venv", ".venv"])
+            .current_dir(&engine_path)
+            .status();
+
+        match status {
+            Ok(s) if s.success() => println!("✅ Virtual environment created"),
+            Ok(s) => println!("⚠️  Failed to create venv: exit code {:?}", s.code()),
+            Err(e) => println!("⚠️  Failed to create venv: {}", e),
+        }
+    }
+
+    // Get pip executable
+    let pip_exe = if cfg!(windows) {
+        venv_path.join("Scripts").join("pip.exe")
+    } else {
+        venv_path.join("bin").join("pip")
+    };
+
+    if !pip_exe.exists() {
+        println!("⚠️  pip not found in venv, skipping dependency installation");
+        SETUP_COMPLETE.store(true, std::sync::atomic::Ordering::SeqCst);
+        return;
+    }
+
+    // Check if requirements.txt exists
+    if !requirements_path.exists() {
+        println!("⚠️  requirements.txt not found, skipping dependency installation");
+        SETUP_COMPLETE.store(true, std::sync::atomic::Ordering::SeqCst);
+        return;
+    }
+
+    // Check if we need to install/update dependencies
+    let marker_path = venv_path.join(".deps_installed");
+    let requirements_modified = std::fs::metadata(&requirements_path)
+        .and_then(|m| m.modified())
+        .ok();
+    let marker_modified = std::fs::metadata(&marker_path)
+        .and_then(|m| m.modified())
+        .ok();
+
+    let needs_install = match (requirements_modified, marker_modified) {
+        (Some(req_time), Some(marker_time)) => req_time > marker_time,
+        _ => true,
+    };
+
+    if needs_install {
+        SETUP_HAD_INSTALL.store(true, std::sync::atomic::Ordering::SeqCst);
+        println!("");
+        println!("══════════════════════════════════════════════════════════");
+        println!("   📦 INSTALLING DEPENDENCIES");
+        println!("   This may take a few minutes on first run...");
+        println!("══════════════════════════════════════════════════════════");
+        println!("");
+
+        let status = Command::new(&pip_exe)
+            .args(["install", "-r", "requirements.txt"])
+            .current_dir(&engine_path)
+            .status();
+
+        match status {
+            Ok(s) if s.success() => {
+                println!("");
+                println!("══════════════════════════════════════════════════════════");
+                println!("   ✅ ALL DEPENDENCIES INSTALLED SUCCESSFULLY!");
+                println!("══════════════════════════════════════════════════════════");
+                println!("");
+                let _ = std::fs::write(&marker_path, "installed");
+            }
+            Ok(s) => {
+                println!("");
+                println!("⚠️  pip install failed: exit code {:?}", s.code());
+                println!("   You may need to install dependencies manually:");
+                println!("   cd engine && pip install -r requirements.txt");
+                println!("");
+            }
+            Err(e) => {
+                println!("");
+                println!("⚠️  pip install failed: {}", e);
+                println!("");
+            }
+        }
+    } else {
+        println!("✅ Dependencies are up to date");
+    }
+
+    SETUP_COMPLETE.store(true, std::sync::atomic::Ordering::SeqCst);
+}
+
+// Tauri command to get setup status
+#[tauri::command]
+fn get_engine_setup_status() -> SetupStatus {
+    let is_complete = SETUP_COMPLETE.load(std::sync::atomic::Ordering::SeqCst);
+    let had_install = SETUP_HAD_INSTALL.load(std::sync::atomic::Ordering::SeqCst);
+
+    if is_complete {
+        SetupStatus {
+            stage: "complete".to_string(),
+            message: if had_install {
+                "Dependencies installed successfully!".to_string()
+            } else {
+                "Engine ready".to_string()
+            },
+            progress: 100,
+            is_complete: true,
+            is_error: false,
+        }
+    } else {
+        SetupStatus {
+            stage: "installing".to_string(),
+            message: "Installing dependencies...".to_string(),
+            progress: 50,
+            is_complete: false,
+            is_error: false,
+        }
+    }
+}
+
 #[tauri::command]
 async fn compile_dsl(dsl: String) -> Result<CompileResult, String> {
     println!("🔧 Compiling DSL...");
@@ -228,7 +443,7 @@ print(str(bot_dir))
         let error = String::from_utf8_lossy(&output.stderr);
         println!("❌ Compilation error: {}", error);
         
-        Err(format!("Error al compilar: {}", error))
+        Err(format!("Compilation error: {}", error))
     }
 }
 
@@ -275,7 +490,7 @@ except Exception as e:
     sys.exit(1)
 
 # Execute with captured output
-main_robot = Path(bot_dir) / "main.robot"
+main_skb = Path(bot_dir) / "main.skb"
 output_path = Path(bot_dir) / "output"
 output_path.mkdir(exist_ok=True)
 
@@ -283,9 +498,9 @@ output_path.mkdir(exist_ok=True)
 python_dir = Path(sys.executable).parent
 robot_exe = str(python_dir / "robot") if (python_dir / "robot").exists() else "robot"
 
-# Run robot and capture output
+# Run robot and capture output (use --extension skb for SkuldBot files)
 result = subprocess.run(
-    [robot_exe, "--loglevel", "DEBUG", "--outputdir", str(output_path), "--consolecolors", "off", str(main_robot)],
+    [robot_exe, "--extension", "skb", "--loglevel", "DEBUG", "--outputdir", str(output_path), "--consolecolors", "off", str(main_skb)],
     capture_output=True,
     text=True,
     cwd=bot_dir
@@ -319,12 +534,380 @@ if result.stderr:
     if output.status.success() {
         Ok(ExecutionResult {
             success: true,
-            message: "Bot ejecutado".to_string(),
+            message: "Bot executed successfully".to_string(),
             output: Some(stdout.to_string()),
             logs: stdout.lines().map(|s| s.to_string()).collect(),
         })
     } else {
-        Err(format!("Error al ejecutar: {}\n{}", stdout, stderr))
+        Err(format!("Execution error: {}\n{}", stdout, stderr))
+    }
+}
+
+// ============================================================
+// Debug Commands (Interactive Debugging with Breakpoints)
+// ============================================================
+
+/// Start an interactive debug session
+#[tauri::command]
+async fn debug_start(dsl: String, breakpoints: Vec<String>) -> Result<DebugCommandResult, String> {
+    println!("🐛 Starting debug session with {} breakpoints", breakpoints.len());
+
+    let engine_path = get_engine_path();
+    let python_exe = get_python_executable();
+
+    // Kill any existing debug process
+    {
+        let mut process_guard = DEBUG_PROCESS.lock().await;
+        if let Some(mut child) = process_guard.take() {
+            let _ = child.kill();
+        }
+    }
+
+    // Start the interactive executor
+    let mut child = Command::new(&python_exe)
+        .arg("-m")
+        .arg("skuldbot.executor.interactive_executor")
+        .current_dir(&engine_path)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to start debug process: {}", e))?;
+
+    // Get handles
+    let stdin = child.stdin.take().ok_or("Failed to get stdin")?;
+    let stdout = child.stdout.take().ok_or("Failed to get stdout")?;
+
+    // Wait for ready message
+    let reader = BufReader::new(stdout);
+    let mut lines = reader.lines();
+
+    // Read the ready message
+    if let Some(Ok(line)) = lines.next() {
+        println!("🐛 Debug executor: {}", line);
+    }
+
+    // Store the child process (we need to recreate stdin/stdout)
+    // Since we consumed them, we need a different approach
+    // Let's use a simpler synchronous approach for now
+
+    // Re-spawn with fresh handles
+    drop(child);
+
+    // Use a simpler approach: spawn, send command, read response, done
+    let temp_dir = std::env::temp_dir();
+    let dsl_file = temp_dir.join("debug_dsl.json");
+    std::fs::write(&dsl_file, &dsl).map_err(|e| e.to_string())?;
+
+    // Create the start command
+    let start_cmd = serde_json::json!({
+        "command": "start",
+        "dsl": serde_json::from_str::<serde_json::Value>(&dsl).unwrap_or(serde_json::json!({})),
+        "breakpoints": breakpoints
+    });
+
+    let output = Command::new(&python_exe)
+        .arg("-c")
+        .arg(format!(
+            r#"
+import sys
+sys.path.insert(0, '{}')
+import json
+from skuldbot.executor.interactive_executor import InteractiveExecutor
+
+with open('{}', 'r') as f:
+    dsl = json.load(f)
+
+executor = InteractiveExecutor()
+executor.start(dsl, {})
+
+# Get final state
+if executor.session:
+    print(json.dumps({{"type": "state", "session": executor.session.to_dict()}}))
+"#,
+            engine_path.display(),
+            dsl_file.display(),
+            serde_json::to_string(&breakpoints).unwrap_or("[]".to_string())
+        ))
+        .output()
+        .map_err(|e| format!("Failed to start debug: {}", e))?;
+
+    let stdout_str = String::from_utf8_lossy(&output.stdout);
+    println!("🐛 Debug start output: {}", stdout_str);
+
+    // Parse the last JSON line (the state)
+    let mut session_state: Option<DebugSessionState> = None;
+    let mut last_event: Option<serde_json::Value> = None;
+
+    for line in stdout_str.lines() {
+        if let Ok(msg) = serde_json::from_str::<serde_json::Value>(line) {
+            if msg.get("type").and_then(|t| t.as_str()) == Some("state") {
+                if let Some(session) = msg.get("session") {
+                    session_state = serde_json::from_value(session.clone()).ok();
+                }
+            }
+            last_event = Some(msg);
+        }
+    }
+
+    Ok(DebugCommandResult {
+        success: session_state.is_some(),
+        message: if session_state.is_some() { Some("Debug session started".to_string()) } else { Some("Failed to start".to_string()) },
+        session_state,
+        last_event,
+    })
+}
+
+/// Execute a single step in the debug session
+#[tauri::command]
+async fn debug_step(session_state_json: String) -> Result<DebugCommandResult, String> {
+    println!("🐛 Debug step");
+
+    let engine_path = get_engine_path();
+    let python_exe = get_python_executable();
+
+    let output = Command::new(&python_exe)
+        .arg("-c")
+        .arg(format!(
+            r#"
+import sys
+sys.path.insert(0, '{}')
+import json
+from skuldbot.executor.interactive_executor import InteractiveExecutor, DebugSession, DebugState, NodeStatus, NodeExecution
+
+# Restore session from JSON
+session_data = json.loads('{}')
+
+executor = InteractiveExecutor()
+
+# Rebuild DSL node map from execution order and node executions
+# We need to pass DSL separately for node definitions
+# For now, create a minimal session
+
+# Create a fresh executor and step through
+# This is a simplified version - in production we'd persist the full state
+
+executor.session = DebugSession(
+    session_id=session_data.get('sessionId', ''),
+    state=DebugState(session_data.get('state', 'paused')),
+    current_node_id=session_data.get('currentNodeId'),
+    breakpoints=set(session_data.get('breakpoints', [])),
+    execution_order=session_data.get('executionOrder', []),
+    node_executions={{}},
+    global_variables=session_data.get('globalVariables', {{}}),
+    start_time=session_data.get('startTime', 0),
+    paused_at_breakpoint=session_data.get('pausedAtBreakpoint', False),
+)
+
+# Rebuild node executions
+for node_id, node_data in session_data.get('nodeExecutions', {{}}).items():
+    executor.session.node_executions[node_id] = NodeExecution(
+        node_id=node_data.get('nodeId', node_id),
+        node_type=node_data.get('nodeType', 'unknown'),
+        label=node_data.get('label', node_id),
+        status=NodeStatus(node_data.get('status', 'pending')),
+        start_time=node_data.get('startTime'),
+        end_time=node_data.get('endTime'),
+        output=node_data.get('output'),
+        error=node_data.get('error'),
+        variables=node_data.get('variables', {{}}),
+    )
+
+# Build minimal node map for execution
+executor._node_map = {{}}
+for node_id in executor.session.execution_order:
+    node_exec = executor.session.node_executions.get(node_id)
+    if node_exec:
+        executor._node_map[node_id] = {{
+            'id': node_id,
+            'type': node_exec.node_type,
+            'label': node_exec.label,
+            'config': {{}},
+            'outputs': {{'success': '', 'error': ''}}
+        }}
+
+# Execute step
+executor.step()
+
+# Output final state
+if executor.session:
+    print(json.dumps({{"type": "state", "session": executor.session.to_dict()}}))
+"#,
+            engine_path.display(),
+            session_state_json.replace("'", "\\'").replace("\n", "\\n")
+        ))
+        .output()
+        .map_err(|e| format!("Failed to execute step: {}", e))?;
+
+    let stdout_str = String::from_utf8_lossy(&output.stdout);
+    let stderr_str = String::from_utf8_lossy(&output.stderr);
+
+    println!("🐛 Debug step output: {}", stdout_str);
+    if !stderr_str.is_empty() {
+        println!("🐛 Debug step stderr: {}", stderr_str);
+    }
+
+    // Parse response
+    let mut session_state: Option<DebugSessionState> = None;
+    let mut last_event: Option<serde_json::Value> = None;
+
+    for line in stdout_str.lines() {
+        if let Ok(msg) = serde_json::from_str::<serde_json::Value>(line) {
+            if msg.get("type").and_then(|t| t.as_str()) == Some("state") {
+                if let Some(session) = msg.get("session") {
+                    session_state = serde_json::from_value(session.clone()).ok();
+                }
+            }
+            last_event = Some(msg);
+        }
+    }
+
+    Ok(DebugCommandResult {
+        success: session_state.is_some(),
+        message: Some("Step executed".to_string()),
+        session_state,
+        last_event,
+    })
+}
+
+/// Continue execution until next breakpoint or completion
+#[tauri::command]
+async fn debug_continue(session_state_json: String) -> Result<DebugCommandResult, String> {
+    println!("🐛 Debug continue");
+
+    let engine_path = get_engine_path();
+    let python_exe = get_python_executable();
+
+    let output = Command::new(&python_exe)
+        .arg("-c")
+        .arg(format!(
+            r#"
+import sys
+sys.path.insert(0, '{}')
+import json
+from skuldbot.executor.interactive_executor import InteractiveExecutor, DebugSession, DebugState, NodeStatus, NodeExecution
+
+# Restore session from JSON
+session_data = json.loads('{}')
+
+executor = InteractiveExecutor()
+
+executor.session = DebugSession(
+    session_id=session_data.get('sessionId', ''),
+    state=DebugState(session_data.get('state', 'paused')),
+    current_node_id=session_data.get('currentNodeId'),
+    breakpoints=set(session_data.get('breakpoints', [])),
+    execution_order=session_data.get('executionOrder', []),
+    node_executions={{}},
+    global_variables=session_data.get('globalVariables', {{}}),
+    start_time=session_data.get('startTime', 0),
+    paused_at_breakpoint=session_data.get('pausedAtBreakpoint', False),
+)
+
+# Rebuild node executions
+for node_id, node_data in session_data.get('nodeExecutions', {{}}).items():
+    executor.session.node_executions[node_id] = NodeExecution(
+        node_id=node_data.get('nodeId', node_id),
+        node_type=node_data.get('nodeType', 'unknown'),
+        label=node_data.get('label', node_id),
+        status=NodeStatus(node_data.get('status', 'pending')),
+        start_time=node_data.get('startTime'),
+        end_time=node_data.get('endTime'),
+        output=node_data.get('output'),
+        error=node_data.get('error'),
+        variables=node_data.get('variables', {{}}),
+    )
+
+# Build minimal node map
+executor._node_map = {{}}
+for node_id in executor.session.execution_order:
+    node_exec = executor.session.node_executions.get(node_id)
+    if node_exec:
+        executor._node_map[node_id] = {{
+            'id': node_id,
+            'type': node_exec.node_type,
+            'label': node_exec.label,
+            'config': {{}},
+            'outputs': {{'success': '', 'error': ''}}
+        }}
+
+# Continue execution
+executor.continue_execution()
+
+# Output final state
+if executor.session:
+    print(json.dumps({{"type": "state", "session": executor.session.to_dict()}}))
+"#,
+            engine_path.display(),
+            session_state_json.replace("'", "\\'").replace("\n", "\\n")
+        ))
+        .output()
+        .map_err(|e| format!("Failed to continue: {}", e))?;
+
+    let stdout_str = String::from_utf8_lossy(&output.stdout);
+
+    // Parse response
+    let mut session_state: Option<DebugSessionState> = None;
+    let mut last_event: Option<serde_json::Value> = None;
+
+    for line in stdout_str.lines() {
+        if let Ok(msg) = serde_json::from_str::<serde_json::Value>(line) {
+            if msg.get("type").and_then(|t| t.as_str()) == Some("state") {
+                if let Some(session) = msg.get("session") {
+                    session_state = serde_json::from_value(session.clone()).ok();
+                }
+            }
+            last_event = Some(msg);
+        }
+    }
+
+    Ok(DebugCommandResult {
+        success: session_state.is_some(),
+        message: Some("Continued".to_string()),
+        session_state,
+        last_event,
+    })
+}
+
+/// Stop the debug session
+#[tauri::command]
+async fn debug_stop() -> Result<DebugCommandResult, String> {
+    println!("🐛 Debug stop");
+
+    // Kill any running debug process
+    {
+        let mut process_guard = DEBUG_PROCESS.lock().await;
+        if let Some(mut child) = process_guard.take() {
+            let _ = child.kill();
+        }
+    }
+
+    Ok(DebugCommandResult {
+        success: true,
+        message: Some("Debug session stopped".to_string()),
+        session_state: None,
+        last_event: Some(serde_json::json!({"type": "stopped"})),
+    })
+}
+
+/// Get variables for a node
+#[tauri::command]
+async fn debug_get_variables(session_state_json: String, node_id: Option<String>) -> Result<serde_json::Value, String> {
+    println!("🐛 Debug get variables for {:?}", node_id);
+
+    // Parse session state and extract variables
+    let session: serde_json::Value = serde_json::from_str(&session_state_json)
+        .map_err(|e| format!("Invalid session state: {}", e))?;
+
+    if let Some(nid) = node_id {
+        // Get specific node variables
+        if let Some(node_exec) = session.get("nodeExecutions").and_then(|ne| ne.get(&nid)) {
+            return Ok(node_exec.get("variables").cloned().unwrap_or(serde_json::json!({})));
+        }
+        Ok(serde_json::json!({}))
+    } else {
+        // Get global variables
+        Ok(session.get("globalVariables").cloned().unwrap_or(serde_json::json!({})))
     }
 }
 
@@ -1084,9 +1667,12 @@ print(json.dumps(secrets))
     }
 }
 
+// SECURITY: vault_get_secret was removed - values must NEVER be returned to frontend
+// Use vault_verify_secret instead to check if a secret exists
+
 #[tauri::command]
-async fn vault_get_secret(name: String, path: String) -> Result<String, String> {
-    println!("Getting secret '{}' from vault: {}", name, path);
+async fn vault_verify_secret(name: String, path: String) -> Result<bool, String> {
+    println!("Verifying secret '{}' exists in vault: {}", name, path);
 
     let engine_path = get_engine_path();
     let python_exe = get_python_executable();
@@ -1104,8 +1690,9 @@ from skuldbot.libs.local_vault import LocalVault
 
 vault = LocalVault('{}')
 vault.unlock('{}')
-value = vault.get_secret('{}')
-print(value, end='')
+# Only check existence, NEVER return value
+exists = vault.secret_exists('{}')
+print('true' if exists else 'false')
 "#,
             engine_path.display(),
             path.replace("'", "\\'"),
@@ -1116,10 +1703,11 @@ print(value, end='')
         .map_err(|e| format!("Failed to execute Python: {}", e))?;
 
     if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+        let result = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        Ok(result == "true")
     } else {
         let error = String::from_utf8_lossy(&output.stderr);
-        Err(format!("Failed to get secret: {}", error))
+        Err(format!("Failed to verify secret: {}", error))
     }
 }
 
@@ -1249,6 +1837,19 @@ print('OK')
 // AI Planner Commands (LLM Integration)
 // ============================================================
 
+// AI Connection for visual connections between nodes (embeddings, memory, tools)
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct AIConnection {
+    from: String,
+    to: String,
+    #[serde(rename = "type")]
+    connection_type: String, // "embeddings", "memory", "tool"
+    #[serde(rename = "toolName")]
+    tool_name: Option<String>,
+    #[serde(rename = "toolDescription")]
+    tool_description: Option<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct AIPlanStep {
     #[serde(rename = "nodeType")]
@@ -1259,6 +1860,9 @@ struct AIPlanStep {
     reasoning: Option<String>,
     #[serde(default)]
     id: Option<String>,
+    // AI-specific connections for RAG patterns (embeddings→memory→agent)
+    #[serde(rename = "aiConnections", default)]
+    ai_connections: Option<Vec<AIConnection>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1335,94 +1939,528 @@ struct AnthropicResponse {
     content: Vec<AnthropicContent>,
 }
 
-const AI_PLANNER_SYSTEM_PROMPT: &str = r#"You are an expert RPA architect for SkuldBot Studio.
-Your task is to convert natural language automation descriptions into structured step-by-step plans.
+// Base system prompt template - node catalog is injected dynamically
+const AI_PLANNER_BASE_PROMPT: &str = r#"<system>
+You are SkuldBot Studio's expert RPA architect with 15+ years of automation experience.
+Your expertise includes: workflow design, AI/ML integration, RAG pipelines, data processing, and enterprise automation.
+</system>
 
-AVAILABLE NODE CATEGORIES AND TYPES:
+<role>
+As an expert architect, you MUST:
+1. Design efficient, production-ready automation workflows
+2. Select the CORRECT specialized nodes for each task
+3. Never use generic nodes when specialized ones exist
+4. Always consider error handling and data flow
+</role>
 
-TRIGGERS:
-- trigger.manual: Manual start button
-- trigger.schedule: Run on schedule (cron)
-- trigger.webhook: HTTP webhook trigger
-- trigger.file_watch: Watch for file changes
-- trigger.email_received: Trigger on email
+{NODE_CATALOG}
 
-WEB AUTOMATION:
-- web.open_browser: Open browser (chromium/firefox/webkit)
-- web.navigate: Navigate to URL
-- web.click: Click element by selector
-- web.fill: Fill input field
-- web.select: Select from dropdown
-- web.extract_text: Extract text from element
-- web.extract_table: Extract HTML table data
-- web.screenshot: Take screenshot
-- web.wait: Wait for element/condition
-- web.close_browser: Close browser
+<critical_rules>
+## MANDATORY RULES - VIOLATIONS WILL CAUSE FAILURES
 
-EMAIL:
-- email.send: Send email (SMTP)
-- email.read: Read emails (IMAP)
-- email.download_attachment: Download email attachments
+1. **ONLY USE NODES FROM THE CATALOG ABOVE**
+   - You MUST use EXACT node types from the catalog (e.g., "ai.model", "compliance.detect_pii")
+   - Do NOT invent node types that don't exist
+   - Do NOT combine concepts (e.g., "Compliance Embeddings" DOES NOT EXIST)
+   - If unsure, use only basic nodes you see in the catalog
 
-FILES:
-- files.read: Read file contents
-- files.write: Write to file
-- files.copy: Copy file
-- files.move: Move file
-- files.delete: Delete file
-- files.zip: Create ZIP archive
-- files.unzip: Extract ZIP archive
-- files.list_directory: List files in directory
+2. **ALWAYS start with a trigger node** (trigger.manual, trigger.schedule, trigger.webhook, trigger.form, etc.)
 
-EXCEL:
-- excel.open: Open Excel workbook
-- excel.read_sheet: Read sheet data
-- excel.write_sheet: Write to sheet
-- excel.add_row: Add row to sheet
-- excel.create_workbook: Create new workbook
+3. **USE SPECIALIZED AI NODES for AI/LLM tasks:**
+   - ai.model: Configure LLM provider (OpenAI, Anthropic, Azure, AWS Bedrock, Groq, Ollama)
+   - ai.embeddings: Configure embeddings model for RAG (ONLY for vector generation)
+   - ai.agent: Autonomous AI agent with tools and memory
+   - vectordb.memory: Vector database for RAG context
+   - vectordb.*: pgvector, Pinecone, Qdrant, ChromaDB, Supabase operations
 
-API:
-- api.rest_call: Make REST API call
-- api.graphql: Make GraphQL query
+4. **FOR COMPLIANCE TASKS, use compliance.* nodes:**
+   - compliance.detect_pii: Detect personally identifiable information (names, SSN, etc.)
+   - compliance.detect_phi: Detect protected health information (HIPAA)
+   - compliance.detect_sensitive: Detect PII and PHI in data
+   - compliance.redact_data: Completely remove sensitive data (NOT compliance.redact!)
+   - compliance.mask_data: Mask sensitive data with asterisks
+   - compliance.safe_harbor: Apply all HIPAA Safe Harbor de-identification
+   - compliance.audit_log: Create compliance audit entries
+   - compliance.sensitive_gate: Gate that blocks flow if sensitive data detected
+   - DO NOT use "embeddings" for compliance - they are DIFFERENT concepts!
 
-CONTROL FLOW:
-- control.if: Conditional branch
-- control.loop: Loop/iterate
-- control.for_each: For each item in collection
-- control.try_catch: Error handling
-- control.wait: Wait/delay
+5. **NEVER use these generic nodes for AI tasks:**
+   ❌ api.request for calling AI APIs directly
+   ❌ database.query for vector searches
+   ❌ files.write for storing embeddings
 
-LOGGING:
-- logging.log: Log message
-- logging.screenshot: Take screenshot for logs
+6. **For RAG (Retrieval Augmented Generation) workflows, ALWAYS use:**
+   - ai.model → connects to ai.agent (model-out → model input)
+   - ai.embeddings → connects to ai.agent or vectordb.memory (embeddings-out → embeddings input)
+   - vectordb.memory → connects to ai.agent (memory-out → memory input)
 
-DATA:
-- data.set_variable: Set variable value
-- data.transform: Transform data (JSON path, regex)
+7. **Return ONLY valid JSON array, no markdown, no explanation**
+</critical_rules>
 
-AI (requires SkuldAI license):
-- ai.llm_prompt: Send prompt to LLM
-- ai.extract_data: Extract structured data from text
-- ai.summarize: Summarize text
-- ai.classify: Classify text into categories
-
-OUTPUT FORMAT:
-Return ONLY a valid JSON array of steps. Each step must have:
+<output_schema>
+Each step must follow this exact JSON structure:
 {
   "nodeType": "category.action",
-  "label": "Human readable name",
-  "description": "What this step does",
-  "config": { /* pre-filled configuration */ },
-  "reasoning": "Why this step is needed"
+  "label": "Human readable step name",
+  "description": "Clear explanation of what this step accomplishes",
+  "config": {
+    // Pre-filled configuration values
+    // Use realistic placeholders like "${variable}" for dynamic values
+  },
+  "reasoning": "Brief explanation of why this step is needed in the workflow",
+  "aiConnections": [
+    // REQUIRED for AI nodes - defines visual connections
+    { "from": "Source Node Label", "to": "Target Node Label", "type": "model|embeddings|memory|tool" }
+  ]
+}
+</output_schema>
+
+<ai_connection_types>
+Visual connection types for AI workflows:
+- "model": AI Model → AI Agent (sky blue connection, REQUIRED for ai.agent)
+- "embeddings": Embeddings → AI Agent or Vector Memory (orange connection)
+- "memory": Vector Memory → AI Agent (purple connection)
+- "tool": Any node → AI Agent as callable tool (violet connection)
+</ai_connection_types>
+
+<examples>
+## EXAMPLE 1: RAG Chatbot with Azure AI Foundry
+
+User request: "Create a chatbot that uses Azure AI Foundry to answer questions about company documents"
+
+Correct response:
+[
+  {
+    "nodeType": "trigger.manual",
+    "label": "Start Chat",
+    "description": "Manual trigger to start the chatbot",
+    "config": {},
+    "reasoning": "Every workflow needs a trigger to start execution"
+  },
+  {
+    "nodeType": "ai.model",
+    "label": "Azure GPT-4",
+    "description": "Configure Azure AI Foundry GPT-4 model",
+    "config": {
+      "provider": "azure",
+      "model": "gpt-4",
+      "base_url": "https://your-resource.openai.azure.com",
+      "api_version": "2024-02-15-preview",
+      "api_key": "${AZURE_OPENAI_KEY}",
+      "temperature": 0.7
+    },
+    "reasoning": "Azure AI Foundry provides enterprise-grade LLM access"
+  },
+  {
+    "nodeType": "ai.embeddings",
+    "label": "Azure Embeddings",
+    "description": "Configure Azure embeddings for semantic search",
+    "config": {
+      "provider": "azure",
+      "model": "text-embedding-ada-002",
+      "base_url": "https://your-resource.openai.azure.com",
+      "api_key": "${AZURE_OPENAI_KEY}"
+    },
+    "reasoning": "Embeddings enable semantic search in the vector database"
+  },
+  {
+    "nodeType": "vectordb.memory",
+    "label": "Company Docs Memory",
+    "description": "Vector memory for company documentation",
+    "config": {
+      "provider": "chroma",
+      "collection": "company_docs",
+      "memory_type": "retrieve"
+    },
+    "reasoning": "Vector memory provides RAG context from company documents"
+  },
+  {
+    "nodeType": "ai.agent",
+    "label": "Company Assistant",
+    "description": "AI agent that answers questions using company documentation",
+    "config": {
+      "goal": "Answer user questions accurately using company documentation context",
+      "system_prompt": "You are a helpful company assistant. Use the provided context to answer questions accurately.",
+      "max_iterations": 5
+    },
+    "reasoning": "The AI agent orchestrates the RAG pipeline and generates responses",
+    "aiConnections": [
+      { "from": "Azure GPT-4", "to": "Company Assistant", "type": "model" },
+      { "from": "Azure Embeddings", "to": "Company Assistant", "type": "embeddings" },
+      { "from": "Company Docs Memory", "to": "Company Assistant", "type": "memory" }
+    ]
+  },
+  {
+    "nodeType": "logging.log",
+    "label": "Log Response",
+    "description": "Log the assistant response for audit",
+    "config": {
+      "message": "${Company Assistant.output}",
+      "level": "INFO"
+    },
+    "reasoning": "Logging responses helps with debugging and audit trails"
+  }
+]
+
+## EXAMPLE 2: Document Indexing Pipeline
+
+User request: "Index PDF documents into pgvector for later RAG queries"
+
+Correct response:
+[
+  {
+    "nodeType": "trigger.schedule",
+    "label": "Daily Index",
+    "description": "Run document indexing daily",
+    "config": {
+      "cron": "0 2 * * *"
+    },
+    "reasoning": "Schedule ensures documents are indexed regularly"
+  },
+  {
+    "nodeType": "files.list",
+    "label": "List PDFs",
+    "description": "Get list of PDF files to index",
+    "config": {
+      "path": "/documents/incoming",
+      "pattern": "*.pdf"
+    },
+    "reasoning": "Find all new PDF documents to process"
+  },
+  {
+    "nodeType": "document.ocr",
+    "label": "Extract Text",
+    "description": "Extract text from PDF documents",
+    "config": {
+      "file_path": "${List PDFs.files}",
+      "language": "en"
+    },
+    "reasoning": "OCR extracts text content from PDFs for embedding"
+  },
+  {
+    "nodeType": "ai.embeddings",
+    "label": "OpenAI Embeddings",
+    "description": "Configure OpenAI embeddings model",
+    "config": {
+      "provider": "openai",
+      "model": "text-embedding-3-small",
+      "api_key": "${OPENAI_API_KEY}"
+    },
+    "reasoning": "Embeddings convert text to vectors for semantic search"
+  },
+  {
+    "nodeType": "vectordb.pgvector_connect",
+    "label": "Connect pgvector",
+    "description": "Connect to PostgreSQL with pgvector extension",
+    "config": {
+      "connection_string": "${POSTGRES_URL}",
+      "table_name": "document_embeddings",
+      "dimension": 1536
+    },
+    "reasoning": "pgvector provides scalable vector storage in PostgreSQL"
+  },
+  {
+    "nodeType": "vectordb.pgvector_upsert",
+    "label": "Store Embeddings",
+    "description": "Store document embeddings in pgvector",
+    "config": {
+      "texts": "${Extract Text.text}",
+      "metadata": { "source": "${List PDFs.files}" }
+    },
+    "reasoning": "Upserting embeddings enables later RAG retrieval",
+    "aiConnections": [
+      { "from": "OpenAI Embeddings", "to": "Store Embeddings", "type": "embeddings" }
+    ]
+  }
+]
+
+## EXAMPLE 3: Compliance-First RAG with PII Detection
+
+User request: "Create a RAG system that detects PII before storing documents"
+
+Correct response:
+[
+  {
+    "nodeType": "trigger.manual",
+    "label": "Process Document",
+    "description": "Manual trigger to process a document",
+    "config": {},
+    "reasoning": "Every workflow needs a trigger"
+  },
+  {
+    "nodeType": "files.read",
+    "label": "Read Document",
+    "description": "Read the document content",
+    "config": {
+      "file_path": "${input.file_path}"
+    },
+    "reasoning": "Need to read the document before processing"
+  },
+  {
+    "nodeType": "compliance.detect_pii",
+    "label": "Detect PII",
+    "description": "Scan document for personally identifiable information",
+    "config": {
+      "text": "${Read Document.content}",
+      "entities": ["PERSON", "EMAIL", "PHONE", "SSN", "ADDRESS"]
+    },
+    "reasoning": "Compliance requires PII detection before storage"
+  },
+  {
+    "nodeType": "compliance.redact_data",
+    "label": "Redact Sensitive Data",
+    "description": "Remove detected PII from the document",
+    "config": {
+      "data": "${Read Document.content}",
+      "fields": "${Detect PII.entities}",
+      "replacement": "[REDACTED]"
+    },
+    "reasoning": "Redact PII before storing in vector database"
+  },
+  {
+    "nodeType": "ai.embeddings",
+    "label": "OpenAI Embeddings",
+    "description": "Generate embeddings from redacted text",
+    "config": {
+      "provider": "openai",
+      "model": "text-embedding-3-small",
+      "api_key": "${OPENAI_API_KEY}"
+    },
+    "reasoning": "Embeddings convert clean text to vectors"
+  },
+  {
+    "nodeType": "vectordb.pgvector_upsert",
+    "label": "Store Safe Vectors",
+    "description": "Store redacted document embeddings",
+    "config": {
+      "texts": "${Redact Sensitive Data.redacted_text}",
+      "metadata": { "original_file": "${input.file_path}", "pii_detected": "${Detect PII.count}" }
+    },
+    "reasoning": "Store only PII-free content in vector DB",
+    "aiConnections": [
+      { "from": "OpenAI Embeddings", "to": "Store Safe Vectors", "type": "embeddings" }
+    ]
+  },
+  {
+    "nodeType": "compliance.audit_log",
+    "label": "Log Compliance Action",
+    "description": "Create audit trail for compliance",
+    "config": {
+      "action": "document_processed",
+      "details": { "pii_found": "${Detect PII.count}", "file": "${input.file_path}" }
+    },
+    "reasoning": "Audit logging is required for compliance"
+  }
+]
+
+## NEGATIVE EXAMPLE - WHAT NOT TO DO:
+
+❌ WRONG approach for RAG:
+[
+  { "nodeType": "trigger.api_polling", "label": "Call Azure API", ... },
+  { "nodeType": "api.request", "label": "Call OpenAI", "config": { "url": "https://api.openai.com/v1/chat/completions" }, ... },
+  { "nodeType": "database.query", "label": "Search Vectors", ... }
+]
+
+This is WRONG because:
+- Uses api.request instead of ai.model and ai.agent
+- Uses database.query instead of vectordb.* nodes
+- Missing proper AI node connections
+- Doesn't leverage SkuldBot's specialized AI capabilities
+
+❌ WRONG: Inventing non-existent node types:
+[
+  { "nodeType": "ai.compliance_embeddings", ... },
+  { "nodeType": "compliance.embeddings", ... },
+  { "nodeType": "vectordb.compliance_store", ... }
+]
+
+This is WRONG because:
+- "ai.compliance_embeddings" DOES NOT EXIST - embeddings are for vectors, not compliance
+- "compliance.embeddings" DOES NOT EXIST - use compliance.detect_pii, compliance.redact_data separately
+- NEVER invent node types - only use EXACT types from the catalog
+</examples>
+
+<thinking_process>
+Before generating the plan, mentally walk through:
+1. What is the user trying to accomplish?
+2. Does this involve AI/LLM? → Use ai.model, ai.agent, ai.embeddings
+3. Does this involve RAG/vectors? → Use vectordb.* nodes
+4. What trigger makes sense? (manual, schedule, webhook, form)
+5. What's the data flow between nodes?
+6. What error handling is needed?
+7. Are all AI connections properly defined?
+</thinking_process>
+
+<final_instruction>
+Now analyze the user's request and generate a professional automation plan.
+Use ONLY nodes from the catalog above.
+For any AI/LLM/RAG task, ALWAYS use the specialized ai.* and vectordb.* nodes.
+Return ONLY the JSON array - no markdown code blocks, no explanations.
+</final_instruction>"#;
+
+// Cache for the node catalog (loaded once from Python)
+use std::sync::Mutex;
+use once_cell::sync::Lazy;
+
+static NODE_CATALOG_CACHE: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+
+/// Load the node catalog from Python NodeRegistry
+fn load_node_catalog() -> Result<String, String> {
+    // Check cache first
+    {
+        let cache = NODE_CATALOG_CACHE.lock().map_err(|e| e.to_string())?;
+        if let Some(ref catalog) = *cache {
+            return Ok(catalog.clone());
+        }
+    }
+
+    // Load from Python using the virtualenv
+    let engine_path = get_engine_path();
+
+    // Try virtualenv Python first, then fall back to system Python
+    let venv_python = engine_path.join(".venv/bin/python3");
+    let python_cmd = if venv_python.exists() {
+        venv_python.to_string_lossy().to_string()
+    } else {
+        "python3".to_string()
+    };
+
+    println!("📚 Loading node catalog from: {} using {}", engine_path.display(), python_cmd);
+
+    let output = std::process::Command::new(&python_cmd)
+        .arg("-m")
+        .arg("skuldbot.cli.ai_catalog")
+        .arg("--format")
+        .arg("text")
+        .current_dir(&engine_path)
+        .output()
+        .map_err(|e| format!("Failed to run ai_catalog: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        println!("⚠️  ai_catalog failed: {}", stderr);
+        return Err(format!("ai_catalog failed: {}", stderr));
+    }
+
+    let catalog = String::from_utf8_lossy(&output.stdout).to_string();
+    println!("✅ Loaded node catalog ({} bytes)", catalog.len());
+
+    // Cache the result
+    {
+        let mut cache = NODE_CATALOG_CACHE.lock().map_err(|e| e.to_string())?;
+        *cache = Some(catalog.clone());
+    }
+
+    Ok(catalog)
 }
 
-RULES:
-1. Always start with a trigger node
-2. Use specific node types from the list above
-3. Include error handling where appropriate
-4. Provide realistic placeholder values in config
-5. Return ONLY the JSON array, no markdown, no explanation
-6. Each step should connect logically to the next"#;
+/// Build the full AI Planner system prompt with dynamic node catalog
+fn build_ai_planner_prompt() -> Result<String, String> {
+    let catalog = load_node_catalog()?;
+    Ok(AI_PLANNER_BASE_PROMPT.replace("{NODE_CATALOG}", &catalog))
+}
+
+/// Clear the node catalog cache (useful when nodes are updated)
+#[allow(dead_code)]
+fn clear_node_catalog_cache() -> Result<(), String> {
+    let mut cache = NODE_CATALOG_CACHE.lock().map_err(|e| e.to_string())?;
+    *cache = None;
+    Ok(())
+}
+
+/// Cache for valid node types loaded from Python
+static VALID_NODE_TYPES_CACHE: Lazy<Mutex<Option<Vec<String>>>> = Lazy::new(|| Mutex::new(None));
+
+/// Load valid node types from Python NodeRegistry (JSON format)
+fn load_valid_node_types() -> Result<Vec<String>, String> {
+    // Check cache first
+    {
+        let cache = VALID_NODE_TYPES_CACHE.lock().map_err(|e| e.to_string())?;
+        if let Some(ref types) = *cache {
+            return Ok(types.clone());
+        }
+    }
+
+    // Load from Python using JSON format
+    let engine_path = get_engine_path();
+    let venv_python = engine_path.join(".venv/bin/python3");
+    let python_cmd = if venv_python.exists() {
+        venv_python.to_string_lossy().to_string()
+    } else {
+        "python3".to_string()
+    };
+
+    println!("📚 Loading valid node types from registry...");
+
+    let output = std::process::Command::new(&python_cmd)
+        .arg("-m")
+        .arg("skuldbot.cli.ai_catalog")
+        .arg("--format")
+        .arg("json")
+        .current_dir(&engine_path)
+        .output()
+        .map_err(|e| format!("Failed to run ai_catalog: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("ai_catalog failed: {}", stderr));
+    }
+
+    let json_str = String::from_utf8_lossy(&output.stdout);
+    let catalog: serde_json::Value = serde_json::from_str(&json_str)
+        .map_err(|e| format!("Failed to parse catalog JSON: {}", e))?;
+
+    // Extract node types from the catalog
+    let node_types: Vec<String> = catalog
+        .get("nodes")
+        .and_then(|n| n.as_array())
+        .map(|nodes| {
+            nodes.iter()
+                .filter_map(|node| node.get("node_type").and_then(|t| t.as_str()))
+                .map(|s| s.to_string())
+                .collect()
+        })
+        .unwrap_or_default();
+
+    println!("✅ Loaded {} valid node types", node_types.len());
+
+    // Cache the result
+    {
+        let mut cache = VALID_NODE_TYPES_CACHE.lock().map_err(|e| e.to_string())?;
+        *cache = Some(node_types.clone());
+    }
+
+    Ok(node_types)
+}
+
+/// Validate that all node types in the plan are valid
+fn validate_plan_node_types(plan: &[AIPlanStep]) -> Result<(), String> {
+    let valid_types = match load_valid_node_types() {
+        Ok(types) => types,
+        Err(e) => {
+            println!("⚠️  Could not load valid node types, skipping validation: {}", e);
+            return Ok(()); // Skip validation if we can't load the catalog
+        }
+    };
+
+    let mut invalid_types: Vec<String> = Vec::new();
+
+    for step in plan {
+        if !valid_types.contains(&step.node_type) {
+            invalid_types.push(step.node_type.clone());
+        }
+    }
+
+    if !invalid_types.is_empty() {
+        return Err(format!(
+            "Invalid node types detected: {}. These nodes do not exist in the SkuldBot catalog. Please use only valid node types.",
+            invalid_types.join(", ")
+        ));
+    }
+
+    Ok(())
+}
 
 fn get_api_key_from_env(provider: &str) -> Option<String> {
     match provider {
@@ -1703,6 +2741,7 @@ async fn ai_generate_plan(
                         description: "Manually trigger the automation".to_string(),
                         config: serde_json::json!({}),
                         reasoning: Some("Every automation needs a trigger to start".to_string()),
+                        ai_connections: None,
                     },
                     AIPlanStep {
                         id: None,
@@ -1711,6 +2750,7 @@ async fn ai_generate_plan(
                         description: "Log that the automation has started".to_string(),
                         config: serde_json::json!({ "message": "Automation started", "level": "INFO" }),
                         reasoning: Some("Good practice to log automation start for debugging".to_string()),
+                        ai_connections: None,
                     },
                 ];
 
@@ -1731,11 +2771,23 @@ async fn ai_generate_plan(
         description
     );
 
+    // Build system prompt with dynamic node catalog from Python NodeRegistry
+    let system_prompt = match build_ai_planner_prompt() {
+        Ok(p) => {
+            println!("✅ Loaded dynamic node catalog ({} chars)", p.len());
+            p
+        },
+        Err(e) => {
+            println!("⚠️  Failed to load node catalog: {}, using fallback", e);
+            AI_PLANNER_BASE_PROMPT.replace("{NODE_CATALOG}", "Use standard RPA nodes for web automation, file handling, email, Excel, API calls, and control flow.")
+        }
+    };
+
     let result = match provider.as_str() {
         "openai" | "local" => {
             call_openai_api(
                 &prompt,
-                AI_PLANNER_SYSTEM_PROMPT,
+                &system_prompt,
                 &model,
                 temperature,
                 base_url.as_deref(),
@@ -1744,7 +2796,7 @@ async fn ai_generate_plan(
             .await
         }
         "anthropic" => {
-            call_anthropic_api(&prompt, AI_PLANNER_SYSTEM_PROMPT, &model, &api_key).await
+            call_anthropic_api(&prompt, &system_prompt, &model, &api_key).await
         }
         _ => Err(format!("Unsupported provider: {}", provider)),
     };
@@ -1754,7 +2806,18 @@ async fn ai_generate_plan(
             println!("📝 LLM Response received ({} chars)", response.len());
             match parse_plan_from_response(&response) {
                 Ok(plan) => {
-                    println!("✅ Parsed {} steps from LLM response", plan.len());
+                    // Validate that all node types exist in the catalog
+                    if let Err(validation_error) = validate_plan_node_types(&plan) {
+                        println!("❌ Plan validation failed: {}", validation_error);
+                        return Ok(AIPlanResponse {
+                            success: false,
+                            plan: None,
+                            error: Some(validation_error),
+                            clarifying_questions: None,
+                        });
+                    }
+
+                    println!("✅ Parsed and validated {} steps from LLM response", plan.len());
                     Ok(AIPlanResponse {
                         success: true,
                         plan: Some(plan),
@@ -1839,11 +2902,20 @@ Follow the same format as the original plan with nodeType, label, description, c
         current_plan, user_request, conversation_history
     );
 
+    // Build system prompt with dynamic node catalog
+    let system_prompt = match build_ai_planner_prompt() {
+        Ok(p) => p,
+        Err(e) => {
+            println!("⚠️  Failed to load node catalog: {}, using fallback", e);
+            AI_PLANNER_BASE_PROMPT.replace("{NODE_CATALOG}", "Use standard RPA nodes.")
+        }
+    };
+
     let result = match provider.as_str() {
         "openai" | "local" => {
             call_openai_api(
                 &refinement_prompt,
-                AI_PLANNER_SYSTEM_PROMPT,
+                &system_prompt,
                 &model,
                 temperature,
                 base_url.as_deref(),
@@ -1852,7 +2924,7 @@ Follow the same format as the original plan with nodeType, label, description, c
             .await
         }
         "anthropic" => {
-            call_anthropic_api(&refinement_prompt, AI_PLANNER_SYSTEM_PROMPT, &model, &api_key).await
+            call_anthropic_api(&refinement_prompt, &system_prompt, &model, &api_key).await
         }
         _ => Err(format!("Unsupported provider: {}", provider)),
     };
@@ -1861,7 +2933,18 @@ Follow the same format as the original plan with nodeType, label, description, c
         Ok(response) => {
             match parse_plan_from_response(&response) {
                 Ok(refined_plan) => {
-                    println!("✅ Refined plan has {} steps", refined_plan.len());
+                    // Validate that all node types exist in the catalog
+                    if let Err(validation_error) = validate_plan_node_types(&refined_plan) {
+                        println!("❌ Refined plan validation failed: {}", validation_error);
+                        return Ok(AIPlanResponse {
+                            success: false,
+                            plan: Some(plan), // Return original plan
+                            error: Some(validation_error),
+                            clarifying_questions: None,
+                        });
+                    }
+
+                    println!("✅ Refined and validated plan has {} steps", refined_plan.len());
                     Ok(AIPlanResponse {
                         success: true,
                         plan: Some(refined_plan),
@@ -2087,12 +3170,31 @@ fn kill_dev_server() {
 }
 
 fn main() {
+    // Run protection checks in release mode
+    #[cfg(not(debug_assertions))]
+    {
+        if let Err(e) = protection::run_protection_checks() {
+            eprintln!("Security check failed: {}", e);
+            std::process::exit(1);
+        }
+    }
+
+    // Auto-setup engine: create venv and install dependencies if needed
+    setup_engine();
+
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             // Engine commands
             compile_dsl,
             run_bot,
             validate_dsl,
+            get_engine_setup_status,
+            // Debug commands
+            debug_start,
+            debug_step,
+            debug_continue,
+            debug_stop,
+            debug_get_variables,
             save_project,
             load_project,
             get_engine_info,
@@ -2125,7 +3227,7 @@ fn main() {
             vault_unlock,
             vault_lock,
             vault_list_secrets,
-            vault_get_secret,
+            vault_verify_secret,
             vault_set_secret,
             vault_delete_secret,
             vault_change_password,
@@ -2141,7 +3243,11 @@ fn main() {
             // Utility commands
             read_directory,
             file_exists,
-            get_excel_sheets
+            get_excel_sheets,
+            // Protection commands
+            protection::protection_validate_binary_license,
+            protection::protection_check_status,
+            protection::protection_get_machine_fingerprint
         ])
         .on_window_event(|event| {
             if let tauri::WindowEvent::Destroyed = event.event() {

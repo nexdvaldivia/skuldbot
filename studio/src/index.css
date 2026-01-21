@@ -1,4 +1,4 @@
-@import url('https://rsms.me/inter/inter.css');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -18,8 +18,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 215 25% 17%;
 
-    /* Primary - Jade Green (#00A36C) */
-    --primary: 156 100% 32%;
+    /* Primary - Brand Emerald (#35D399) */
+    --primary: 158 62% 52%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary - Slate tinted */
@@ -41,7 +41,7 @@
     /* Border & Input - Soft slate borders */
     --border: 214 20% 88%;
     --input: 214 20% 88%;
-    --ring: 156 100% 32%;
+    --ring: 158 62% 52%;
 
     --radius: 0.5rem;
   }
@@ -73,11 +73,10 @@
   }
 
   html {
-    font-family: 'Inter var', 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
 
   body {

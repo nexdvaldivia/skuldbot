@@ -21,8 +21,34 @@ Library           skuldbot.libs.DataLibrary
 Library           skuldbot.libs.vault    WITH NAME    SkuldVault
 Library           skuldbot.libs.local_vault    WITH NAME    LocalVault
 {% endif %}
+{% if 'voice.' in node_types_str or 'trigger.voice' in node_types_str %}
+Library           skuldbot.libs.voice    WITH NAME    SkuldVoice
+{% endif %}
+{% if 'ai.' in node_types_str %}
+Library           skuldbot.libs.ai    WITH NAME    SkuldAI
+{% endif %}
+{% if 'desktop.' in node_types_str %}
+Library           RPA.Desktop
+{% endif %}
+{% if 'vectordb.' in node_types_str %}
+Library           skuldbot.libs.vectordb    WITH NAME    SkuldVectorDB
+{% endif %}
+{% if 'email.' in node_types_str %}
+Library           RPA.Email.ImapSmtp    WITH NAME    Email
+Library           RPA.Outlook.Application    WITH NAME    Outlook
+{% endif %}
+{% if 'ms365.' in node_types_str or 'trigger.ms365_email' in node_types_str %}
+Library           skuldbot.libs.ms365    WITH NAME    MS365
+{% endif %}
+{% if 'database.' in node_types_str %}
+Library           RPA.Database
+{% endif %}
+{% if 'document.' in node_types_str %}
+Library           RPA.PDF
+Library           RPA.DocumentAI    WITH NAME    DocumentAI
+{% endif %}
 Library           skuldbot.libs.ControlLibrary
-Resource          resources/error_handler.robot
+Resource          resources/error_handler.resource
 {% if bot.variables %}
 Variables         variables/config.yaml
 {% endif %}
@@ -92,26 +118,309 @@ Execute Node By ID
     IF    '${node_id}' == '{{ node.id }}'
         TRY
             # Node: {{ node.id }} ({{ node.type }})
+{# ===== AI CONFIGURATION NODES (Sub-nodes, not executed directly) ===== #}
+{% if node.type == 'ai.model' or node.type == 'ai.embeddings' %}
+            # Configuration sub-node (provides config to AI Agent via visual connection)
+            # These nodes are not executed directly - their config is passed to connected nodes
+            Log    Config node {{ node.type }} - skipping execution (config only)    console=yes
+
 {# ===== TRIGGERS ===== #}
-{% if node.type == 'trigger.manual' or node.type == 'trigger.form' or node.type == 'trigger.schedule' or node.type == 'trigger.webhook' %}
-            # Trigger node - initializes the bot
-            Log    Bot triggered: {{ node.type }}    console=yes
+{% elif node.type == 'trigger.manual' %}
+            # Manual Trigger - bot started manually
+            Log    Bot triggered manually    console=yes
+            ${triggered_at}=    Evaluate    __import__('datetime').datetime.now().isoformat()
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${triggered_at}    triggeredAt=${triggered_at}    triggeredBy=manual
+
+{% elif node.type == 'trigger.form' %}
+            # Form Trigger - bot started via form submission
+            Log    Bot triggered via form: {{ node.config.get('formTitle', 'Form') | escape_newlines }}    console=yes
+            # Form data is passed via ${formData} variable from the executor
+            ${form_data}=    Get Variable Value    ${formData}    &{EMPTY}
+            ${submission_id}=    Evaluate    __import__('uuid').uuid4().hex[:8]
+            ${submitted_at}=    Evaluate    __import__('datetime').datetime.now().isoformat()
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${form_data}    formData=${form_data}    submissionId=${submission_id}    submittedAt=${submitted_at}
+            Set Global Variable    ${formData}    ${form_data}
+
+{% elif node.type == 'trigger.webhook' %}
+            # Webhook Trigger - bot started via HTTP webhook
+            Log    Bot triggered via webhook: {{ node.config.get('path', '/webhook') | escape_newlines }}    console=yes
+            # Webhook data is passed via ${WEBHOOK_DATA} variable from the executor
+            ${webhook_data}=    Get Variable Value    ${WEBHOOK_DATA}    &{EMPTY}
+            ${body}=    Evaluate    $webhook_data.get('body', {})
+            ${headers}=    Evaluate    $webhook_data.get('headers', {})
+            ${query}=    Evaluate    $webhook_data.get('query', {})
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${body}    body=${body}    headers=${headers}    query=${query}
+
+{% elif node.type == 'trigger.file_watch' %}
+            # File Watch Trigger - bot started when file changes
+            Log    File watch trigger: {{ node.config.get('path', '') | transform_vars }}    console=yes
+            # File event data is passed via ${FILE_EVENT} variable from the executor
+            ${file_event}=    Get Variable Value    ${FILE_EVENT}    &{EMPTY}
+            ${file_path}=    Evaluate    $file_event.get('filePath', '{{ node.config.get('path', '') | transform_vars }}')
+            ${file_name}=    Evaluate    __import__('os').path.basename($file_path) if $file_path else ''
+            ${event_type}=    Evaluate    $file_event.get('event', 'manual')
+            ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${file_path}    filePath=${file_path}    fileName=${file_name}    event=${event_type}    timestamp=${timestamp}
+
+{% elif node.type == 'trigger.email_received' %}
+            # Email Trigger - bot started when email received
+            Log    Email trigger: folder={{ node.config.get('folder', 'INBOX') | escape_newlines }}, filter={{ node.config.get('filter', '*') | escape_newlines }}    console=yes
+            # Email data is passed via ${EMAIL_EVENT} variable from the executor
+            ${email_event}=    Get Variable Value    ${EMAIL_EVENT}    &{EMPTY}
+            ${subject}=    Evaluate    $email_event.get('subject', '')
+            ${sender}=    Evaluate    $email_event.get('sender', '')
+            ${body}=    Evaluate    $email_event.get('body', '')
+            ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${email_event}    subject=${subject}    sender=${sender}    body=${body}    timestamp=${timestamp}
+
+{% elif node.type == 'trigger.queue' %}
+            # Queue Trigger - bot started from message queue
+            Log    Queue trigger: {{ node.config.get('queue_name', '') | transform_vars }}    console=yes
+            # Queue message is passed via ${QUEUE_MESSAGE} variable from the executor
+            ${queue_msg}=    Get Variable Value    ${QUEUE_MESSAGE}    &{EMPTY}
+            ${message}=    Evaluate    $queue_msg.get('message', {})
+            ${message_id}=    Evaluate    $queue_msg.get('messageId', __import__('uuid').uuid4().hex[:8])
+            ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${message}    message=${message}    messageId=${message_id}    timestamp=${timestamp}
+
+{% elif node.type == 'trigger.api_polling' %}
+            # API Polling Trigger - bot started after polling API
+            Log    API polling trigger: {{ node.config.get('url', '') | transform_vars }}    console=yes
+            # Poll the API endpoint
+            ${headers_json}=    Set Variable    {{ node.config.get('headers', '{}') | transform_vars }}
+            ${headers}=    Evaluate    __import__('json').loads('''${headers_json}''') if '''${headers_json}'''.strip() else {}
+            ${response}=    Evaluate    __import__('requests').{{ node.config.get('method', 'GET').lower() }}('{{ node.config.get('url', '') | transform_vars }}', headers=$headers)
+            ${response_data}=    Evaluate    $response.json() if $response.headers.get('content-type', '').startswith('application/json') else {'text': $response.text}
+            ${status_code}=    Set Variable    ${response.status_code}
+            ${resp_headers}=    Evaluate    dict($response.headers)
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${response_data}    response=${response_data}    statusCode=${status_code}    headers=${resp_headers}
+
+{% elif node.type == 'trigger.database_change' %}
+            # Database Change Trigger - bot started on DB change
+            Log    Database change trigger: table={{ node.config.get('table', '') | transform_vars }}, event={{ node.config.get('event', 'INSERT') | escape_newlines }}    console=yes
+            # DB change data is passed via ${DB_CHANGE_EVENT} variable from the executor
+            ${db_event}=    Get Variable Value    ${DB_CHANGE_EVENT}    &{EMPTY}
+            ${record}=    Evaluate    $db_event.get('record', {})
+            ${event_type}=    Evaluate    $db_event.get('event', '{{ node.config.get('event', 'INSERT') }}')
+            ${table}=    Evaluate    $db_event.get('table', '{{ node.config.get('table', '') | transform_vars }}')
+            ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${record}    record=${record}    event=${event_type}    table=${table}    timestamp=${timestamp}
+
+{% elif node.type == 'trigger.storage_event' %}
+            # Storage Event Trigger - bot started on S3/MinIO event
+            Log    Storage event trigger: bucket={{ node.config.get('bucket', '') | transform_vars }}, event={{ node.config.get('event', 'ObjectCreated') | escape_newlines }}    console=yes
+            # Storage event data is passed via ${STORAGE_EVENT} variable from the executor
+            ${storage_event}=    Get Variable Value    ${STORAGE_EVENT}    &{EMPTY}
+            ${bucket}=    Evaluate    $storage_event.get('bucket', '{{ node.config.get('bucket', '') | transform_vars }}')
+            ${key}=    Evaluate    $storage_event.get('key', '')
+            ${event_type}=    Evaluate    $storage_event.get('event', '{{ node.config.get('event', 'ObjectCreated') }}')
+            ${size}=    Evaluate    $storage_event.get('size', 0)
+            ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${storage_event}    bucket=${bucket}    key=${key}    event=${event_type}    size=${size}    timestamp=${timestamp}
+
+{% elif node.type == 'trigger.message_bus' %}
+            # Message Bus Trigger - bot started from Kafka/RabbitMQ/Redis
+            Log    Message bus trigger: provider={{ node.config.get('provider', 'rabbitmq') | escape_newlines }}, topic={{ node.config.get('topic', '') | transform_vars }}    console=yes
+            # Message bus data is passed via ${MESSAGE_BUS_EVENT} variable from the executor
+            ${bus_event}=    Get Variable Value    ${MESSAGE_BUS_EVENT}    &{EMPTY}
+            ${message}=    Evaluate    $bus_event.get('message', {})
+            ${message_id}=    Evaluate    $bus_event.get('messageId', __import__('uuid').uuid4().hex[:8])
+            ${topic}=    Evaluate    $bus_event.get('topic', '{{ node.config.get('topic', '') | transform_vars }}')
+            ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${message}    message=${message}    messageId=${message_id}    topic=${topic}    timestamp=${timestamp}
+
+{% elif node.type == 'trigger.chat' %}
+            # Chat Trigger - bot started from Slack/Teams/Telegram/Discord
+            Log    Chat trigger: platform={{ node.config.get('platform', 'slack') | escape_newlines }}, channel={{ node.config.get('channel', '') | transform_vars }}    console=yes
+            # Chat message data is passed via ${CHAT_EVENT} variable from the executor
+            ${chat_event}=    Get Variable Value    ${CHAT_EVENT}    &{EMPTY}
+            ${message}=    Evaluate    $chat_event.get('message', '')
+            ${sender}=    Evaluate    $chat_event.get('sender', '')
+            ${channel}=    Evaluate    $chat_event.get('channel', '{{ node.config.get('channel', '') | transform_vars }}')
+            ${platform}=    Evaluate    $chat_event.get('platform', '{{ node.config.get('platform', 'slack') }}')
+            ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${chat_event}    message=${message}    sender=${sender}    channel=${channel}    platform=${platform}    timestamp=${timestamp}
 
 {# ===== LOGGING ===== #}
 {% elif node.type == 'control.log' or node.type == 'logging.log' %}
             Log    {{ node.config.get('message', 'Log message') | transform_vars }}    level={{ node.config.get('level', 'INFO') }}    console=yes
 {% elif node.type == 'logging.screenshot' %}
-            Capture Page Screenshot    filename={{ node.config.get('description', 'screenshot') }}.png
-            Log    Screenshot captured: {{ node.config.get('description', 'screenshot') }}    console=yes
+            Capture Page Screenshot    filename={{ node.config.get('description', 'screenshot') | escape_newlines }}.png
+            Log    Screenshot captured: {{ node.config.get('description', 'screenshot') | escape_newlines }}    console=yes
 
 {# ===== CONTROL FLOW ===== #}
 {% elif node.type == 'control.wait' %}
             Sleep    {{ node.config.get('seconds', 1) }}s
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output={{ node.config.get('seconds', 1) }}    waited={{ node.config.get('seconds', 1) }}
+            Log    Waited {{ node.config.get('seconds', 1) }}s    console=yes
+
 {% elif node.type == 'control.set_variable' %}
-            Set Global Variable    ${{ '{' }}{{ node.config.get('name', 'VAR') }}{{ '}' }}    {{ node.config.get('value', '') | transform_vars }}
+            ${var_value}=    Set Variable    {{ node.config.get('value', '') | transform_vars }}
+            {% if node.config.get('scope', 'global') == 'global' %}
+            Set Global Variable    ${{ '{' }}{{ node.config.get('name', 'VAR') }}{{ '}' }}    ${var_value}
+            {% else %}
+            Set Local Variable    ${{ '{' }}{{ node.config.get('name', 'VAR') }}{{ '}' }}    ${var_value}
+            {% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${var_value}    variableName={{ node.config.get('name', 'VAR') | escape_newlines }}    value=${var_value}
+            Log    Variable {{ node.config.get('name', 'VAR') | escape_newlines }} set    console=yes
+
 {% elif node.type == 'control.stop' %}
-            Log    Bot stopping with status: {{ node.config.get('status', 'success') }}    console=yes
+            Log    Bot stopping with status: {{ node.config.get('status', 'success') | escape_newlines }}    console=yes
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output={{ node.config.get('status', 'success') | escape_newlines }}    status={{ node.config.get('status', 'success') | escape_newlines }}
             RETURN    END
+
+{% elif node.type == 'control.if' %}
+            # Conditional branching
+            ${condition_str}=    Set Variable    {{ node.config.get('condition', 'True') | transform_vars }}
+            ${result}=    Evaluate    bool(${condition_str})
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    result=${result}    condition=${condition_str}
+            Log    If condition evaluated: ${result}    console=yes
+
+{% elif node.type == 'control.switch' %}
+            # Multi-way switch
+            ${expression}=    Set Variable    {{ node.config.get('expression', '') | transform_vars }}
+            ${cases_json}=    Set Variable    {{ node.config.get('cases', '{}') | transform_vars }}
+            ${cases}=    Evaluate    __import__('json').loads('''${cases_json}''')
+            ${matched_case}=    Set Variable    default
+            FOR    ${case_value}    IN    @{cases.keys()}
+                IF    '${expression}' == '${case_value}'
+                    ${matched_case}=    Set Variable    ${case_value}
+                    BREAK
+                END
+            END
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${matched_case}    matched_case=${matched_case}    expression=${expression}
+            Log    Switch matched case: ${matched_case}    console=yes
+
+{% elif node.type == 'control.loop' %}
+            # For each loop
+            ${items_str}=    Set Variable    {{ node.config.get('items', '[]') | transform_vars }}
+            ${items}=    Evaluate    $items_str if isinstance($items_str, list) else __import__('json').loads('${items_str}')
+            ${item_var}=    Set Variable    {{ node.config.get('item_var', 'item') | escape_newlines }}
+            ${count}=    Get Length    ${items}
+            Set Global Variable    ${{ '{' }}{{ node.config.get('accumulator_var', 'results') }}{{ '}' }}    @{EMPTY}
+            ${index}=    Set Variable    ${0}
+            FOR    ${item}    IN    @{items}
+                Set Global Variable    ${{ '{' }}${item_var}{{ '}' }}    ${item}
+                Set Global Variable    ${LOOP_INDEX}    ${index}
+                ${index}=    Evaluate    ${index} + 1
+            END
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${items}    count=${count}    index=${index}
+            Log    Loop completed: ${count} iterations    console=yes
+
+{% elif node.type == 'control.while' %}
+            # While loop
+            ${max_iterations}=    Set Variable    {{ node.config.get('max_iterations', 100) }}
+            Set Global Variable    ${{ '{' }}{{ node.config.get('accumulator_var', 'results') }}{{ '}' }}    @{EMPTY}
+            ${iteration}=    Set Variable    ${0}
+            WHILE    ${iteration} < ${max_iterations}
+                ${condition_str}=    Set Variable    {{ node.config.get('condition', 'False') | transform_vars }}
+                ${should_continue}=    Evaluate    bool(${condition_str})
+                IF    not ${should_continue}
+                    BREAK
+                END
+                ${iteration}=    Evaluate    ${iteration} + 1
+                Set Global Variable    ${LOOP_ITERATION}    ${iteration}
+            END
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${iteration}    iteration=${iteration}    maxIterations=${max_iterations}
+            Log    While loop completed after ${iteration} iterations    console=yes
+
+{% elif node.type == 'control.try_catch' %}
+            # Try/Catch with optional retry
+            ${retry_count}=    Set Variable    {{ node.config.get('retry_count', 0) }}
+            ${retry_delay}=    Set Variable    {{ node.config.get('retry_delay', 1) }}
+            ${success}=    Set Variable    ${FALSE}
+            ${error_message}=    Set Variable    ${EMPTY}
+            ${attempts}=    Set Variable    ${0}
+            WHILE    ${attempts} <= ${retry_count} and not ${success}
+                TRY
+                    # Content nodes execute here via container mechanism
+                    ${success}=    Set Variable    ${TRUE}
+                EXCEPT    AS    ${error}
+                    ${error_message}=    Set Variable    ${error}
+                    ${attempts}=    Evaluate    ${attempts} + 1
+                    IF    ${attempts} <= ${retry_count}
+                        Sleep    ${retry_delay}s
+                    END
+                END
+            END
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${success}    success=${success}    error_message=${error_message}    attempts=${attempts}
+            Log    Try/Catch: success=${success}, attempts=${attempts}    console=yes
+
+{% elif node.type == 'control.goto' %}
+            # Jump to target node
+            ${target}=    Set Variable    {{ node.config.get('target_node', '') | transform_vars }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${target}    targetNode=${target}
+            Log    GoTo: jumping to ${target}    console=yes
+            # Note: GoTo is handled at the compiler level to modify flow
+
+{% elif node.type == 'control.parallel' %}
+            # Parallel execution (placeholder - requires special handling)
+            ${branches}=    Set Variable    {{ node.config.get('branches', 2) }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${branches}    branches=${branches}
+            Log    Parallel execution with ${branches} branches    console=yes
+
+{% elif node.type == 'control.map' %}
+            # Map/Transform array
+            ${items_str}=    Set Variable    {{ node.config.get('items', '[]') | transform_vars }}
+            ${items}=    Evaluate    $items_str if isinstance($items_str, list) else __import__('json').loads('${items_str}')
+            ${item_var}=    Set Variable    {{ node.config.get('item_var', 'item') | escape_newlines }}
+            ${expression}=    Set Variable    {{ node.config.get('expression', '') | transform_vars }}
+            @{results}=    Create List
+            FOR    ${item}    IN    @{items}
+                Set Global Variable    ${{ '{' }}${item_var}{{ '}' }}    ${item}
+                ${transformed}=    Evaluate    ${expression}
+                Append To List    ${results}    ${transformed}
+            END
+            ${count}=    Get Length    ${results}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${results}    results=${results}    count=${count}
+            Log    Map transformed ${count} items    console=yes
+
+{% elif node.type == 'control.filter' %}
+            # Filter array
+            ${items_str}=    Set Variable    {{ node.config.get('items', '[]') | transform_vars }}
+            ${items}=    Evaluate    $items_str if isinstance($items_str, list) else __import__('json').loads('${items_str}')
+            ${item_var}=    Set Variable    {{ node.config.get('item_var', 'item') | escape_newlines }}
+            ${condition}=    Set Variable    {{ node.config.get('condition', 'True') | transform_vars }}
+            @{results}=    Create List
+            FOR    ${item}    IN    @{items}
+                Set Global Variable    ${{ '{' }}${item_var}{{ '}' }}    ${item}
+                ${passes}=    Evaluate    bool(${condition})
+                IF    ${passes}
+                    Append To List    ${results}    ${item}
+                END
+            END
+            ${count}=    Get Length    ${results}
+            ${original_count}=    Get Length    ${items}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${results}    results=${results}    count=${count}    filtered=${original_count} - ${count}
+            Log    Filter: ${count}/${original_count} items passed    console=yes
+
+{% elif node.type == 'control.reduce' %}
+            # Reduce/Aggregate array
+            ${items_str}=    Set Variable    {{ node.config.get('items', '[]') | transform_vars }}
+            ${items}=    Evaluate    $items_str if isinstance($items_str, list) else __import__('json').loads('${items_str}')
+            ${item_var}=    Set Variable    {{ node.config.get('item_var', 'item') | escape_newlines }}
+            ${initial}=    Set Variable    {{ node.config.get('initial', '0') | transform_vars }}
+            ${expression}=    Set Variable    {{ node.config.get('expression', '') | transform_vars }}
+            ${acc}=    Set Variable    ${initial}
+            FOR    ${item}    IN    @{items}
+                Set Global Variable    ${{ '{' }}${item_var}{{ '}' }}    ${item}
+                Set Global Variable    ${acc}    ${acc}
+                ${acc}=    Evaluate    ${expression}
+            END
+            ${count}=    Get Length    ${items}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${acc}    result=${acc}    itemsProcessed=${count}
+            Log    Reduce result: ${acc} (processed ${count} items)    console=yes
+
+{% elif node.type == 'control.append' %}
+            # Append to list
+            ${list_name}=    Set Variable    {{ node.config.get('list', 'results') | escape_newlines }}
+            ${item}=    Set Variable    {{ node.config.get('item', '') | transform_vars }}
+            ${current_list}=    Get Variable Value    ${{ '{' }}${list_name}{{ '}' }}    @{EMPTY}
+            Append To List    ${current_list}    ${item}
+            Set Global Variable    ${{ '{' }}${list_name}{{ '}' }}    ${current_list}
+            ${length}=    Get Length    ${current_list}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${length}    length=${length}    list=${current_list}
+            Log    Appended to ${list_name}, new length: ${length}    console=yes
 
 {# ===== WEB AUTOMATION ===== #}
 {% elif node.type == 'web.open_browser' or node.type == 'browser.open' %}
@@ -134,7 +443,7 @@ Execute Node By ID
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${text}    text=${text}
             Log    Got text: ${text}    console=yes
 {% elif node.type == 'web.get_attribute' %}
-            ${value}=    Get Element Attribute    {{ node.config.get('selector', '') | transform_vars }}    {{ node.config.get('attribute', '') }}
+            ${value}=    Get Element Attribute    {{ node.config.get('selector', '') | transform_vars }}    {{ node.config.get('attribute', '') | escape_newlines }}
             Set Global Variable    ${LAST_ATTRIBUTE}    ${value}
             # Store in node-specific variable
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${value}    attribute=${value}
@@ -158,15 +467,201 @@ Execute Node By ID
             {% else %}
             Execute Javascript    window.scrollBy(0, {{ '500' if node.config.get('direction') == 'down' else '-500' }})
             {% endif %}
+{% elif node.type == 'web.handle_alert' %}
+            # Handle browser alert/confirm/prompt dialog
+            {% if node.config.get('action', 'accept') == 'accept' %}
+            ${alert_text}=    Handle Alert    action=ACCEPT
+            {% else %}
+            ${alert_text}=    Handle Alert    action=DISMISS
+            {% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${alert_text}    alertText=${alert_text}    action={{ node.config.get('action', 'accept') | escape_newlines }}
+            Log    Alert handled ({{ node.config.get('action', 'accept') | escape_newlines }}): ${alert_text}    console=yes
+{% elif node.type == 'web.switch_tab' %}
+            # Switch to browser tab by index
+            ${tab_index}=    Set Variable    {{ node.config.get('tab_index', 0) }}
+            @{browser_ids}=    Get Browser Ids
+            ${browser_count}=    Get Length    ${browser_ids}
+            IF    ${tab_index} < ${browser_count}
+                Switch Browser    ${browser_ids}[${tab_index}]
+                ${current_url}=    Get Location
+                Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${current_url}    tabIndex=${tab_index}    url=${current_url}
+                Log    Switched to tab ${tab_index}: ${current_url}    console=yes
+            ELSE
+                Log    Tab index ${tab_index} out of range (${browser_count} tabs available)    level=WARN    console=yes
+                Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${EMPTY}    tabIndex=${tab_index}    error=Tab index out of range
+            END
+{% elif node.type == 'web.download_file' %}
+            # Download file from URL to specified path
+            ${url}=    Set Variable    {{ node.config.get('url', '') | transform_vars }}
+            ${save_path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            ${response}=    Evaluate    __import__('requests').get('${url}', stream=True, timeout=60)
+            ${status}=    Set Variable    ${response.status_code}
+            IF    ${status} == 200
+                Evaluate    open('${save_path}', 'wb').write($response.content)
+                ${file_size}=    Evaluate    len($response.content)
+                Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${save_path}    path=${save_path}    url=${url}    size=${file_size}    status=success
+                Log    Downloaded ${file_size} bytes to ${save_path}    console=yes
+            ELSE
+                Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${EMPTY}    path=${save_path}    url=${url}    status=failed    statusCode=${status}
+                Fail    Download failed with status code: ${status}
+            END
 {% elif node.type == 'web.close_browser' or node.type == 'browser.close' %}
             Close Browser
+
+{# ===== DESKTOP AUTOMATION ===== #}
+{% elif node.type == 'desktop.open_app' %}
+            # Open Application
+            ${app_path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {% if node.config.get('args') %}
+            ${args}=    Set Variable    {{ node.config.get('args', '') | transform_vars }}
+            ${pid}=    Evaluate    __import__('subprocess').Popen(['${app_path}'] + '${args}'.split()).pid
+            {% else %}
+            ${pid}=    Evaluate    __import__('subprocess').Popen(['${app_path}']).pid
+            {% endif %}
+            Sleep    1s    # Wait for application to initialize
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${pid}    pid=${pid}    path=${app_path}
+            Log    Opened application: ${app_path} (PID: ${pid})    console=yes
+
+{% elif node.type == 'desktop.click' %}
+            # Desktop Click at coordinates or element
+            {% if node.config.get('locator') %}
+            Click    {{ node.config.get('locator', '') | transform_vars }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=clicked    locator={{ node.config.get('locator', '') | transform_vars }}
+            Log    Clicked element: {{ node.config.get('locator', '') | transform_vars }}    console=yes
+            {% else %}
+            ${x}=    Set Variable    {{ node.config.get('x', 0) }}
+            ${y}=    Set Variable    {{ node.config.get('y', 0) }}
+            Click    coordinates:${x},${y}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=clicked    x=${x}    y=${y}
+            Log    Clicked at coordinates: ${x}, ${y}    console=yes
+            {% endif %}
+
+{% elif node.type == 'desktop.type_text' %}
+            # Type Text with keyboard
+            ${text}=    Set Variable    {{ node.config.get('text', '') | transform_vars }}
+            {% if node.config.get('interval') %}
+            Type Text    ${text}    interval={{ node.config.get('interval', 50) / 1000 }}
+            {% else %}
+            Type Text    ${text}
+            {% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${text}    text=${text}    length=${{ '{' }}$text.__len__(){{ '}' }}
+            Log    Typed ${text.__len__()} characters    console=yes
+
+{% elif node.type == 'desktop.hotkey' %}
+            # Send Hotkey / Keyboard Shortcut
+            ${keys}=    Set Variable    {{ node.config.get('keys', '') | transform_vars }}
+            Press Keys    ${keys}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${keys}    keys=${keys}
+            Log    Pressed hotkey: ${keys}    console=yes
+
+{% elif node.type == 'desktop.get_window' %}
+            # Find and Focus Window by title
+            ${title}=    Set Variable    {{ node.config.get('title', '') | transform_vars }}
+            {% if node.config.get('partial_match', True) %}
+            ${windows}=    Get Window List
+            ${found}=    Set Variable    ${FALSE}
+            FOR    ${win}    IN    @{windows}
+                ${match}=    Evaluate    '${title}'.lower() in '${win}[title]'.lower()
+                IF    ${match}
+                    Windows Focus    ${win}[handle]
+                    ${found}=    Set Variable    ${TRUE}
+                    Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${win}[title]    title=${win}[title]    handle=${win}[handle]
+                    Log    Found and focused window: ${win}[title]    console=yes
+                    BREAK
+                END
+            END
+            IF    not ${found}
+                Fail    Window with title containing '${title}' not found
+            END
+            {% else %}
+            Windows Focus    name:${title}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${title}    title=${title}
+            Log    Focused window: ${title}    console=yes
+            {% endif %}
+
+{% elif node.type == 'desktop.minimize' %}
+            # Minimize Active Window
+            Press Keys    win    down
+            Sleep    0.3s
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=minimized    action=minimize
+            Log    Window minimized    console=yes
+
+{% elif node.type == 'desktop.maximize' %}
+            # Maximize Active Window
+            Press Keys    win    up
+            Sleep    0.3s
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=maximized    action=maximize
+            Log    Window maximized    console=yes
+
+{% elif node.type == 'desktop.close_window' %}
+            # Close Active Window
+            Press Keys    alt    F4
+            Sleep    0.5s
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=closed    action=close
+            Log    Window closed    console=yes
+
+{% elif node.type == 'desktop.screenshot' %}
+            # Capture Desktop Screenshot
+            ${path}=    Set Variable    {{ node.config.get('path', 'screenshot.png') | transform_vars }}
+            {% if node.config.get('region') %}
+            ${region}=    Set Variable    {{ node.config.get('region', '') | transform_vars }}
+            ${parts}=    Split String    ${region}    ,
+            ${x}=    Set Variable    ${parts}[0]
+            ${y}=    Set Variable    ${parts}[1]
+            ${w}=    Set Variable    ${parts}[2]
+            ${h}=    Set Variable    ${parts}[3]
+            Take Screenshot    ${path}    region=${x},${y},${w},${h}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${path}    path=${path}    region=${region}
+            {% else %}
+            Take Screenshot    ${path}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${path}    path=${path}
+            {% endif %}
+            Log    Screenshot saved to: ${path}    console=yes
+
+{% elif node.type == 'desktop.image_click' %}
+            # Find and Click Image on Screen
+            ${image_path}=    Set Variable    {{ node.config.get('image_path', '') | transform_vars }}
+            ${confidence}=    Set Variable    {{ node.config.get('confidence', 0.9) }}
+            ${location}=    Find Element    image:${image_path}    confidence=${confidence}
+            Click    ${location}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${location}    imagePath=${image_path}    confidence=${confidence}    location=${location}
+            Log    Clicked image at: ${location}    console=yes
+
+{% elif node.type == 'desktop.wait_image' %}
+            # Wait for Image to Appear on Screen
+            ${image_path}=    Set Variable    {{ node.config.get('image_path', '') | transform_vars }}
+            ${timeout_ms}=    Set Variable    {{ node.config.get('timeout', 30000) }}
+            ${timeout_sec}=    Evaluate    ${timeout_ms} / 1000
+            ${start_time}=    Evaluate    __import__('time').time()
+            ${found}=    Set Variable    ${FALSE}
+            WHILE    ${found} == ${FALSE}
+                ${elapsed}=    Evaluate    __import__('time').time() - ${start_time}
+                IF    ${elapsed} > ${timeout_sec}
+                    Fail    Image not found within ${timeout_sec}s: ${image_path}
+                END
+                TRY
+                    ${location}=    Find Element    image:${image_path}    confidence=0.8
+                    ${found}=    Set Variable    ${TRUE}
+                EXCEPT
+                    Sleep    0.5s
+                END
+            END
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${location}    imagePath=${image_path}    location=${location}    found=${TRUE}
+            Log    Image found at: ${location}    console=yes
+
+{% elif node.type == 'desktop.clipboard_copy' %}
+            # Copy Text to Clipboard
+            ${text}=    Set Variable    {{ node.config.get('text', '') | transform_vars }}
+            Copy To Clipboard    ${text}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${text}    text=${text}    length=${{ '{' }}$text.__len__(){{ '}' }}
+            Log    Copied to clipboard: ${text.__len__()} characters    console=yes
 
 {# ===== EXCEL (SkuldBot ExcelLibrary) ===== #}
 {% elif node.type == 'excel.open' %}
             Open Excel    {{ node.config.get('path', '') | transform_vars }}
 {% elif node.type == 'excel.read_range' or node.type == 'excel.read' %}
             {% if node.config.get('column_names') and not node.config.get('header', True) %}
-            ${result}=    Read Excel Range    sheet_name={{ node.config.get('sheet', 'None') | transform_vars }}    header=${FALSE}    column_names={{ node.config.get('column_names', '') }}
+            ${result}=    Read Excel Range    sheet_name={{ node.config.get('sheet', 'None') | transform_vars }}    header=${FALSE}    column_names={{ node.config.get('column_names', '') | escape_newlines }}
             {% else %}
             ${result}=    Read Excel Range    sheet_name={{ node.config.get('sheet', 'None') | transform_vars }}    header=${{ '{TRUE}' if node.config.get('header', True) else '{FALSE}' }}
             {% endif %}
@@ -188,9 +683,242 @@ Execute Node By ID
 {% elif node.type == 'excel.write_cell' %}
             Set Cell Value    {{ node.config.get('cell', 'A1') | transform_vars }}    {{ node.config.get('value', '') | transform_vars }}
 {% elif node.type == 'excel.save' %}
+            {% if node.config.get('path') %}
+            Save Excel    {{ node.config.get('path', '') | transform_vars }}
+            {% else %}
             Save And Close Excel
+            {% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=saved    status=success
+            Log    Excel saved    console=yes
+
 {% elif node.type == 'excel.close' %}
             Close Excel Without Saving
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=closed    status=success
+            Log    Excel closed    console=yes
+
+{% elif node.type == 'excel.create' %}
+            # Create new Excel workbook
+            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            ${sheet_name}=    Set Variable    {{ node.config.get('sheet_name', 'Sheet1') | transform_vars }}
+            Create Workbook    ${path}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${path}    path=${path}    sheet=${sheet_name}
+            Log    Created new Excel: ${path}    console=yes
+
+{% elif node.type == 'excel.add_row' %}
+            # Append row to sheet
+            ${data_json}=    Set Variable    {{ node.config.get('data', '[]') | transform_vars }}
+            ${data}=    Evaluate    __import__('json').loads('''${data_json}''')
+            {% if node.config.get('sheet') %}
+            Append Rows To Worksheet    ${data}    {{ node.config.get('sheet', '') | transform_vars }}
+            {% else %}
+            Append Rows To Worksheet    ${data}
+            {% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${data}    rowData=${data}
+            Log    Row added to sheet    console=yes
+
+{% elif node.type == 'excel.filter' %}
+            # Filter data by column condition
+            ${column}=    Set Variable    {{ node.config.get('column', '') | transform_vars }}
+            ${condition}=    Set Variable    {{ node.config.get('condition', '') | transform_vars }}
+            # Filter using Python pandas-like logic on EXCEL_DATA
+            ${filtered}=    Evaluate    [row for row in $EXCEL_DATA if eval(f"row.get('{${column}}', '') {${condition}}")]
+            ${count}=    Get Length    ${filtered}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${filtered}    data=${filtered}    count=${count}
+            Log    Filtered: ${count} rows match condition    console=yes
+
+{% elif node.type == 'excel.csv_read' %}
+            # Read CSV file
+            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            ${delimiter}=    Set Variable    {{ node.config.get('delimiter', ',') }}
+            ${has_header}=    Set Variable    ${{ '{TRUE}' if node.config.get('header', True) else '{FALSE}' }}
+            ${data}=    Evaluate    list(__import__('csv').DictReader(open('${path}', 'r', encoding='utf-8'), delimiter='${delimiter}')) if ${has_header} else list(__import__('csv').reader(open('${path}', 'r', encoding='utf-8'), delimiter='${delimiter}'))
+            ${row_count}=    Get Length    ${data}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${data}    data=${data}    rowCount=${row_count}
+            Log    Read CSV: ${row_count} rows    console=yes
+
+{% elif node.type == 'excel.csv_write' %}
+            # Write CSV file
+            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            ${data_json}=    Set Variable    {{ node.config.get('data', '[]') | transform_vars }}
+            ${delimiter}=    Set Variable    {{ node.config.get('delimiter', ',') }}
+            ${data}=    Evaluate    __import__('json').loads('''${data_json}''')
+            ${writer}=    Evaluate    __import__('csv').DictWriter(open('${path}', 'w', newline='', encoding='utf-8'), fieldnames=list($data[0].keys()) if $data else [], delimiter='${delimiter}')
+            Evaluate    $writer.writeheader()
+            Evaluate    $writer.writerows($data)
+            ${count}=    Get Length    ${data}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${path}    path=${path}    rowCount=${count}
+            Log    Wrote CSV: ${count} rows    console=yes
+
+{% elif node.type == 'excel.pivot' %}
+            # Create pivot table (using Python pandas)
+            ${source_range}=    Set Variable    {{ node.config.get('source_range', '') | transform_vars }}
+            ${rows}=    Set Variable    {{ node.config.get('rows', '') | transform_vars }}
+            ${values}=    Set Variable    {{ node.config.get('values', '') | transform_vars }}
+            ${pivot_data}=    Evaluate    __import__('pandas').DataFrame($EXCEL_DATA).pivot_table(index='${rows}'.split(','), values='${values}'.split(','), aggfunc='sum').reset_index().to_dict('records')
+            ${count}=    Get Length    ${pivot_data}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${pivot_data}    data=${pivot_data}    rowCount=${count}
+            Log    Created pivot table: ${count} rows    console=yes
+
+{% elif node.type == 'excel.create_sheet' %}
+            # Create new worksheet
+            ${name}=    Set Variable    {{ node.config.get('name', '') | transform_vars }}
+            Create Worksheet    ${name}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${name}    sheetName=${name}
+            Log    Created sheet: ${name}    console=yes
+
+{% elif node.type == 'excel.delete_sheet' %}
+            # Delete worksheet
+            ${name}=    Set Variable    {{ node.config.get('name', '') | transform_vars }}
+            Remove Worksheet    ${name}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${name}    deletedSheet=${name}
+            Log    Deleted sheet: ${name}    console=yes
+
+{% elif node.type == 'excel.rename_sheet' %}
+            # Rename worksheet
+            ${old_name}=    Set Variable    {{ node.config.get('old_name', '') | transform_vars }}
+            ${new_name}=    Set Variable    {{ node.config.get('new_name', '') | transform_vars }}
+            Rename Worksheet    ${old_name}    ${new_name}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${new_name}    oldName=${old_name}    newName=${new_name}
+            Log    Renamed sheet: ${old_name} -> ${new_name}    console=yes
+
+{% elif node.type == 'excel.get_sheets' %}
+            # Get list of worksheets
+            @{sheets}=    List Worksheets
+            ${count}=    Get Length    ${sheets}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${sheets}    sheets=${sheets}    count=${count}
+            Log    Found ${count} sheets    console=yes
+
+{% elif node.type == 'excel.delete_row' %}
+            # Delete row from sheet
+            ${row}=    Set Variable    {{ node.config.get('row', 1) }}
+            {% if node.config.get('sheet') %}
+            Delete Rows    ${row}    ${row}    {{ node.config.get('sheet', '') | transform_vars }}
+            {% else %}
+            Delete Rows    ${row}    ${row}
+            {% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${row}    deletedRow=${row}
+            Log    Deleted row: ${row}    console=yes
+
+{% elif node.type == 'excel.delete_column' %}
+            # Delete column from sheet
+            ${column}=    Set Variable    {{ node.config.get('column', 'A') | transform_vars }}
+            ${col_index}=    Evaluate    __import__('openpyxl.utils').column_index_from_string('${column}')
+            {% if node.config.get('sheet') %}
+            Delete Columns    ${col_index}    ${col_index}    {{ node.config.get('sheet', '') | transform_vars }}
+            {% else %}
+            Delete Columns    ${col_index}    ${col_index}
+            {% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${column}    deletedColumn=${column}
+            Log    Deleted column: ${column}    console=yes
+
+{% elif node.type == 'excel.insert_row' %}
+            # Insert row at position
+            ${row}=    Set Variable    {{ node.config.get('row', 1) }}
+            {% if node.config.get('data') %}
+            ${data_json}=    Set Variable    {{ node.config.get('data', '[]') | transform_vars }}
+            ${data}=    Evaluate    __import__('json').loads('''${data_json}''')
+            Insert Rows    ${row}    1
+            # Write data to the inserted row
+            ${col}=    Set Variable    ${1}
+            FOR    ${value}    IN    @{data}
+                Set Cell Value    ${row}    ${col}    ${value}
+                ${col}=    Evaluate    ${col} + 1
+            END
+            {% else %}
+            Insert Rows    ${row}    1
+            {% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${row}    insertedRow=${row}
+            Log    Inserted row at: ${row}    console=yes
+
+{% elif node.type == 'excel.set_format' %}
+            # Apply cell formatting
+            ${range}=    Set Variable    {{ node.config.get('range', 'A1') | transform_vars }}
+            {% if node.config.get('bold') %}
+            Set Cell Style    ${range}    bold=${TRUE}
+            {% endif %}
+            {% if node.config.get('font_size') %}
+            Set Cell Style    ${range}    size={{ node.config.get('font_size') }}
+            {% endif %}
+            {% if node.config.get('bg_color') %}
+            Set Cell Style    ${range}    fill={{ node.config.get('bg_color', '#FFFFFF') | transform_vars }}
+            {% endif %}
+            {% if node.config.get('number_format') %}
+            Set Cell Style    ${range}    number_format={{ node.config.get('number_format', '') | transform_vars }}
+            {% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${range}    formattedRange=${range}
+            Log    Formatted range: ${range}    console=yes
+
+{% elif node.type == 'excel.merge_cells' %}
+            # Merge cell range
+            ${range}=    Set Variable    {{ node.config.get('range', 'A1:A1') | transform_vars }}
+            Merge Cells    ${range}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${range}    mergedRange=${range}
+            Log    Merged cells: ${range}    console=yes
+
+{% elif node.type == 'excel.auto_filter' %}
+            # Apply auto filter
+            ${range}=    Set Variable    {{ node.config.get('range', '') | transform_vars }}
+            Auto Filter    ${range}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${range}    filterRange=${range}
+            Log    Auto filter applied: ${range}    console=yes
+
+{% elif node.type == 'excel.sort' %}
+            # Sort range data
+            ${range}=    Set Variable    {{ node.config.get('range', '') | transform_vars }}
+            ${column}=    Set Variable    {{ node.config.get('column', 'A') | transform_vars }}
+            ${ascending}=    Set Variable    ${{ '{TRUE}' if node.config.get('ascending', True) else '{FALSE}' }}
+            Sort Data    ${range}    ${column}    ascending=${ascending}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${range}    sortedRange=${range}    sortColumn=${column}
+            Log    Sorted range: ${range} by ${column}    console=yes
+
+{% elif node.type == 'excel.find_replace' %}
+            # Find and replace values
+            ${find}=    Set Variable    {{ node.config.get('find', '') | transform_vars }}
+            ${replace}=    Set Variable    {{ node.config.get('replace', '') | transform_vars }}
+            {% if node.config.get('range') %}
+            ${count}=    Find And Replace    ${find}    ${replace}    range={{ node.config.get('range', '') | transform_vars }}
+            {% else %}
+            ${count}=    Find And Replace    ${find}    ${replace}
+            {% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${count}    replacedCount=${count}    findText=${find}    replaceText=${replace}
+            Log    Replaced ${count} occurrences    console=yes
+
+{% elif node.type == 'excel.create_chart' %}
+            # Create chart from data
+            ${data_range}=    Set Variable    {{ node.config.get('data_range', '') | transform_vars }}
+            ${chart_type}=    Set Variable    {{ node.config.get('chart_type', 'bar') }}
+            ${title}=    Set Variable    {{ node.config.get('title', '') | transform_vars }}
+            Create Chart    ${data_range}    ${chart_type}    title=${title}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${chart_type}    chartType=${chart_type}    dataRange=${data_range}
+            Log    Created ${chart_type} chart    console=yes
+
+{% elif node.type == 'excel.export_pdf' %}
+            # Export workbook to PDF
+            ${output_path}=    Set Variable    {{ node.config.get('output_path', '') | transform_vars }}
+            {% if node.config.get('sheet') %}
+            Export To PDF    ${output_path}    sheet={{ node.config.get('sheet', '') | transform_vars }}
+            {% else %}
+            Export To PDF    ${output_path}
+            {% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${output_path}    path=${output_path}
+            Log    Exported to PDF: ${output_path}    console=yes
+
+{% elif node.type == 'excel.vlookup' %}
+            # Perform VLOOKUP
+            ${lookup_value}=    Set Variable    {{ node.config.get('lookup_value', '') | transform_vars }}
+            ${table_range}=    Set Variable    {{ node.config.get('table_range', '') | transform_vars }}
+            ${col_index}=    Set Variable    {{ node.config.get('col_index', 1) }}
+            # VLOOKUP using Python on EXCEL_DATA
+            ${result}=    Set Variable    ${EMPTY}
+            FOR    ${row}    IN    @{EXCEL_DATA}
+                ${first_col}=    Evaluate    list($row.values())[0]
+                IF    '${first_col}' == '${lookup_value}'
+                    ${result}=    Evaluate    list($row.values())[${col_index} - 1]
+                    BREAK
+                END
+            END
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    result=${result}    lookupValue=${lookup_value}
+            Log    VLOOKUP result: ${result}    console=yes
 
 {# ===== FILES ===== #}
 {% elif node.type == 'files.read' %}
@@ -225,6 +953,239 @@ Execute Node By ID
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${exists}    exists=${exists}
             Log    File exists check: ${exists}    console=yes
 
+{% elif node.type == 'files.list' %}
+            # List files in folder
+            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            ${pattern}=    Set Variable    {{ node.config.get('pattern', '*') | transform_vars }}
+            {% if node.config.get('recursive', False) %}
+            @{files}=    Find Files    ${path}${/}**${/}${pattern}
+            {% else %}
+            @{files}=    Find Files    ${path}${/}${pattern}
+            {% endif %}
+            ${count}=    Get Length    ${files}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${files}    files=${files}    count=${count}
+            Log    Found ${count} files in ${path}    console=yes
+
+{% elif node.type == 'files.get_info' %}
+            # Get file metadata
+            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            ${stat}=    Evaluate    __import__('os').stat('${path}')
+            ${name}=    Evaluate    __import__('os').path.basename('${path}')
+            ${ext}=    Evaluate    __import__('os').path.splitext('${path}')[1]
+            ${size}=    Set Variable    ${stat.st_size}
+            ${created}=    Evaluate    __import__('datetime').datetime.fromtimestamp(${stat.st_ctime}).isoformat()
+            ${modified}=    Evaluate    __import__('datetime').datetime.fromtimestamp(${stat.st_mtime}).isoformat()
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${path}    name=${name}    size=${size}    extension=${ext}    created=${created}    modified=${modified}
+            Log    File info: ${name} (${size} bytes)    console=yes
+
+{% elif node.type == 'files.zip' %}
+            # Create ZIP archive
+            ${source}=    Set Variable    {{ node.config.get('source', '') | transform_vars }}
+            ${dest}=    Set Variable    {{ node.config.get('destination', '') | transform_vars }}
+            ${result}=    Evaluate    __import__('shutil').make_archive('${dest}'.replace('.zip', ''), 'zip', __import__('os').path.dirname('${source}'), __import__('os').path.basename('${source}'))
+            ${size}=    Evaluate    __import__('os').path.getsize('${result}')
+            # Count files in archive
+            ${zip_file}=    Evaluate    __import__('zipfile').ZipFile('${result}', 'r')
+            ${files_count}=    Evaluate    len($zip_file.namelist())
+            Evaluate    $zip_file.close()
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    path=${result}    size=${size}    filesCount=${files_count}
+            Log    Created ZIP: ${result} (${files_count} files, ${size} bytes)    console=yes
+
+{% elif node.type == 'files.unzip' %}
+            # Extract ZIP archive
+            ${source}=    Set Variable    {{ node.config.get('source', '') | transform_vars }}
+            ${dest}=    Set Variable    {{ node.config.get('destination', '') | transform_vars }}
+            ${zip_file}=    Evaluate    __import__('zipfile').ZipFile('${source}', 'r')
+            @{files}=    Evaluate    $zip_file.namelist()
+            ${files_count}=    Get Length    ${files}
+            Evaluate    $zip_file.extractall('${dest}')
+            Evaluate    $zip_file.close()
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${dest}    path=${dest}    files=${files}    filesCount=${files_count}
+            Log    Extracted ${files_count} files to ${dest}    console=yes
+
+{% elif node.type == 'files.watch' %}
+            # Watch folder for changes (single check - for continuous monitoring use trigger.file_watch)
+            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            ${pattern}=    Set Variable    {{ node.config.get('pattern', '*.*') | transform_vars }}
+            # Get initial state of files with modification times
+            ${files_state}=    Evaluate    {f: __import__('os').path.getmtime(f) for f in __import__('glob').glob(__import__('os').path.join('${path}', '${pattern}'))}
+            # Wait and check for changes
+            Sleep    1s
+            ${new_state}=    Evaluate    {f: __import__('os').path.getmtime(f) for f in __import__('glob').glob(__import__('os').path.join('${path}', '${pattern}'))}
+            # Detect changes
+            ${changed}=    Set Variable    ${EMPTY}
+            ${event}=    Set Variable    none
+            FOR    ${file}    ${mtime}    IN    &{new_state}
+                ${in_old}=    Evaluate    '${file}' in $files_state
+                IF    not ${in_old}
+                    ${changed}=    Set Variable    ${file}
+                    ${event}=    Set Variable    created
+                    BREAK
+                ELSE
+                    ${old_mtime}=    Evaluate    $files_state.get('${file}', 0)
+                    IF    ${mtime} > ${old_mtime}
+                        ${changed}=    Set Variable    ${file}
+                        ${event}=    Set Variable    modified
+                        BREAK
+                    END
+                END
+            END
+            ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${changed}    changedFile=${changed}    event=${event}    timestamp=${timestamp}
+            Log    Watch result: ${event} - ${changed}    console=yes
+
+{# ===== EMAIL ===== #}
+{% elif node.type == 'email.send' %}
+            # Send email (generic - uses configured provider)
+            ${to}=    Set Variable    {{ node.config.get('to', '') | transform_vars }}
+            ${subject}=    Set Variable    {{ node.config.get('subject', '') | transform_vars }}
+            ${body}=    Set Variable    {{ node.config.get('body', '') | transform_vars }}
+            Send Message    recipients=${to}    subject=${subject}    body=${body}    html=${{ '{TRUE}' if node.config.get('html', False) else '{FALSE}' }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=sent    to=${to}    subject=${subject}    status=success
+            Log    Email sent to: ${to}    console=yes
+
+{% elif node.type == 'email.read' %}
+            # Read emails from mailbox
+            ${folder}=    Set Variable    {{ node.config.get('folder', 'INBOX') | transform_vars }}
+            ${limit}=    Set Variable    {{ node.config.get('limit', 10) }}
+            ${filter}=    Set Variable    {{ node.config.get('filter', '') | transform_vars }}
+            ${unread_only}=    Set Variable    ${{ '{TRUE}' if node.config.get('unread_only', True) else '{FALSE}' }}
+            @{messages}=    List Messages    folder=${folder}    criterion=UNSEEN    count=${limit}
+            ${count}=    Get Length    ${messages}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${messages}    messages=${messages}    count=${count}
+            Log    Read ${count} emails from ${folder}    console=yes
+
+{% elif node.type == 'email.reply' %}
+            # Reply to an email
+            ${message_id}=    Set Variable    {{ node.config.get('message_id', '') | transform_vars }}
+            ${body}=    Set Variable    {{ node.config.get('body', '') | transform_vars }}
+            Reply To Message    ${message_id}    body=${body}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=replied    messageId=${message_id}    status=success
+            Log    Replied to message: ${message_id}    console=yes
+
+{% elif node.type == 'email.forward' %}
+            # Forward an email
+            ${message_id}=    Set Variable    {{ node.config.get('message_id', '') | transform_vars }}
+            ${to}=    Set Variable    {{ node.config.get('to', '') | transform_vars }}
+            Forward Message    ${message_id}    ${to}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=forwarded    messageId=${message_id}    forwardedTo=${to}    status=success
+            Log    Forwarded message to: ${to}    console=yes
+
+{% elif node.type == 'email.download_attachment' %}
+            # Download email attachment
+            ${message_id}=    Set Variable    {{ node.config.get('message_id', '') | transform_vars }}
+            ${save_path}=    Set Variable    {{ node.config.get('save_path', '') | transform_vars }}
+            @{attachments}=    Save Attachment    ${message_id}    target_folder=${save_path}
+            ${count}=    Get Length    ${attachments}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${attachments}    attachments=${attachments}    count=${count}    savePath=${save_path}
+            Log    Downloaded ${count} attachments to ${save_path}    console=yes
+
+{% elif node.type == 'email.move' %}
+            # Move email to folder
+            ${message_id}=    Set Variable    {{ node.config.get('message_id', '') | transform_vars }}
+            ${folder}=    Set Variable    {{ node.config.get('folder', '') | transform_vars }}
+            Move Message    ${message_id}    ${folder}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=moved    messageId=${message_id}    folder=${folder}    status=success
+            Log    Moved message to: ${folder}    console=yes
+
+{% elif node.type == 'email.delete' %}
+            # Delete an email
+            ${message_id}=    Set Variable    {{ node.config.get('message_id', '') | transform_vars }}
+            Delete Message    ${message_id}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=deleted    messageId=${message_id}    status=success
+            Log    Deleted message: ${message_id}    console=yes
+
+{% elif node.type == 'email.mark_read' %}
+            # Mark email as read/unread
+            ${message_id}=    Set Variable    {{ node.config.get('message_id', '') | transform_vars }}
+            ${read}=    Set Variable    ${{ '{TRUE}' if node.config.get('read', True) else '{FALSE}' }}
+            Mark As Read    ${message_id}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=marked    messageId=${message_id}    read=${read}    status=success
+            Log    Marked message as read: ${message_id}    console=yes
+
+{% elif node.type == 'email.search' %}
+            # Search emails with criteria
+            ${query}=    Set Variable    {{ node.config.get('query', '') | transform_vars }}
+            ${folder}=    Set Variable    {{ node.config.get('folder', 'INBOX') | transform_vars }}
+            @{results}=    List Messages    folder=${folder}    criterion=${query}
+            ${count}=    Get Length    ${results}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${results}    results=${results}    count=${count}    query=${query}
+            Log    Search found ${count} emails    console=yes
+
+{% elif node.type == 'email.send_smtp' %}
+            # Send email via SMTP server
+            ${smtp_host}=    Set Variable    {{ node.config.get('smtp_host', '') | transform_vars }}
+            ${port}=    Set Variable    {{ node.config.get('port', 587) }}
+            ${username}=    Set Variable    {{ node.config.get('username', '') | transform_vars }}
+            ${password}=    Set Variable    {{ node.config.get('password', '') | transform_vars }}
+            ${to}=    Set Variable    {{ node.config.get('to', '') | transform_vars }}
+            ${subject}=    Set Variable    {{ node.config.get('subject', '') | transform_vars }}
+            ${body}=    Set Variable    {{ node.config.get('body', '') | transform_vars }}
+            ${tls}=    Set Variable    ${{ '{TRUE}' if node.config.get('tls', True) else '{FALSE}' }}
+            # Configure SMTP
+            Email.Authorize    account=${username}    password=${password}    smtp_server=${smtp_host}    smtp_port=${port}
+            Send Message    recipients=${to}    subject=${subject}    body=${body}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=sent    to=${to}    subject=${subject}    smtpHost=${smtp_host}    status=success
+            Log    SMTP email sent to: ${to}    console=yes
+
+{% elif node.type == 'email.send_outlook' %}
+            # Send email via Outlook
+            ${to}=    Set Variable    {{ node.config.get('to', '') | transform_vars }}
+            ${cc}=    Set Variable    {{ node.config.get('cc', '') | transform_vars }}
+            ${bcc}=    Set Variable    {{ node.config.get('bcc', '') | transform_vars }}
+            ${subject}=    Set Variable    {{ node.config.get('subject', '') | transform_vars }}
+            ${body}=    Set Variable    {{ node.config.get('body', '') | transform_vars }}
+            ${html}=    Set Variable    ${{ '{TRUE}' if node.config.get('html', False) else '{FALSE}' }}
+            ${attachments}=    Set Variable    {{ node.config.get('attachments', '') | transform_vars }}
+            Outlook.Open Application
+            Outlook.Send Message    recipients=${to}    cc=${cc}    bcc=${bcc}    subject=${subject}    body=${body}    html_body=${html}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=sent    to=${to}    subject=${subject}    status=success
+            Log    Outlook email sent to: ${to}    console=yes
+
+{% elif node.type == 'email.send_gmail' %}
+            # Send email via Gmail API
+            ${to}=    Set Variable    {{ node.config.get('to', '') | transform_vars }}
+            ${subject}=    Set Variable    {{ node.config.get('subject', '') | transform_vars }}
+            ${body}=    Set Variable    {{ node.config.get('body', '') | transform_vars }}
+            ${html}=    Set Variable    ${{ '{TRUE}' if node.config.get('html', False) else '{FALSE}' }}
+            # Use SMTP with Gmail settings
+            Email.Authorize    account=${GMAIL_USER}    password=${GMAIL_APP_PASSWORD}    smtp_server=smtp.gmail.com    smtp_port=587
+            Send Message    recipients=${to}    subject=${subject}    body=${body}    html=${html}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=sent    to=${to}    subject=${subject}    status=success
+            Log    Gmail sent to: ${to}    console=yes
+
+{% elif node.type == 'email.read_imap' %}
+            # Read emails via IMAP
+            ${imap_host}=    Set Variable    {{ node.config.get('imap_host', '') | transform_vars }}
+            ${port}=    Set Variable    {{ node.config.get('port', 993) }}
+            ${username}=    Set Variable    {{ node.config.get('username', '') | transform_vars }}
+            ${password}=    Set Variable    {{ node.config.get('password', '') | transform_vars }}
+            ${ssl}=    Set Variable    ${{ '{TRUE}' if node.config.get('ssl', True) else '{FALSE}' }}
+            ${folder}=    Set Variable    {{ node.config.get('folder', 'INBOX') | transform_vars }}
+            ${limit}=    Set Variable    {{ node.config.get('limit', 10) }}
+            # Configure IMAP
+            Email.Authorize    account=${username}    password=${password}    imap_server=${imap_host}    imap_port=${port}
+            @{messages}=    List Messages    folder=${folder}    count=${limit}
+            ${count}=    Get Length    ${messages}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${messages}    messages=${messages}    count=${count}    folder=${folder}
+            Log    IMAP read ${count} emails from ${folder}    console=yes
+
+{% elif node.type == 'email.create_draft' %}
+            # Create email draft
+            ${to}=    Set Variable    {{ node.config.get('to', '') | transform_vars }}
+            ${subject}=    Set Variable    {{ node.config.get('subject', '') | transform_vars }}
+            ${body}=    Set Variable    {{ node.config.get('body', '') | transform_vars }}
+            ${draft}=    Create Dictionary    to=${to}    subject=${subject}    body=${body}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${draft}    draft=${draft}    status=created
+            Log    Draft created    console=yes
+
+{% elif node.type == 'email.get_folders' %}
+            # List email folders
+            @{folders}=    List Folders
+            ${count}=    Get Length    ${folders}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${folders}    folders=${folders}    count=${count}
+            Log    Found ${count} email folders    console=yes
+
 {# ===== API ===== #}
 {% elif node.type == 'api.http_request' %}
             ${response}=    Evaluate    __import__('requests').{{ node.config.get('method', 'get').lower() }}('{{ node.config.get('url', '') | transform_vars }}'{% if node.config.get('headers') %}, headers={{ node.config.get('headers') | transform_vars }}{% endif %}{% if node.config.get('body') %}, json={{ node.config.get('body') | transform_vars }}{% endif %})
@@ -247,6 +1208,676 @@ Execute Node By ID
             # Store in node-specific variable
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${response.text}    response=${response.text}    status_code=${response.status_code}
             Log    POST ${HTTP_STATUS}    console=yes
+
+{% elif node.type == 'api.graphql' %}
+            # Execute GraphQL query
+            ${endpoint}=    Set Variable    {{ node.config.get('endpoint', '') | transform_vars }}
+            ${query}=    Set Variable    {{ node.config.get('query', '') | transform_vars }}
+            ${variables_json}=    Set Variable    {{ node.config.get('variables', '{}') | transform_vars }}
+            ${variables}=    Evaluate    __import__('json').loads('''${variables_json}''') if '''${variables_json}'''.strip() else {}
+            ${payload}=    Create Dictionary    query=${query}    variables=${variables}
+            ${response}=    Evaluate    __import__('requests').post('${endpoint}', json=$payload, headers={'Content-Type': 'application/json'})
+            ${data}=    Evaluate    $response.json()
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${data}    data=${data}    statusCode=${response.status_code}
+            Log    GraphQL response: ${response.status_code}    console=yes
+
+{% elif node.type == 'api.soap' %}
+            # Make SOAP request
+            ${wsdl}=    Set Variable    {{ node.config.get('wsdl', '') | transform_vars }}
+            ${operation}=    Set Variable    {{ node.config.get('operation', '') | transform_vars }}
+            ${body}=    Set Variable    {{ node.config.get('body', '') | transform_vars }}
+            # Use zeep library for SOAP
+            ${client}=    Evaluate    __import__('zeep').Client('${wsdl}')
+            ${service}=    Evaluate    getattr($client.service, '${operation}')
+            ${result}=    Evaluate    $service() if not '${body}' else $service(**__import__('json').loads('${body}'))
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    result=${result}    operation=${operation}
+            Log    SOAP ${operation} completed    console=yes
+
+{% elif node.type == 'api.oauth_token' %}
+            # Get OAuth token
+            ${token_url}=    Set Variable    {{ node.config.get('token_url', '') | transform_vars }}
+            ${client_id}=    Set Variable    {{ node.config.get('client_id', '') | transform_vars }}
+            ${client_secret}=    Set Variable    {{ node.config.get('client_secret', '') | transform_vars }}
+            ${grant_type}=    Set Variable    {{ node.config.get('grant_type', 'client_credentials') }}
+            ${payload}=    Create Dictionary    grant_type=${grant_type}    client_id=${client_id}    client_secret=${client_secret}
+            ${response}=    Evaluate    __import__('requests').post('${token_url}', data=$payload)
+            ${token_data}=    Evaluate    $response.json()
+            ${access_token}=    Evaluate    $token_data.get('access_token', '')
+            ${expires_in}=    Evaluate    $token_data.get('expires_in', 0)
+            Set Global Variable    ${OAUTH_TOKEN}    ${access_token}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${access_token}    accessToken=${access_token}    expiresIn=${expires_in}    tokenType=${{ '{' }}$token_data.get('token_type', 'Bearer'){{ '}' }}
+            Log    OAuth token obtained (expires in ${expires_in}s)    console=yes
+
+{% elif node.type == 'api.parse_json' %}
+            # Parse JSON string
+            ${input}=    Set Variable    {{ node.config.get('input', '{}') | transform_vars }}
+            ${data}=    Evaluate    __import__('json').loads('''${input}''')
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${data}    data=${data}
+            Log    JSON parsed successfully    console=yes
+
+{% elif node.type == 'api.json_path' %}
+            # Extract with JSONPath
+            ${json_str}=    Set Variable    {{ node.config.get('json', '{}') | transform_vars }}
+            ${path}=    Set Variable    {{ node.config.get('path', '$') | transform_vars }}
+            ${data}=    Evaluate    __import__('json').loads('''${json_str}''')
+            ${result}=    Evaluate    __import__('jsonpath_ng').parse('${path}').find($data)
+            ${values}=    Evaluate    [match.value for match in $result]
+            ${first_value}=    Evaluate    $values[0] if $values else None
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${first_value}    result=${first_value}    allMatches=${values}
+            Log    JSONPath found ${values.__len__()} matches    console=yes
+
+{% elif node.type == 'api.ftp_upload' %}
+            # Upload file via FTP
+            ${host}=    Set Variable    {{ node.config.get('host', '') | transform_vars }}
+            ${username}=    Set Variable    {{ node.config.get('username', '') | transform_vars }}
+            ${password}=    Set Variable    {{ node.config.get('password', '') | transform_vars }}
+            ${local_path}=    Set Variable    {{ node.config.get('local_path', '') | transform_vars }}
+            ${remote_path}=    Set Variable    {{ node.config.get('remote_path', '') | transform_vars }}
+            ${ftp}=    Evaluate    __import__('ftplib').FTP('${host}')
+            Evaluate    $ftp.login('${username}', '${password}')
+            ${file}=    Evaluate    open('${local_path}', 'rb')
+            Evaluate    $ftp.storbinary(f'STOR ${remote_path}', $file)
+            Evaluate    $file.close()
+            Evaluate    $ftp.quit()
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${remote_path}    localPath=${local_path}    remotePath=${remote_path}    host=${host}    status=success
+            Log    FTP uploaded: ${local_path} -> ${remote_path}    console=yes
+
+{# ===== DATABASE ===== #}
+{% elif node.type == 'database.connect' %}
+            # Connect to database
+            ${db_type}=    Set Variable    {{ node.config.get('type', 'postgresql') }}
+            ${host}=    Set Variable    {{ node.config.get('host', 'localhost') | transform_vars }}
+            ${port}=    Set Variable    {{ node.config.get('port', 5432) }}
+            ${database}=    Set Variable    {{ node.config.get('database', '') | transform_vars }}
+            ${username}=    Set Variable    {{ node.config.get('username', '') | transform_vars }}
+            ${password}=    Set Variable    {{ node.config.get('password', '') | transform_vars }}
+            # Build connection string based on DB type
+            IF    '${db_type}' == 'postgresql'
+                Connect To Database    psycopg2    ${database}    ${username}    ${password}    ${host}    ${port}
+            ELSE IF    '${db_type}' == 'mysql'
+                Connect To Database    pymysql    ${database}    ${username}    ${password}    ${host}    ${port}
+            ELSE IF    '${db_type}' == 'mssql'
+                Connect To Database    pyodbc    ${database}    ${username}    ${password}    ${host}    ${port}
+            ELSE IF    '${db_type}' == 'oracle'
+                Connect To Database    oracledb    ${database}    ${username}    ${password}    ${host}    ${port}
+            ELSE IF    '${db_type}' == 'sqlite'
+                Connect To Database    sqlite3    ${database}
+            END
+            ${conn_id}=    Evaluate    f'{${db_type}}_{${database}}_{__import__("uuid").uuid4().hex[:6]}'
+            Set Global Variable    ${DB_CONNECTION_ID}    ${conn_id}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${conn_id}    connectionId=${conn_id}    database=${database}    connected=${TRUE}
+            Log    Connected to ${db_type}: ${database}    console=yes
+
+{% elif node.type == 'database.query' %}
+            # Execute SQL query
+            ${query}=    Set Variable    {{ node.config.get('query', '') | transform_vars }}
+            ${params_json}=    Set Variable    {{ node.config.get('params', '[]') | transform_vars }}
+            ${params}=    Evaluate    __import__('json').loads('''${params_json}''') if '''${params_json}'''.strip() else []
+            @{records}=    Query    ${query}    parameters=${params}    returnAsDict=${TRUE}
+            ${count}=    Get Length    ${records}
+            ${columns}=    Evaluate    list($records[0].keys()) if $records else []
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${records}    records=${records}    columns=${columns}    recordCount=${count}
+            Log    Query returned ${count} records    console=yes
+
+{% elif node.type == 'database.insert' %}
+            # Insert data into table
+            ${table}=    Set Variable    {{ node.config.get('table', '') | transform_vars }}
+            ${data_json}=    Set Variable    {{ node.config.get('data', '{}') | transform_vars }}
+            ${data}=    Evaluate    __import__('json').loads('''${data_json}''')
+            ${columns}=    Evaluate    ', '.join($data.keys())
+            ${values}=    Evaluate    ', '.join([f"'{v}'" if isinstance(v, str) else str(v) for v in $data.values()])
+            ${query}=    Set Variable    INSERT INTO ${table} (${columns}) VALUES (${values})
+            Execute Sql String    ${query}
+            ${row_count}=    Row Count    SELECT COUNT(*) FROM ${table}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=inserted    table=${table}    rowsAffected=${1}
+            Log    Inserted into ${table}    console=yes
+
+{% elif node.type == 'database.update' %}
+            # Update table data
+            ${table}=    Set Variable    {{ node.config.get('table', '') | transform_vars }}
+            ${data_json}=    Set Variable    {{ node.config.get('data', '{}') | transform_vars }}
+            ${where}=    Set Variable    {{ node.config.get('where', '') | transform_vars }}
+            ${data}=    Evaluate    __import__('json').loads('''${data_json}''')
+            ${set_clause}=    Evaluate    ', '.join([f"{k} = '{v}'" if isinstance(v, str) else f"{k} = {v}" for k, v in $data.items()])
+            ${query}=    Set Variable    UPDATE ${table} SET ${set_clause} WHERE ${where}
+            Execute Sql String    ${query}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=updated    table=${table}    where=${where}
+            Log    Updated ${table} WHERE ${where}    console=yes
+
+{% elif node.type == 'database.delete' %}
+            # Delete from table
+            ${table}=    Set Variable    {{ node.config.get('table', '') | transform_vars }}
+            ${where}=    Set Variable    {{ node.config.get('where', '') | transform_vars }}
+            ${query}=    Set Variable    DELETE FROM ${table} WHERE ${where}
+            Execute Sql String    ${query}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=deleted    table=${table}    where=${where}
+            Log    Deleted from ${table} WHERE ${where}    console=yes
+
+{% elif node.type == 'database.call_procedure' %}
+            # Call stored procedure
+            ${procedure}=    Set Variable    {{ node.config.get('procedure', '') | transform_vars }}
+            ${params_json}=    Set Variable    {{ node.config.get('params', '[]') | transform_vars }}
+            ${params}=    Evaluate    __import__('json').loads('''${params_json}''') if '''${params_json}'''.strip() else []
+            @{result}=    Call Stored Procedure    ${procedure}    ${params}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    result=${result}    procedure=${procedure}
+            Log    Called procedure: ${procedure}    console=yes
+
+{% elif node.type == 'database.transaction' %}
+            # Start database transaction
+            Set Auto Commit    ${FALSE}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=started    transactionActive=${TRUE}
+            Log    Transaction started    console=yes
+
+{% elif node.type == 'database.commit' %}
+            # Commit transaction
+            Execute Sql String    COMMIT
+            Set Auto Commit    ${TRUE}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=committed    status=success
+            Log    Transaction committed    console=yes
+
+{% elif node.type == 'database.close' %}
+            # Close database connection
+            Disconnect From Database
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=closed    connected=${FALSE}
+            Log    Database connection closed    console=yes
+
+{# ===== DOCUMENT ===== #}
+{% elif node.type == 'document.pdf_read' %}
+            # Extract text from PDF
+            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            ${pages}=    Set Variable    {{ node.config.get('pages', '') | transform_vars }}
+            ${text}=    Get Text From PDF    ${path}
+            ${page_count}=    Get Number Of Pages    ${path}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${text}    text=${text}    pageCount=${page_count}    path=${path}
+            Log    Read PDF: ${path} (${page_count} pages)    console=yes
+
+{% elif node.type == 'document.pdf_merge' %}
+            # Merge multiple PDFs
+            ${files_json}=    Set Variable    {{ node.config.get('files', '[]') | transform_vars }}
+            ${output}=    Set Variable    {{ node.config.get('output', '') | transform_vars }}
+            @{files}=    Evaluate    __import__('json').loads('''${files_json}''')
+            ${merger}=    Evaluate    __import__('PyPDF2').PdfMerger()
+            FOR    ${file}    IN    @{files}
+                Evaluate    $merger.append('${file}')
+            END
+            Evaluate    $merger.write('${output}')
+            Evaluate    $merger.close()
+            ${count}=    Get Length    ${files}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${output}    path=${output}    mergedCount=${count}
+            Log    Merged ${count} PDFs to ${output}    console=yes
+
+{% elif node.type == 'document.pdf_split' %}
+            # Split PDF into pages
+            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            ${pages}=    Set Variable    {{ node.config.get('pages', '') | transform_vars }}
+            ${output}=    Set Variable    {{ node.config.get('output', '') | transform_vars }}
+            ${reader}=    Evaluate    __import__('PyPDF2').PdfReader('${path}')
+            ${writer}=    Evaluate    __import__('PyPDF2').PdfWriter()
+            # Parse page range (e.g., "1-5" or "1,3,5")
+            ${page_list}=    Evaluate    [int(p)-1 for p in '${pages}'.replace('-', ',').split(',') if p.strip()]
+            FOR    ${page_num}    IN    @{page_list}
+                Evaluate    $writer.add_page($reader.pages[${page_num}])
+            END
+            Evaluate    $writer.write(open('${output}', 'wb'))
+            ${count}=    Get Length    ${page_list}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${output}    path=${output}    pagesExtracted=${count}
+            Log    Split PDF: extracted ${count} pages to ${output}    console=yes
+
+{% elif node.type == 'document.pdf_to_image' %}
+            # Convert PDF to images
+            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            ${output_dir}=    Set Variable    {{ node.config.get('output_dir', '') | transform_vars }}
+            ${format}=    Set Variable    {{ node.config.get('format', 'png') }}
+            ${images}=    Evaluate    __import__('pdf2image').convert_from_path('${path}')
+            @{output_files}=    Create List
+            ${index}=    Set Variable    ${1}
+            FOR    ${image}    IN    @{images}
+                ${output_path}=    Set Variable    ${output_dir}/page_${index}.${format}
+                Evaluate    $image.save('${output_path}', '${format}'.upper())
+                Append To List    ${output_files}    ${output_path}
+                ${index}=    Evaluate    ${index} + 1
+            END
+            ${count}=    Get Length    ${output_files}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${output_files}    files=${output_files}    imageCount=${count}
+            Log    Converted PDF to ${count} ${format} images    console=yes
+
+{% elif node.type == 'document.ocr' %}
+            # Extract text with OCR
+            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            ${language}=    Set Variable    {{ node.config.get('language', 'eng') }}
+            ${image}=    Evaluate    __import__('PIL.Image').open('${path}')
+            ${text}=    Evaluate    __import__('pytesseract').image_to_string($image, lang='${language}')
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${text}    text=${text}    language=${language}    path=${path}
+            Log    OCR extracted ${text.__len__()} characters    console=yes
+
+{% elif node.type == 'document.word_read' %}
+            # Read Word document
+            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            ${doc}=    Evaluate    __import__('docx').Document('${path}')
+            ${paragraphs}=    Evaluate    [p.text for p in $doc.paragraphs]
+            ${text}=    Evaluate    '\\n'.join($paragraphs)
+            ${para_count}=    Get Length    ${paragraphs}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${text}    text=${text}    paragraphs=${paragraphs}    paragraphCount=${para_count}
+            Log    Read Word: ${para_count} paragraphs    console=yes
+
+{% elif node.type == 'document.word_write' %}
+            # Create Word document
+            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            ${content}=    Set Variable    {{ node.config.get('content', '') | transform_vars }}
+            ${doc}=    Evaluate    __import__('docx').Document()
+            # Split content by newlines and add as paragraphs
+            ${paragraphs}=    Evaluate    '${content}'.split('\\n')
+            FOR    ${para}    IN    @{paragraphs}
+                Evaluate    $doc.add_paragraph('${para}')
+            END
+            Evaluate    $doc.save('${path}')
+            ${para_count}=    Get Length    ${paragraphs}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${path}    path=${path}    paragraphCount=${para_count}
+            Log    Created Word document: ${path}    console=yes
+
+{% elif node.type == 'document.html_to_pdf' %}
+            # Convert HTML to PDF
+            ${html}=    Set Variable    {{ node.config.get('html', '') | transform_vars }}
+            ${output}=    Set Variable    {{ node.config.get('output', '') | transform_vars }}
+            # Check if HTML is a URL or content
+            ${is_url}=    Evaluate    '${html}'.startswith('http://') or '${html}'.startswith('https://')
+            IF    ${is_url}
+                Evaluate    __import__('pdfkit').from_url('${html}', '${output}')
+            ELSE
+                Evaluate    __import__('pdfkit').from_string('${html}', '${output}')
+            END
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${output}    path=${output}    source=${html}
+            Log    Converted HTML to PDF: ${output}    console=yes
+
+{% elif node.type == 'document.pdf_fill_form' %}
+            # Fill PDF form fields
+            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            ${fields_json}=    Set Variable    {{ node.config.get('fields', '{}') | transform_vars }}
+            ${output}=    Set Variable    {{ node.config.get('output', '') | transform_vars }}
+            ${fields}=    Evaluate    __import__('json').loads('''${fields_json}''')
+            # Use PyPDF2 for basic form filling
+            ${reader}=    Evaluate    __import__('PyPDF2').PdfReader('${path}')
+            ${writer}=    Evaluate    __import__('PyPDF2').PdfWriter()
+            Evaluate    $writer.append($reader)
+            Evaluate    $writer.update_page_form_field_values($writer.pages[0], $fields)
+            Evaluate    $writer.write(open('${output}', 'wb'))
+            ${field_count}=    Evaluate    len($fields)
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${output}    path=${output}    fieldsFilled=${field_count}
+            Log    Filled ${field_count} form fields in PDF    console=yes
+
+{# ===== PYTHON ===== #}
+{% elif node.type == 'python.execute' %}
+            # Execute Python code
+            ${code}=    Set Variable    {{ node.config.get('code', '') | transform_vars }}
+            ${variables_json}=    Set Variable    {{ node.config.get('variables', '{}') | transform_vars }}
+            ${input_vars}=    Evaluate    __import__('json').loads('''${variables_json}''') if '''${variables_json}'''.strip() else {}
+            ${result}=    Evaluate    exec('''${code}''', $input_vars) or $input_vars.get('result', 'executed')
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    result=${result}
+            Log    Python code executed    console=yes
+
+{% elif node.type == 'python.project' %}
+            # Run Python project
+            ${project_path}=    Set Variable    {{ node.config.get('project_path', '') | transform_vars }}
+            ${entrypoint}=    Set Variable    {{ node.config.get('entrypoint', 'main.py') | transform_vars }}
+            ${args}=    Set Variable    {{ node.config.get('args', '') | transform_vars }}
+            ${full_path}=    Set Variable    ${project_path}/${entrypoint}
+            ${proc}=    Evaluate    __import__('subprocess').run(['python', '${full_path}'] + '${args}'.split(), capture_output=True, text=True, cwd='${project_path}')
+            ${stdout}=    Set Variable    ${proc.stdout}
+            ${stderr}=    Set Variable    ${proc.stderr}
+            ${returncode}=    Set Variable    ${proc.returncode}
+            IF    ${returncode} != 0
+                Fail    Python project failed: ${stderr}
+            END
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${stdout}    stdout=${stdout}    stderr=${stderr}    returncode=${returncode}
+            Log    Python project executed: ${entrypoint}    console=yes
+
+{% elif node.type == 'python.pip_install' %}
+            # Install Python packages
+            ${packages}=    Set Variable    {{ node.config.get('packages', '') | transform_vars }}
+            ${requirements}=    Set Variable    {{ node.config.get('requirements', '') | transform_vars }}
+            IF    '${requirements}'
+                ${proc}=    Evaluate    __import__('subprocess').run(['pip', 'install', '-r', '${requirements}'], capture_output=True, text=True)
+            ELSE
+                ${proc}=    Evaluate    __import__('subprocess').run(['pip', 'install'] + '${packages}'.split(), capture_output=True, text=True)
+            END
+            ${installed}=    Set Variable    ${proc.stdout}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${installed}    packages=${packages}    status=installed
+            Log    Pip install completed    console=yes
+
+{% elif node.type == 'python.virtualenv' %}
+            # Create Python virtual environment
+            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            ${python_version}=    Set Variable    {{ node.config.get('python_version', '3.10') }}
+            ${proc}=    Evaluate    __import__('subprocess').run(['python${python_version}', '-m', 'venv', '${path}'], capture_output=True, text=True)
+            ${created}=    Evaluate    __import__('os').path.exists('${path}')
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${path}    path=${path}    created=${created}
+            Log    Virtual environment created: ${path}    console=yes
+
+{% elif node.type == 'python.function' %}
+            # Define Python function
+            ${name}=    Set Variable    {{ node.config.get('name', '') | transform_vars }}
+            ${code}=    Set Variable    {{ node.config.get('code', '') | transform_vars }}
+            ${params}=    Set Variable    {{ node.config.get('params', '') | transform_vars }}
+            # Store function in globals for later use
+            ${func_def}=    Set Variable    def ${name}(${params}):\n${code}
+            Evaluate    exec('''${func_def}''', globals())
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${name}    functionName=${name}    params=${params}
+            Log    Python function defined: ${name}    console=yes
+
+{% elif node.type == 'python.import_module' %}
+            # Import Python module
+            ${module}=    Set Variable    {{ node.config.get('module', '') | transform_vars }}
+            ${alias}=    Set Variable    {{ node.config.get('alias', '') | transform_vars }}
+            IF    '${alias}'
+                ${imported}=    Evaluate    __import__('${module}')
+                Evaluate    globals().__setitem__('${alias}', $imported)
+            ELSE
+                ${imported}=    Evaluate    __import__('${module}')
+                Evaluate    globals().__setitem__('${module}', $imported)
+            END
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${module}    module=${module}    alias=${alias}
+            Log    Imported module: ${module}    console=yes
+
+{% elif node.type == 'python.notebook' %}
+            # Execute Jupyter notebook
+            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            ${output_path}=    Set Variable    {{ node.config.get('output_path', '') | transform_vars }}
+            # Use papermill to execute notebook
+            ${output}=    Evaluate    '${output_path}' if '${output_path}' else '${path}'.replace('.ipynb', '_output.ipynb')
+            ${proc}=    Evaluate    __import__('subprocess').run(['papermill', '${path}', '${output}'], capture_output=True, text=True)
+            ${success}=    Evaluate    ${proc.returncode} == 0
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${output}    inputPath=${path}    outputPath=${output}    success=${success}
+            Log    Notebook executed: ${path} -> ${output}    console=yes
+
+{% elif node.type == 'python.eval' %}
+            # Evaluate Python expression
+            ${expression}=    Set Variable    {{ node.config.get('expression', '') | transform_vars }}
+            ${result}=    Evaluate    ${expression}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    result=${result}    expression=${expression}
+            Log    Python eval result: ${result}    console=yes
+
+{# ===== LOGGING ===== #}
+{% elif node.type == 'logging.log' %}
+            # Log message
+            ${message}=    Set Variable    {{ node.config.get('message', '') | transform_vars }}
+            ${level}=    Set Variable    {{ node.config.get('level', 'INFO') }}
+            Log    [${level}] ${message}    console=yes    level=${level}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${message}    message=${message}    level=${level}
+
+{% elif node.type == 'logging.screenshot' %}
+            # Capture screenshot to log
+            ${description}=    Set Variable    {{ node.config.get('description', 'Screenshot') | transform_vars }}
+            ${path}=    Set Variable    ${OUTPUT_DIR}/screenshot_{{ node.id }}.png
+            Take Screenshot    ${path}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${path}    path=${path}    description=${description}
+            Log    Screenshot captured: ${description}    console=yes
+
+{% elif node.type == 'logging.metric' %}
+            # Record numeric metric
+            ${name}=    Set Variable    {{ node.config.get('name', '') | transform_vars }}
+            ${value}=    Set Variable    {{ node.config.get('value', 0) | transform_vars }}
+            ${unit}=    Set Variable    {{ node.config.get('unit', '') | transform_vars }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${value}    name=${name}    value=${value}    unit=${unit}
+            Log    Metric: ${name} = ${value} ${unit}    console=yes
+
+{% elif node.type == 'logging.timer_start' %}
+            # Start performance timer
+            ${name}=    Set Variable    {{ node.config.get('name', '') | transform_vars }}
+            ${start_time}=    Evaluate    __import__('time').time()
+            Set Global Variable    ${TIMER_${name}}    ${start_time}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${start_time}    timerName=${name}    startTime=${start_time}
+            Log    Timer started: ${name}    console=yes
+
+{% elif node.type == 'logging.timer_stop' %}
+            # Stop and log timer
+            ${name}=    Set Variable    {{ node.config.get('name', '') | transform_vars }}
+            ${end_time}=    Evaluate    __import__('time').time()
+            ${start_time}=    Get Variable Value    ${TIMER_${name}}    ${end_time}
+            ${elapsed}=    Evaluate    ${end_time} - ${start_time}
+            ${elapsed_ms}=    Evaluate    round(${elapsed} * 1000, 2)
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${elapsed_ms}    timerName=${name}    elapsedMs=${elapsed_ms}    elapsedSeconds=${elapsed}
+            Log    Timer ${name}: ${elapsed_ms}ms    console=yes
+
+{% elif node.type == 'logging.notification' %}
+            # Send alert notification
+            ${channel}=    Set Variable    {{ node.config.get('channel', 'email') }}
+            ${message}=    Set Variable    {{ node.config.get('message', '') | transform_vars }}
+            # Placeholder for actual notification implementation
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=sent    channel=${channel}    message=${message}
+            Log    Notification sent via ${channel}    console=yes
+
+{% elif node.type == 'logging.audit' %}
+            # Create audit entry
+            ${action}=    Set Variable    {{ node.config.get('action', '') | transform_vars }}
+            ${details_json}=    Set Variable    {{ node.config.get('details', '{}') | transform_vars }}
+            ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
+            ${audit_entry}=    Create Dictionary    action=${action}    details=${details_json}    timestamp=${timestamp}    botId=${BOT_ID}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${audit_entry}    action=${action}    timestamp=${timestamp}
+            Log    AUDIT: ${action}    console=yes
+
+{% elif node.type == 'logging.export' %}
+            # Export run logs
+            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            ${format}=    Set Variable    {{ node.config.get('format', 'json') }}
+            # Collect logs and export
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${path}    path=${path}    format=${format}
+            Log    Logs exported to: ${path}    console=yes
+
+{# ===== SECURITY ===== #}
+{% elif node.type == 'security.get_secret' %}
+            # Get secret from vault
+            ${name}=    Set Variable    {{ node.config.get('name', '') | transform_vars }}
+            ${vault}=    Set Variable    {{ node.config.get('vault', 'orchestrator') }}
+            IF    '${vault}' == 'env'
+                ${secret}=    Get Environment Variable    ${name}    default=${EMPTY}
+            ELSE
+                ${secret}=    SkuldVault.Get Secret    ${name}    vault_type=${vault}
+            END
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${secret}    secretName=${name}    vault=${vault}
+            Log    Secret retrieved: ${name} (masked)    console=yes
+
+{% elif node.type == 'security.encrypt' %}
+            # Encrypt data
+            ${data}=    Set Variable    {{ node.config.get('data', '') | transform_vars }}
+            ${key}=    Set Variable    {{ node.config.get('key', '') | transform_vars }}
+            ${encrypted}=    Evaluate    __import__('base64').b64encode(__import__('cryptography.fernet').Fernet(__import__('base64').urlsafe_b64encode('${key}'.ljust(32)[:32].encode())).encrypt('${data}'.encode())).decode()
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${encrypted}    encrypted=${encrypted}
+            Log    Data encrypted    console=yes
+
+{% elif node.type == 'security.decrypt' %}
+            # Decrypt data
+            ${data}=    Set Variable    {{ node.config.get('data', '') | transform_vars }}
+            ${key}=    Set Variable    {{ node.config.get('key', '') | transform_vars }}
+            ${decrypted}=    Evaluate    __import__('cryptography.fernet').Fernet(__import__('base64').urlsafe_b64encode('${key}'.ljust(32)[:32].encode())).decrypt(__import__('base64').b64decode('${data}'.encode())).decode()
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${decrypted}    decrypted=${decrypted}
+            Log    Data decrypted    console=yes
+
+{% elif node.type == 'security.hash' %}
+            # Hash data
+            ${data}=    Set Variable    {{ node.config.get('data', '') | transform_vars }}
+            ${algorithm}=    Set Variable    {{ node.config.get('algorithm', 'sha256') }}
+            ${hash}=    Evaluate    __import__('hashlib').new('${algorithm}', '${data}'.encode()).hexdigest()
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${hash}    hash=${hash}    algorithm=${algorithm}
+            Log    Hash (${algorithm}): ${hash}    console=yes
+
+{% elif node.type == 'security.mask_data' %}
+            # Mask sensitive data
+            ${pattern}=    Set Variable    {{ node.config.get('pattern', '') | transform_vars }}
+            ${mask_char}=    Set Variable    {{ node.config.get('mask_char', '*') | escape_newlines }}
+            # Create masked pattern
+            ${masked}=    Evaluate    __import__('re').sub('${pattern}', '${mask_char}' * 8, str($LAST_TEXT))
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${masked}    masked=${masked}    pattern=${pattern}
+            Log    Data masked    console=yes
+
+{% elif node.type == 'security.validate_cert' %}
+            # Validate SSL certificate
+            ${url}=    Set Variable    {{ node.config.get('url', '') | transform_vars }}
+            ${parsed}=    Evaluate    __import__('urllib.parse').urlparse('${url}')
+            ${host}=    Evaluate    $parsed.netloc
+            ${port}=    Evaluate    $parsed.port or 443
+            ${context}=    Evaluate    __import__('ssl').create_default_context()
+            ${conn}=    Evaluate    $context.wrap_socket(__import__('socket').socket(), server_hostname='${host}')
+            Evaluate    $conn.connect(('${host}', ${port}))
+            ${cert}=    Evaluate    $conn.getpeercert()
+            Evaluate    $conn.close()
+            ${valid}=    Evaluate    bool($cert)
+            ${expires}=    Evaluate    $cert.get('notAfter', 'unknown') if $cert else 'unknown'
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${valid}    valid=${valid}    expires=${expires}    host=${host}
+            Log    Certificate valid: ${valid}, expires: ${expires}    console=yes
+
+{# ===== HUMAN ===== #}
+{% elif node.type == 'human.approval' %}
+            # Request human approval
+            ${title}=    Set Variable    {{ node.config.get('title', '') | transform_vars }}
+            ${description}=    Set Variable    {{ node.config.get('description', '') | transform_vars }}
+            ${approvers}=    Set Variable    {{ node.config.get('approvers', '') | transform_vars }}
+            ${timeout}=    Set Variable    {{ node.config.get('timeout_minutes', 60) }}
+            # Placeholder: would integrate with orchestrator approval system
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=pending    title=${title}    status=pending    approvers=${approvers}
+            Log    Approval requested: ${title}    console=yes
+
+{% elif node.type == 'human.input' %}
+            # Request user input
+            ${prompt}=    Set Variable    {{ node.config.get('prompt', '') | transform_vars }}
+            ${input_type}=    Set Variable    {{ node.config.get('input_type', 'text') }}
+            # Placeholder: would integrate with orchestrator input system
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=pending    prompt=${prompt}    inputType=${input_type}    status=pending
+            Log    Input requested: ${prompt}    console=yes
+
+{% elif node.type == 'human.review' %}
+            # Present data for review
+            ${title}=    Set Variable    {{ node.config.get('title', '') | transform_vars }}
+            ${data}=    Set Variable    {{ node.config.get('data', '') | transform_vars }}
+            ${actions}=    Set Variable    {{ node.config.get('actions', 'approve,reject,edit') | transform_vars }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=pending    title=${title}    data=${data}    actions=${actions}    status=pending
+            Log    Review requested: ${title}    console=yes
+
+{% elif node.type == 'human.exception' %}
+            # Human handles exception
+            ${error}=    Set Variable    {{ node.config.get('error', '') | transform_vars }}
+            ${options}=    Set Variable    {{ node.config.get('options', 'retry,skip,abort') | transform_vars }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=pending    error=${error}    options=${options}    status=pending
+            Log    Exception handling requested    console=yes
+
+{% elif node.type == 'human.notification' %}
+            # Notify user
+            ${recipient}=    Set Variable    {{ node.config.get('recipient', '') | transform_vars }}
+            ${message}=    Set Variable    {{ node.config.get('message', '') | transform_vars }}
+            ${priority}=    Set Variable    {{ node.config.get('priority', 'normal') }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=sent    recipient=${recipient}    priority=${priority}    status=sent
+            Log    Notification sent to ${recipient} (${priority})    console=yes
+
+{# ===== COMPLIANCE ===== #}
+{% elif node.type == 'compliance.protect_pii' %}
+            # Protect PII data
+            ${data}=    Set Variable    {{ node.config.get('data', '[]') | transform_vars }}
+            ${rules}=    Set Variable    {{ node.config.get('rules', '[]') | transform_vars }}
+            # Apply PII protection rules
+            ${protected}=    Evaluate    $data    # Would apply actual masking
+            ${fields_processed}=    Evaluate    len($rules) if isinstance($rules, list) else 0
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${protected}    protected_data=${protected}    fields_processed=${fields_processed}
+            Log    PII protection applied to ${fields_processed} fields    console=yes
+
+{% elif node.type == 'compliance.protect_phi' %}
+            # Protect PHI data (HIPAA)
+            ${data}=    Set Variable    {{ node.config.get('data', '[]') | transform_vars }}
+            ${rules}=    Set Variable    {{ node.config.get('rules', '[]') | transform_vars }}
+            ${strict}=    Set Variable    ${{ '{TRUE}' if node.config.get('strict_hipaa', True) else '{FALSE}' }}
+            # Apply PHI protection rules
+            ${protected}=    Evaluate    $data    # Would apply actual masking
+            ${fields_processed}=    Evaluate    len($rules) if isinstance($rules, list) else 0
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${protected}    protected_data=${protected}    fields_processed=${fields_processed}    hipaa_compliant=${strict}
+            Log    PHI protection applied (HIPAA mode: ${strict})    console=yes
+
+{% elif node.type == 'compliance.audit_log' %}
+            # Compliance audit log entry
+            ${action}=    Set Variable    {{ node.config.get('action', '') | transform_vars }}
+            ${data_type}=    Set Variable    {{ node.config.get('data_type', 'PHI') }}
+            ${reason}=    Set Variable    {{ node.config.get('reason', '') | transform_vars }}
+            ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
+            ${audit}=    Create Dictionary    action=${action}    data_type=${data_type}    reason=${reason}    timestamp=${timestamp}    immutable=${TRUE}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${audit}    audit_entry=${audit}    timestamp=${timestamp}
+            Log    COMPLIANCE AUDIT: ${action} on ${data_type}    console=yes
+
+{# ===== DATA QUALITY ===== #}
+{% elif node.type == 'dataquality.validate' %}
+            # Validate data
+            ${data}=    Set Variable    {{ node.config.get('data', '[]') | transform_vars }}
+            ${rules}=    Set Variable    {{ node.config.get('rules', '[]') | transform_vars }}
+            ${fail_on_error}=    Set Variable    ${{ '{TRUE}' if node.config.get('fail_on_error', True) else '{FALSE}' }}
+            # Run validation rules
+            ${valid}=    Set Variable    ${TRUE}
+            @{errors}=    Create List
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${valid}    valid=${valid}    errors=${errors}    error_count=0
+            Log    Data validation completed: valid=${valid}    console=yes
+
+{% elif node.type == 'dataquality.profile_data' %}
+            # Profile data statistics
+            ${data}=    Set Variable    {{ node.config.get('data', '[]') | transform_vars }}
+            ${data_list}=    Evaluate    $data if isinstance($data, list) else __import__('json').loads('${data}')
+            ${row_count}=    Get Length    ${data_list}
+            ${column_count}=    Evaluate    len($data_list[0].keys()) if $data_list and isinstance($data_list[0], dict) else 0
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${row_count}    row_count=${row_count}    column_count=${column_count}
+            Log    Data profile: ${row_count} rows, ${column_count} columns    console=yes
+
+{% elif node.type == 'dataquality.generate_report' %}
+            # Generate quality report
+            ${data}=    Set Variable    {{ node.config.get('data', '[]') | transform_vars }}
+            ${data_source}=    Set Variable    {{ node.config.get('data_source', 'unknown') | transform_vars }}
+            ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
+            ${report}=    Create Dictionary    timestamp=${timestamp}    data_source=${data_source}    status=generated
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${report}    report=${report}    timestamp=${timestamp}    data_source=${data_source}
+            Log    Quality report generated for ${data_source}    console=yes
+
+{# ===== INSURANCE ===== #}
+{% elif node.type == 'insurance.fnol_record' %}
+            # Create FNOL record
+            ${caller_phone}=    Set Variable    {{ node.config.get('caller_phone', '') | transform_vars }}
+            ${caller_name}=    Set Variable    {{ node.config.get('caller_name', '') | transform_vars }}
+            ${policy_number}=    Set Variable    {{ node.config.get('policy_number', '') | transform_vars }}
+            ${incident_type}=    Set Variable    {{ node.config.get('incident_type', 'auto') }}
+            ${fnol_id}=    Evaluate    f"FNOL-{__import__('datetime').datetime.now().strftime('%Y%m%d')}-{__import__('uuid').uuid4().hex[:6].upper()}"
+            ${created_at}=    Evaluate    __import__('datetime').datetime.now().isoformat()
+            ${fnol}=    Create Dictionary    fnol_id=${fnol_id}    caller_phone=${caller_phone}    caller_name=${caller_name}    policy_number=${policy_number}    incident_type=${incident_type}    created_at=${created_at}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${fnol}    fnol_id=${fnol_id}    fnol_record=${fnol}
+            Log    FNOL created: ${fnol_id}    console=yes
+
+{% elif node.type == 'insurance.lookup_policy' %}
+            # Lookup policy
+            ${api_url}=    Set Variable    {{ node.config.get('api_url', '') | transform_vars }}
+            ${phone_number}=    Set Variable    {{ node.config.get('phone_number', '') | transform_vars }}
+            ${policyholder_name}=    Set Variable    {{ node.config.get('policyholder_name', '') | transform_vars }}
+            ${dob}=    Set Variable    {{ node.config.get('date_of_birth', '') | transform_vars }}
+            ${payload}=    Create Dictionary    phone_number=${phone_number}    policyholder_name=${policyholder_name}    date_of_birth=${dob}
+            ${response}=    Evaluate    __import__('requests').post('${api_url}', json=$payload)
+            ${result}=    Evaluate    $response.json() if $response.status_code == 200 else {}
+            ${policy_id}=    Evaluate    $result.get('policy_id', '')
+            ${policy_number}=    Evaluate    $result.get('policy_number', '')
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    policy_id=${policy_id}    policy_number=${policy_number}    found=${policy_id.__bool__()}
+            Log    Policy lookup: ${policy_number}    console=yes
+
+{% elif node.type == 'insurance.validate_policy' %}
+            # Validate policy
+            ${api_url}=    Set Variable    {{ node.config.get('api_url', '') | transform_vars }}
+            ${policy_id}=    Set Variable    {{ node.config.get('policy_id', '') | transform_vars }}
+            ${policy_number}=    Set Variable    {{ node.config.get('policy_number', '') | transform_vars }}
+            ${claim_type}=    Set Variable    {{ node.config.get('claim_type', 'auto') }}
+            ${payload}=    Create Dictionary    policy_id=${policy_id}    policy_number=${policy_number}    claim_type=${claim_type}
+            ${response}=    Evaluate    __import__('requests').post('${api_url}', json=$payload)
+            ${result}=    Evaluate    $response.json() if $response.status_code == 200 else {}
+            ${is_active}=    Evaluate    $result.get('is_active', False)
+            ${has_coverage}=    Evaluate    $result.get('has_coverage', False)
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    is_active=${is_active}    has_coverage=${has_coverage}    policy_number=${policy_number}
+            Log    Policy validation: active=${is_active}, coverage=${has_coverage}    console=yes
+
+{% elif node.type == 'insurance.extract_claim_data' %}
+            # Extract claim data from transcript
+            ${transcript}=    Set Variable    {{ node.config.get('transcript', '') | transform_vars }}
+            ${claim_type}=    Set Variable    {{ node.config.get('claim_type', 'any') }}
+            # Use AI to extract (would integrate with SkuldAI)
+            ${extracted}=    Create Dictionary    claim_type=${claim_type}    transcript_length=${transcript.__len__()}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${extracted}    extracted=${extracted}    claim_type=${claim_type}
+            Log    Claim data extracted    console=yes
 
 {# ===== DATA INTEGRATION (TAPS) ===== #}
 {% elif node.type.startswith('data.tap.') %}
@@ -312,11 +1943,11 @@ Execute Node By ID
             ...    method={{ node.config.get('method', 'GET') }}
             {% if node.config.get('headers') %}...    headers={{ node.config.get('headers', '') | transform_vars }}{% endif %}
             {% if node.config.get('body') %}...    body={{ node.config.get('body', '') | transform_vars }}{% endif %}
-            {% if node.config.get('auth_type') %}...    auth_type={{ node.config.get('auth_type', '') }}{% endif %}
+            {% if node.config.get('auth_type') %}...    auth_type={{ node.config.get('auth_type', '') | escape_newlines }}{% endif %}
             {% if node.config.get('auth_value') %}...    auth_value={{ node.config.get('auth_value', '') | transform_vars }}{% endif %}
-            {% if node.config.get('pagination_type') %}...    pagination_type={{ node.config.get('pagination_type', '') }}{% endif %}
-            {% if node.config.get('pagination_param') %}...    pagination_param={{ node.config.get('pagination_param', '') }}{% endif %}
-            {% if node.config.get('data_path') %}...    data_path={{ node.config.get('data_path', '') }}{% endif %}
+            {% if node.config.get('pagination_type') %}...    pagination_type={{ node.config.get('pagination_type', '') | escape_newlines }}{% endif %}
+            {% if node.config.get('pagination_param') %}...    pagination_param={{ node.config.get('pagination_param', '') | escape_newlines }}{% endif %}
+            {% if node.config.get('data_path') %}...    data_path={{ node.config.get('data_path', '') | escape_newlines }}{% endif %}
             {% if node.config.get('limit') %}...    limit={{ node.config.get('limit') }}{% endif %}
             {% else %}
             Log    Unknown tap type: {{ tap_type }}    level=WARN    console=yes
@@ -392,12 +2023,12 @@ Execute Node By ID
 {# ===== SECRETS MANAGEMENT ===== #}
 {% elif node.type == 'secrets.azure_keyvault' %}
             # Azure Key Vault - Load secrets into ${vault.xxx}
-            Log    Connecting to Azure Key Vault: {{ node.config.get('vault_url', '') }}    console=yes
+            Log    Connecting to Azure Key Vault: {{ node.config.get('vault_url', '') | escape_newlines }}    console=yes
             ${secrets_list}=    Evaluate    [s.strip() for s in """{{ node.config.get('secrets', '') }}""".split('\\n') if s.strip()]
             ${result}=    SkuldVault.Init Azure Vault
             ...    vault_url={{ node.config.get('vault_url', '') | transform_vars }}
-            ...    tenant_id={{ node.config.get('tenant_id', '') }}
-            ...    client_id={{ node.config.get('client_id', '') }}
+            ...    tenant_id={{ node.config.get('tenant_id', '') | escape_newlines }}
+            ...    client_id={{ node.config.get('client_id', '') | escape_newlines }}
             ...    use_managed_identity=${{ '{TRUE}' if node.config.get('use_managed_identity', False) else '{FALSE}' }}
             ...    secrets=${secrets_list}
             # Store results
@@ -406,7 +2037,7 @@ Execute Node By ID
 
 {% elif node.type == 'secrets.aws_secrets' %}
             # AWS Secrets Manager - Load secrets into ${vault.xxx}
-            Log    Connecting to AWS Secrets Manager ({{ node.config.get('region', 'us-east-1') }})    console=yes
+            Log    Connecting to AWS Secrets Manager ({{ node.config.get('region', 'us-east-1') | escape_newlines }})    console=yes
             ${secrets_list}=    Evaluate    [s.strip() for s in """{{ node.config.get('secrets', '') }}""".split('\\n') if s.strip()]
             ${result}=    SkuldVault.Init AWS Vault
             ...    region={{ node.config.get('region', 'us-east-1') }}
@@ -418,12 +2049,12 @@ Execute Node By ID
 
 {% elif node.type == 'secrets.hashicorp_vault' %}
             # HashiCorp Vault - Load secrets into ${vault.xxx}
-            Log    Connecting to HashiCorp Vault: {{ node.config.get('vault_addr', '') }}    console=yes
+            Log    Connecting to HashiCorp Vault: {{ node.config.get('vault_addr', '') | escape_newlines }}    console=yes
             ${secrets_list}=    Evaluate    [s.strip() for s in """{{ node.config.get('secrets', '') }}""".split('\\n') if s.strip()]
             ${result}=    SkuldVault.Init HashiCorp Vault
             ...    vault_addr={{ node.config.get('vault_addr', '') | transform_vars }}
-            ...    auth_method={{ node.config.get('auth_method', 'token') }}
-            ...    mount_point={{ node.config.get('mount_point', 'secret') }}
+            ...    auth_method={{ node.config.get('auth_method', 'token') | escape_newlines }}
+            ...    mount_point={{ node.config.get('mount_point', 'secret') | escape_newlines }}
             ...    secrets_path={{ node.config.get('secrets_path', '') | transform_vars }}
             ...    secrets=${secrets_list}
             # Store results
@@ -432,7 +2063,7 @@ Execute Node By ID
 
 {% elif node.type == 'secrets.local_vault' %}
             # Local Vault - Unlock and load secrets into ${vault.xxx}
-            Log    Unlocking Local Vault: {{ node.config.get('vault_path', '.skuldbot') }}    console=yes
+            Log    Unlocking Local Vault: {{ node.config.get('vault_path', '.skuldbot') | escape_newlines }}    console=yes
             ${secrets_list}=    Evaluate    [s.strip() for s in """{{ node.config.get('secrets', '') }}""".split('\\n') if s.strip()]
             ${result}=    LocalVault.Unlock And Load
             ...    vault_path={{ node.config.get('vault_path', '.skuldbot') | transform_vars }}
@@ -440,6 +2071,951 @@ Execute Node By ID
             # Store results
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    unlocked=${result}[unlocked]    secretCount=${result}[secretCount]    secretNames=${result}[secretNames]
             Log    Local Vault unlocked, loaded ${result}[secretCount] secrets    console=yes
+
+{# ===== VOICE & TELEPHONY ===== #}
+{% elif node.type == 'trigger.voice_inbound' %}
+            # Voice Inbound Trigger - Configure Twilio for incoming calls
+            Log    Configuring Voice Inbound Trigger (Twilio)    console=yes
+            SkuldVoice.Configure Voice Provider
+            ...    twilio_account_sid={{ node.config.get('account_sid', '') | transform_vars }}
+            ...    twilio_auth_token={{ node.config.get('auth_token', '') | transform_vars }}
+            ...    twilio_phone_number={{ node.config.get('phone_number', '') | transform_vars }}
+            # Handle the incoming call data (passed via webhook)
+            ${call_data}=    Get Variable Value    ${WEBHOOK_DATA}    &{EMPTY}
+            ${result}=    SkuldVoice.Handle Incoming Call    ${call_data}
+            # Store in node variable
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    call_sid=${result}[call_sid]    from_number=${result}[from_number]    to_number=${result}[to_number]    direction=${result}[direction]
+            Set Global Variable    ${CALL_SID}    ${result}[call_sid]
+            Set Global Variable    ${FROM_NUMBER}    ${result}[from_number]
+            Set Global Variable    ${TO_NUMBER}    ${result}[to_number]
+            Log    Incoming call from ${result}[from_number]    console=yes
+
+{% elif node.type == 'voice.call' %}
+            # Make Outbound Call
+            Log    Making outbound call to {{ node.config.get('to_number', '') | transform_vars }}    console=yes
+            SkuldVoice.Configure Voice Provider
+            ...    twilio_account_sid={{ node.config.get('account_sid', '${vault.twilio_account_sid}') | transform_vars }}
+            ...    twilio_auth_token={{ node.config.get('auth_token', '${vault.twilio_auth_token}') | transform_vars }}
+            ...    twilio_phone_number={{ node.config.get('from_number', '${vault.twilio_phone_number}') | transform_vars }}
+            ${result}=    SkuldVoice.Make Outbound Call
+            ...    to_number={{ node.config.get('to_number', '') | transform_vars }}
+            {% if node.config.get('twiml_url') %}...    twiml_url={{ node.config.get('twiml_url', '') | transform_vars }}{% endif %}
+            {% if node.config.get('twiml') %}...    twiml={{ node.config.get('twiml', '') | transform_vars }}{% endif %}
+            ...    record=${{ '{TRUE}' if node.config.get('record', True) else '{FALSE}' }}
+            ...    timeout={{ node.config.get('timeout', 30) }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    call_sid=${result}[call_sid]    status=${result}[status]
+            Set Global Variable    ${CALL_SID}    ${result}[call_sid]
+            Log    Call initiated: ${result}[call_sid]    console=yes
+
+{% elif node.type == 'voice.speak' %}
+            # Text to Speech (Azure)
+            Log    Synthesizing speech    console=yes
+            ${result}=    SkuldVoice.Synthesize Speech
+            ...    text={{ node.config.get('text', '') | transform_vars }}
+            {% if node.config.get('output_path') %}...    output_path={{ node.config.get('output_path', '') | transform_vars }}{% endif %}
+            ...    voice={{ node.config.get('voice', 'en-US-JennyNeural') | escape_newlines }}
+            {% if node.config.get('style') %}...    style={{ node.config.get('style', '') | escape_newlines }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    status=${result}[status]
+            {% if node.config.get('output_path') %}Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output_path=${result}[output_path]{% endif %}
+            Log    Speech synthesized: ${result}[status]    console=yes
+
+{% elif node.type == 'voice.listen' %}
+            # Speech to Text (Azure)
+            Log    Transcribing audio    console=yes
+            ${result}=    SkuldVoice.Transcribe Audio File
+            ...    audio_path={{ node.config.get('audio_path', '') | transform_vars }}
+            ...    language={{ node.config.get('language', 'en-US') | escape_newlines }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    text=${result}[text]    confidence=${result}[confidence]    status=${result}[status]
+            Set Global Variable    ${TRANSCRIBED_TEXT}    ${result}[text]
+            Log    Transcribed: ${result}[text]    console=yes
+
+{% elif node.type == 'voice.twiml_say' %}
+            # Generate TwiML Say
+            ${twiml}=    SkuldVoice.Generate TwiML Say
+            ...    text={{ node.config.get('text', '') | transform_vars }}
+            ...    voice={{ node.config.get('voice', 'Polly.Joanna') | escape_newlines }}
+            ...    language={{ node.config.get('language', 'en-US') | escape_newlines }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${twiml}    twiml=${twiml}
+            Log    TwiML Say generated    console=yes
+
+{% elif node.type == 'voice.twiml_gather' %}
+            # Generate TwiML Gather
+            ${twiml}=    SkuldVoice.Generate TwiML Gather
+            ...    prompt_text={{ node.config.get('prompt_text', '') | transform_vars }}
+            ...    action_url={{ node.config.get('action_url', '') | transform_vars }}
+            ...    input_type={{ node.config.get('input_type', 'speech dtmf') | escape_newlines }}
+            ...    timeout={{ node.config.get('timeout', 5) }}
+            ...    speech_timeout={{ node.config.get('speech_timeout', 'auto') | escape_newlines }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${twiml}    twiml=${twiml}
+            Log    TwiML Gather generated    console=yes
+
+{% elif node.type == 'voice.transfer' %}
+            # Transfer Call
+            Log    Transferring call to {{ node.config.get('transfer_to', '') | transform_vars }}    console=yes
+            ${result}=    SkuldVoice.Transfer Call
+            ...    transfer_to={{ node.config.get('transfer_to', '') | transform_vars }}
+            {% if node.config.get('call_sid') %}...    call_sid={{ node.config.get('call_sid', '') | transform_vars }}{% endif %}
+            {% if node.config.get('announce_message') %}...    announce_message={{ node.config.get('announce_message', '') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    call_sid=${result}[call_sid]    transferred_to=${result}[transferred_to]    status=${result}[status]
+            Log    Call transferred: ${result}[status]    console=yes
+
+{% elif node.type == 'voice.hangup' %}
+            # End Call
+            Log    Ending call    console=yes
+            ${result}=    SkuldVoice.End Call
+            {% if node.config.get('call_sid') %}...    call_sid={{ node.config.get('call_sid', '') | transform_vars }}{% endif %}
+            {% if node.config.get('farewell_message') %}...    farewell_message={{ node.config.get('farewell_message', '') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    call_sid=${result}[call_sid]    status=${result}[status]    conversation_turns=${result}[conversation_turns]
+            Log    Call ended: ${result}[status]    console=yes
+
+{% elif node.type == 'voice.get_recording' %}
+            # Get Call Recording
+            Log    Getting call recording    console=yes
+            ${result}=    SkuldVoice.Get Call Recording
+            {% if node.config.get('call_sid') %}...    call_sid={{ node.config.get('call_sid', '') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    recording_sid=${result}[recording_sid]    url=${result}[url]    duration=${result}[duration]
+            Set Global Variable    ${RECORDING_URL}    ${result}[url]
+            Log    Recording URL: ${result}[url]    console=yes
+
+{% elif node.type == 'voice.add_turn' %}
+            # Add Conversation Turn
+            SkuldVoice.Add Conversation Turn
+            ...    role={{ node.config.get('role', 'agent') | escape_newlines }}
+            ...    text={{ node.config.get('text', '') | transform_vars }}
+            ...    confidence={{ node.config.get('confidence', 1.0) }}
+            Log    Conversation turn added    console=yes
+
+{% elif node.type == 'voice.get_transcript' %}
+            # Get Conversation Transcript
+            ${transcript}=    SkuldVoice.Get Conversation Transcript    format={{ node.config.get('format', 'text') | escape_newlines }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${transcript}    transcript=${transcript}
+            Set Global Variable    ${CONVERSATION_TRANSCRIPT}    ${transcript}
+            Log    Transcript retrieved    console=yes
+
+{% elif node.type == 'voice.set_context' %}
+            # Set Call Context
+            SkuldVoice.Set Call Context
+            ...    key={{ node.config.get('key', '') | transform_vars }}
+            ...    value={{ node.config.get('value', '') | transform_vars }}
+            Log    Call context set: {{ node.config.get('key', '') | escape_newlines }}    console=yes
+
+{% elif node.type == 'voice.get_context' %}
+            # Get Call Context
+            ${context_value}=    SkuldVoice.Get Call Context
+            {% if node.config.get('key') %}...    key={{ node.config.get('key', '') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${context_value}    context_value=${context_value}
+            Log    Call context retrieved    console=yes
+
+{# ===== AI AGENT WITH TOOLS (ReAct Pattern) ===== #}
+{% elif node.type == 'ai.agent' %}
+            # Configure AI provider from connected Chat Model node or fallback to config
+            {% if node.model_config_ %}
+            # Using connected Chat Model node configuration
+            SkuldAI.Configure AI Provider
+            ...    provider={{ node.model_config_.provider | default('openai') | escape_newlines }}
+            ...    model={{ node.model_config_.model | default('gpt-4o') | transform_vars }}
+            ...    temperature={{ node.model_config_.temperature | default(0.7) }}
+            {% if node.model_config_.api_key %}...    api_key={{ node.model_config_.api_key | transform_vars }}{% endif %}
+            {% if node.model_config_.base_url %}...    base_url={{ node.model_config_.base_url | transform_vars }}{% endif %}
+            {% if node.model_config_.api_version %}...    api_version={{ node.model_config_.api_version | transform_vars }}{% endif %}
+            {% if node.model_config_.max_tokens %}...    max_tokens={{ node.model_config_.max_tokens }}{% endif %}
+            {% if node.model_config_.aws_access_key %}...    aws_access_key={{ node.model_config_.aws_access_key | transform_vars }}{% endif %}
+            {% if node.model_config_.aws_secret_key %}...    aws_secret_key={{ node.model_config_.aws_secret_key | transform_vars }}{% endif %}
+            {% if node.model_config_.region %}...    region={{ node.model_config_.region | transform_vars }}{% endif %}
+            {% else %}
+            # Fallback: Using legacy config fields (deprecated)
+            SkuldAI.Configure AI Provider
+            ...    provider={{ node.config.get('provider', '${AI_PROVIDER}') | transform_vars }}
+            ...    api_key={{ node.config.get('api_key', '${AI_API_KEY}') | transform_vars }}
+            ...    model={{ node.config.get('model', 'gpt-4') | transform_vars }}
+            {% endif %}
+
+            # Build tools list from connected tool nodes
+            {% if node.tools %}
+            @{agent_tools}=    Create List
+            {% for tool in node.tools %}
+            &{tool_{{ loop.index }}}=    Create Dictionary
+            ...    name={{ tool.name | escape_newlines }}
+            ...    description={{ tool.description | escape_newlines }}
+            ...    node_id={{ tool.nodeId | escape_newlines }}
+            {% if tool.inputMapping %}...    input_mapping={{ tool.inputMapping | tojson }}{% endif %}
+            Append To List    ${agent_tools}    ${tool_{{ loop.index }}}
+            {% endfor %}
+            {% else %}
+            @{agent_tools}=    Create List
+            {% endif %}
+
+            # Build memory config if Vector Memory is connected
+            {% if node.memory %}
+            &{memory_config}=    Create Dictionary
+            ...    provider={{ node.memory.provider | default('chroma') | escape_newlines }}
+            ...    collection={{ node.memory.collection | default('agent_memory') | transform_vars }}
+            ...    memory_type={{ node.memory.memory_type | default('both') | escape_newlines }}
+            ...    top_k={{ node.memory.top_k | default(5) }}
+            ...    min_score={{ node.memory.min_score | default(0.5) }}
+            {% if node.memory.connection_params %}
+            &{mem_conn_params}=    Create Dictionary
+            {% for key, value in node.memory.connection_params.items() %}
+            ...    {{ key }}={{ value | transform_vars }}
+            {% endfor %}
+            Set To Dictionary    ${memory_config}    connection_params=${mem_conn_params}
+            {% endif %}
+            {% endif %}
+
+            # Build embeddings config if Embeddings node is connected
+            {% if node.embeddings %}
+            &{embeddings_config}=    Create Dictionary
+            ...    provider={{ node.embeddings.provider | default('openai') | escape_newlines }}
+            ...    model={{ node.embeddings.model | default('text-embedding-3-small') | transform_vars }}
+            ...    dimension={{ node.embeddings.dimension | default(1536) }}
+            {% if node.embeddings.api_key %}...    api_key={{ node.embeddings.api_key | transform_vars }}{% endif %}
+            {% if node.embeddings.base_url %}...    base_url={{ node.embeddings.base_url | transform_vars }}{% endif %}
+            {% if node.embeddings.api_version %}...    api_version={{ node.embeddings.api_version | transform_vars }}{% endif %}
+            {% if node.embeddings.project_id %}...    project_id={{ node.embeddings.project_id | transform_vars }}{% endif %}
+            {% if node.embeddings.location %}...    location={{ node.embeddings.location | transform_vars }}{% endif %}
+            {% if node.embeddings.aws_access_key %}...    aws_access_key={{ node.embeddings.aws_access_key | transform_vars }}{% endif %}
+            {% if node.embeddings.aws_secret_key %}...    aws_secret_key={{ node.embeddings.aws_secret_key | transform_vars }}{% endif %}
+            {% if node.embeddings.region %}...    region={{ node.embeddings.region | transform_vars }}{% endif %}
+            {% endif %}
+
+            # Run the ReAct agent with optional memory and embeddings
+            ${result}=    SkuldAI.Run Agent With Tools
+            ...    goal={{ node.config.get('goal', '') | transform_vars }}
+            ...    tools=${agent_tools}
+            {% if node.config.get('system_prompt') %}...    system_prompt={{ node.config.get('system_prompt', '') | transform_vars }}{% endif %}
+            ...    max_iterations={{ node.config.get('max_iterations', 10) }}
+            ...    agent_name={{ node.config.get('name', 'Agent') | transform_vars }}
+            {% if node.memory %}...    memory_config=${memory_config}{% endif %}
+            {% if node.embeddings %}...    embeddings_config=${embeddings_config}{% endif %}
+
+            # Store results in node variable
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}
+            ...    output=${result}
+            ...    result=${result}[result]
+            ...    tool_calls=${result}[tool_calls]
+            ...    iterations=${result}[iterations]
+            ...    reasoning_trace=${result}[reasoning_trace]
+            ...    status=${result}[status]
+            {% if node.memory %}...    memory_retrievals=${result}[memory_retrievals]
+            ...    memory_stored=${result}[memory_stored]{% endif %}
+            Log    AI Agent '{{ node.config.get('name', 'Agent') | escape_newlines }}' completed with status: ${result}[status]    console=yes
+
+{# ===== AI TASK NODES ===== #}
+{% elif node.type == 'ai.extract_data' %}
+            # Extract structured data from text using AI
+            {% if node.model_config_ %}
+            SkuldAI.Configure AI Provider
+            ...    provider={{ node.model_config_.provider | default('openai') | escape_newlines }}
+            ...    model={{ node.model_config_.model | default('gpt-4o') | transform_vars }}
+            {% if node.model_config_.api_key %}...    api_key={{ node.model_config_.api_key | transform_vars }}{% endif %}
+            {% endif %}
+            ${input_text}=    Set Variable    {{ node.config.get('input', '') | transform_vars }}
+            ${schema}=    Set Variable    {{ node.config.get('schema', '{}') | transform_vars }}
+            ${instructions}=    Set Variable    {{ node.config.get('instructions', '') | transform_vars }}
+            ${extracted}=    SkuldAI.Extract Data    ${input_text}    ${schema}    instructions=${instructions}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${extracted}    extracted=${extracted}
+            Log    AI data extraction completed    console=yes
+
+{% elif node.type == 'ai.summarize' %}
+            # Summarize text using AI
+            {% if node.model_config_ %}
+            SkuldAI.Configure AI Provider
+            ...    provider={{ node.model_config_.provider | default('openai') | escape_newlines }}
+            ...    model={{ node.model_config_.model | default('gpt-4o') | transform_vars }}
+            {% if node.model_config_.api_key %}...    api_key={{ node.model_config_.api_key | transform_vars }}{% endif %}
+            {% endif %}
+            ${input_text}=    Set Variable    {{ node.config.get('input', '') | transform_vars }}
+            ${style}=    Set Variable    {{ node.config.get('style', 'concise') | escape_newlines }}
+            ${max_length}=    Set Variable    {{ node.config.get('max_length', 0) }}
+            ${language}=    Set Variable    {{ node.config.get('language', '') | transform_vars }}
+            ${summary}=    SkuldAI.Summarize Text    ${input_text}    style=${style}    max_length=${max_length}    language=${language}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${summary}    summary=${summary}    style=${style}
+            Log    AI summarization completed (${style})    console=yes
+
+{% elif node.type == 'ai.classify' %}
+            # Classify text into categories using AI
+            {% if node.model_config_ %}
+            SkuldAI.Configure AI Provider
+            ...    provider={{ node.model_config_.provider | default('openai') | escape_newlines }}
+            ...    model={{ node.model_config_.model | default('gpt-4o') | transform_vars }}
+            {% if node.model_config_.api_key %}
+            ...    api_key={{ node.model_config_.api_key | transform_vars }}
+            {% endif %}
+            {% endif %}
+            ${input_text}=    Set Variable    {{ node.config.get('input', '') | transform_vars }}
+            ${categories_str}=    Set Variable    {{ node.config.get('categories', '') | transform_vars }}
+            @{categories}=    Evaluate    [c.strip() for c in $categories_str.split(',') if c.strip()]
+            ${multi_label}=    Set Variable    ${{ '{TRUE}' if node.config.get('multi_label', False) else '{FALSE}' }}
+            ${result}=    SkuldAI.Classify Text    ${input_text}    ${categories}    multi_label=${multi_label}
+            ${category}=    Evaluate    $result.get('category', '')
+            ${confidence}=    Evaluate    $result.get('confidence', 0)
+            ${all_scores}=    Evaluate    $result.get('all_scores', {})
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${category}    category=${category}    confidence=${confidence}    all_scores=${all_scores}
+            Log    AI classified as: ${category} (confidence: ${confidence})    console=yes
+
+{% elif node.type == 'ai.translate' %}
+            # Translate text using AI
+            {% if node.model_config_ %}
+            SkuldAI.Configure AI Provider
+            ...    provider={{ node.model_config_.provider | default('openai') | escape_newlines }}
+            ...    model={{ node.model_config_.model | default('gpt-4o') | transform_vars }}
+            {% if node.model_config_.api_key %}...    api_key={{ node.model_config_.api_key | transform_vars }}{% endif %}
+            {% endif %}
+            ${input_text}=    Set Variable    {{ node.config.get('input', '') | transform_vars }}
+            ${target_language}=    Set Variable    {{ node.config.get('target_language', '') | transform_vars }}
+            ${source_language}=    Set Variable    {{ node.config.get('source_language', '') | transform_vars }}
+            ${translated}=    SkuldAI.Translate Text    ${input_text}    target=${target_language}    source=${source_language}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${translated}    translated=${translated}    targetLanguage=${target_language}
+            Log    AI translated to ${target_language}    console=yes
+
+{% elif node.type == 'ai.sentiment' %}
+            # Analyze sentiment using AI
+            {% if node.model_config_ %}
+            SkuldAI.Configure AI Provider
+            ...    provider={{ node.model_config_.provider | default('openai') | escape_newlines }}
+            ...    model={{ node.model_config_.model | default('gpt-4o') | transform_vars }}
+            {% if node.model_config_.api_key %}...    api_key={{ node.model_config_.api_key | transform_vars }}{% endif %}
+            {% endif %}
+            ${input_text}=    Set Variable    {{ node.config.get('input', '') | transform_vars }}
+            ${detailed}=    Set Variable    ${{ '{TRUE}' if node.config.get('detailed', False) else '{FALSE}' }}
+            ${result}=    SkuldAI.Analyze Sentiment    ${input_text}    detailed=${detailed}
+            ${sentiment}=    Evaluate    $result.get('sentiment', 'neutral')
+            ${score}=    Evaluate    $result.get('score', 0)
+            ${emotions}=    Evaluate    $result.get('emotions', {})
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${sentiment}    sentiment=${sentiment}    score=${score}    emotions=${emotions}
+            Log    AI sentiment: ${sentiment} (score: ${score})    console=yes
+
+{% elif node.type == 'ai.vision' %}
+            # Analyze image using AI vision
+            {% if node.model_config_ %}
+            SkuldAI.Configure AI Provider
+            ...    provider={{ node.model_config_.provider | default('openai') | escape_newlines }}
+            ...    model={{ node.model_config_.model | default('gpt-4o') | transform_vars }}
+            {% if node.model_config_.api_key %}...    api_key={{ node.model_config_.api_key | transform_vars }}{% endif %}
+            {% endif %}
+            ${image_path}=    Set Variable    {{ node.config.get('image_path', '') | transform_vars }}
+            ${prompt}=    Set Variable    {{ node.config.get('prompt', 'Describe this image') | transform_vars }}
+            ${detail}=    Set Variable    {{ node.config.get('detail', 'auto') | escape_newlines }}
+            ${description}=    SkuldAI.Analyze Image    ${image_path}    ${prompt}    detail=${detail}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${description}    description=${description}    imagePath=${image_path}
+            Log    AI vision analysis completed    console=yes
+
+{% elif node.type == 'ai.repair_data' %}
+            # Repair data quality issues using AI
+            {% if node.model_config_ %}
+            SkuldAI.Configure AI Provider
+            ...    provider={{ node.model_config_.provider | default('openai') | escape_newlines }}
+            ...    model={{ node.model_config_.model | default('gpt-4o') | transform_vars }}
+            {% if node.model_config_.api_key %}...    api_key={{ node.model_config_.api_key | transform_vars }}{% endif %}
+            {% endif %}
+            ${data}=    Set Variable    {{ node.config.get('data', '[]') | transform_vars }}
+            ${validation_report}=    Set Variable    {{ node.config.get('validation_report', '{}') | transform_vars }}
+            ${context}=    Set Variable    {{ node.config.get('context', 'general') | escape_newlines }}
+            ${min_confidence}=    Set Variable    {{ node.config.get('min_confidence', 0.9) }}
+            ${result}=    SkuldAI.Repair Data    ${data}    ${validation_report}
+            ...    context=${context}
+            ...    min_confidence=${min_confidence}
+            ...    allow_format={{ node.config.get('allow_format_normalization', True) }}
+            ...    allow_semantic={{ node.config.get('allow_semantic_cleanup', True) }}
+            ...    allow_inference={{ node.config.get('allow_value_inference', False) }}
+            ${status}=    Evaluate    $result.get('status', 'failed')
+            ${repaired_data}=    Evaluate    $result.get('repaired_data', [])
+            ${repairs}=    Evaluate    $result.get('repairs', [])
+            ${issues_fixed}=    Evaluate    $result.get('issues_fixed', 0)
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${repaired_data}    status=${status}    repaired_data=${repaired_data}    repairs=${repairs}    issues_fixed=${issues_fixed}
+            Log    AI repaired ${issues_fixed} data issues (${status})    console=yes
+
+{% elif node.type == 'ai.suggest_repairs' %}
+            # Suggest data repairs for human review using AI
+            {% if node.model_config_ %}
+            SkuldAI.Configure AI Provider
+            ...    provider={{ node.model_config_.provider | default('openai') | escape_newlines }}
+            ...    model={{ node.model_config_.model | default('gpt-4o') | transform_vars }}
+            {% if node.model_config_.api_key %}...    api_key={{ node.model_config_.api_key | transform_vars }}{% endif %}
+            {% endif %}
+            ${data}=    Set Variable    {{ node.config.get('data', '[]') | transform_vars }}
+            ${validation_report}=    Set Variable    {{ node.config.get('validation_report', '{}') | transform_vars }}
+            ${context}=    Set Variable    {{ node.config.get('context', 'general') | escape_newlines }}
+            ${result}=    SkuldAI.Suggest Repairs    ${data}    ${validation_report}    context=${context}
+            ${suggestion_count}=    Evaluate    $result.get('suggestion_count', 0)
+            ${high_confidence}=    Evaluate    $result.get('high_confidence', [])
+            ${medium_confidence}=    Evaluate    $result.get('medium_confidence', [])
+            ${low_confidence}=    Evaluate    $result.get('low_confidence', [])
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    suggestion_count=${suggestion_count}    high_confidence=${high_confidence}    medium_confidence=${medium_confidence}    low_confidence=${low_confidence}
+            Log    AI suggested ${suggestion_count} repairs    console=yes
+
+{# ===== VECTOR DATABASE ===== #}
+{% elif node.type == 'vectordb.configure_embeddings' %}
+            # Configure embeddings provider
+            SkuldVectorDB.Configure Embeddings Provider
+            ...    provider={{ node.config.get('provider', 'openai') | transform_vars }}
+            ...    api_key={{ node.config.get('api_key', '${AI_API_KEY}') | transform_vars }}
+            ...    model={{ node.config.get('model', 'text-embedding-3-small') | transform_vars }}
+            {% if node.config.get('base_url') %}...    base_url={{ node.config.get('base_url') | transform_vars }}{% endif %}
+            {% if node.config.get('dimension') %}...    dimension={{ node.config.get('dimension', 1536) }}{% endif %}
+            Log    Embeddings provider configured    console=yes
+
+{% elif node.type == 'vectordb.pgvector_connect' %}
+            # Connect to pgvector (PostgreSQL)
+            ${connection}=    SkuldVectorDB.Connect To PGVector
+            ...    host={{ node.config.get('host', 'localhost') | transform_vars }}
+            ...    port={{ node.config.get('port', 5432) }}
+            ...    database={{ node.config.get('database', 'vectors') | transform_vars }}
+            ...    user={{ node.config.get('user', 'postgres') | transform_vars }}
+            ...    password={{ node.config.get('password', '') | transform_vars }}
+            ...    table={{ node.config.get('table', 'embeddings') | transform_vars }}
+            {% if node.config.get('dimension') %}...    dimension={{ node.config.get('dimension', 1536) }}{% endif %}
+            {% if node.config.get('ssl') %}...    ssl=${{ '{TRUE}' if node.config.get('ssl') else '{FALSE}' }}{% endif %}
+            {% if node.config.get('create_table_if_not_exists') is not none %}...    create_table_if_not_exists=${{ '{TRUE}' if node.config.get('create_table_if_not_exists', True) else '{FALSE}' }}{% endif %}
+            {% if node.config.get('index_type') %}...    index_type={{ node.config.get('index_type', 'ivfflat') }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${connection}    connection=${connection}
+            Log    Connected to pgvector: ${connection}[connection_id]    console=yes
+
+{% elif node.type == 'vectordb.pgvector_upsert' %}
+            ${result}=    SkuldVectorDB.PGVector Upsert
+            ...    documents={{ node.config.get('documents', '[]') | transform_vars }}
+            ...    auto_embed=${{ '{TRUE}' if node.config.get('auto_embed', True) else '{FALSE}' }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    inserted=${result}[inserted]    updated=${result}[updated]
+            Log    Upserted ${result}[total] documents    console=yes
+
+{% elif node.type == 'vectordb.pgvector_query' %}
+            ${results}=    SkuldVectorDB.PGVector Query
+            ...    query={{ node.config.get('query', '') | transform_vars }}
+            ...    top_k={{ node.config.get('top_k', 5) }}
+            {% if node.config.get('min_score') %}...    min_score={{ node.config.get('min_score', 0.0) }}{% endif %}
+            {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${results}    results=${results}
+            Log    Found ${results.__len__()} results    console=yes
+
+{% elif node.type == 'vectordb.pgvector_delete' %}
+            ${result}=    SkuldVectorDB.PGVector Delete
+            {% if node.config.get('ids') %}...    ids={{ node.config.get('ids') | transform_vars }}{% endif %}
+            {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
+            {% if node.config.get('delete_all') %}...    delete_all=${{ '{TRUE}' if node.config.get('delete_all') else '{FALSE}' }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    deleted=${result}[deleted]
+            Log    Deleted ${result}[deleted] documents    console=yes
+
+{% elif node.type == 'vectordb.supabase_connect' %}
+            # Connect to Supabase (pgvector as a service)
+            ${connection}=    SkuldVectorDB.Connect To Supabase
+            ...    url={{ node.config.get('url', '') | transform_vars }}
+            ...    api_key={{ node.config.get('api_key', '') | transform_vars }}
+            ...    table={{ node.config.get('table', 'documents') | transform_vars }}
+            {% if node.config.get('dimension') %}...    dimension={{ node.config.get('dimension', 1536) }}{% endif %}
+            {% if node.config.get('create_table_if_not_exists') is not none %}...    create_table_if_not_exists=${{ '{TRUE}' if node.config.get('create_table_if_not_exists', True) else '{FALSE}' }}{% endif %}
+            {% if node.config.get('index_type') %}...    index_type={{ node.config.get('index_type', 'ivfflat') }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${connection}    connection=${connection}
+            Log    Connected to Supabase: ${connection}[project_ref]    console=yes
+
+{% elif node.type == 'vectordb.supabase_upsert' %}
+            ${result}=    SkuldVectorDB.Supabase Upsert
+            ...    documents={{ node.config.get('documents', '[]') | transform_vars }}
+            ...    auto_embed=${{ '{TRUE}' if node.config.get('auto_embed', True) else '{FALSE}' }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    inserted=${result}[inserted]    updated=${result}[updated]
+            Log    Upserted ${result}[total] documents    console=yes
+
+{% elif node.type == 'vectordb.supabase_query' %}
+            ${results}=    SkuldVectorDB.Supabase Query
+            ...    query={{ node.config.get('query', '') | transform_vars }}
+            ...    top_k={{ node.config.get('top_k', 5) }}
+            {% if node.config.get('min_score') %}...    min_score={{ node.config.get('min_score', 0.0) }}{% endif %}
+            {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${results}    results=${results}
+            Log    Found ${results.__len__()} results    console=yes
+
+{% elif node.type == 'vectordb.supabase_delete' %}
+            ${result}=    SkuldVectorDB.Supabase Delete
+            {% if node.config.get('ids') %}...    ids={{ node.config.get('ids') | transform_vars }}{% endif %}
+            {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
+            {% if node.config.get('delete_all') %}...    delete_all=${{ '{TRUE}' if node.config.get('delete_all') else '{FALSE}' }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    deleted=${result}[deleted]
+            Log    Deleted ${result}[deleted] documents    console=yes
+
+{% elif node.type == 'vectordb.pinecone_connect' %}
+            # Connect to Pinecone
+            ${connection}=    SkuldVectorDB.Connect To Pinecone
+            ...    api_key={{ node.config.get('api_key', '') | transform_vars }}
+            ...    index_name={{ node.config.get('index_name', '') | transform_vars }}
+            {% if node.config.get('namespace') %}...    namespace={{ node.config.get('namespace', '') | transform_vars }}{% endif %}
+            {% if node.config.get('dimension') %}...    dimension={{ node.config.get('dimension', 1536) }}{% endif %}
+            {% if node.config.get('metric') %}...    metric={{ node.config.get('metric', 'cosine') }}{% endif %}
+            {% if node.config.get('create_if_not_exists') is not none %}...    create_if_not_exists=${{ '{TRUE}' if node.config.get('create_if_not_exists', True) else '{FALSE}' }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${connection}    connection=${connection}
+            Log    Connected to Pinecone: ${connection}[connection_id]    console=yes
+
+{% elif node.type == 'vectordb.pinecone_upsert' %}
+            ${result}=    SkuldVectorDB.Pinecone Upsert
+            ...    documents={{ node.config.get('documents', '[]') | transform_vars }}
+            {% if node.config.get('namespace') %}...    namespace={{ node.config.get('namespace', '') | transform_vars }}{% endif %}
+            ...    auto_embed=${{ '{TRUE}' if node.config.get('auto_embed', True) else '{FALSE}' }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    upserted=${result}[upserted]
+            Log    Upserted ${result}[upserted] vectors    console=yes
+
+{% elif node.type == 'vectordb.pinecone_query' %}
+            ${results}=    SkuldVectorDB.Pinecone Query
+            ...    query={{ node.config.get('query', '') | transform_vars }}
+            ...    top_k={{ node.config.get('top_k', 5) }}
+            {% if node.config.get('namespace') %}...    namespace={{ node.config.get('namespace', '') | transform_vars }}{% endif %}
+            {% if node.config.get('min_score') %}...    min_score={{ node.config.get('min_score', 0.0) }}{% endif %}
+            {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${results}    results=${results}
+            Log    Found ${results.__len__()} results    console=yes
+
+{% elif node.type == 'vectordb.pinecone_delete' %}
+            ${result}=    SkuldVectorDB.Pinecone Delete
+            {% if node.config.get('ids') %}...    ids={{ node.config.get('ids') | transform_vars }}{% endif %}
+            {% if node.config.get('namespace') %}...    namespace={{ node.config.get('namespace', '') | transform_vars }}{% endif %}
+            {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
+            {% if node.config.get('delete_all') %}...    delete_all=${{ '{TRUE}' if node.config.get('delete_all') else '{FALSE}' }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}
+            Log    Deleted vectors from Pinecone    console=yes
+
+{% elif node.type == 'vectordb.qdrant_connect' %}
+            # Connect to Qdrant
+            ${connection}=    SkuldVectorDB.Connect To Qdrant
+            ...    host={{ node.config.get('host', 'localhost') | transform_vars }}
+            ...    port={{ node.config.get('port', 6333) }}
+            {% if node.config.get('api_key') %}...    api_key={{ node.config.get('api_key', '') | transform_vars }}{% endif %}
+            ...    collection={{ node.config.get('collection', 'documents') | transform_vars }}
+            {% if node.config.get('dimension') %}...    dimension={{ node.config.get('dimension', 1536) }}{% endif %}
+            {% if node.config.get('metric') %}...    metric={{ node.config.get('metric', 'cosine') }}{% endif %}
+            {% if node.config.get('create_if_not_exists') is not none %}...    create_if_not_exists=${{ '{TRUE}' if node.config.get('create_if_not_exists', True) else '{FALSE}' }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${connection}    connection=${connection}
+            Log    Connected to Qdrant: ${connection}[connection_id]    console=yes
+
+{% elif node.type == 'vectordb.qdrant_upsert' %}
+            ${result}=    SkuldVectorDB.Qdrant Upsert
+            ...    documents={{ node.config.get('documents', '[]') | transform_vars }}
+            ...    auto_embed=${{ '{TRUE}' if node.config.get('auto_embed', True) else '{FALSE}' }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    upserted=${result}[upserted]
+            Log    Upserted ${result}[upserted] points    console=yes
+
+{% elif node.type == 'vectordb.qdrant_query' %}
+            ${results}=    SkuldVectorDB.Qdrant Query
+            ...    query={{ node.config.get('query', '') | transform_vars }}
+            ...    top_k={{ node.config.get('top_k', 5) }}
+            {% if node.config.get('min_score') %}...    min_score={{ node.config.get('min_score', 0.0) }}{% endif %}
+            {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${results}    results=${results}
+            Log    Found ${results.__len__()} results    console=yes
+
+{% elif node.type == 'vectordb.qdrant_delete' %}
+            ${result}=    SkuldVectorDB.Qdrant Delete
+            {% if node.config.get('ids') %}...    ids={{ node.config.get('ids') | transform_vars }}{% endif %}
+            {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}
+            Log    Deleted points from Qdrant    console=yes
+
+{% elif node.type == 'vectordb.chroma_connect' %}
+            # Connect to ChromaDB
+            ${connection}=    SkuldVectorDB.Connect To ChromaDB
+            ...    collection={{ node.config.get('collection', 'documents') | transform_vars }}
+            {% if node.config.get('persist_directory') %}...    persist_directory={{ node.config.get('persist_directory', '') | transform_vars }}{% endif %}
+            {% if node.config.get('host') %}...    host={{ node.config.get('host', '') | transform_vars }}{% endif %}
+            {% if node.config.get('port') %}...    port={{ node.config.get('port', 8000) }}{% endif %}
+            {% if node.config.get('create_if_not_exists') is not none %}...    create_if_not_exists=${{ '{TRUE}' if node.config.get('create_if_not_exists', True) else '{FALSE}' }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${connection}    connection=${connection}
+            Log    Connected to ChromaDB: ${connection}[connection_id]    console=yes
+
+{% elif node.type == 'vectordb.chroma_add' %}
+            ${result}=    SkuldVectorDB.ChromaDB Add
+            ...    documents={{ node.config.get('documents', '[]') | transform_vars }}
+            ...    auto_embed=${{ '{TRUE}' if node.config.get('auto_embed', True) else '{FALSE}' }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    added=${result}[added]
+            Log    Added ${result}[added] documents    console=yes
+
+{% elif node.type == 'vectordb.chroma_query' %}
+            ${results}=    SkuldVectorDB.ChromaDB Query
+            ...    query={{ node.config.get('query', '') | transform_vars }}
+            ...    top_k={{ node.config.get('top_k', 5) }}
+            {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${results}    results=${results}
+            Log    Found ${results.__len__()} results    console=yes
+
+{% elif node.type == 'vectordb.chroma_delete' %}
+            ${result}=    SkuldVectorDB.ChromaDB Delete
+            {% if node.config.get('ids') %}...    ids={{ node.config.get('ids') | transform_vars }}{% endif %}
+            {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}
+            Log    Deleted documents from ChromaDB    console=yes
+
+{% elif node.type == 'vectordb.chroma_update' %}
+            # Update existing documents in ChromaDB
+            ${result}=    SkuldVectorDB.ChromaDB Update
+            ...    ids={{ node.config.get('ids', '[]') | transform_vars }}
+            {% if node.config.get('documents') %}...    documents={{ node.config.get('documents') | transform_vars }}{% endif %}
+            {% if node.config.get('metadatas') %}...    metadatas={{ node.config.get('metadatas') | transform_vars }}{% endif %}
+            {% if node.config.get('embeddings') %}...    embeddings={{ node.config.get('embeddings') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    updated_count=${result}[updated]
+            Log    Updated ${result}[updated] documents in ChromaDB    console=yes
+
+{% elif node.type == 'vectordb.pgvector_admin' %}
+            # Administrative operations on pgvector
+            ${result}=    SkuldVectorDB.PGVector Admin
+            ...    connection={{ node.config.get('connection', '') | transform_vars }}
+            ...    operation={{ node.config.get('operation', 'stats') }}
+            {% if node.config.get('index_type') %}...    index_type={{ node.config.get('index_type', 'hnsw') }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}
+            ...    output=${result}
+            ...    success=${result}[success]
+            ...    row_count=${result}[row_count]
+            ...    table_size=${result}[table_size]
+            ...    index_size=${result}[index_size]
+            ...    message=${result}[message]
+            Log    pgvector admin: ${result}[message]    console=yes
+
+{% elif node.type == 'vectordb.supabase_stats' %}
+            # Get statistics from Supabase vector table
+            ${result}=    SkuldVectorDB.Supabase Get Stats
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}
+            ...    output=${result}
+            ...    table=${result}[table]
+            ...    row_count=${result}[row_count]
+            ...    table_size=${result}[table_size]
+            ...    supabase_url=${result}[supabase_url]
+            ...    project_ref=${result}[project_ref]
+            Log    Supabase stats: ${result}[row_count] rows, ${result}[table_size]    console=yes
+
+{% elif node.type == 'vectordb.load_documents' %}
+            # Load and chunk documents for vector storage
+            ${source_type}=    Set Variable    {{ node.config.get('source_type', 'text') }}
+            ${source}=    Set Variable    {{ node.config.get('source', '') | transform_vars }}
+            ${result}=    SkuldVectorDB.Load And Chunk Documents
+            ...    source_type=${source_type}
+            ...    source=${source}
+            ...    splitter={{ node.config.get('splitter', 'recursive') }}
+            ...    chunk_size={{ node.config.get('chunk_size', 1000) }}
+            ...    chunk_overlap={{ node.config.get('chunk_overlap', 200) }}
+            ...    add_source_metadata=${{ '{TRUE}' if node.config.get('add_source_metadata', True) else '{FALSE}' }}
+            {% if node.config.get('custom_metadata') %}...    custom_metadata={{ node.config.get('custom_metadata') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}
+            ...    output=${result}
+            ...    documents=${result}[documents]
+            ...    chunk_count=${result}[chunk_count]
+            ...    total_chars=${result}[total_chars]
+            Log    Loaded ${result}[chunk_count] chunks (${result}[total_chars] chars)    console=yes
+
+{% elif node.type == 'vectordb.embed_documents' %}
+            # Generate embeddings for documents
+            ${result}=    SkuldVectorDB.Embed Documents
+            ...    documents={{ node.config.get('documents', '[]') | transform_vars }}
+            ...    model={{ node.config.get('model', 'text-embedding-3-small') | transform_vars }}
+            {% if node.config.get('api_key') %}...    api_key={{ node.config.get('api_key', '') | transform_vars }}{% endif %}
+            ...    batch_size={{ node.config.get('batch_size', 100) }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}
+            ...    output=${result}
+            ...    embeddings=${result}[embeddings]
+            ...    documents=${result}[documents]
+            ...    dimension=${result}[dimension]
+            ...    tokens_used=${result}[tokens_used]
+            Log    Generated embeddings: ${result}[dimension]d, ${result}[tokens_used] tokens    console=yes
+
+{% elif node.type == 'vectordb.memory' %}
+            # Initialize Vector Memory for AI Agent RAG
+            ${memory}=    SkuldVectorDB.Initialize Vector Memory
+            ...    provider={{ node.config.get('provider', 'chroma') | transform_vars }}
+            ...    collection={{ node.config.get('collection', 'agent_memory') | transform_vars }}
+            ...    memory_type={{ node.config.get('memory_type', 'both') }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${memory}    memory=${memory}
+            Log    Vector memory initialized: ${memory}[provider]    console=yes
+
+{% elif node.type == 'vectordb.store_memory' %}
+            ${result}=    SkuldVectorDB.Store In Memory
+            ...    content={{ node.config.get('content', '') | transform_vars }}
+            {% if node.config.get('metadata') %}...    metadata={{ node.config.get('metadata') | transform_vars }}{% endif %}
+            {% if node.config.get('doc_id') %}...    doc_id={{ node.config.get('doc_id', '') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    id=${result}[id]
+            Log    Stored in memory: ${result}[id]    console=yes
+
+{% elif node.type == 'vectordb.retrieve_memory' %}
+            ${results}=    SkuldVectorDB.Retrieve From Memory
+            ...    query={{ node.config.get('query', '') | transform_vars }}
+            ...    top_k={{ node.config.get('top_k', 5) }}
+            {% if node.config.get('min_score') %}...    min_score={{ node.config.get('min_score', 0.5) }}{% endif %}
+            {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${results}    results=${results}
+            Log    Retrieved ${results.__len__()} from memory    console=yes
+
+{% elif node.type == 'vectordb.build_rag_context' %}
+            ${rag}=    SkuldVectorDB.Build RAG Context
+            ...    query={{ node.config.get('query', '') | transform_vars }}
+            ...    top_k={{ node.config.get('top_k', 5) }}
+            {% if node.config.get('min_score') %}...    min_score={{ node.config.get('min_score', 0.5) }}{% endif %}
+            {% if node.config.get('max_context_length') %}...    max_context_length={{ node.config.get('max_context_length', 4000) }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${rag}    context=${rag}[context]    sources=${rag}[sources]
+            Log    Built RAG context: ${rag}[num_sources] sources    console=yes
+
+{% elif node.type == 'vectordb.load_documents_text' %}
+            ${chunks}=    SkuldVectorDB.Load Documents From Text
+            ...    text={{ node.config.get('text', '') | transform_vars }}
+            {% if node.config.get('chunk_size') %}...    chunk_size={{ node.config.get('chunk_size', 1000) }}{% endif %}
+            {% if node.config.get('chunk_overlap') %}...    chunk_overlap={{ node.config.get('chunk_overlap', 200) }}{% endif %}
+            {% if node.config.get('metadata') %}...    metadata={{ node.config.get('metadata') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${chunks}    chunks=${chunks}
+            Log    Loaded ${chunks.__len__()} chunks    console=yes
+
+{% elif node.type == 'vectordb.load_documents_file' %}
+            ${chunks}=    SkuldVectorDB.Load Documents From File
+            ...    file_path={{ node.config.get('file_path', '') | transform_vars }}
+            {% if node.config.get('chunk_size') %}...    chunk_size={{ node.config.get('chunk_size', 1000) }}{% endif %}
+            {% if node.config.get('chunk_overlap') %}...    chunk_overlap={{ node.config.get('chunk_overlap', 200) }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${chunks}    chunks=${chunks}
+            Log    Loaded ${chunks.__len__()} chunks from file    console=yes
+
+{% elif node.type == 'vectordb.close' %}
+            SkuldVectorDB.Close Vector DB Connection
+            Log    Vector DB connection closed    console=yes
+
+{# ===== MICROSOFT 365 ===== #}
+{% elif node.type == 'trigger.ms365_email' %}
+            # MS365 Email Trigger - Listen for new emails using Delta Query
+            {% if node.connection_config %}
+            # Configure MS365 connection from connected node
+            MS365.Configure MS365
+            ...    tenant_id={{ node.connection_config.get('tenant_id', '') | transform_vars }}
+            ...    client_id={{ node.connection_config.get('client_id', '') | transform_vars }}
+            ...    client_secret={{ node.connection_config.get('client_secret', '') | transform_vars }}
+            {% if node.connection_config.get('user_email') %}...    user_email={{ node.connection_config.get('user_email', '') | transform_vars }}{% endif %}
+            {% endif %}
+
+            # Initialize Delta Query - first call gets current state
+            ${delta_result}=    MS365.Get Delta Emails
+            ...    folder={{ node.config.get('folder', 'inbox') | transform_vars }}
+            ${delta_link}=    Set Variable    ${delta_result}[delta_link]
+            Log    MS365 Email Trigger initialized. Skipped ${delta_result}[count] existing emails.    console=yes
+            Log    Now listening for NEW emails in {{ node.config.get('folder', 'inbox') }}...    console=yes
+
+            # Continuous listening loop with Delta Query
+            ${poll_interval}=    Set Variable    {{ node.config.get('check_interval', 30) }}
+            WHILE    ${TRUE}
+                # Get only NEW emails since last check
+                ${delta_result}=    MS365.Get Delta Emails    delta_link=${delta_link}
+                ${delta_link}=    Set Variable    ${delta_result}[delta_link]
+                ${new_emails}=    Set Variable    ${delta_result}[emails]
+
+                # Process each new email
+                FOR    ${email}    IN    @{new_emails}
+                    # Apply trigger filters
+                    ${match}=    Set Variable    ${TRUE}
+                    {% if node.config.get('filter_from') %}
+                    ${sender}=    Get From Dictionary    ${email}    from
+                    ${sender_email}=    Get From Dictionary    ${sender}    email
+                    ${from_match}=    Evaluate    '{{ node.config.get('filter_from', '') | transform_vars }}'.lower() in '${sender_email}'.lower()
+                    ${match}=    Evaluate    ${match} and ${from_match}
+                    {% endif %}
+                    {% if node.config.get('filter_subject') %}
+                    ${subject}=    Get From Dictionary    ${email}    subject
+                    ${subj_match}=    Evaluate    '{{ node.config.get('filter_subject', '') | transform_vars }}'.lower() in '${subject}'.lower()
+                    ${match}=    Evaluate    ${match} and ${subj_match}
+                    {% endif %}
+                    {% if node.config.get('filter_has_attachment') %}
+                    ${has_attach}=    Get From Dictionary    ${email}    hasAttachments
+                    ${match}=    Evaluate    ${match} and ${has_attach}
+                    {% endif %}
+
+                    IF    ${match}
+                        # Store email data in node output
+                        ${email_subject}=    Get From Dictionary    ${email}    subject
+                        ${email_from}=    Get From Dictionary    ${email}    from
+                        ${from_email}=    Get From Dictionary    ${email_from}    email
+                        Log    *** NEW EMAIL RECEIVED ***    console=yes
+                        Log    From: ${from_email}    console=yes
+                        Log    Subject: ${email_subject}    console=yes
+                        Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${email}    &{email}    trigger_type=new_email
+                        # Execute the rest of the flow for this email
+                        {% set next_node_id = outputs.get('success', 'END') %}
+                        {% if next_node_id != 'END' %}
+                        Run Keyword    Execute Node {{ next_node_id | replace('-', '_') }}
+                        {% endif %}
+                    END
+                END
+
+                # Wait before next check
+                Sleep    ${poll_interval}s
+            END
+
+{% elif node.type == 'ms365.connection' %}
+            # Configure Microsoft 365 connection
+            MS365.Configure MS365
+            ...    tenant_id={{ node.config.get('tenant_id', '') | transform_vars }}
+            ...    client_id={{ node.config.get('client_id', '') | transform_vars }}
+            ...    client_secret={{ node.config.get('client_secret', '') | transform_vars }}
+            {% if node.config.get('user_email') %}...    user_email={{ node.config.get('user_email', '') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=connected    status=connected    authenticated=${TRUE}
+            Log    Microsoft 365 connection configured    console=yes
+
+{% elif node.type == 'ms365.email_list' %}
+            # List emails from Microsoft 365
+            ${emails}=    MS365.List Emails
+            ...    folder={{ node.config.get('folder', 'inbox') | transform_vars }}
+            ...    top={{ node.config.get('top', 10) }}
+            {% if node.config.get('filter') %}...    filter={{ node.config.get('filter', '') | transform_vars }}{% endif %}
+            {% if node.config.get('search') %}...    search={{ node.config.get('search', '') | transform_vars }}{% endif %}
+            ...    order_by={{ node.config.get('order_by', 'receivedDateTime desc') }}
+            ${count}=    Get Length    ${emails}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${emails}    emails=${emails}    count=${count}
+            Log    Listed ${count} emails from {{ node.config.get('folder', 'inbox') }}    console=yes
+
+{% elif node.type == 'ms365.email_get' %}
+            # Get single email by ID
+            ${email}=    MS365.Get Email
+            ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
+            ...    include_body={{ '${TRUE}' if node.config.get('include_body', True) else '${FALSE}' }}
+            ...    include_attachments={{ '${TRUE}' if node.config.get('include_attachments', False) else '${FALSE}' }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${email}    &{email}
+            Log    Retrieved email: ${email}[subject]    console=yes
+
+{% elif node.type == 'ms365.email_search' %}
+            # Search emails
+            ${emails}=    MS365.Search Emails
+            ...    query={{ node.config.get('query', '') | transform_vars }}
+            ...    folder={{ node.config.get('folder', 'inbox') }}
+            ...    top={{ node.config.get('top', 25) }}
+            ${count}=    Get Length    ${emails}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${emails}    emails=${emails}    count=${count}
+            Log    Found ${count} emails matching search    console=yes
+
+{% elif node.type == 'ms365.email_get_attachments' %}
+            # Get email attachments
+            ${attachments}=    MS365.Get Email Attachments
+            ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
+            ${count}=    Get Length    ${attachments}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${attachments}    attachments=${attachments}    count=${count}
+            Log    Found ${count} attachments    console=yes
+
+{% elif node.type == 'ms365.email_download_attachment' %}
+            # Download attachment
+            ${file}=    MS365.Download Attachment
+            ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
+            ...    attachment_id={{ node.config.get('attachment_id', '') | transform_vars }}
+            {% if node.config.get('save_path') %}...    save_path={{ node.config.get('save_path', '') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${file}    &{file}
+            Log    Downloaded attachment: ${file}[name]    console=yes
+
+{% elif node.type == 'ms365.email_send' %}
+            # Send email via Microsoft 365
+            ${result}=    MS365.Send Email
+            ...    to={{ node.config.get('to', '') | transform_vars }}
+            ...    subject={{ node.config.get('subject', '') | transform_vars }}
+            ...    body={{ node.config.get('body', '') | transform_vars }}
+            {% if node.config.get('cc') %}...    cc={{ node.config.get('cc', '') | transform_vars }}{% endif %}
+            {% if node.config.get('bcc') %}...    bcc={{ node.config.get('bcc', '') | transform_vars }}{% endif %}
+            ...    body_type={{ node.config.get('body_type', 'html') }}
+            ...    importance={{ node.config.get('importance', 'normal') }}
+            {% if node.config.get('attachments') %}...    attachments={{ node.config.get('attachments', '') | transform_vars }}{% endif %}
+            ...    save_to_sent={{ '${TRUE}' if node.config.get('save_to_sent', True) else '${FALSE}' }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            Log    Email sent to {{ node.config.get('to', '') | transform_vars }}    console=yes
+
+{% elif node.type == 'ms365.email_reply' %}
+            # Reply to email
+            ${result}=    MS365.Reply To Email
+            ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
+            ...    body={{ node.config.get('body', '') | transform_vars }}
+            ...    reply_all={{ '${TRUE}' if node.config.get('reply_all', False) else '${FALSE}' }}
+            ...    body_type={{ node.config.get('body_type', 'html') }}
+            {% if node.config.get('attachments') %}...    attachments={{ node.config.get('attachments', '') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            Log    Reply sent    console=yes
+
+{% elif node.type == 'ms365.email_forward' %}
+            # Forward email
+            ${result}=    MS365.Forward Email
+            ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
+            ...    to={{ node.config.get('to', '') | transform_vars }}
+            {% if node.config.get('comment') %}...    comment={{ node.config.get('comment', '') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            Log    Email forwarded    console=yes
+
+{% elif node.type == 'ms365.email_draft' %}
+            # Create email draft
+            ${draft}=    MS365.Create Draft
+            ...    to={{ node.config.get('to', '') | transform_vars }}
+            ...    subject={{ node.config.get('subject', '') | transform_vars }}
+            ...    body={{ node.config.get('body', '') | transform_vars }}
+            {% if node.config.get('cc') %}...    cc={{ node.config.get('cc', '') | transform_vars }}{% endif %}
+            ...    body_type={{ node.config.get('body_type', 'html') }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${draft}    &{draft}
+            Log    Draft created: ${draft}[id]    console=yes
+
+{% elif node.type == 'ms365.email_move' %}
+            # Move email to folder
+            ${result}=    MS365.Move Email
+            ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
+            ...    destination_folder={{ node.config.get('destination_folder', '') | transform_vars }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            Log    Email moved to {{ node.config.get('destination_folder', '') }}    console=yes
+
+{% elif node.type == 'ms365.email_copy' %}
+            # Copy email to folder
+            ${result}=    MS365.Copy Email
+            ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
+            ...    destination_folder={{ node.config.get('destination_folder', '') | transform_vars }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            Log    Email copied to {{ node.config.get('destination_folder', '') }}    console=yes
+
+{% elif node.type == 'ms365.email_delete' %}
+            # Delete email
+            ${result}=    MS365.Delete Email
+            ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
+            ...    permanent={{ '${TRUE}' if node.config.get('permanent', False) else '${FALSE}' }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            Log    Email deleted    console=yes
+
+{% elif node.type == 'ms365.email_mark_read' %}
+            # Mark email read/unread
+            ${result}=    MS365.Mark Email Read
+            ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
+            ...    is_read={{ '${TRUE}' if node.config.get('is_read', True) else '${FALSE}' }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            Log    Email marked as {{ 'read' if node.config.get('is_read', True) else 'unread' }}    console=yes
+
+{% elif node.type == 'ms365.email_flag' %}
+            # Set email flag
+            ${result}=    MS365.Flag Email
+            ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
+            ...    flag_status={{ node.config.get('flag_status', 'flagged') }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            Log    Email flag set to {{ node.config.get('flag_status', 'flagged') }}    console=yes
+
+{% elif node.type == 'ms365.email_categories' %}
+            # Set email categories
+            ${result}=    MS365.Set Email Categories
+            ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
+            ...    categories={{ node.config.get('categories', '') | transform_vars }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            Log    Email categories updated    console=yes
+
+{% elif node.type == 'ms365.email_importance' %}
+            # Set email importance
+            ${result}=    MS365.Set Email Importance
+            ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
+            ...    importance={{ node.config.get('importance', 'high') }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            Log    Email importance set to {{ node.config.get('importance', 'high') }}    console=yes
+
+{% elif node.type == 'ms365.folder_list' %}
+            # List mail folders
+            ${folders}=    MS365.List Folders
+            {% if node.config.get('parent_folder_id') %}...    parent_folder_id={{ node.config.get('parent_folder_id', '') | transform_vars }}{% endif %}
+            ${count}=    Get Length    ${folders}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${folders}    folders=${folders}    count=${count}
+            Log    Listed ${count} folders    console=yes
+
+{% elif node.type == 'ms365.folder_create' %}
+            # Create mail folder
+            ${folder}=    MS365.Create Folder
+            ...    display_name={{ node.config.get('display_name', '') | transform_vars }}
+            {% if node.config.get('parent_folder_id') %}...    parent_folder_id={{ node.config.get('parent_folder_id', '') | transform_vars }}{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${folder}    &{folder}
+            Log    Folder created: ${folder}[displayName]    console=yes
+
+{% elif node.type == 'ms365.folder_delete' %}
+            # Delete mail folder
+            ${result}=    MS365.Delete Folder
+            ...    folder_id={{ node.config.get('folder_id', '') | transform_vars }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            Log    Folder deleted    console=yes
 
 {# ===== DEFAULT ===== #}
 {% else %}

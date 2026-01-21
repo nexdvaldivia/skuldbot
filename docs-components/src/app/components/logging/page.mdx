@@ -1,0 +1,568 @@
+export const metadata = {
+  title: 'Logging',
+  description: 'Components for logging, debugging, and monitoring your automation workflows.',
+}
+
+export const sections = [
+  { title: 'Log Message', id: 'logging-log' },
+  { title: 'Log Screenshot', id: 'logging-screenshot' },
+  { title: 'Log Metric', id: 'logging-metric' },
+  { title: 'Start Timer', id: 'logging-timer_start' },
+  { title: 'Stop Timer', id: 'logging-timer_stop' },
+  { title: 'Send Notification', id: 'logging-notification' },
+  { title: 'Audit Log', id: 'logging-audit' },
+  { title: 'Export Logs', id: 'logging-export' },
+]
+
+# Logging
+
+Components for logging, debugging, and monitoring your automation workflows. {{ className: 'lead' }}
+
+<Note>
+  This category contains **8 components**. See also: [Control Flow](/components/control) · [Email](/components/email)
+</Note>
+
+## Common Use Cases
+
+- Debug workflow execution
+- Track progress and metrics
+- Send alerts and notifications
+- Create audit trails
+
+---
+
+## Log Message {{ id: 'logging-log' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-text"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M10 9H8" />
+  <path d="M16 13H8" />
+  <path d="M16 17H8" />
+</svg>
+`} label="Log Message" description="Write log message" bgColor="#f4f4f5" textColor="#52525b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `logging.log`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Track workflow progress
+- Debug issues during development
+- Create audit trails
+- Log business events
+
+### Configuration
+
+<Properties>
+  <Property name="message" type="textarea" required>
+    Message
+  </Property>
+  <Property name="level" type="select">
+    Level Default: `INFO`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Log Message.variableName}`.
+
+<Properties>
+  <Property name="message" type="string">
+    The logged message
+  </Property>
+  <Property name="level" type="string">
+    Log level used
+  </Property>
+  <Property name="timestamp" type="string">
+    Timestamp when logged
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "logging.log",
+  "label": "Log Message",
+  "config": {
+    "message": "your-message",
+    "level": "INFO"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Log Screenshot {{ id: 'logging-screenshot' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-camera"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z" />
+  <circle cx="12" cy="13" r="3" />
+</svg>
+`} label="Log Screenshot" description="Capture screenshot to log" bgColor="#f4f4f5" textColor="#52525b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `logging.screenshot`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Capture UI state for debugging
+- Document completed transactions
+- Create visual audit trails
+- Debug automation failures
+
+### Configuration
+
+<Properties>
+  <Property name="description" type="text">
+    Description
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "logging.screenshot",
+  "label": "Log Screenshot",
+  "config": {
+    "description": "your-description"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Log Metric {{ id: 'logging-metric' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-chart-column"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+  <path d="M18 17V9" />
+  <path d="M13 17V5" />
+  <path d="M8 17v-3" />
+</svg>
+`} label="Log Metric" description="Record numeric metric" bgColor="#f4f4f5" textColor="#52525b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `logging.metric`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Track KPIs and performance metrics
+- Monitor processing volumes
+- Measure cycle times
+- Report business metrics
+
+### Configuration
+
+<Properties>
+  <Property name="name" type="text" required>
+    Metric Name
+  </Property>
+  <Property name="value" type="number" required>
+    Value
+  </Property>
+  <Property name="unit" type="text">
+    Unit
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "logging.metric",
+  "label": "Log Metric",
+  "config": {
+    "name": "your-name",
+    "value": 0,
+    "unit": "your-unit"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Start Timer {{ id: 'logging-timer_start' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-timer"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <line x1="10" x2="14" y1="2" y2="2" />
+  <line x1="12" x2="15" y1="14" y2="11" />
+  <circle cx="12" cy="14" r="8" />
+</svg>
+`} label="Start Timer" description="Start performance timer" bgColor="#f4f4f5" textColor="#52525b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `logging.timer_start`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Measure operation duration
+- Track performance metrics
+- Identify bottlenecks
+- Benchmark processes
+
+### Configuration
+
+<Properties>
+  <Property name="name" type="text" required>
+    Timer Name
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "logging.timer_start",
+  "label": "Start Timer",
+  "config": {
+    "name": "your-name"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Stop Timer {{ id: 'logging-timer_stop' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-timer-off"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M10 2h4" />
+  <path d="M4.6 11a8 8 0 0 0 1.7 8.7 8 8 0 0 0 8.7 1.7" />
+  <path d="M7.4 7.4a8 8 0 0 1 10.3 1 8 8 0 0 1 .9 10.2" />
+  <path d="m2 2 20 20" />
+  <path d="M12 12v-2" />
+</svg>
+`} label="Stop Timer" description="Stop and log timer" bgColor="#f4f4f5" textColor="#52525b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `logging.timer_stop`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Calculate elapsed time
+- Report performance data
+- Log duration metrics
+- Complete timing measurements
+
+### Configuration
+
+<Properties>
+  <Property name="name" type="text" required>
+    Timer Name
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "logging.timer_stop",
+  "label": "Stop Timer",
+  "config": {
+    "name": "your-name"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Send Notification {{ id: 'logging-notification' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-bell"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M10.268 21a2 2 0 0 0 3.464 0" />
+  <path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" />
+</svg>
+`} label="Send Notification" description="Send alert notification" bgColor="#f4f4f5" textColor="#52525b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `logging.notification`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Alert teams of completions/failures
+- Send Slack/Teams notifications
+- Notify stakeholders of issues
+- Trigger escalation alerts
+
+### Configuration
+
+<Properties>
+  <Property name="channel" type="select">
+    Channel Default: `email`
+  </Property>
+  <Property name="message" type="textarea" required>
+    Message
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "logging.notification",
+  "label": "Send Notification",
+  "config": {
+    "channel": "email",
+    "message": "your-message"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Audit Log {{ id: 'logging-audit' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-clipboard-list"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+  <path d="M12 11h4" />
+  <path d="M12 16h4" />
+  <path d="M8 11h.01" />
+  <path d="M8 16h.01" />
+</svg>
+`} label="Audit Log" description="Create audit entry" bgColor="#f4f4f5" textColor="#52525b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `logging.audit`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Record compliance events
+- Track data access
+- Log security events
+- Create regulatory audit trails
+
+### Configuration
+
+<Properties>
+  <Property name="action" type="text" required>
+    Action
+  </Property>
+  <Property name="details" type="textarea">
+    Details (JSON)
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "logging.audit",
+  "label": "Audit Log",
+  "config": {
+    "action": "your-action",
+    "details": "your-details"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Export Logs {{ id: 'logging-export' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-down"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M12 18v-6" />
+  <path d="m9 15 3 3 3-3" />
+</svg>
+`} label="Export Logs" description="Export run logs" bgColor="#f4f4f5" textColor="#52525b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `logging.export`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Export logs for analysis
+- Archive execution logs
+- Generate log reports
+- Share logs with stakeholders
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    Output Path
+  </Property>
+  <Property name="format" type="select">
+    Format Default: `json`
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "logging.export",
+  "label": "Export Logs",
+  "config": {
+    "path": "your-path",
+    "format": "json"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+

@@ -1,0 +1,1861 @@
+export const metadata = {
+  title: 'Excel',
+  description: 'Components for reading, writing, and manipulating Excel spreadsheets. Full support for formulas, formatting, and multiple sheets.',
+}
+
+export const sections = [
+  { title: 'Open Excel', id: 'excel-open' },
+  { title: 'Read Range', id: 'excel-read_range' },
+  { title: 'Write Range', id: 'excel-write_range' },
+  { title: 'Read Cell', id: 'excel-read_cell' },
+  { title: 'Write Cell', id: 'excel-write_cell' },
+  { title: 'Add Row', id: 'excel-add_row' },
+  { title: 'Filter Data', id: 'excel-filter' },
+  { title: 'Save Excel', id: 'excel-save' },
+  { title: 'Close Excel', id: 'excel-close' },
+  { title: 'Read CSV', id: 'excel-csv_read' },
+  { title: 'Write CSV', id: 'excel-csv_write' },
+  { title: 'Create Pivot', id: 'excel-pivot' },
+  { title: 'Create Excel', id: 'excel-create' },
+  { title: 'Create Sheet', id: 'excel-create_sheet' },
+  { title: 'Delete Sheet', id: 'excel-delete_sheet' },
+  { title: 'Rename Sheet', id: 'excel-rename_sheet' },
+  { title: 'Get Sheets', id: 'excel-get_sheets' },
+  { title: 'Delete Row', id: 'excel-delete_row' },
+  { title: 'Delete Column', id: 'excel-delete_column' },
+  { title: 'Insert Row', id: 'excel-insert_row' },
+  { title: 'Set Format', id: 'excel-set_format' },
+  { title: 'Merge Cells', id: 'excel-merge_cells' },
+  { title: 'Auto Filter', id: 'excel-auto_filter' },
+  { title: 'Sort Data', id: 'excel-sort' },
+  { title: 'Find & Replace', id: 'excel-find_replace' },
+  { title: 'Create Chart', id: 'excel-create_chart' },
+  { title: 'Export to PDF', id: 'excel-export_pdf' },
+  { title: 'VLOOKUP', id: 'excel-vlookup' },
+]
+
+# Excel
+
+Components for reading, writing, and manipulating Excel spreadsheets. Full support for formulas, formatting, and multiple sheets. {{ className: 'lead' }}
+
+<Note>
+  This category contains **28 components**. See also: [File Operations](/components/files) · [Data Transform](/components/data) · [Database](/components/database)
+</Note>
+
+## Common Use Cases
+
+- Read data from Excel reports
+- Generate Excel reports
+- Update existing spreadsheets
+- Work with multiple sheets
+
+---
+
+## Open Excel {{ id: 'excel-open' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-spreadsheet"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M8 13h2" />
+  <path d="M14 13h2" />
+  <path d="M8 17h2" />
+  <path d="M14 17h2" />
+</svg>
+`} label="Open Excel" description="Open Excel workbook" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.open`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Open existing reports for updates
+- Load templates for report generation
+- Access shared Excel files from network drives
+- Open password-protected workbooks
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    File Path
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.open",
+  "label": "Open Excel",
+  "config": {
+    "file": "/data/reports/sales-q4.xlsx"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Read Range {{ id: 'excel-read_range' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-table"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 3v18" />
+  <rect width="18" height="18" x="3" y="3" rx="2" />
+  <path d="M3 9h18" />
+  <path d="M3 15h18" />
+</svg>
+`} label="Read Range" description="Read cell range" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.read_range`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Read sales data for processing
+- Extract customer lists for email campaigns
+- Load configuration tables from Excel
+- Import data for database updates
+
+### Configuration
+
+<Properties>
+  <Property name="range" type="text">
+    Range (e.g., `A1:D100`)
+  </Property>
+  <Property name="sheet" type="text">
+    Sheet
+  </Property>
+  <Property name="header" type="boolean">
+    First Row as Header Default: `true`
+  </Property>
+  <Property name="column_names" type="text">
+    Column Names (e.g., `Name, Date, Status, Amount`)
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Read Range.variableName}`.
+
+<Properties>
+  <Property name="data" type="array">
+    Array of rows (objects if header=true or column_names defined)
+  </Property>
+  <Property name="rowCount" type="number">
+    Number of rows read
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.read_range",
+  "label": "Read Range",
+  "config": {
+    "sheet": "Sales",
+    "range": "A1:F100",
+    "header": true
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Write Range {{ id: 'excel-write_range' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-table-2"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18" />
+</svg>
+`} label="Write Range" description="Write data to cells" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.write_range`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Write processed results back to Excel
+- Update status columns in tracking sheets
+- Populate templates with dynamic data
+- Generate data tables from API results
+
+### Configuration
+
+<Properties>
+  <Property name="range" type="text" required>
+    Start Cell (e.g., `A1`)
+  </Property>
+  <Property name="data" type="textarea" required>
+    Data (JSON)
+  </Property>
+  <Property name="sheet" type="text">
+    Sheet
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.write_range",
+  "label": "Write Range",
+  "config": {
+    "sheet": "Output",
+    "range": "A1",
+    "data": "${Process Data.results}"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Read Cell {{ id: 'excel-read_cell' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-square-stack"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M4 10c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h4c1.1 0 2 .9 2 2" />
+  <path d="M10 16c-1.1 0-2-.9-2-2v-4c0-1.1.9-2 2-2h4c1.1 0 2 .9 2 2" />
+  <rect width="8" height="8" x="14" y="14" rx="2" />
+</svg>
+`} label="Read Cell" description="Read single cell" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.read_cell`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Read specific configuration values
+- Get totals from summary cells
+- Check status indicators
+- Read last processed row numbers
+
+### Configuration
+
+<Properties>
+  <Property name="cell" type="text" required>
+    Cell (e.g., `A1`)
+  </Property>
+  <Property name="sheet" type="text">
+    Sheet
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Read Cell.variableName}`.
+
+<Properties>
+  <Property name="value" type="any">
+    Cell value
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.read_cell",
+  "label": "Read Cell",
+  "config": {
+    "cell": "A1",
+    "sheet": "your-sheet"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Write Cell {{ id: 'excel-write_cell' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-pen-line"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M13 21h8" />
+  <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+</svg>
+`} label="Write Cell" description="Write to single cell" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.write_cell`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Update individual status cells
+- Write timestamps for audit
+- Set formula results
+- Mark items as processed
+
+### Configuration
+
+<Properties>
+  <Property name="cell" type="text" required>
+    Cell (e.g., `A1`)
+  </Property>
+  <Property name="value" type="text" required>
+    Value
+  </Property>
+  <Property name="sheet" type="text">
+    Sheet
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.write_cell",
+  "label": "Write Cell",
+  "config": {
+    "cell": "A1",
+    "value": "your-value",
+    "sheet": "your-sheet"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Add Row {{ id: 'excel-add_row' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-list-plus"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M16 5H3" />
+  <path d="M11 12H3" />
+  <path d="M16 19H3" />
+  <path d="M18 9v6" />
+  <path d="M21 12h-6" />
+</svg>
+`} label="Add Row" description="Append row to sheet" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.add_row`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Append new records to logs
+- Add transactions to ledgers
+- Insert new data rows to existing tables
+- Build reports incrementally
+
+### Configuration
+
+<Properties>
+  <Property name="data" type="textarea" required>
+    Row Data (JSON array)
+  </Property>
+  <Property name="sheet" type="text">
+    Sheet
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.add_row",
+  "label": "Add Row",
+  "config": {
+    "data": "your-data",
+    "sheet": "your-sheet"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Filter Data {{ id: 'excel-filter' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-funnel"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14z" />
+</svg>
+`} label="Filter Data" description="Filter Excel data" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.filter`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Filter orders by status or date
+- Extract records matching criteria
+- Create subsets for specific processing
+- Separate valid from invalid records
+
+### Configuration
+
+<Properties>
+  <Property name="column" type="text" required>
+    Column
+  </Property>
+  <Property name="condition" type="text" required>
+    Condition (e.g., `&gt; 100`)
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.filter",
+  "label": "Filter Data",
+  "config": {
+    "column": "your-column",
+    "condition": "> 100"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Save Excel {{ id: 'excel-save' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-save"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+  <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" />
+  <path d="M7 3v4a1 1 0 0 0 1 1h7" />
+</svg>
+`} label="Save Excel" description="Save workbook" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.save`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Save changes after modifications
+- Save with new filename for versioning
+- Convert formats (xlsx to csv)
+- Create backup copies
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text">
+    Save Path (optional)
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.save",
+  "label": "Save Excel",
+  "config": {
+    "path": "your-path"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Close Excel {{ id: 'excel-close' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-x"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M18 6 6 18" />
+  <path d="m6 6 12 12" />
+</svg>
+`} label="Close Excel" description="Close workbook" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.close`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Release file locks after processing
+- Clean up Excel instances
+- Allow other processes to access files
+- Prevent memory leaks
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.close",
+  "label": "Close Excel",
+  "config": {
+    // No configuration required
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Read CSV {{ id: 'excel-csv_read' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-text"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M10 9H8" />
+  <path d="M16 13H8" />
+  <path d="M16 17H8" />
+</svg>
+`} label="Read CSV" description="Read CSV file" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.csv_read`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Import CSV exports from other systems
+- Read bank statement downloads
+- Process CSV data feeds
+- Load delimited log files
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    File Path
+  </Property>
+  <Property name="delimiter" type="text">
+    Delimiter Default: `,`
+  </Property>
+  <Property name="header" type="boolean">
+    Has Header Default: `true`
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.csv_read",
+  "label": "Read CSV",
+  "config": {
+    "path": "your-path",
+    "delimiter": ",",
+    "header": "true"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Write CSV {{ id: 'excel-csv_write' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-output"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M4.226 20.925A2 2 0 0 0 6 22h12a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v3.127" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="m5 11-3 3" />
+  <path d="m5 17-3-3h10" />
+</svg>
+`} label="Write CSV" description="Write to CSV file" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.csv_write`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Export data for system imports
+- Generate CSV reports for download
+- Create data feeds for BI tools
+- Produce files for legacy system imports
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    File Path
+  </Property>
+  <Property name="data" type="textarea" required>
+    Data (JSON)
+  </Property>
+  <Property name="delimiter" type="text">
+    Delimiter Default: `,`
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.csv_write",
+  "label": "Write CSV",
+  "config": {
+    "path": "your-path",
+    "data": "your-data",
+    "delimiter": ","
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Create Pivot {{ id: 'excel-pivot' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-chart-pie"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z" />
+  <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+</svg>
+`} label="Create Pivot" description="Create pivot table" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.pivot`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Create summary reports from detail data
+- Aggregate sales by region/product
+- Generate statistical summaries
+- Build dashboard data sources
+
+### Configuration
+
+<Properties>
+  <Property name="source_range" type="text" required>
+    Source Range
+  </Property>
+  <Property name="rows" type="text" required>
+    Row Fields
+  </Property>
+  <Property name="values" type="text" required>
+    Value Fields
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.pivot",
+  "label": "Create Pivot",
+  "config": {
+    "source_range": "your-source_range",
+    "rows": "your-rows",
+    "values": "your-values"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Create Excel {{ id: 'excel-create' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-plus-corner"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M11.35 22H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.706.706l3.588 3.588A2.4 2.4 0 0 1 20 8v5.35" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M14 19h6" />
+  <path d="M17 16v6" />
+</svg>
+`} label="Create Excel" description="Create new workbook" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.create`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    File Path
+  </Property>
+  <Property name="sheet_name" type="text">
+    Initial Sheet Name Default: `Sheet1`
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.create",
+  "label": "Create Excel",
+  "config": {
+    "path": "your-path",
+    "sheet_name": "Sheet1"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Create Sheet {{ id: 'excel-create_sheet' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-plus"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M5 12h14" />
+  <path d="M12 5v14" />
+</svg>
+`} label="Create Sheet" description="Create new worksheet" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.create_sheet`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="name" type="text" required>
+    Sheet Name
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.create_sheet",
+  "label": "Create Sheet",
+  "config": {
+    "name": "your-name"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Delete Sheet {{ id: 'excel-delete_sheet' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-trash-2"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M10 11v6" />
+  <path d="M14 11v6" />
+  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+  <path d="M3 6h18" />
+  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+</svg>
+`} label="Delete Sheet" description="Delete worksheet" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.delete_sheet`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Remove template sheets after copying
+- Clean up temporary worksheets
+- Delete obsolete tabs
+- Prepare workbooks for distribution
+
+### Configuration
+
+<Properties>
+  <Property name="name" type="text" required>
+    Sheet Name
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.delete_sheet",
+  "label": "Delete Sheet",
+  "config": {
+    "name": "your-name"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Rename Sheet {{ id: 'excel-rename_sheet' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-pen-line"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M13 21h8" />
+  <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+</svg>
+`} label="Rename Sheet" description="Rename worksheet" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.rename_sheet`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="old_name" type="text" required>
+    Current Name
+  </Property>
+  <Property name="new_name" type="text" required>
+    New Name
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.rename_sheet",
+  "label": "Rename Sheet",
+  "config": {
+    "old_name": "your-old_name",
+    "new_name": "your-new_name"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Get Sheets {{ id: 'excel-get_sheets' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-layers"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" />
+  <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" />
+  <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" />
+</svg>
+`} label="Get Sheets" description="List all worksheets" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.get_sheets`
+  </Property>
+</Properties>
+
+### When to Use
+
+- List available worksheets for selection
+- Validate expected sheets exist
+- Iterate over all sheets for processing
+- Check workbook structure
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Get Sheets.variableName}`.
+
+<Properties>
+  <Property name="sheets" type="array">
+    List of sheet names
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.get_sheets",
+  "label": "Get Sheets",
+  "config": {
+    // No configuration required
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Delete Row {{ id: 'excel-delete_row' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-box"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+  <path d="m3.3 7 8.7 5 8.7-5" />
+  <path d="M12 22V12" />
+</svg>
+`} label="Delete Row" description="Delete row from sheet" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.delete_row`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="row" type="number" required>
+    Row Number
+  </Property>
+  <Property name="sheet" type="text">
+    Sheet
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.delete_row",
+  "label": "Delete Row",
+  "config": {
+    "row": 0,
+    "sheet": "your-sheet"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Delete Column {{ id: 'excel-delete_column' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-columns-2"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="18" height="18" x="3" y="3" rx="2" />
+  <path d="M12 3v18" />
+</svg>
+`} label="Delete Column" description="Delete column from sheet" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.delete_column`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="column" type="text" required>
+    Column (e.g., A, B)
+  </Property>
+  <Property name="sheet" type="text">
+    Sheet
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.delete_column",
+  "label": "Delete Column",
+  "config": {
+    "column": "your-column",
+    "sheet": "your-sheet"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Insert Row {{ id: 'excel-insert_row' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-list-plus"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M16 5H3" />
+  <path d="M11 12H3" />
+  <path d="M16 19H3" />
+  <path d="M18 9v6" />
+  <path d="M21 12h-6" />
+</svg>
+`} label="Insert Row" description="Insert row at position" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.insert_row`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="row" type="number" required>
+    Row Position
+  </Property>
+  <Property name="data" type="textarea">
+    Row Data (JSON array)
+  </Property>
+  <Property name="sheet" type="text">
+    Sheet
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.insert_row",
+  "label": "Insert Row",
+  "config": {
+    "row": 0,
+    "data": "your-data",
+    "sheet": "your-sheet"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Set Format {{ id: 'excel-set_format' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-paint-bucket"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M11 7 6 2" />
+  <path d="M18.992 12H2.041" />
+  <path d="M21.145 18.38A3.34 3.34 0 0 1 20 16.5a3.3 3.3 0 0 1-1.145 1.88c-.575.46-.855 1.02-.855 1.595A2 2 0 0 0 20 22a2 2 0 0 0 2-2.025c0-.58-.285-1.13-.855-1.595" />
+  <path d="m8.5 4.5 2.148-2.148a1.205 1.205 0 0 1 1.704 0l7.296 7.296a1.205 1.205 0 0 1 0 1.704l-7.592 7.592a3.615 3.615 0 0 1-5.112 0l-3.888-3.888a3.615 3.615 0 0 1 0-5.112L5.67 7.33" />
+</svg>
+`} label="Set Format" description="Apply cell formatting" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.set_format`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="range" type="text" required>
+    Range (e.g., `A1:D10`)
+  </Property>
+  <Property name="bold" type="boolean">
+    Bold Default: `false`
+  </Property>
+  <Property name="font_size" type="number">
+    Font Size
+  </Property>
+  <Property name="bg_color" type="text">
+    Background Color (e.g., `#FFFFFF`)
+  </Property>
+  <Property name="number_format" type="text">
+    Number Format (e.g., `#,##0.00`)
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.set_format",
+  "label": "Set Format",
+  "config": {
+    "range": "A1:D10",
+    "bold": "false",
+    "font_size": 0,
+    "bg_color": "#FFFFFF"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Merge Cells {{ id: 'excel-merge_cells' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-merge"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m8 6 4-4 4 4" />
+  <path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22" />
+  <path d="m20 22-5-5" />
+</svg>
+`} label="Merge Cells" description="Merge cell range" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.merge_cells`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Create report headers
+- Format title rows
+- Build professional layouts
+- Create grouped sections
+
+### Configuration
+
+<Properties>
+  <Property name="range" type="text" required>
+    Range (e.g., `A1:D1`)
+  </Property>
+  <Property name="sheet" type="text">
+    Sheet
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.merge_cells",
+  "label": "Merge Cells",
+  "config": {
+    "range": "A1:D1",
+    "sheet": "your-sheet"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Auto Filter {{ id: 'excel-auto_filter' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-funnel"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14z" />
+</svg>
+`} label="Auto Filter" description="Apply auto filter" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.auto_filter`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="range" type="text" required>
+    Range
+  </Property>
+  <Property name="sheet" type="text">
+    Sheet
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.auto_filter",
+  "label": "Auto Filter",
+  "config": {
+    "range": "your-range",
+    "sheet": "your-sheet"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Sort Data {{ id: 'excel-sort' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-arrow-up-down"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m21 16-4 4-4-4" />
+  <path d="M17 20V4" />
+  <path d="m3 8 4-4 4 4" />
+  <path d="M7 4v16" />
+</svg>
+`} label="Sort Data" description="Sort range data" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.sort`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="range" type="text" required>
+    Range
+  </Property>
+  <Property name="column" type="text" required>
+    Sort Column
+  </Property>
+  <Property name="ascending" type="boolean">
+    Ascending Default: `true`
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.sort",
+  "label": "Sort Data",
+  "config": {
+    "range": "your-range",
+    "column": "your-column",
+    "ascending": "true"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Find & Replace {{ id: 'excel-find_replace' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-search-code"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m13 13.5 2-2.5-2-2.5" />
+  <path d="m21 21-4.3-4.3" />
+  <path d="M9 8.5 7 11l2 2.5" />
+  <circle cx="11" cy="11" r="8" />
+</svg>
+`} label="Find & Replace" description="Find and replace values" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.find_replace`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Standardize data formats
+- Fix common data entry errors
+- Update old codes to new codes
+- Clean text data
+
+### Configuration
+
+<Properties>
+  <Property name="find" type="text" required>
+    Find
+  </Property>
+  <Property name="replace" type="text" required>
+    Replace With
+  </Property>
+  <Property name="range" type="text">
+    Range (optional)
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.find_replace",
+  "label": "Find & Replace",
+  "config": {
+    "find": "your-find",
+    "replace": "your-replace",
+    "range": "your-range"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Create Chart {{ id: 'excel-create_chart' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-chart-line"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+  <path d="m19 9-5 5-4-4-3 3" />
+</svg>
+`} label="Create Chart" description="Create chart from data" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.create_chart`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Generate sales trend charts
+- Create pie charts for distributions
+- Build dashboard visualizations
+- Add charts to automated reports
+
+### Configuration
+
+<Properties>
+  <Property name="data_range" type="text" required>
+    Data Range
+  </Property>
+  <Property name="chart_type" type="select">
+    Chart Type Default: `bar`
+  </Property>
+  <Property name="title" type="text">
+    Chart Title
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.create_chart",
+  "label": "Create Chart",
+  "config": {
+    "data_range": "your-data_range",
+    "chart_type": "bar",
+    "title": "your-title"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Export to PDF {{ id: 'excel-export_pdf' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-down"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M12 18v-6" />
+  <path d="m9 15 3 3 3-3" />
+</svg>
+`} label="Export to PDF" description="Export workbook to PDF" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.export_pdf`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="output_path" type="text" required>
+    Output Path
+  </Property>
+  <Property name="sheet" type="text">
+    Sheet (optional, all if empty)
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.export_pdf",
+  "label": "Export to PDF",
+  "config": {
+    "output_path": "your-output_path",
+    "sheet": "your-sheet"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## VLOOKUP {{ id: 'excel-vlookup' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-search"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m21 21-4.34-4.34" />
+  <circle cx="11" cy="11" r="8" />
+</svg>
+`} label="VLOOKUP" description="Perform VLOOKUP" bgColor="#dcfce7" textColor="#15803d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.vlookup`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="lookup_value" type="text" required>
+    Lookup Value
+  </Property>
+  <Property name="table_range" type="text" required>
+    Table Range
+  </Property>
+  <Property name="col_index" type="number" required>
+    Column Index
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${VLOOKUP.variableName}`.
+
+<Properties>
+  <Property name="result" type="any">
+    Found value
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.vlookup",
+  "label": "VLOOKUP",
+  "config": {
+    "lookup_value": "your-lookup_value",
+    "table_range": "your-table_range",
+    "col_index": 0
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+

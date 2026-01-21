@@ -1,10 +1,13 @@
 """
 Executor principal con soporte para debug y producción
+
+Incluye generación automática de Evidence Pack para compliance.
 """
 
 import subprocess
 import sys
 import time
+import uuid
 from enum import Enum
 from pathlib import Path
 from typing import Optional, Callable, Dict, Any, List
@@ -76,6 +79,7 @@ class ExecutionResult:
     output: Dict[str, Any]
     errors: List[Dict[str, Any]] = field(default_factory=list)
     logs: List[LogEntry] = field(default_factory=list)
+    evidence_pack_path: Optional[str] = None  # Path to generated evidence pack
 
     @property
     def success(self) -> bool:
@@ -93,25 +97,51 @@ class ExecutionCallbacks:
     on_error: Optional[Callable[[Exception], None]] = None
 
 
+@dataclass
+class EvidenceConfig:
+    """Configuración para generación de Evidence Pack"""
+
+    enabled: bool = True                    # Enable evidence pack generation
+    output_dir: Optional[str] = None        # Directory for evidence packs
+    tenant_id: str = "default"              # Tenant identifier
+    policy_pack_id: str = ""                # Policy pack to apply
+    policy_pack_version: str = ""           # Policy pack version
+    signing_key: Optional[str] = None       # Key for cryptographic signing
+    capture_screenshots: bool = True        # Capture screenshots during execution
+
+
 class Executor:
     """
-    Motor de ejecución de bots con soporte para debug y producción
+    Motor de ejecución de bots con soporte para debug y producción.
+
+    Genera automáticamente Evidence Packs para compliance (HIPAA, SOC2, etc.)
+    cuando se ejecuta en modo producción.
     """
 
     def __init__(
         self,
         mode: ExecutionMode = ExecutionMode.PRODUCTION,
         robot_options: Optional[Dict[str, Any]] = None,
+        evidence_config: Optional[EvidenceConfig] = None,
     ):
         self.mode = mode
         self.robot_options = robot_options or {}
         self._current_execution: Optional[ExecutionResult] = None
+
+        # Evidence Pack configuration
+        self.evidence_config = evidence_config or EvidenceConfig(
+            enabled=(mode == ExecutionMode.PRODUCTION)
+        )
+        self._evidence_writer = None
 
     def run_from_package(
         self,
         package_path: str,
         callbacks: Optional[Dict[str, Callable]] = None,
         variables: Optional[Dict[str, Any]] = None,
+        bot_id: Optional[str] = None,
+        bot_name: Optional[str] = None,
+        execution_id: Optional[str] = None,
     ) -> ExecutionResult:
         """
         Ejecuta un bot desde un package en disco
@@ -120,6 +150,9 @@ class Executor:
             package_path: Path al directorio del bot package
             callbacks: Diccionario con callbacks (on_start, on_step, on_log, etc)
             variables: Variables a pasar al bot
+            bot_id: Bot identifier (for evidence pack)
+            bot_name: Bot name (for evidence pack)
+            execution_id: Execution identifier (auto-generated if not provided)
 
         Returns:
             ExecutionResult con el resultado de la ejecución
@@ -127,19 +160,40 @@ class Executor:
         package_path = Path(package_path)
 
         if not package_path.exists():
-            raise FileNotFoundError(f"Package path no existe: {package_path}")
+            raise FileNotFoundError(f"Package path does not exist: {package_path}")
 
-        main_robot = package_path / "main.robot"
-        if not main_robot.exists():
-            raise FileNotFoundError(f"main.robot no encontrado en {package_path}")
+        main_skb = package_path / "main.skb"
+        if not main_skb.exists():
+            raise FileNotFoundError(f"main.skb not found in {package_path}")
 
-        return self._execute_robot(main_robot, callbacks, variables)
+        # Read manifest if available
+        manifest_path = package_path / "manifest.json"
+        manifest = {}
+        if manifest_path.exists():
+            import json
+            with open(manifest_path) as f:
+                manifest = json.load(f)
+
+        # Use manifest values or provided values
+        bot_id = bot_id or manifest.get("bot_id", package_path.name)
+        bot_name = bot_name or manifest.get("bot_name", package_path.name)
+        execution_id = execution_id or str(uuid.uuid4())
+
+        return self._execute_robot(
+            main_skb,
+            callbacks,
+            variables,
+            bot_id=bot_id,
+            bot_name=bot_name,
+            execution_id=execution_id,
+        )
 
     def run_from_dsl(
         self,
         dsl: Dict[str, Any],
         callbacks: Optional[Dict[str, Callable]] = None,
         variables: Optional[Dict[str, Any]] = None,
+        execution_id: Optional[str] = None,
     ) -> ExecutionResult:
         """
         Compila y ejecuta un DSL directamente (útil para Studio)
@@ -148,6 +202,7 @@ class Executor:
             dsl: Diccionario DSL
             callbacks: Callbacks de ejecución
             variables: Variables a pasar al bot
+            execution_id: Execution identifier (auto-generated if not provided)
 
         Returns:
             ExecutionResult
@@ -155,21 +210,56 @@ class Executor:
         from skuldbot.compiler import Compiler
         import tempfile
 
+        # Extract bot info from DSL
+        bot_info = dsl.get("bot", {})
+        bot_id = bot_info.get("id", "unknown")
+        bot_name = bot_info.get("name", "Unknown Bot")
+        execution_id = execution_id or str(uuid.uuid4())
+
         # Compilar a directorio temporal
         compiler = Compiler()
         with tempfile.TemporaryDirectory() as temp_dir:
             bot_dir = compiler.compile_to_disk(dsl, temp_dir)
-            return self.run_from_package(str(bot_dir), callbacks, variables)
+            return self.run_from_package(
+                str(bot_dir),
+                callbacks,
+                variables,
+                bot_id=bot_id,
+                bot_name=bot_name,
+                execution_id=execution_id,
+            )
 
     def _execute_robot(
         self,
         robot_file: Path,
         callbacks: Optional[Dict[str, Callable]] = None,
         variables: Optional[Dict[str, Any]] = None,
+        bot_id: str = "unknown",
+        bot_name: str = "Unknown Bot",
+        execution_id: str = "",
     ) -> ExecutionResult:
         """Ejecuta Robot Framework"""
         callbacks = callbacks or {}
         start_time = time.time()
+        execution_id = execution_id or str(uuid.uuid4())
+        evidence_pack_path = None
+
+        # Initialize Evidence Pack writer if enabled
+        if self.evidence_config.enabled:
+            try:
+                from skuldbot.evidence import EvidencePackWriter
+                self._evidence_writer = EvidencePackWriter(
+                    execution_id=execution_id,
+                    bot_id=bot_id,
+                    bot_name=bot_name,
+                    tenant_id=self.evidence_config.tenant_id,
+                    policy_pack_id=self.evidence_config.policy_pack_id,
+                    policy_pack_version=self.evidence_config.policy_pack_version,
+                    signing_key=self.evidence_config.signing_key,
+                    environment="debug" if self.mode == ExecutionMode.DEBUG else "production",
+                )
+            except ImportError:
+                self._evidence_writer = None
 
         # Callback on_start
         if "on_start" in callbacks:
@@ -178,6 +268,9 @@ class Executor:
         # Construir comando robot (usa el ejecutable del mismo entorno que Python)
         robot_exe = get_robot_executable()
         cmd = [robot_exe]
+
+        # Use .skb extension for SkuldBot files
+        cmd.extend(["--extension", "skb"])
 
         # Opciones según modo
         if self.mode == ExecutionMode.DEBUG:
@@ -213,6 +306,10 @@ class Executor:
             if "on_log" in callbacks:
                 callbacks["on_log"](log_entry)
 
+            # Record in evidence pack
+            if self._evidence_writer:
+                self._evidence_writer.add_log("INFO", f"Starting bot execution: {robot_file.name}")
+
             # Ejecutar proceso
             result = subprocess.run(
                 cmd,
@@ -231,9 +328,15 @@ class Executor:
                         logs.append(log_entry)
                         callbacks["on_log"](log_entry)
 
+                        # Record in evidence pack (auto-redacted)
+                        if self._evidence_writer:
+                            self._evidence_writer.add_log("INFO", line)
+
             # Determinar status
             if result.returncode == 0:
                 status = ExecutionStatus.SUCCESS
+                if self._evidence_writer:
+                    self._evidence_writer.add_log("INFO", "Bot execution completed successfully")
             else:
                 status = ExecutionStatus.FAILED
                 error = {
@@ -243,6 +346,12 @@ class Executor:
                 }
                 errors.append(error)
 
+                if self._evidence_writer:
+                    self._evidence_writer.add_log(
+                        "ERROR",
+                        f"Bot execution failed: {result.stderr or 'Unknown error'}",
+                    )
+
         except Exception as e:
             status = ExecutionStatus.FAILED
             error = {
@@ -251,11 +360,32 @@ class Executor:
             }
             errors.append(error)
 
+            if self._evidence_writer:
+                self._evidence_writer.add_log("ERROR", f"Exception during execution: {str(e)}")
+
             if "on_error" in callbacks:
                 callbacks["on_error"](e)
 
         end_time = time.time()
         duration = end_time - start_time
+
+        # Finalize and save evidence pack
+        if self._evidence_writer:
+            try:
+                # Determine output directory
+                evidence_output_dir = self.evidence_config.output_dir
+                if not evidence_output_dir:
+                    evidence_output_dir = str(output_dir / "evidence")
+
+                evidence_pack_path = self._evidence_writer.save(evidence_output_dir)
+            except Exception as e:
+                # Log but don't fail execution due to evidence pack error
+                log_entry = LogEntry(
+                    level="WARN",
+                    message=f"Failed to save evidence pack: {str(e)}",
+                    timestamp=time.time(),
+                )
+                logs.append(log_entry)
 
         # Crear resultado
         execution_result = ExecutionResult(
@@ -266,6 +396,7 @@ class Executor:
             output=self._parse_robot_output(output_dir),
             errors=errors,
             logs=logs,
+            evidence_pack_path=evidence_pack_path,
         )
 
         # Callback on_complete

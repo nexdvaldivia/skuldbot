@@ -1,0 +1,10 @@
+/Users/dubielvaldivia/Documents/khipus/skuldbot/runner-app/src-tauri/target/release/deps/time_core-28eb7a12e0011869.d: /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.7/src/lib.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.7/src/convert.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.7/src/hint.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.7/src/util.rs
+
+/Users/dubielvaldivia/Documents/khipus/skuldbot/runner-app/src-tauri/target/release/deps/libtime_core-28eb7a12e0011869.rlib: /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.7/src/lib.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.7/src/convert.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.7/src/hint.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.7/src/util.rs
+
+/Users/dubielvaldivia/Documents/khipus/skuldbot/runner-app/src-tauri/target/release/deps/libtime_core-28eb7a12e0011869.rmeta: /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.7/src/lib.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.7/src/convert.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.7/src/hint.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.7/src/util.rs
+
+/Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.7/src/lib.rs:
+/Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.7/src/convert.rs:
+/Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.7/src/hint.rs:
+/Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.7/src/util.rs:

@@ -117,6 +117,30 @@ const categoryStyles: Record<NodeCategory, { bg: string; border: string; icon: s
     icon: "text-emerald-600",
     accent: "bg-emerald-500",
   },
+  vectordb: {
+    bg: "bg-purple-50",
+    border: "border-purple-200",
+    icon: "text-purple-600",
+    accent: "bg-gradient-to-r from-purple-500 to-indigo-500",
+  },
+  voice: {
+    bg: "bg-fuchsia-50",
+    border: "border-fuchsia-200",
+    icon: "text-fuchsia-600",
+    accent: "bg-fuchsia-500",
+  },
+  insurance: {
+    bg: "bg-lime-50",
+    border: "border-lime-200",
+    icon: "text-lime-600",
+    accent: "bg-lime-500",
+  },
+  ms365: {
+    bg: "bg-sky-50",
+    border: "border-sky-200",
+    icon: "text-sky-600",
+    accent: "bg-[#0078d4]",
+  },
 };
 
 function GroupNode({ data, selected, id }: NodeProps<FlowNodeData>) {

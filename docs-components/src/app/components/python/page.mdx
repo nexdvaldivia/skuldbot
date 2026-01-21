@@ -1,0 +1,563 @@
+export const metadata = {
+  title: 'Python',
+  description: 'Components for running Python scripts and projects within your automation. Full access to Python ecosystem.',
+}
+
+export const sections = [
+  { title: 'Execute Python', id: 'python-execute' },
+  { title: 'Run Python Project', id: 'python-project' },
+  { title: 'Pip Install', id: 'python-pip_install' },
+  { title: 'Create Virtualenv', id: 'python-virtualenv' },
+  { title: 'Python Function', id: 'python-function' },
+  { title: 'Import Module', id: 'python-import_module' },
+  { title: 'Run Notebook', id: 'python-notebook' },
+  { title: 'Python Eval', id: 'python-eval' },
+]
+
+# Python
+
+Components for running Python scripts and projects within your automation. Full access to Python ecosystem. {{ className: 'lead' }}
+
+<Note>
+  This category contains **8 components**. See also: [Data Transform](/components/data) · [AI / LLM](/components/ai) · [API / HTTP](/components/api)
+</Note>
+
+## Common Use Cases
+
+- Run custom Python scripts
+- Use specialized Python libraries
+- Complex data transformations
+- Machine learning operations
+
+---
+
+## Execute Python {{ id: 'python-execute' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-code-xml"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m18 16 4-4-4-4" />
+  <path d="m6 8-4 4 4 4" />
+  <path d="m14.5 4-5 16" />
+</svg>
+`} label="Execute Python" description="Run Python code" bgColor="#fef9c3" textColor="#a16207" />
+
+<Properties>
+  <Property name="type" type="string">
+    `python.execute`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Run custom data transformations
+- Execute specialized algorithms
+- Perform complex calculations
+- Use Python-specific libraries
+
+### Configuration
+
+<Properties>
+  <Property name="code" type="textarea" required>
+    Python Code
+  </Property>
+  <Property name="variables" type="textarea">
+    Input Variables (JSON)
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "python.execute",
+  "label": "Execute Python",
+  "config": {
+    "code": "your-code",
+    "variables": "your-variables"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Run Python Project {{ id: 'python-project' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-folder-code"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M10 10.5 8 13l2 2.5" />
+  <path d="m14 10.5 2 2.5-2 2.5" />
+  <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z" />
+</svg>
+`} label="Run Python Project" description="Execute Python project" bgColor="#fef9c3" textColor="#a16207" />
+
+<Properties>
+  <Property name="type" type="string">
+    `python.project`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Run existing Python projects/scripts
+- Execute ML model inference
+- Run data science pipelines
+- Integrate legacy Python code
+
+### Configuration
+
+<Properties>
+  <Property name="project_path" type="text" required>
+    Project Path
+  </Property>
+  <Property name="entrypoint" type="text" required>
+    Entrypoint (e.g., `main.py`)
+  </Property>
+  <Property name="args" type="text">
+    Arguments
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "python.project",
+  "label": "Run Python Project",
+  "config": {
+    "project_path": "your-project_path",
+    "entrypoint": "main.py",
+    "args": "your-args"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Pip Install {{ id: 'python-pip_install' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-package"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z" />
+  <path d="M12 22V12" />
+  <polyline points="3.29 7 12 12 20.71 7" />
+  <path d="m7.5 4.27 9 5.15" />
+</svg>
+`} label="Pip Install" description="Install Python packages" bgColor="#fef9c3" textColor="#a16207" />
+
+<Properties>
+  <Property name="type" type="string">
+    `python.pip_install`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Install required Python packages
+- Update dependencies
+- Install custom packages from git
+- Manage package versions
+
+### Configuration
+
+<Properties>
+  <Property name="packages" type="text" required>
+    Packages (e.g., `pandas numpy`)
+  </Property>
+  <Property name="requirements" type="text">
+    Requirements File
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "python.pip_install",
+  "label": "Pip Install",
+  "config": {
+    "packages": "pandas numpy",
+    "requirements": "your-requirements"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Create Virtualenv {{ id: 'python-virtualenv' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-box"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+  <path d="m3.3 7 8.7 5 8.7-5" />
+  <path d="M12 22V12" />
+</svg>
+`} label="Create Virtualenv" description="Create Python environment" bgColor="#fef9c3" textColor="#a16207" />
+
+<Properties>
+  <Property name="type" type="string">
+    `python.virtualenv`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Create isolated Python environments
+- Manage dependency conflicts
+- Set up project-specific dependencies
+- Ensure reproducible environments
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    Environment Path
+  </Property>
+  <Property name="python_version" type="text">
+    Python Version Default: `3.10`
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "python.virtualenv",
+  "label": "Create Virtualenv",
+  "config": {
+    "path": "your-path",
+    "python_version": "3.10"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Python Function {{ id: 'python-function' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-braces"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" />
+  <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" />
+</svg>
+`} label="Python Function" description="Define reusable function" bgColor="#fef9c3" textColor="#a16207" />
+
+<Properties>
+  <Property name="type" type="string">
+    `python.function`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Define reusable Python functions
+- Create custom transformations
+- Build helper utilities
+- Implement complex logic
+
+### Configuration
+
+<Properties>
+  <Property name="name" type="text" required>
+    Function Name
+  </Property>
+  <Property name="code" type="textarea" required>
+    Function Code
+  </Property>
+  <Property name="params" type="text">
+    Parameters
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "python.function",
+  "label": "Python Function",
+  "config": {
+    "name": "your-name",
+    "code": "your-code",
+    "params": "your-params"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Import Module {{ id: 'python-import_module' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-import"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 3v12" />
+  <path d="m8 11 4 4 4-4" />
+  <path d="M8 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4" />
+</svg>
+`} label="Import Module" description="Import Python module" bgColor="#fef9c3" textColor="#a16207" />
+
+<Properties>
+  <Property name="type" type="string">
+    `python.import_module`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Import standard library modules
+- Load custom Python libraries
+- Access specialized packages
+- Use third-party integrations
+
+### Configuration
+
+<Properties>
+  <Property name="module" type="text" required>
+    Module Name
+  </Property>
+  <Property name="alias" type="text">
+    Alias
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "python.import_module",
+  "label": "Import Module",
+  "config": {
+    "module": "your-module",
+    "alias": "your-alias"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Run Notebook {{ id: 'python-notebook' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-book-open"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 7v14" />
+  <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
+</svg>
+`} label="Run Notebook" description="Execute Jupyter notebook" bgColor="#fef9c3" textColor="#a16207" />
+
+<Properties>
+  <Property name="type" type="string">
+    `python.notebook`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Run Jupyter notebooks for analysis
+- Execute data science workflows
+- Generate notebook-based reports
+- Run ML experiments
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    Notebook Path
+  </Property>
+  <Property name="output_path" type="text">
+    Output Path
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "python.notebook",
+  "label": "Run Notebook",
+  "config": {
+    "path": "your-path",
+    "output_path": "your-output_path"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Python Eval {{ id: 'python-eval' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-calculator"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="16" height="20" x="4" y="2" rx="2" />
+  <line x1="8" x2="16" y1="6" y2="6" />
+  <line x1="16" x2="16" y1="14" y2="18" />
+  <path d="M16 10h.01" />
+  <path d="M12 10h.01" />
+  <path d="M8 10h.01" />
+  <path d="M12 14h.01" />
+  <path d="M8 14h.01" />
+  <path d="M12 18h.01" />
+  <path d="M8 18h.01" />
+</svg>
+`} label="Python Eval" description="Evaluate expression" bgColor="#fef9c3" textColor="#a16207" />
+
+<Properties>
+  <Property name="type" type="string">
+    `python.eval`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Evaluate Python expressions
+- Calculate dynamic values
+- Perform inline computations
+- Quick string/math operations
+
+### Configuration
+
+<Properties>
+  <Property name="expression" type="text" required>
+    Expression
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "python.eval",
+  "label": "Python Eval",
+  "config": {
+    "expression": "your-expression"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+

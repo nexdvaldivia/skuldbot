@@ -1,0 +1,128 @@
+export const metadata = {
+  title: 'Quickstart',
+  description: 'Get started with SkuldBot components in minutes. Learn how to create your first automation workflow.',
+}
+
+# Quickstart
+
+Get started with SkuldBot components in minutes. This guide will walk you through creating your first automation workflow using the visual Studio editor. {{ className: 'lead' }}
+
+<Note>
+  This documentation covers the **222 RPA components** available in SkuldBot Studio.
+  For installation and setup, see the main SkuldBot documentation.
+</Note>
+
+## Understanding Components
+
+Every component in SkuldBot has three key parts:
+
+1. **Configuration** - Input fields that control how the component behaves
+2. **Output Variables** - Data produced by the component that can be used by other components
+3. **Connections** - Success and Error paths that determine the flow
+
+## Your First Workflow
+
+Let's create a simple workflow that reads an Excel file and logs its contents.
+
+### Step 1: Add a Trigger
+
+Every workflow starts with a trigger. Drag a **Manual Trigger** from the Triggers category:
+
+```json
+{
+  "id": "trigger-1",
+  "type": "trigger.manual",
+  "config": {},
+  "outputs": {
+    "success": "read-excel-1"
+  }
+}
+```
+
+### Step 2: Read Excel Data
+
+Add an **Excel Read Range** component to read data from a spreadsheet:
+
+```json
+{
+  "id": "read-excel-1",
+  "type": "excel.read_range",
+  "config": {
+    "file": "/path/to/data.xlsx",
+    "sheet": "Sheet1",
+    "range": "A1:D100"
+  },
+  "outputs": {
+    "success": "log-1",
+    "error": "error-handler"
+  }
+}
+```
+
+### Step 3: Log the Results
+
+Add a **Log Message** component to see the data:
+
+```json
+{
+  "id": "log-1",
+  "type": "logging.log_message",
+  "config": {
+    "level": "info",
+    "message": "Read ${Read Excel.rowCount} rows from Excel"
+  },
+  "outputs": {
+    "success": null
+  }
+}
+```
+
+## Using Variables
+
+Components produce output variables that you can reference in subsequent components using the syntax `${Node Label.variableName}`.
+
+For example, after the Excel Read Range component executes, you can access:
+
+- `${Read Excel.data}` - The data as a list of dictionaries
+- `${Read Excel.rowCount}` - Number of rows read
+- `${Read Excel.columns}` - Column names
+
+<div className="not-prose">
+  <Button href="/variables" variant="text" arrow="right">
+    <>Learn more about the Variable System</>
+  </Button>
+</div>
+
+## Error Handling
+
+Every component has two output paths:
+
+- **Success** (green line) - Executed when the component completes successfully
+- **Error** (orange line) - Executed when the component fails
+
+When connected via the error path, you have access to special error variables:
+
+- `${LAST_ERROR}` - Error message
+- `${LAST_ERROR_NODE}` - ID of the node that failed
+- `${LAST_ERROR_TYPE}` - Type of the failed node
+
+## What's Next?
+
+<div className="not-prose mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+  <a href="/components/trigger" className="rounded-xl border border-zinc-200 p-4 hover:border-emerald-500 dark:border-zinc-800">
+    <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">Explore Triggers</h3>
+    <p className="mt-1 text-xs text-zinc-500">Start workflows with manual, scheduled, or webhook triggers</p>
+  </a>
+  <a href="/components/excel" className="rounded-xl border border-zinc-200 p-4 hover:border-emerald-500 dark:border-zinc-800">
+    <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">Excel Components</h3>
+    <p className="mt-1 text-xs text-zinc-500">Read, write, and manipulate Excel spreadsheets</p>
+  </a>
+  <a href="/dsl" className="rounded-xl border border-zinc-200 p-4 hover:border-emerald-500 dark:border-zinc-800">
+    <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">DSL Reference</h3>
+    <p className="mt-1 text-xs text-zinc-500">Understand the JSON format that powers workflows</p>
+  </a>
+  <a href="/variables" className="rounded-xl border border-zinc-200 p-4 hover:border-emerald-500 dark:border-zinc-800">
+    <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">Variable System</h3>
+    <p className="mt-1 text-xs text-zinc-500">Learn how to pass data between components</p>
+  </a>
+</div>

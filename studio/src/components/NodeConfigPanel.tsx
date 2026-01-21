@@ -768,8 +768,32 @@ export default function NodeConfigPanel() {
                   return null;
                 }
 
+                // Handle visibleWhen conditional visibility
+                if (field.visibleWhen) {
+                  const dependentFieldValue = node.data.config[field.visibleWhen.field];
+                  const expectedValue = field.visibleWhen.value;
+
+                  // Check if the dependent field matches the expected value
+                  if (Array.isArray(expectedValue)) {
+                    // If expectedValue is an array, check if current value is in the array
+                    if (!expectedValue.includes(dependentFieldValue)) {
+                      return null;
+                    }
+                  } else {
+                    // Single value comparison
+                    if (dependentFieldValue !== expectedValue) {
+                      return null;
+                    }
+                  }
+                }
+
+                // Generate unique key for fields with same name but different visibleWhen
+                const fieldKey = field.visibleWhen
+                  ? `${field.name}-${Array.isArray(field.visibleWhen.value) ? field.visibleWhen.value.join('-') : field.visibleWhen.value}`
+                  : field.name;
+
                 return (
-                <div key={field.name} className="space-y-2">
+                <div key={fieldKey} className="space-y-2">
                   <Label htmlFor={field.name} className="text-sm font-medium">
                     {field.label}
                     {field.required && <span className="text-red-500 ml-1">*</span>}

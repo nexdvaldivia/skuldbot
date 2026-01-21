@@ -1,0 +1,995 @@
+export const metadata = {
+  title: 'File Operations',
+  description: 'Components for reading, writing, and managing files on the filesystem.',
+}
+
+export const sections = [
+  { title: 'Read File', id: 'files-read' },
+  { title: 'Write File', id: 'files-write' },
+  { title: 'Copy File', id: 'files-copy' },
+  { title: 'Move File', id: 'files-move' },
+  { title: 'Delete File', id: 'files-delete' },
+  { title: 'Create Folder', id: 'files-create_folder' },
+  { title: 'List Files', id: 'files-list' },
+  { title: 'File Exists', id: 'files-exists' },
+  { title: 'Create ZIP', id: 'files-zip' },
+  { title: 'Extract ZIP', id: 'files-unzip' },
+  { title: 'Get File Info', id: 'files-get_info' },
+  { title: 'Watch Folder', id: 'files-watch' },
+]
+
+# File Operations
+
+Components for reading, writing, and managing files on the filesystem. {{ className: 'lead' }}
+
+<Note>
+  This category contains **12 components**. See also: [Excel](/components/excel) · [Document Processing](/components/document) · [Data Transform](/components/data)
+</Note>
+
+## Common Use Cases
+
+- Read and write text files
+- Process CSV data
+- Manage directories
+- Copy, move, and delete files
+
+---
+
+## Read File {{ id: 'files-read' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-input"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M4 11V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.706.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M2 15h10" />
+  <path d="m9 18 3-3-3-3" />
+</svg>
+`} label="Read File" description="Read file contents" bgColor="#ffedd5" textColor="#c2410c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `files.read`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Read configuration files (JSON, YAML, INI)
+- Load text templates for email generation
+- Read CSV data for processing
+- Load scripts or queries from files
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    File Path
+  </Property>
+  <Property name="encoding" type="select">
+    Encoding Default: `utf-8`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Read File.variableName}`.
+
+<Properties>
+  <Property name="content" type="string">
+    File contents
+  </Property>
+  <Property name="size" type="number">
+    File size in bytes
+  </Property>
+  <Property name="path" type="string">
+    Full file path
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "files.read",
+  "label": "Read File",
+  "config": {
+    "path": "/data/config.json"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Write File {{ id: 'files-write' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-output"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M4.226 20.925A2 2 0 0 0 6 22h12a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v3.127" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="m5 11-3 3" />
+  <path d="m5 17-3-3h10" />
+</svg>
+`} label="Write File" description="Write to file" bgColor="#ffedd5" textColor="#c2410c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `files.write`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Save processed results to output files
+- Generate reports in various formats
+- Create log files for audit trails
+- Export data to CSV/JSON for downstream systems
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    File Path
+  </Property>
+  <Property name="content" type="textarea" required>
+    Content
+  </Property>
+  <Property name="append" type="boolean">
+    Append Mode Default: `false`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Write File.variableName}`.
+
+<Properties>
+  <Property name="path" type="string">
+    Written file path
+  </Property>
+  <Property name="bytesWritten" type="number">
+    Bytes written
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "files.write",
+  "label": "Write File",
+  "config": {
+    "path": "/output/results.json",
+    "content": "${Process Data.output}"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Copy File {{ id: 'files-copy' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-copy"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+  <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+</svg>
+`} label="Copy File" description="Copy file or folder" bgColor="#ffedd5" textColor="#c2410c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `files.copy`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Archive processed files to backup folders
+- Distribute files to multiple destinations
+- Create working copies for safe processing
+- Copy templates before modification
+
+### Configuration
+
+<Properties>
+  <Property name="source" type="text" required>
+    Source Path
+  </Property>
+  <Property name="destination" type="text" required>
+    Destination
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Copy File.variableName}`.
+
+<Properties>
+  <Property name="destination" type="string">
+    Destination path
+  </Property>
+  <Property name="copied" type="boolean">
+    Copy successful
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "files.copy",
+  "label": "Copy File",
+  "config": {
+    "source": "/inbox/file.pdf",
+    "destination": "/processed/file.pdf"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Move File {{ id: 'files-move' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-folder-input"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1" />
+  <path d="M2 13h10" />
+  <path d="m9 16 3-3-3-3" />
+</svg>
+`} label="Move File" description="Move or rename file" bgColor="#ffedd5" textColor="#c2410c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `files.move`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Move processed files to "completed" folder
+- Organize files into dated directories
+- Transfer files between systems
+- Clean up input folders after processing
+
+### Configuration
+
+<Properties>
+  <Property name="source" type="text" required>
+    Source Path
+  </Property>
+  <Property name="destination" type="text" required>
+    Destination
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Move File.variableName}`.
+
+<Properties>
+  <Property name="destination" type="string">
+    New file path
+  </Property>
+  <Property name="moved" type="boolean">
+    Move successful
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "files.move",
+  "label": "Move File",
+  "config": {
+    "source": "your-source",
+    "destination": "your-destination"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Delete File {{ id: 'files-delete' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-trash-2"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M10 11v6" />
+  <path d="M14 11v6" />
+  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+  <path d="M3 6h18" />
+  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+</svg>
+`} label="Delete File" description="Delete file or folder" bgColor="#ffedd5" textColor="#c2410c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `files.delete`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Remove temporary files after processing
+- Clean up old archive files
+- Delete sensitive data after use
+- Remove failed/invalid input files
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    Path
+  </Property>
+  <Property name="recursive" type="boolean">
+    Recursive (folders) Default: `false`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Delete File.variableName}`.
+
+<Properties>
+  <Property name="deleted" type="boolean">
+    Deletion successful
+  </Property>
+  <Property name="path" type="string">
+    Deleted path
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "files.delete",
+  "label": "Delete File",
+  "config": {
+    "path": "your-path",
+    "recursive": "false"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Create Folder {{ id: 'files-create_folder' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-folder-plus"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 10v6" />
+  <path d="M9 13h6" />
+  <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+</svg>
+`} label="Create Folder" description="Create new folder" bgColor="#ffedd5" textColor="#c2410c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `files.create_folder`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Create dated output directories
+- Set up folder structure for new projects
+- Ensure destination folders exist before copy
+- Organize files by category or date
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    Folder Path
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Create Folder.variableName}`.
+
+<Properties>
+  <Property name="path" type="string">
+    Created folder path
+  </Property>
+  <Property name="created" type="boolean">
+    Creation successful
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "files.create_folder",
+  "label": "Create Folder",
+  "config": {
+    "path": "your-path"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## List Files {{ id: 'files-list' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-folder-open"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2" />
+</svg>
+`} label="List Files" description="List files in folder" bgColor="#ffedd5" textColor="#c2410c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `files.list`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Find all files matching a pattern for batch processing
+- Get list of files to process in a directory
+- Monitor folders for new arrivals
+- Generate file inventories
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    Folder Path
+  </Property>
+  <Property name="pattern" type="text">
+    Pattern (e.g., `*.csv`)
+  </Property>
+  <Property name="recursive" type="boolean">
+    Recursive Default: `false`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${List Files.variableName}`.
+
+<Properties>
+  <Property name="files" type="array">
+    List of file paths
+  </Property>
+  <Property name="count" type="number">
+    Number of files found
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "files.list",
+  "label": "List Files",
+  "config": {
+    "path": "your-path",
+    "pattern": "*.csv",
+    "recursive": "false"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## File Exists {{ id: 'files-exists' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-search"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <circle cx="11.5" cy="14.5" r="2.5" />
+  <path d="M13.3 16.3 15 18" />
+</svg>
+`} label="File Exists" description="Check if file exists" bgColor="#ffedd5" textColor="#c2410c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `files.exists`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Check if required input files are present
+- Verify processing prerequisites
+- Conditional logic based on file presence
+- Avoid overwriting existing files
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    File Path
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${File Exists.variableName}`.
+
+<Properties>
+  <Property name="exists" type="boolean">
+    Whether file exists
+  </Property>
+  <Property name="isFile" type="boolean">
+    Is a file (not folder)
+  </Property>
+  <Property name="isDirectory" type="boolean">
+    Is a directory
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "files.exists",
+  "label": "File Exists",
+  "config": {
+    "path": "your-path"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Create ZIP {{ id: 'files-zip' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-archive"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="20" height="5" x="2" y="3" rx="1" />
+  <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+  <path d="M10 12h4" />
+</svg>
+`} label="Create ZIP" description="Compress files to ZIP" bgColor="#ffedd5" textColor="#c2410c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `files.zip`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Compress multiple files for email attachment
+- Archive completed batches
+- Reduce storage space for backups
+- Package deliverables for distribution
+
+### Configuration
+
+<Properties>
+  <Property name="source" type="text" required>
+    Source Path
+  </Property>
+  <Property name="destination" type="text" required>
+    ZIP Path
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Create ZIP.variableName}`.
+
+<Properties>
+  <Property name="path" type="string">
+    Created ZIP path
+  </Property>
+  <Property name="size" type="number">
+    ZIP file size
+  </Property>
+  <Property name="filesCount" type="number">
+    Number of files compressed
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "files.zip",
+  "label": "Create ZIP",
+  "config": {
+    "source": "your-source",
+    "destination": "your-destination"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Extract ZIP {{ id: 'files-unzip' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-folder-archive"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <circle cx="15" cy="19" r="2" />
+  <path d="M20.9 19.8A2 2 0 0 0 22 18V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h5.1" />
+  <path d="M15 11v-1" />
+  <path d="M15 17v-2" />
+</svg>
+`} label="Extract ZIP" description="Extract ZIP archive" bgColor="#ffedd5" textColor="#c2410c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `files.unzip`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Extract uploaded archive files
+- Decompress downloaded packages
+- Access individual files from compressed backups
+- Process zip attachments from emails
+
+### Configuration
+
+<Properties>
+  <Property name="source" type="text" required>
+    ZIP Path
+  </Property>
+  <Property name="destination" type="text" required>
+    Extract To
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Extract ZIP.variableName}`.
+
+<Properties>
+  <Property name="path" type="string">
+    Extraction folder path
+  </Property>
+  <Property name="files" type="array">
+    List of extracted files
+  </Property>
+  <Property name="filesCount" type="number">
+    Number of files extracted
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "files.unzip",
+  "label": "Extract ZIP",
+  "config": {
+    "source": "your-source",
+    "destination": "your-destination"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Get File Info {{ id: 'files-get_info' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-text"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M10 9H8" />
+  <path d="M16 13H8" />
+  <path d="M16 17H8" />
+</svg>
+`} label="Get File Info" description="Get file metadata" bgColor="#ffedd5" textColor="#c2410c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `files.get_info`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Check file size before processing large files
+- Get modification date for version control
+- Verify file type before processing
+- Audit file metadata
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    File Path
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Get File Info.variableName}`.
+
+<Properties>
+  <Property name="name" type="string">
+    File name
+  </Property>
+  <Property name="size" type="number">
+    File size in bytes
+  </Property>
+  <Property name="extension" type="string">
+    File extension
+  </Property>
+  <Property name="created" type="string">
+    Creation timestamp
+  </Property>
+  <Property name="modified" type="string">
+    Last modified timestamp
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "files.get_info",
+  "label": "Get File Info",
+  "config": {
+    "path": "your-path"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Watch Folder {{ id: 'files-watch' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-eye"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+  <circle cx="12" cy="12" r="3" />
+</svg>
+`} label="Watch Folder" description="Monitor folder for changes" bgColor="#ffedd5" textColor="#c2410c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `files.watch`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Monitor hot folders for new files
+- React to file system changes
+- Implement file-based triggers
+- Watch for completion signals
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    Folder Path
+  </Property>
+  <Property name="pattern" type="text">
+    File Pattern (e.g., `*.*`)
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Watch Folder.variableName}`.
+
+<Properties>
+  <Property name="changedFile" type="string">
+    Path of changed file
+  </Property>
+  <Property name="event" type="string">
+    Event type: created, modified, deleted
+  </Property>
+  <Property name="timestamp" type="string">
+    When change occurred
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "files.watch",
+  "label": "Watch Folder",
+  "config": {
+    "path": "your-path",
+    "pattern": "*.*"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+

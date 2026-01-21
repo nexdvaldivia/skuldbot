@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+
+{% block title %}Configuration - SkuldBot Runner{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Configuration</h1>
+            <p class="text-gray-500 mt-1">Configure your runner connection and settings</p>
+        </div>
+    </div>
+
+    <!-- Connection Settings -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-900">Orchestrator Connection</h2>
+            <p class="text-sm text-gray-500 mt-1">Connect this runner to your Orchestrator instance</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div>
+                <label for="orchestrator-url" class="block text-sm font-medium text-gray-700">Orchestrator URL</label>
+                <input type="url" id="orchestrator-url" name="orchestrator_url"
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                       placeholder="https://orchestrator.example.com">
+                <p class="mt-1 text-sm text-gray-500">The URL of your SkuldBot Orchestrator API</p>
+            </div>
+
+            <div>
+                <label for="api-key" class="block text-sm font-medium text-gray-700">API Key</label>
+                <div class="mt-1 flex rounded-md shadow-sm">
+                    <input type="password" id="api-key" name="api_key"
+                           class="block w-full rounded-l-md border-gray-300 focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                           placeholder="skr_...">
+                    <button type="button" onclick="toggleApiKeyVisibility()"
+                            class="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm hover:bg-gray-100">
+                        <svg id="eye-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                    </button>
+                </div>
+                <p class="mt-1 text-sm text-gray-500">
+                    Get this from the Orchestrator UI when registering a new runner, or
+                    <button onclick="registerRunner()" class="text-primary-600 hover:text-primary-700 underline">register now</button>
+                </p>
+            </div>
+
+            <div class="flex items-center justify-between pt-4 border-t border-gray-200">
+                <button onclick="testConnection()" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    Test Connection
+                </button>
+                <span id="connection-test-result" class="text-sm"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Runner Identity -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-900">Runner Identity</h2>
+            <p class="text-sm text-gray-500 mt-1">How this runner identifies itself to the Orchestrator</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div>
+                <label for="runner-name" class="block text-sm font-medium text-gray-700">Runner Name</label>
+                <input type="text" id="runner-name" name="runner_name"
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                       placeholder="my-runner-01">
+                <p class="mt-1 text-sm text-gray-500">A friendly name to identify this runner</p>
+            </div>
+
+            <div>
+                <label for="labels" class="block text-sm font-medium text-gray-700">Labels</label>
+                <div id="labels-container" class="space-y-2 mt-1">
+                    <!-- Labels will be added here dynamically -->
+                </div>
+                <button type="button" onclick="addLabel()" class="mt-2 text-sm text-primary-600 hover:text-primary-700">
+                    + Add Label
+                </button>
+                <p class="mt-1 text-sm text-gray-500">Key-value pairs for routing bots to specific runners (e.g., env=production)</p>
+            </div>
+
+            <div>
+                <label for="capabilities" class="block text-sm font-medium text-gray-700">Capabilities</label>
+                <input type="text" id="capabilities" name="capabilities"
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                       placeholder="python, browser, excel, pdf">
+                <p class="mt-1 text-sm text-gray-500">Comma-separated list of capabilities this runner supports</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Polling Settings -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-900">Polling Settings</h2>
+            <p class="text-sm text-gray-500 mt-1">Control how often the runner checks for jobs</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="poll-interval" class="block text-sm font-medium text-gray-700">Poll Interval (seconds)</label>
+                    <input type="number" id="poll-interval" name="poll_interval" min="1" max="300"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                           value="5">
+                    <p class="mt-1 text-sm text-gray-500">How often to check for new jobs</p>
+                </div>
+
+                <div>
+                    <label for="heartbeat-interval" class="block text-sm font-medium text-gray-700">Heartbeat Interval (seconds)</label>
+                    <input type="number" id="heartbeat-interval" name="heartbeat_interval" min="5" max="300"
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                           value="30">
+                    <p class="mt-1 text-sm text-gray-500">How often to send heartbeat to Orchestrator</p>
+                </div>
+            </div>
+
+            <div>
+                <label for="job-timeout" class="block text-sm font-medium text-gray-700">Job Timeout (seconds)</label>
+                <input type="number" id="job-timeout" name="job_timeout" min="60" max="86400"
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                       value="3600">
+                <p class="mt-1 text-sm text-gray-500">Maximum time a job can run before being killed (default: 1 hour)</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Work Directory -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-900">Storage</h2>
+            <p class="text-sm text-gray-500 mt-1">Where the runner stores temporary files and bot packages</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div>
+                <label for="work-dir" class="block text-sm font-medium text-gray-700">Work Directory</label>
+                <input type="text" id="work-dir" name="work_dir"
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                       placeholder="/var/lib/skuldbot/work">
+                <p class="mt-1 text-sm text-gray-500">Directory for temporary execution files</p>
+            </div>
+
+            <div class="flex items-center">
+                <input type="checkbox" id="cleanup-runs" name="cleanup_runs"
+                       class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" checked>
+                <label for="cleanup-runs" class="ml-2 block text-sm text-gray-700">
+                    Clean up run directories after completion
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save button -->
+    <div class="flex justify-end space-x-4">
+        <button onclick="resetConfig()" class="px-6 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+            Reset
+        </button>
+        <button onclick="saveConfig()" class="px-6 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700">
+            Save Configuration
+        </button>
+    </div>
+</div>
+
+<!-- Register Runner Modal -->
+<div id="register-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">Register New Runner</h3>
+        </div>
+        <div class="p-6 space-y-4">
+            <p class="text-sm text-gray-600">
+                This will register a new runner with the Orchestrator and receive an API key.
+            </p>
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p class="text-sm text-yellow-800">
+                    <strong>Note:</strong> Make sure the Orchestrator URL is correct before registering.
+                </p>
+            </div>
+            <div id="register-result" class="hidden">
+                <p class="text-sm text-gray-600 mb-2">Your new API key:</p>
+                <div class="bg-gray-100 rounded p-3 font-mono text-sm break-all" id="new-api-key"></div>
+                <p class="text-xs text-red-500 mt-2">Save this key! It won't be shown again.</p>
+            </div>
+        </div>
+        <div class="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+            <button onclick="closeRegisterModal()" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+                Cancel
+            </button>
+            <button id="register-btn" onclick="doRegister()" class="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700">
+                Register
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let labelsCount = 0;
+
+    // Load config on page load
+    async function loadConfig() {
+        try {
+            const res = await fetch('/api/config');
+            const config = await res.json();
+
+            if (config.configured) {
+                document.getElementById('orchestrator-url').value = config.orchestrator_url || '';
+                document.getElementById('runner-name').value = config.runner_name || '';
+                document.getElementById('poll-interval').value = config.poll_interval || 5;
+                document.getElementById('heartbeat-interval').value = config.heartbeat_interval || 30;
+                document.getElementById('work-dir').value = config.work_dir || '';
+
+                if (config.capabilities) {
+                    document.getElementById('capabilities').value = config.capabilities.join(', ');
+                }
+
+                if (config.labels) {
+                    for (const [key, value] of Object.entries(config.labels)) {
+                        addLabel(key, value);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Failed to load config:', e);
+        }
+    }
+
+    function addLabel(key = '', value = '') {
+        labelsCount++;
+        const container = document.getElementById('labels-container');
+        const div = document.createElement('div');
+        div.className = 'flex items-center space-x-2';
+        div.id = `label-${labelsCount}`;
+        div.innerHTML = `
+            <input type="text" placeholder="key" value="${key}"
+                   class="block w-1/3 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
+            <span class="text-gray-400">=</span>
+            <input type="text" placeholder="value" value="${value}"
+                   class="block w-1/2 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
+            <button type="button" onclick="removeLabel(${labelsCount})" class="text-red-500 hover:text-red-700">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        `;
+        container.appendChild(div);
+    }
+
+    function removeLabel(id) {
+        const el = document.getElementById(`label-${id}`);
+        if (el) el.remove();
+    }
+
+    function getLabels() {
+        const labels = {};
+        const container = document.getElementById('labels-container');
+        container.querySelectorAll('div').forEach(div => {
+            const inputs = div.querySelectorAll('input');
+            if (inputs.length === 2 && inputs[0].value && inputs[1].value) {
+                labels[inputs[0].value] = inputs[1].value;
+            }
+        });
+        return labels;
+    }
+
+    function toggleApiKeyVisibility() {
+        const input = document.getElementById('api-key');
+        const icon = document.getElementById('eye-icon');
+
+        if (input.type === 'password') {
+            input.type = 'text';
+        } else {
+            input.type = 'password';
+        }
+    }
+
+    async function testConnection() {
+        const url = document.getElementById('orchestrator-url').value;
+        const apiKey = document.getElementById('api-key').value;
+        const resultEl = document.getElementById('connection-test-result');
+
+        resultEl.innerHTML = '<span class="text-gray-500">Testing...</span>';
+
+        try {
+            // Test connection via our API
+            const res = await fetch('/api/test-connection', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url, apiKey })
+            });
+
+            const result = await res.json();
+
+            if (result.success) {
+                resultEl.innerHTML = '<span class="text-green-600">✓ Connection successful</span>';
+            } else {
+                resultEl.innerHTML = `<span class="text-red-600">✗ ${result.message}</span>`;
+            }
+        } catch (e) {
+            resultEl.innerHTML = '<span class="text-red-600">✗ Failed to test connection</span>';
+        }
+    }
+
+    async function saveConfig() {
+        const config = {
+            orchestrator_url: document.getElementById('orchestrator-url').value,
+            runner_name: document.getElementById('runner-name').value,
+            labels: getLabels(),
+            capabilities: document.getElementById('capabilities').value.split(',').map(s => s.trim()).filter(s => s),
+            poll_interval: parseInt(document.getElementById('poll-interval').value),
+            heartbeat_interval: parseInt(document.getElementById('heartbeat-interval').value),
+        };
+
+        try {
+            const res = await fetch('/api/config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config)
+            });
+
+            const result = await res.json();
+
+            if (result.success) {
+                alert('Configuration saved successfully! Restart the runner for changes to take effect.');
+            } else {
+                alert('Failed to save: ' + result.message);
+            }
+        } catch (e) {
+            alert('Failed to save configuration: ' + e.message);
+        }
+    }
+
+    function resetConfig() {
+        if (confirm('Reset all configuration to defaults?')) {
+            loadConfig();
+        }
+    }
+
+    function registerRunner() {
+        document.getElementById('register-modal').classList.remove('hidden');
+        document.getElementById('register-result').classList.add('hidden');
+        document.getElementById('register-btn').classList.remove('hidden');
+    }
+
+    function closeRegisterModal() {
+        document.getElementById('register-modal').classList.add('hidden');
+    }
+
+    async function doRegister() {
+        const url = document.getElementById('orchestrator-url').value;
+        const name = document.getElementById('runner-name').value;
+
+        if (!url) {
+            alert('Please enter the Orchestrator URL first');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url, name })
+            });
+
+            const result = await res.json();
+
+            if (result.success) {
+                document.getElementById('new-api-key').textContent = result.api_key;
+                document.getElementById('register-result').classList.remove('hidden');
+                document.getElementById('register-btn').classList.add('hidden');
+                document.getElementById('api-key').value = result.api_key;
+            } else {
+                alert('Registration failed: ' + result.message);
+            }
+        } catch (e) {
+            alert('Registration failed: ' + e.message);
+        }
+    }
+
+    // Load config on page load
+    loadConfig();
+</script>
+{% endblock %}

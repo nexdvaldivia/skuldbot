@@ -1,0 +1,351 @@
+export const metadata = {
+  title: 'AI Planner - Generate Workflows with LLM',
+  description: 'Learn how to use the AI Planner to generate RPA workflows from natural language descriptions using OpenAI, Anthropic, or local LLMs.',
+}
+
+export const sections = [
+  { title: 'Overview', id: 'overview' },
+  { title: 'Getting Started', id: 'getting-started' },
+  { title: 'LLM Configuration', id: 'llm-configuration' },
+  { title: 'Writing Effective Prompts', id: 'prompts' },
+  { title: 'Understanding Generated Plans', id: 'plans' },
+  { title: 'Refining Your Workflow', id: 'refining' },
+  { title: 'Applying to Canvas', id: 'apply' },
+  { title: 'Available Node Types', id: 'nodes' },
+]
+
+# AI Planner
+
+Generate complete RPA workflows from natural language descriptions using AI. {{ className: 'lead' }}
+
+<Note>
+  The AI Planner requires the **SkuldAI** license module. Contact sales for licensing options.
+</Note>
+
+---
+
+## Overview {{ id: 'overview' }}
+
+The AI Planner is a powerful feature that enables you to describe what you want to automate in plain language, and have an LLM generate a complete workflow plan that you can apply directly to the canvas.
+
+**Key capabilities:**
+
+- Generate multi-step workflows from natural language
+- Choose from OpenAI, Anthropic Claude, or local LLMs
+- Refine and iterate on generated plans conversationally
+- Apply workflows directly to the visual canvas
+- See AI reasoning for each step
+
+---
+
+## Getting Started {{ id: 'getting-started' }}
+
+### Open the AI Planner
+
+1. In SkuldBot Studio, click the **AI Planner** button in the toolbar (or press `Ctrl+Shift+P`)
+2. A panel will slide in from the right side
+3. You'll see a text area to describe your automation
+
+### Describe Your Automation
+
+Write a clear description of what you want to automate. For example:
+
+- "Download all PDF invoices from my email and save them to a folder"
+- "Login to the company portal, download the daily sales report, and email it to the team"
+- "Read customer data from Excel, validate email addresses, and update the database"
+- "Scrape product prices from a website and save them to an Excel spreadsheet"
+
+### Generate the Plan
+
+1. Click **Generate Plan** (or press `Ctrl+Enter`)
+2. Wait for the AI to analyze your description
+3. Review the generated steps
+
+---
+
+## LLM Configuration {{ id: 'llm-configuration' }}
+
+The AI Planner supports multiple LLM providers. Configure your preferred provider before generating plans.
+
+### Supported Providers
+
+<Properties>
+  <Property name="OpenAI" type="cloud">
+    GPT-4o, GPT-4o Mini, o1, o1-mini, GPT-4 Turbo, GPT-3.5-turbo
+  </Property>
+  <Property name="Anthropic" type="cloud">
+    Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Sonnet, Claude 3 Haiku
+  </Property>
+  <Property name="Local LLMs" type="local">
+    Llama 3.1, Llama 3.2, Mistral, CodeLlama (via Ollama or LM Studio)
+  </Property>
+</Properties>
+
+### Configure a Connection
+
+1. Click the **Settings** gear icon in the AI Planner panel
+2. Click **Add Connection**
+3. Select your provider (OpenAI, Anthropic, or Local)
+4. Enter your credentials:
+
+<Collapsible title="Configure OpenAI">
+
+1. Get your API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+2. Enter a connection name (e.g., "My OpenAI")
+3. Paste your API key
+4. Click **Test Connection** to verify
+5. Click **Save**
+
+</Collapsible>
+
+<Collapsible title="Configure Anthropic Claude">
+
+1. Get your API key from [Anthropic Console](https://console.anthropic.com/)
+2. Enter a connection name (e.g., "Claude API")
+3. Paste your API key
+4. Click **Test Connection** to verify
+5. Click **Save**
+
+</Collapsible>
+
+<Collapsible title="Configure Azure AI Foundry">
+
+1. Create an Azure OpenAI resource in [Azure Portal](https://portal.azure.com)
+2. Go to [Azure AI Foundry](https://ai.azure.com) (formerly Azure AI Studio)
+3. Create a project and deploy a model (GPT-4o, GPT-4 Turbo, etc.)
+4. Get your credentials from **Project Settings > Endpoints**:
+   - **Endpoint URL**: e.g., `https://your-resource.openai.azure.com/`
+   - **API Key**: From the Keys section
+   - **Deployment Name**: The name you gave your model deployment
+5. In SkuldBot AI Planner settings:
+   - Provider: **Azure OpenAI**
+   - Connection name: e.g., "Azure GPT-4o"
+   - Endpoint: Your Azure endpoint URL
+   - API Key: Your Azure API key
+   - Deployment: Your deployment name
+   - API Version: `2024-02-15-preview` (or latest)
+6. Click **Test Connection** to verify
+
+</Collapsible>
+
+<Collapsible title="Configure Local LLM (Ollama)">
+
+1. Install [Ollama](https://ollama.ai/) on your machine
+2. Pull a model: `ollama pull llama3.1`
+3. In SkuldBot, enter connection name
+4. Set base URL to `http://localhost:11434/v1`
+5. No API key required for local LLMs
+6. Click **Test Connection** to verify
+
+</Collapsible>
+
+### Model Selection
+
+After configuring a connection, select your preferred model:
+
+- **GPT-4o** (Recommended) - Best balance of quality and speed
+- **Claude 3.5 Sonnet** - Excellent for complex workflows
+- **Llama 3.1 70B** - Best open-source option for privacy
+
+### Temperature Setting
+
+Adjust the temperature slider to control creativity:
+
+- **0.0 (Precise)** - Deterministic, consistent outputs
+- **0.5 (Balanced)** - Good mix of consistency and variation
+- **1.0 (Creative)** - More varied, experimental outputs
+
+For workflow generation, **0.3-0.5** is recommended.
+
+---
+
+## Writing Effective Prompts {{ id: 'prompts' }}
+
+The quality of generated workflows depends heavily on your prompt. Here are tips for better results:
+
+### Be Specific
+
+Instead of:
+> "Automate my emails"
+
+Write:
+> "Read unread emails from the INBOX folder that have 'Invoice' in the subject, download all PDF attachments, and save them to C:/Invoices with the sender name as filename"
+
+### Include Details
+
+Mention:
+- **Source data** (files, emails, websites, databases)
+- **Actions to perform** (read, write, click, extract)
+- **Destinations** (where to save, who to notify)
+- **Conditions** (filters, validations)
+
+### Example Prompts
+
+<Tip>
+**Invoice Processing:**
+"Read all emails from invoices@supplier.com, download PDF attachments, extract invoice number and amount using OCR, validate the amount is under $10,000, and insert into the invoices table in our PostgreSQL database"
+</Tip>
+
+<Tip>
+**Web Scraping:**
+"Open Chrome, navigate to https://example.com/products, login with credentials from vault, scrape all product names and prices from the table, and export to an Excel file named products_YYYYMMDD.xlsx"
+</Tip>
+
+<Tip>
+**Report Automation:**
+"Every day at 8 AM, query the sales database for yesterday's transactions, generate a summary grouped by region, create an Excel report with charts, and email it to the sales team distribution list"
+</Tip>
+
+---
+
+## Understanding Generated Plans {{ id: 'plans' }}
+
+After generation, the AI Planner displays a list of steps. Each step shows:
+
+### Step Components
+
+<Properties>
+  <Property name="Label" type="string">
+    Human-readable name for the step (e.g., "Open Browser")
+  </Property>
+  <Property name="Description" type="string">
+    What this step does in plain language
+  </Property>
+  <Property name="Node Type" type="string">
+    The SkuldBot component type (e.g., `web.open_browser`)
+  </Property>
+  <Property name="Configuration" type="object">
+    Pre-filled settings for the component
+  </Property>
+  <Property name="AI Reasoning" type="string">
+    Why the AI chose this step (expandable)
+  </Property>
+</Properties>
+
+### Editing Steps
+
+You can manually edit the generated plan:
+
+- **Reorder**: Drag steps up or down
+- **Edit Label**: Click the pencil icon to rename
+- **Delete**: Remove steps that aren't needed
+- **Add Step**: Click "Add step after" to insert manual steps
+
+---
+
+## Refining Your Workflow {{ id: 'refining' }}
+
+After the initial generation, you can refine the plan through conversation:
+
+### How to Refine
+
+1. In the refinement input at the bottom, type your modification request
+2. Click **Refine** or press Enter
+3. The AI will update the plan based on your feedback
+
+### Example Refinements
+
+- "Add error handling with email notifications"
+- "Remove the login step, I'm already authenticated"
+- "Use the staging database instead of production"
+- "Add a 5 second delay between each web request"
+- "Make it loop through all files in the folder"
+
+### Conversation History
+
+The AI remembers your conversation, so you can make incremental changes:
+
+1. "Generate a plan to scrape product prices"
+2. "Add a step to compare with yesterday's prices"
+3. "Send an alert if any price increased by more than 10%"
+
+---
+
+## Applying to Canvas {{ id: 'apply' }}
+
+Once satisfied with your plan:
+
+1. Click **Apply to Canvas**
+2. The workflow nodes will be added to your canvas
+3. Nodes are connected automatically with success edges
+4. The AI Planner panel closes
+
+### After Applying
+
+- Review each node's configuration in the properties panel
+- Add error handling edges (orange) where needed
+- Connect to existing nodes if merging with a workflow
+- Test with the debugger before running in production
+
+<Warning>
+Generated configurations may contain placeholder values. Always review and update credentials, file paths, and connection strings before running.
+</Warning>
+
+---
+
+## Available Node Types {{ id: 'nodes' }}
+
+The AI Planner can generate workflows using these component categories:
+
+### Triggers
+`manual`, `schedule`, `webhook`, `file_watch`, `email_received`
+
+### Web Automation
+`open_browser`, `navigate`, `click`, `fill`, `select`, `screenshot`, `extract_text`, `extract_table`, `wait`, `scroll`
+
+### Email
+`send`, `read`, `download_attachment`, `move`, `reply`
+
+### Files
+`read`, `write`, `copy`, `move`, `delete`, `zip`, `unzip`, `list`
+
+### Excel
+`open`, `read`, `write`, `add_row`, `filter`, `create`, `save`, `close`
+
+### PDF
+`read`, `extract_tables`, `merge`, `split`, `extract_images`
+
+### API
+`rest_call`, `graphql`, `soap`
+
+### Database
+`query`, `insert`, `update`, `delete`, `execute`
+
+### AI Nodes
+`llm_prompt`, `extract_data`, `summarize`, `classify`, `translate`
+
+### Control Flow
+`if`, `loop`, `for_each`, `try_catch`, `wait`, `parallel`
+
+### Logging
+`log`, `screenshot`
+
+See the full [Components Reference](/components/trigger) for detailed documentation on each node type.
+
+---
+
+## Troubleshooting
+
+<Collapsible title="No API Key Configured">
+
+If you see a mock response with only 2 steps, you need to configure an LLM connection. Click the Settings gear icon and add your API key.
+
+</Collapsible>
+
+<Collapsible title="Unknown Node Type Warnings">
+
+The AI may occasionally suggest node types that don't exist. The system will attempt fuzzy matching to find the closest valid type. Check the warnings and adjust manually if needed.
+
+</Collapsible>
+
+<Collapsible title="Plan Doesn't Start with Trigger">
+
+Every workflow needs a trigger. If the AI didn't include one, add a Manual Trigger at the beginning or use the refinement input to request one.
+
+</Collapsible>
+
+<Collapsible title="Rate Limits or Timeouts">
+
+If using cloud APIs, you may hit rate limits. Wait a moment and try again, or switch to a local LLM for unlimited generation.
+
+</Collapsible>

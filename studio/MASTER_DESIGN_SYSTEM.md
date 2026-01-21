@@ -85,11 +85,12 @@ Mono: SF Mono / Menlo / Monaco
 
 ### 3. PALETA DE COLORES PROFESIONAL
 
-#### Verde Skuldbot (Primary)
+#### Verde Skuldbot (Primary) - Emerald
 ```
-500: #4db74a (Logo base)
-600: #22c55e (Botones, acciones)
-700: #16a34a (Hover states)
+400: #35D399 (Logo base - PRIMARY)
+500: #10b981 (Hover states)
+600: #059669 (Pressed states)
+700: #047857 (Dark states)
 ```
 
 #### Grises Desaturados (Neutral)

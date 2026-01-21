@@ -63,6 +63,12 @@ const categoryStyles: Record<NodeCategory, { bg: string; border: string; icon: s
     icon: "text-violet-600",
     accent: "bg-gradient-to-r from-violet-500 to-fuchsia-500",
   },
+  vectordb: {
+    bg: "bg-purple-50",
+    border: "border-purple-200",
+    icon: "text-purple-600",
+    accent: "bg-gradient-to-r from-purple-500 to-indigo-500",
+  },
   python: {
     bg: "bg-yellow-50",
     border: "border-yellow-300",
@@ -117,6 +123,24 @@ const categoryStyles: Record<NodeCategory, { bg: string; border: string; icon: s
     icon: "text-emerald-600",
     accent: "bg-emerald-500",
   },
+  voice: {
+    bg: "bg-fuchsia-50",
+    border: "border-fuchsia-200",
+    icon: "text-fuchsia-600",
+    accent: "bg-fuchsia-500",
+  },
+  insurance: {
+    bg: "bg-lime-50",
+    border: "border-lime-200",
+    icon: "text-lime-600",
+    accent: "bg-lime-500",
+  },
+  ms365: {
+    bg: "bg-sky-50",
+    border: "border-sky-200",
+    icon: "text-sky-600",
+    accent: "bg-[#0078d4]",
+  },
 };
 
 function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
@@ -125,6 +149,32 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
   const isAI = data.category === "ai";
   const isPython = data.category === "python";
   const isTrigger = data.category === "trigger";
+  const isVectorDB = data.category === "vectordb";
+  const isAIAgent = data.nodeType === "ai.agent"; // Special handling for AI Agent with tools
+  const isVectorMemory = data.nodeType === "vectordb.memory"; // Special handling for Vector Memory node
+  const isEmbeddings = data.nodeType === "ai.embeddings"; // Special handling for Embeddings node
+  const isAIModel = data.nodeType === "ai.model"; // Special handling for AI Model node
+  const isAIConfigNode = isEmbeddings || isAIModel; // Config nodes don't have success/error handles
+  const needsEmbeddingsInput = isVectorMemory; // Only Vector Memory needs separate embeddings input (AI Agent has it in the bottom bar)
+
+  // AI nodes that need a model connection (but are NOT ai.agent which has its own bottom bar)
+  const AI_TASK_NODES = [
+    "ai.extract_data",
+    "ai.summarize",
+    "ai.classify",
+    "ai.translate",
+    "ai.sentiment",
+    "ai.vision",
+    "ai.repair_data",
+    "ai.suggest_repairs",
+  ];
+  const isAITaskNode = AI_TASK_NODES.includes(data.nodeType);
+
+  // MS365 connection nodes
+  const isMS365Connection = data.nodeType === "ms365.connection";
+  const isMS365Trigger = data.nodeType === "trigger.ms365_email";
+  // Config nodes that only have connection output (no success/error)
+  const isConnectionConfigNode = isMS365Connection;
 
   // Get validation issues for this node
   const { getNodeIssues } = useValidationStore();
@@ -231,8 +281,8 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
         </div>
       )}
 
-      {/* Input Handle - NOT shown for triggers */}
-      {!isTrigger && (
+      {/* Input Handle - NOT shown for triggers or AI config nodes */}
+      {!isTrigger && !isAIConfigNode && (
         <Handle
           type="target"
           position={Position.Left}
@@ -240,8 +290,129 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
         />
       )}
 
+      {/* Tool Output Handle - Shown on top of nodes that can be used as tools (not on triggers, AI agents, vector memory, or AI config nodes) */}
+      {!isTrigger && !isAIAgent && !isVectorMemory && !isAIConfigNode && (
+        <div className="absolute top-0 left-0 right-0 flex justify-center">
+          <Handle
+            type="source"
+            position={Position.Top}
+            id="tool-out"
+            className="!w-3.5 !h-3.5 !-top-[7px] !bg-violet-400 !border-[3px] !border-white !shadow-sm hover:!bg-violet-500 !transition-all !rounded-md opacity-50 hover:opacity-100"
+            title="Connect as tool to AI Agent"
+          />
+        </div>
+      )}
+
+      {/* Memory Output Handle - Only shown for Vector Memory node (on TOP) */}
+      {isVectorMemory && (
+        <div className="absolute top-0 left-0 right-0 flex justify-center">
+          <div className="relative flex flex-col items-center">
+            <Handle
+              type="source"
+              position={Position.Top}
+              id="memory-out"
+              className="!w-4 !h-4 !-top-[8px] !bg-purple-500 !border-[3px] !border-white !shadow-sm hover:!bg-purple-600 !transition-all !rounded-md"
+              title="Connect to AI Agent Memory input"
+            />
+            <span className="absolute -top-6 text-[9px] font-medium text-purple-500 whitespace-nowrap">
+              To Agent
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Embeddings Output Handle - Only shown for Embeddings node (on TOP) */}
+      {isEmbeddings && (
+        <div className="absolute top-0 left-0 right-0 flex justify-center">
+          <div className="relative flex flex-col items-center">
+            <Handle
+              type="source"
+              position={Position.Top}
+              id="embeddings-out"
+              className="!w-4 !h-4 !-top-[10px] !bg-amber-500 !border-[3px] !border-white !shadow-sm hover:!bg-amber-600 !transition-all !rounded-full"
+              title="Connect to AI Agent or Vector Memory"
+            />
+            <span className="absolute -top-7 text-[9px] font-medium text-amber-600 whitespace-nowrap">
+              To Agent/Memory
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* AI Model Output Handle - Only shown for AI Model node (on TOP) */}
+      {isAIModel && (
+        <div className="absolute top-0 left-0 right-0 flex justify-center">
+          <div className="relative flex flex-col items-center">
+            <Handle
+              type="source"
+              position={Position.Top}
+              id="model-out"
+              className="!w-4 !h-4 !-top-[10px] !bg-sky-500 !border-[3px] !border-white !shadow-sm hover:!bg-sky-600 !transition-all !rounded-full"
+              title="Connect to AI Agent"
+            />
+            <span className="absolute -top-7 text-[9px] font-medium text-sky-600 whitespace-nowrap">
+              To Agent
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* MS365 Connection Output Handle - Only shown for ms365.connection node (on TOP) */}
+      {isMS365Connection && (
+        <div className="absolute top-0 left-0 right-0 flex justify-center">
+          <div className="relative">
+            <Handle
+              type="source"
+              position={Position.Top}
+              id="connection-out"
+              className="!w-4 !h-4 !-top-[8px] !bg-[#0078d4] !border-[3px] !border-white !shadow-sm hover:!bg-[#106ebe] !transition-all !rounded-full"
+              title="Connect to MS365 nodes"
+            />
+            <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[8px] font-medium text-[#0078d4] whitespace-nowrap">
+              To MS365
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* MS365 Connection Input Handle - Shown for MS365 trigger (on BOTTOM border) */}
+      {isMS365Trigger && (
+        <div className="absolute bottom-0 left-0 right-0 flex justify-center">
+          <div className="relative">
+            <Handle
+              type="target"
+              position={Position.Bottom}
+              id="connection"
+              className="!w-4 !h-4 !-bottom-[8px] !bg-[#0078d4] !border-[3px] !border-white !shadow-sm hover:!bg-[#106ebe] !transition-all !rounded-full"
+              title="Connect MS365 Connection"
+            />
+            <span className="absolute top-2 left-1/2 -translate-x-1/2 text-[8px] font-medium text-[#0078d4] whitespace-nowrap">
+              MS365 Connection
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Embeddings Input Handle - Shown for Vector Memory (on LEFT border) */}
+      {needsEmbeddingsInput && (
+        <div className="absolute left-0 top-0 bottom-0 flex items-center">
+          <div className="relative flex flex-row items-center">
+            <Handle
+              type="target"
+              position={Position.Left}
+              id="embeddings"
+              className="!w-4 !h-4 !-left-[8px] !bg-amber-500 !border-[3px] !border-white !shadow-sm hover:!bg-amber-600 !transition-all !rounded-full"
+              title="Connect Embeddings model"
+            />
+            <span className="absolute -left-16 text-[9px] font-medium text-amber-600 whitespace-nowrap">
+              Embed
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Content */}
-      <div className={`flex items-center gap-3 px-3.5 py-3 ${isTrigger ? "pt-4" : ""}`}>
+      <div className={`flex items-center gap-3 px-3.5 py-3 ${isTrigger ? "pt-4" : ""} ${isAIAgent ? "pt-4" : ""}`}>
         {/* Icon container */}
         <div className={`
           relative flex-shrink-0 w-9 h-9 rounded-lg
@@ -249,11 +420,15 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
           flex items-center justify-center
           ${style.icon}
           ${isAI || isPython ? "ring-1 ring-violet-200" : ""}
+          ${isVectorDB ? "ring-1 ring-purple-200" : ""}
           ${isTrigger ? "ring-1 ring-emerald-200" : ""}
         `}>
           {template && <Icon name={template.icon} size={18} />}
           {(isAI || isPython) && (
             <div className={`absolute -top-1 -right-1 w-3 h-3 ${isAI ? "bg-gradient-to-r from-violet-500 to-fuchsia-500" : "bg-gradient-to-r from-blue-500 to-yellow-500"} rounded-full border-2 border-white`} />
+          )}
+          {isVectorDB && (
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full border-2 border-white" />
           )}
         </div>
 
@@ -270,27 +445,105 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
         </div>
       </div>
 
-      {/* Output Handles */}
-      <div className="absolute right-0 top-0 bottom-0 flex flex-col justify-center gap-5">
-        {/* Success Handle */}
-        <div className="relative">
-          <Handle
-            type="source"
-            position={Position.Right}
-            id="success"
-            className="!w-3.5 !h-3.5 !-right-[7px] !bg-emerald-500 !border-[3px] !border-white !shadow-sm hover:!bg-emerald-600 !transition-all"
-          />
+      {/* Output Handles - NOT shown for config nodes (AI Model, Embeddings, MS365 Connection) */}
+      {!isAIConfigNode && !isConnectionConfigNode && (
+        <div className="absolute right-0 top-0 bottom-0 flex flex-col justify-center gap-5">
+          {/* Success Handle */}
+          <div className="relative">
+            <Handle
+              type="source"
+              position={Position.Right}
+              id="success"
+              className="!w-3.5 !h-3.5 !-right-[7px] !bg-emerald-500 !border-[3px] !border-white !shadow-sm hover:!bg-emerald-600 !transition-all"
+            />
+          </div>
+          {/* Error Handle */}
+          <div className="relative">
+            <Handle
+              type="source"
+              position={Position.Right}
+              id="error"
+              className="!w-3.5 !h-3.5 !-right-[7px] !bg-orange-500 !border-[3px] !border-white !shadow-sm hover:!bg-orange-600 !transition-all"
+            />
+          </div>
         </div>
-        {/* Error Handle */}
-        <div className="relative">
-          <Handle
-            type="source"
-            position={Position.Right}
-            id="error"
-            className="!w-3.5 !h-3.5 !-right-[7px] !bg-orange-500 !border-[3px] !border-white !shadow-sm hover:!bg-orange-600 !transition-all"
-          />
+      )}
+
+      {/* AI Agent Input Handles - Model, Embed, Memory, Tools in a row at the bottom */}
+      {isAIAgent && (
+        <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-8 pb-1">
+          {/* Model Handle */}
+          <div className="relative flex flex-col items-center">
+            <Handle
+              type="target"
+              position={Position.Bottom}
+              id="model"
+              className="!w-4 !h-4 !-bottom-[10px] !bg-sky-500 !border-[3px] !border-white !shadow-sm hover:!bg-sky-600 !transition-all !rounded-full"
+              title="Connect AI Model"
+            />
+            <span className="absolute -bottom-7 text-[8px] font-medium text-sky-600 whitespace-nowrap">
+              Model
+            </span>
+          </div>
+          {/* Embeddings Handle */}
+          <div className="relative flex flex-col items-center">
+            <Handle
+              type="target"
+              position={Position.Bottom}
+              id="embeddings"
+              className="!w-4 !h-4 !-bottom-[10px] !bg-amber-500 !border-[3px] !border-white !shadow-sm hover:!bg-amber-600 !transition-all !rounded-full"
+              title="Connect Embeddings model"
+            />
+            <span className="absolute -bottom-7 text-[8px] font-medium text-amber-600 whitespace-nowrap">
+              Embed
+            </span>
+          </div>
+          {/* Memory Handle */}
+          <div className="relative flex flex-col items-center">
+            <Handle
+              type="target"
+              position={Position.Bottom}
+              id="memory"
+              className="!w-4 !h-4 !-bottom-[10px] !bg-purple-500 !border-[3px] !border-white !shadow-sm hover:!bg-purple-600 !transition-all !rounded-md"
+              title="Connect Vector Memory"
+            />
+            <span className="absolute -bottom-7 text-[8px] font-medium text-purple-500 whitespace-nowrap">
+              Memory
+            </span>
+          </div>
+          {/* Tools Handle */}
+          <div className="relative flex flex-col items-center">
+            <Handle
+              type="target"
+              position={Position.Bottom}
+              id="tools"
+              className="!w-4 !h-4 !-bottom-[10px] !bg-violet-500 !border-[3px] !border-white !shadow-sm hover:!bg-violet-600 !transition-all !rounded-md"
+              title="Connect nodes as tools"
+            />
+            <span className="absolute -bottom-7 text-[8px] font-medium text-violet-500 whitespace-nowrap">
+              Tools
+            </span>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* AI Task Nodes - Single Model Handle at the bottom center */}
+      {isAITaskNode && (
+        <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-1">
+          <div className="relative flex flex-col items-center">
+            <Handle
+              type="target"
+              position={Position.Bottom}
+              id="model"
+              className="!w-4 !h-4 !-bottom-[10px] !bg-sky-500 !border-[3px] !border-white !shadow-sm hover:!bg-sky-600 !transition-all !rounded-full"
+              title="Connect AI Model"
+            />
+            <span className="absolute -bottom-7 text-[8px] font-medium text-sky-600 whitespace-nowrap">
+              Model
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

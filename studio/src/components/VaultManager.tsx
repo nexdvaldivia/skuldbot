@@ -11,7 +11,6 @@ import {
   Plus,
   Trash2,
   Eye,
-  EyeOff,
   Copy,
   Key,
   Shield,
@@ -36,7 +35,6 @@ export default function VaultManager() {
     unlockVault,
     lockVault,
     setSecret,
-    getSecret,
     deleteSecret,
     checkVaultStatus,
     setError,
@@ -54,8 +52,6 @@ export default function VaultManager() {
     value: "",
     description: "",
   });
-  const [visibleSecrets, setVisibleSecrets] = useState<Set<string>>(new Set());
-  const [secretValues, setSecretValues] = useState<Record<string, string>>({});
 
   useEffect(() => {
     checkVaultStatus();
@@ -93,8 +89,6 @@ export default function VaultManager() {
 
   const handleLock = async () => {
     await lockVault();
-    setVisibleSecrets(new Set());
-    setSecretValues({});
     toast.info("Vault locked", "Local vault is now secured");
   };
 
@@ -118,51 +112,24 @@ export default function VaultManager() {
       const success = await deleteSecret(name);
       if (success) {
         toast.success("Secret deleted", `${name} removed from vault`);
-        setVisibleSecrets((prev) => {
-          const next = new Set(prev);
-          next.delete(name);
-          return next;
-        });
       } else {
         toast.error("Error", "Failed to delete secret");
       }
     }
   };
 
-  const toggleSecretVisibility = async (name: string) => {
-    if (visibleSecrets.has(name)) {
-      setVisibleSecrets((prev) => {
-        const next = new Set(prev);
-        next.delete(name);
-        return next;
-      });
-    } else {
-      try {
-        const value = await getSecret(name);
-        setSecretValues((prev) => ({ ...prev, [name]: value }));
-        setVisibleSecrets((prev) => new Set(prev).add(name));
-        // Auto-hide after 30 seconds
-        setTimeout(() => {
-          setVisibleSecrets((prev) => {
-            const next = new Set(prev);
-            next.delete(name);
-            return next;
-          });
-        }, 30000);
-      } catch (e) {
-        toast.error("Error", "Could not retrieve secret");
-      }
-    }
+  // SECURITY: Secret values are never returned to frontend
+  // Show info message instead
+  const toggleSecretVisibility = (_name: string) => {
+    toast.info("Security", "Secret values are not exposed to the UI. Use ${vault.name} in your bot to access them at runtime.");
   };
 
-  const copyToClipboard = async (name: string) => {
-    try {
-      const value = secretValues[name] || (await getSecret(name));
-      await navigator.clipboard.writeText(value);
-      toast.success("Copied", `${name} copied to clipboard`);
-    } catch (e) {
-      toast.error("Error", "Could not copy to clipboard");
-    }
+  // SECURITY: Secret values cannot be copied - they're resolved at runtime
+  const copyToClipboard = (name: string) => {
+    // Copy the vault reference syntax instead
+    const reference = `\${vault.${name}}`;
+    navigator.clipboard.writeText(reference);
+    toast.success("Copied", `Reference ${reference} copied. Use this in your bot config.`);
   };
 
   // Locked state - show unlock or create form
@@ -469,22 +436,16 @@ export default function VaultManager() {
                       </p>
                     )}
                     <p className="text-xs text-slate-400 mt-1 font-mono">
-                      {visibleSecrets.has(secret.name)
-                        ? secretValues[secret.name] || "Loading..."
-                        : `\${vault.${secret.name}}`}
+                      {`\${vault.${secret.name}}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-1 ml-4">
                     <button
                       onClick={() => toggleSecretVisibility(secret.name)}
                       className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600"
-                      title={visibleSecrets.has(secret.name) ? "Hide value" : "Show value"}
+                      title="Secret values are not exposed (security)"
                     >
-                      {visibleSecrets.has(secret.name) ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
+                      <Eye className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => copyToClipboard(secret.name)}

@@ -1,0 +1,9 @@
+/Users/dubielvaldivia/Documents/khipus/skuldbot/runner-app/src-tauri/target/release/deps/mac_notification_sys-1f0fafe47eb209b8.d: /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.9/src/lib.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.9/src/error.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.9/src/notification.rs
+
+/Users/dubielvaldivia/Documents/khipus/skuldbot/runner-app/src-tauri/target/release/deps/libmac_notification_sys-1f0fafe47eb209b8.rlib: /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.9/src/lib.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.9/src/error.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.9/src/notification.rs
+
+/Users/dubielvaldivia/Documents/khipus/skuldbot/runner-app/src-tauri/target/release/deps/libmac_notification_sys-1f0fafe47eb209b8.rmeta: /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.9/src/lib.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.9/src/error.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.9/src/notification.rs
+
+/Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.9/src/lib.rs:
+/Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.9/src/error.rs:
+/Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/mac-notification-sys-0.6.9/src/notification.rs:

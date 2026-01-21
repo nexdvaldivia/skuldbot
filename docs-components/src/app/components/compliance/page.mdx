@@ -1,0 +1,272 @@
+export const metadata = {
+  title: 'Compliance',
+  description: 'Components for ensuring regulatory compliance (HIPAA, SOC2, GDPR, etc.).',
+}
+
+export const sections = [
+  { title: 'Protect PII', id: 'compliance-protect_pii' },
+  { title: 'Protect PHI (HIPAA)', id: 'compliance-protect_phi' },
+  { title: 'Compliance Audit Log', id: 'compliance-audit_log' },
+]
+
+# Compliance
+
+Components for ensuring regulatory compliance (HIPAA, SOC2, GDPR, etc.). {{ className: 'lead' }}
+
+<Note>
+  This category contains **3 components**. See also: [Security & Secrets](/components/security) · [Data Quality](/components/dataquality) · [Logging](/components/logging)
+</Note>
+
+## Common Use Cases
+
+- Audit data access
+- Mask sensitive information
+- Validate compliance rules
+- Generate compliance reports
+
+---
+
+## Protect PII {{ id: 'compliance-protect_pii' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-shield-check"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+  <path d="m9 12 2 2 4-4" />
+</svg>
+`} label="Protect PII" description="Configure field-by-field PII protection with visual builder" bgColor="#ffe4e6" textColor="#be123c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `compliance.protect_pii`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="data" type="textarea" required>
+    Data to Process
+  </Property>
+  <Property name="rules" type="protection-builder">
+    Protection Rules
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Protect PII.variableName}`.
+
+<Properties>
+  <Property name="protected_data" type="object">
+    Data with protected PII fields
+  </Property>
+  <Property name="fields_processed" type="number">
+    Number of fields processed
+  </Property>
+  <Property name="audit_log" type="array">
+    Audit log of all protection operations
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "compliance.protect_pii",
+  "label": "Protect PII",
+  "config": {
+    "data": "your-data",
+    "rules": "your-rules"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Protect PHI (HIPAA) {{ id: 'compliance-protect_phi' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-heart-pulse"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5" />
+  <path d="M3.22 13H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27" />
+</svg>
+`} label="Protect PHI (HIPAA)" description="Configure field-by-field PHI protection for HIPAA compliance" bgColor="#ffe4e6" textColor="#be123c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `compliance.protect_phi`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="data" type="textarea" required>
+    Data to Process
+  </Property>
+  <Property name="rules" type="protection-builder">
+    Protection Rules
+  </Property>
+  <Property name="strict_hipaa" type="boolean">
+    Strict HIPAA Mode Default: `true`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Protect PHI (HIPAA).variableName}`.
+
+<Properties>
+  <Property name="protected_data" type="object">
+    Data with protected PHI fields
+  </Property>
+  <Property name="hipaa_compliant" type="boolean">
+    Whether result is HIPAA compliant
+  </Property>
+  <Property name="fields_processed" type="number">
+    Number of fields processed
+  </Property>
+  <Property name="hipaa_identifiers_protected" type="array">
+    List of HIPAA 18 identifiers that were protected
+  </Property>
+  <Property name="audit_log" type="array">
+    Audit log of all protection operations
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "compliance.protect_phi",
+  "label": "Protect PHI (HIPAA)",
+  "config": {
+    "data": "your-data",
+    "rules": "your-rules",
+    "strict_hipaa": "true"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Compliance Audit Log {{ id: 'compliance-audit_log' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-text"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M10 9H8" />
+  <path d="M16 13H8" />
+  <path d="M16 17H8" />
+</svg>
+`} label="Compliance Audit Log" description="Create compliance audit log entry (cannot be disabled)" bgColor="#ffe4e6" textColor="#be123c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `compliance.audit_log`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Log data access events
+- Record compliance actions
+- Track data handling
+- Create audit trails
+
+### Configuration
+
+<Properties>
+  <Property name="action" type="select" required>
+    Action
+  </Property>
+  <Property name="data_type" type="select">
+    Data Type Default: `PHI`
+  </Property>
+  <Property name="user" type="text">
+    User
+  </Property>
+  <Property name="details" type="textarea">
+    Details
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Compliance Audit Log.variableName}`.
+
+<Properties>
+  <Property name="audit_entry" type="object">
+    Created audit log entry
+  </Property>
+  <Property name="timestamp" type="string">
+    Entry timestamp
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "compliance.audit_log",
+  "label": "Compliance Audit Log",
+  "config": {
+    "action": "option",
+    "data_type": "PHI",
+    "user": "your-user",
+    "details": "your-details"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+

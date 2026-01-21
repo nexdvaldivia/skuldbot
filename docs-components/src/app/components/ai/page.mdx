@@ -1,0 +1,997 @@
+export const metadata = {
+  title: 'AI / LLM',
+  description: 'Components for integrating AI and Large Language Models. Support for OpenAI, Anthropic Claude, Azure AI Foundry, AWS Bedrock, Google Gemini, Ollama, and more.',
+}
+
+export const sections = [
+  { title: 'AI Model (Config)', id: 'ai-model' },
+  { title: 'Embeddings (Config)', id: 'ai-embeddings' },
+  { title: 'AI Agent', id: 'ai-agent' },
+  { title: 'LLM Prompt', id: 'ai-llm_prompt' },
+  { title: 'AI Extract Data', id: 'ai-extract_data' },
+  { title: 'AI Summarize', id: 'ai-summarize' },
+  { title: 'AI Classify', id: 'ai-classify' },
+  { title: 'AI Translate', id: 'ai-translate' },
+  { title: 'Sentiment Analysis', id: 'ai-sentiment' },
+  { title: 'AI Vision', id: 'ai-vision' },
+  { title: 'AI Repair Data', id: 'ai-repair_data' },
+  { title: 'AI Suggest Repairs', id: 'ai-suggest_repairs' },
+]
+
+# AI / LLM
+
+Components for integrating AI and Large Language Models. Support for OpenAI, Anthropic Claude, Azure AI Foundry, AWS Bedrock, Google Gemini, Groq, Mistral, Ollama, and more. {{ className: 'lead' }}
+
+<Note>
+  This category contains **12 components** including 2 configuration nodes. See also: [Document Processing](/components/document) · [Data Transform](/components/data) · [Voice](/components/voice) · [Vector Database](/components/vectordb)
+</Note>
+
+## Configuration Nodes (n8n-style)
+
+SkuldBot uses a visual connection system for AI configuration, similar to n8n. These **configuration nodes** don't execute directly - they provide configuration to other nodes like AI Agent.
+
+- **AI Model**: Connect to AI Agent's "Model" port to configure the LLM
+- **Embeddings**: Connect to AI Agent's "Embed" port or Vector Memory for semantic search
+
+## Common Use Cases
+
+- Build autonomous AI agents with tools and memory
+- Generate text with GPT/Claude/Gemini
+- Extract structured data from documents
+- Classify and categorize content
+- Summarize long documents
+- Translate content across languages
+
+---
+
+## AI Model (Config) {{ id: 'ai-model' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-cpu"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="16" height="16" x="4" y="4" rx="2" />
+  <rect width="6" height="6" x="9" y="9" rx="1" />
+  <path d="M15 2v2" />
+  <path d="M15 20v2" />
+  <path d="M2 15h2" />
+  <path d="M2 9h2" />
+  <path d="M20 15h2" />
+  <path d="M20 9h2" />
+  <path d="M9 2v2" />
+  <path d="M9 20v2" />
+</svg>
+`} label="AI Model" description="Configure AI/LLM model. Connect to AI Agent." bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.model`
+  </Property>
+  <Property name="node_type" type="config">
+    Configuration node (n8n-style) - does not execute, provides config to AI Agent
+  </Property>
+</Properties>
+
+### How It Works
+
+This is a **configuration node** that connects visually to the AI Agent node. Drag from the "To Agent" handle on top of this node to the "Model" port on the AI Agent.
+
+### Supported Providers
+
+| Provider | Models |
+|----------|--------|
+| **OpenAI** | GPT-4o, GPT-4o Mini, GPT-4 Turbo, GPT-4, GPT-3.5 Turbo, o1-preview, o1-mini |
+| **Anthropic** | Claude 3.5 Sonnet, Claude 3.5 Haiku, Claude 3 Opus, Claude 3 Sonnet, Claude 3 Haiku |
+| **Azure AI Foundry** | Any deployed model (requires endpoint and API version) |
+| **Ollama (Local)** | Llama 3.2, Llama 3.1, Mistral 7B, Mixtral 8x7B, Code Llama, Phi-3, Qwen 2.5 |
+| **Google** | Gemini 1.5 Pro, Gemini 1.5 Flash, Gemini 2.0 Flash |
+| **AWS Bedrock** | Claude 3.5 Sonnet/Haiku, Titan Text Premier, Llama 3.2 90B, Mistral Large |
+| **Groq** | Llama 3.3 70B, Llama 3.1 70B, Mixtral 8x7B, Gemma 2 9B |
+| **Mistral AI** | Mistral Large, Mistral Medium, Mistral Small, Codestral |
+
+### Configuration (OpenAI)
+
+<Properties>
+  <Property name="provider" type="select" required>
+    LLM Provider Default: `openai`
+  </Property>
+  <Property name="model" type="select">
+    Model Default: `gpt-4o`
+  </Property>
+  <Property name="api_key" type="secret">
+    OpenAI API Key (use `${OPENAI_API_KEY}` for env var)
+  </Property>
+  <Property name="temperature" type="number">
+    Temperature Default: `0.7`
+  </Property>
+  <Property name="max_tokens" type="number">
+    Max Tokens (optional)
+  </Property>
+</Properties>
+
+### Configuration (Azure)
+
+<Properties>
+  <Property name="provider" type="select">
+    `azure`
+  </Property>
+  <Property name="model" type="text">
+    Deployment Name (e.g., `gpt-4o`)
+  </Property>
+  <Property name="api_key" type="secret">
+    Azure API Key
+  </Property>
+  <Property name="base_url" type="text" required>
+    Azure Endpoint (e.g., `https://your-resource.services.ai.azure.com`)
+  </Property>
+  <Property name="api_version" type="text">
+    API Version Default: `2024-10-01-preview`
+  </Property>
+</Properties>
+
+### Configuration (Ollama Local)
+
+<Properties>
+  <Property name="provider" type="select">
+    `ollama`
+  </Property>
+  <Property name="model" type="select">
+    Model (e.g., `llama3.2`, `mistral`)
+  </Property>
+  <Property name="base_url" type="text">
+    Ollama URL Default: `http://localhost:11434`
+  </Property>
+</Properties>
+
+### Output Variables
+
+<Properties>
+  <Property name="provider" type="string">
+    Provider name
+  </Property>
+  <Property name="model" type="string">
+    Model being used
+  </Property>
+  <Property name="ready" type="boolean">
+    Model configured and ready
+  </Property>
+</Properties>
+
+---
+
+## Embeddings (Config) {{ id: 'ai-embeddings' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-sparkles"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z" />
+</svg>
+`} label="Embeddings" description="Configure embeddings model. Connect to Vector Memory or AI Agent." bgColor="#fef3c7" textColor="#d97706" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.embeddings`
+  </Property>
+  <Property name="node_type" type="config">
+    Configuration node (n8n-style) - does not execute, provides config to AI Agent or Vector Memory
+  </Property>
+</Properties>
+
+### How It Works
+
+This is a **configuration node** that connects visually to AI Agent (for RAG) or Vector Memory nodes. Drag from the "To Agent/Memory" handle on top of this node to:
+- AI Agent's "Embed" port for semantic search in memory
+- Vector Memory's "Embed" port for document embeddings
+
+<Warning>
+  **Important**: This node only configures the **MODEL** that generates embeddings. It does NOT configure where vectors are stored.
+  For vector storage (database, table, collection, index), use the [Vector Database](/components/vectordb) nodes.
+</Warning>
+
+### Supported Providers & Models
+
+| Provider | Model | Dimensions | Notes |
+|----------|-------|------------|-------|
+| **OpenAI** | text-embedding-3-small | 1536 | Fastest, recommended |
+| | text-embedding-3-large | 3072 | Best quality |
+| | text-embedding-ada-002 | 1536 | Legacy |
+| **Azure OpenAI** | (deployment name) | varies | Requires endpoint + API version |
+| **Ollama (Local)** | nomic-embed-text | 768 | Recommended for local |
+| | mxbai-embed-large | 1024 | High quality |
+| | all-minilm | 384 | Fast, lightweight |
+| | snowflake-arctic-embed | 1024 | Good quality |
+| **Cohere** | embed-english-v3.0 | 1024 | English only |
+| | embed-multilingual-v3.0 | 1024 | 100+ languages |
+| | embed-english-light-v3.0 | 384 | Fast, English |
+| **HuggingFace** | sentence-transformers/* | varies | Any HF model |
+| **Google Vertex AI** | textembedding-gecko@003 | 768 | |
+| | text-embedding-004 | 768 | Latest |
+| **AWS Bedrock** | amazon.titan-embed-text-v1 | 1536 | |
+| | amazon.titan-embed-text-v2 | 1024 | |
+| | cohere.embed-english-v3 | 1024 | |
+| | cohere.embed-multilingual-v3 | 1024 | 100+ languages |
+
+### Configuration (OpenAI)
+
+<Properties>
+  <Property name="provider" type="select" required>
+    Embeddings Provider Default: `openai`
+  </Property>
+  <Property name="model" type="select">
+    Model Default: `text-embedding-3-small`
+  </Property>
+  <Property name="api_key" type="secret">
+    OpenAI API Key (use `${OPENAI_API_KEY}` for env var)
+  </Property>
+  <Property name="dimension" type="number">
+    Vector Dimension (auto-detected) Default: `1536`
+  </Property>
+  <Property name="batch_size" type="number">
+    Batch Size Default: `100`
+  </Property>
+</Properties>
+
+### Configuration (Ollama Local)
+
+<Properties>
+  <Property name="provider" type="select">
+    `ollama`
+  </Property>
+  <Property name="model" type="select">
+    Model (e.g., `nomic-embed-text`)
+  </Property>
+  <Property name="base_url" type="text">
+    Ollama URL Default: `http://localhost:11434`
+  </Property>
+</Properties>
+
+### Output Variables
+
+<Properties>
+  <Property name="provider" type="string">
+    Embeddings provider name
+  </Property>
+  <Property name="model" type="string">
+    Model being used
+  </Property>
+  <Property name="dimension" type="number">
+    Vector dimension
+  </Property>
+  <Property name="ready" type="boolean">
+    Embeddings configured and ready
+  </Property>
+</Properties>
+
+---
+
+## AI Agent {{ id: 'ai-agent' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-bot"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 8V4H8" />
+  <rect width="16" height="12" x="4" y="8" rx="2" />
+  <path d="M2 14h2" />
+  <path d="M20 14h2" />
+  <path d="M15 13v2" />
+  <path d="M9 13v2" />
+</svg>
+`} label="AI Agent" description="Autonomous ReAct agent with tool execution" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.agent`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Handle complex multi-step reasoning tasks
+- Execute tools autonomously to accomplish goals
+- Conduct interactive Q&A sessions with context
+- Make decisions based on retrieved information
+- Navigate ambiguous situations with reasoning
+
+### Visual Connections (n8n-style)
+
+The AI Agent has 4 input ports at the bottom:
+
+| Port | Node Type | Purpose |
+|------|-----------|---------|
+| **Model** | AI Model | LLM configuration (required) |
+| **Embed** | Embeddings | For semantic search in memory |
+| **Memory** | Vector Memory | RAG context retrieval |
+| **Tools** | Any node | Tools the agent can call |
+
+### Configuration
+
+<Properties>
+  <Property name="name" type="text">
+    Agent Name
+  </Property>
+  <Property name="goal" type="textarea" required>
+    Goal / Task - Describe what the agent should accomplish
+  </Property>
+  <Property name="system_prompt" type="textarea">
+    System Prompt Default: `You are a helpful assistant that can use tools to accomplish tasks.`
+  </Property>
+  <Property name="max_iterations" type="number">
+    Max Iterations Default: `10`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${AI Agent.variableName}`.
+
+<Properties>
+  <Property name="result" type="string">
+    Final agent response/result
+  </Property>
+  <Property name="tool_calls" type="array">
+    List of tools called during execution
+  </Property>
+  <Property name="iterations" type="number">
+    Number of reasoning iterations
+  </Property>
+  <Property name="reasoning_trace" type="array">
+    Step-by-step reasoning trace
+  </Property>
+</Properties>
+
+### Example with Visual Connections
+
+```
+                 ┌─────────────────┐
+                 │   AI Model      │
+                 │   (OpenAI)      │
+                 └────────┬────────┘
+                          │ model-out
+       ┌──────────────────┼──────────────────┐
+       │                  ▼                  │
+       │         ┌───────────────────┐       │
+       │         │                   │       │
+       │         │    AI Agent       │       │
+       │         │                   │       │
+       │         └───────────────────┘       │
+       │          Model  Embed  Memory Tools │
+       │            ▲      ▲      ▲     ▲    │
+       └────────────┴──────┴──────┴─────┘
+                           │      │
+              ┌────────────┘      └────────────┐
+              │                                │
+    ┌─────────┴─────────┐           ┌─────────┴─────────┐
+    │   Embeddings      │           │  Vector Memory    │
+    │   (OpenAI)        │           │  (Pinecone)       │
+    └───────────────────┘           └───────────────────┘
+```
+
+---
+
+## LLM Prompt {{ id: 'ai-llm_prompt' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-sparkles"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z" />
+  <path d="M20 2v4" />
+  <path d="M22 4h-4" />
+  <circle cx="4" cy="20" r="2" />
+</svg>
+`} label="LLM Prompt" description="Send prompt to LLM" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.llm_prompt`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Generate email responses based on context
+- Summarize long documents
+- Answer questions about extracted data
+- Create natural language reports
+- Simple one-shot LLM calls (use AI Agent for complex tasks)
+
+### Configuration
+
+<Properties>
+  <Property name="provider" type="select">
+    Provider Default: `openai`
+  </Property>
+  <Property name="model" type="text">
+    Model Default: `gpt-4`
+  </Property>
+  <Property name="prompt" type="textarea" required>
+    Prompt (supports expressions like `${Read Excel.data}`)
+  </Property>
+  <Property name="system_prompt" type="textarea">
+    System Prompt
+  </Property>
+  <Property name="temperature" type="number">
+    Temperature Default: `0.7`
+  </Property>
+</Properties>
+
+### Output Variables
+
+<Properties>
+  <Property name="response" type="string">
+    LLM response text
+  </Property>
+  <Property name="tokens" type="number">
+    Tokens used
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "ai.llm_prompt",
+  "label": "Generate Summary",
+  "config": {
+    "provider": "openai",
+    "model": "gpt-4o",
+    "prompt": "Summarize the following data:\n${Read Excel.data}",
+    "system_prompt": "You are a helpful assistant that creates concise summaries.",
+    "temperature": 0.3
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## AI Extract Data {{ id: 'ai-extract_data' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-search"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <circle cx="11.5" cy="14.5" r="2.5" />
+  <path d="M13.3 16.3 15 18" />
+</svg>
+`} label="AI Extract Data" description="Extract structured data" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.extract_data`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Extract invoice fields (vendor, amount, date)
+- Parse resumes for candidate information
+- Extract entities from contracts
+- Structure unstructured text data
+
+### Configuration
+
+<Properties>
+  <Property name="input" type="textarea" required>
+    Input Text (supports expressions)
+  </Property>
+  <Property name="schema" type="textarea" required>
+    Output Schema (JSON) - Define the structure you want
+  </Property>
+</Properties>
+
+### Output Variables
+
+<Properties>
+  <Property name="extracted" type="object">
+    Extracted data matching schema
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "ai.extract_data",
+  "label": "Extract Invoice",
+  "config": {
+    "input": "${Read PDF.text}",
+    "schema": "{\"vendor\": \"string\", \"amount\": \"number\", \"date\": \"string\", \"items\": [{\"description\": \"string\", \"quantity\": \"number\", \"price\": \"number\"}]}"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## AI Summarize {{ id: 'ai-summarize' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-text-align-start"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M21 5H3" />
+  <path d="M15 12H3" />
+  <path d="M17 19H3" />
+</svg>
+`} label="AI Summarize" description="Summarize text content" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.summarize`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Summarize meeting transcripts
+- Create executive summaries of reports
+- Condense long emails
+- Generate document abstracts
+
+### Configuration
+
+<Properties>
+  <Property name="input" type="textarea" required>
+    Input Text (supports expressions)
+  </Property>
+  <Property name="style" type="select">
+    Style Default: `concise`
+    Options: Concise, Detailed, Bullet Points
+  </Property>
+</Properties>
+
+### Output Variables
+
+<Properties>
+  <Property name="summary" type="string">
+    Summarized text
+  </Property>
+</Properties>
+
+---
+
+## AI Classify {{ id: 'ai-classify' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-tags"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M13.172 2a2 2 0 0 1 1.414.586l6.71 6.71a2.4 2.4 0 0 1 0 3.408l-4.592 4.592a2.4 2.4 0 0 1-3.408 0l-6.71-6.71A2 2 0 0 1 6 9.172V3a1 1 0 0 1 1-1z" />
+  <circle cx="10.5" cy="6.5" r=".5" fill="currentColor" />
+</svg>
+`} label="AI Classify" description="Classify text into categories" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.classify`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Categorize support tickets by type
+- Classify documents by department
+- Route emails to appropriate teams
+- Categorize expenses by type
+
+### Configuration
+
+<Properties>
+  <Property name="input" type="textarea" required>
+    Input Text (supports expressions)
+  </Property>
+  <Property name="categories" type="text" required>
+    Categories (comma separated, e.g., `billing, technical, sales, other`)
+  </Property>
+</Properties>
+
+### Output Variables
+
+<Properties>
+  <Property name="category" type="string">
+    Classified category
+  </Property>
+  <Property name="confidence" type="number">
+    Confidence score (0-1)
+  </Property>
+</Properties>
+
+---
+
+## AI Translate {{ id: 'ai-translate' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-languages"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m5 8 6 6" />
+  <path d="m4 14 6-6 2-3" />
+  <path d="M2 5h12" />
+  <path d="M7 2h1" />
+  <path d="m22 22-5-10-5 10" />
+  <path d="M14 18h6" />
+</svg>
+`} label="AI Translate" description="Translate text" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.translate`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Translate customer communications
+- Localize content for different markets
+- Translate documents for processing
+- Enable multilingual workflows
+
+### Configuration
+
+<Properties>
+  <Property name="input" type="textarea" required>
+    Input Text (supports expressions)
+  </Property>
+  <Property name="target_language" type="text" required>
+    Target Language (e.g., `Spanish`, `French`, `Japanese`)
+  </Property>
+</Properties>
+
+### Output Variables
+
+<Properties>
+  <Property name="translated" type="string">
+    Translated text
+  </Property>
+</Properties>
+
+---
+
+## Sentiment Analysis {{ id: 'ai-sentiment' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-thumbs-up"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
+  <path d="M7 10v12" />
+</svg>
+`} label="Sentiment Analysis" description="Analyze text sentiment" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.sentiment`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Analyze customer feedback sentiment
+- Monitor social media mentions
+- Evaluate survey responses
+- Detect urgent/angry communications
+
+### Configuration
+
+<Properties>
+  <Property name="input" type="textarea" required>
+    Input Text (supports expressions)
+  </Property>
+</Properties>
+
+### Output Variables
+
+<Properties>
+  <Property name="sentiment" type="string">
+    positive, negative, or neutral
+  </Property>
+  <Property name="score" type="number">
+    Sentiment score (-1 to 1)
+  </Property>
+</Properties>
+
+---
+
+## AI Vision {{ id: 'ai-vision' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-eye"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+  <circle cx="12" cy="12" r="3" />
+</svg>
+`} label="AI Vision" description="Analyze images with AI" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.vision`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Analyze product images for defects
+- Read text from screenshots (OCR)
+- Classify images by content
+- Extract data from photos
+- Analyze charts and diagrams
+
+### Configuration
+
+<Properties>
+  <Property name="image_path" type="text" required>
+    Image Path
+  </Property>
+  <Property name="prompt" type="textarea" required>
+    Question about image
+  </Property>
+</Properties>
+
+---
+
+## AI Repair Data {{ id: 'ai-repair_data' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-wrench"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z" />
+</svg>
+`} label="AI Repair Data" description="Intelligently repair data quality issues using AI" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.repair_data`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Auto-fix data quality issues
+- Correct formatting inconsistencies
+- Standardize address formats
+- Clean and normalize data
+- Use after Data Quality Validate for automated fixes
+
+### Configuration
+
+<Properties>
+  <Property name="data" type="textarea" required>
+    Data to Repair (e.g., `${EXCEL_DATA}`)
+  </Property>
+  <Property name="validation_report" type="textarea" required>
+    Validation Report (e.g., `${QUALITY_REPORT}`)
+  </Property>
+  <Property name="context" type="select">
+    Context Default: `general`
+    Options: General, Insurance, Healthcare (HIPAA), Finance
+  </Property>
+  <Property name="allow_format_normalization" type="boolean">
+    Allow Format Normalization Default: `true`
+  </Property>
+  <Property name="allow_semantic_cleanup" type="boolean">
+    Allow Semantic Cleanup Default: `true`
+  </Property>
+  <Property name="allow_value_inference" type="boolean">
+    Allow Value Inference (CAUTION) Default: `false`
+  </Property>
+  <Property name="allow_sensitive_repair" type="boolean">
+    Allow Sensitive Field Repair Default: `false`
+  </Property>
+  <Property name="min_confidence" type="number">
+    Minimum Confidence (0.0-1.0) Default: `0.9`
+  </Property>
+</Properties>
+
+### Output Variables
+
+<Properties>
+  <Property name="status" type="string">
+    Result status: repaired, partially_fixed, failed
+  </Property>
+  <Property name="original_quality" type="number">
+    Original data quality score
+  </Property>
+  <Property name="repaired_quality" type="number">
+    Quality score after repairs
+  </Property>
+  <Property name="improvement" type="number">
+    Quality improvement percentage
+  </Property>
+  <Property name="repaired_data" type="array">
+    Data with applied repairs
+  </Property>
+  <Property name="repairs" type="array">
+    List of applied repairs with confidence scores
+  </Property>
+  <Property name="issues_fixed" type="number">
+    Number of issues fixed
+  </Property>
+</Properties>
+
+---
+
+## AI Suggest Repairs {{ id: 'ai-suggest_repairs' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-lightbulb"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />
+  <path d="M9 18h6" />
+  <path d="M10 22h4" />
+</svg>
+`} label="AI Suggest Repairs" description="Preview repair suggestions without applying (for human review)" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.suggest_repairs`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Preview data fixes before applying
+- Generate repair recommendations for human review
+- Create data quality reports
+- Propose corrections for approval workflows
+
+### Configuration
+
+<Properties>
+  <Property name="data" type="textarea" required>
+    Data to Analyze (supports expressions)
+  </Property>
+  <Property name="validation_report" type="textarea" required>
+    Validation Report (supports expressions)
+  </Property>
+  <Property name="context" type="select">
+    Context Default: `general`
+    Options: General, Insurance, Healthcare, Finance
+  </Property>
+</Properties>
+
+### Output Variables
+
+<Properties>
+  <Property name="suggestion_count" type="number">
+    Total number of suggestions
+  </Property>
+  <Property name="high_confidence" type="array">
+    High confidence suggestions (&gt;= 0.9)
+  </Property>
+  <Property name="medium_confidence" type="array">
+    Medium confidence suggestions (0.7-0.9)
+  </Property>
+  <Property name="low_confidence" type="array">
+    Low confidence suggestions (&lt; 0.7)
+  </Property>
+  <Property name="estimated_quality_after_repair" type="number">
+    Estimated quality if all repairs applied
+  </Property>
+</Properties>
+
+---
+

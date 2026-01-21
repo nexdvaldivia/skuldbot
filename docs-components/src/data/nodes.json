@@ -1,0 +1,8289 @@
+[
+  {
+    "type": "trigger.file_watch",
+    "category": "trigger",
+    "label": "File Watch",
+    "description": "Trigger when file changes",
+    "icon": "Eye",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "Watch Path",
+        "type": "text",
+        "required": true,
+        "placeholder": "/path/to/folder"
+      },
+      {
+        "name": "pattern",
+        "label": "File Pattern",
+        "type": "text",
+        "required": false,
+        "placeholder": "*.csv"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "filePath",
+        "type": "string",
+        "description": "Full path of the changed file"
+      },
+      {
+        "name": "fileName",
+        "type": "string",
+        "description": "Name of the changed file"
+      },
+      {
+        "name": "event",
+        "type": "string",
+        "description": "Event type: created, modified, deleted"
+      },
+      {
+        "name": "timestamp",
+        "type": "string",
+        "description": "When the event occurred"
+      }
+    ]
+  },
+  {
+    "type": "trigger.email_received",
+    "category": "trigger",
+    "label": "Email Trigger",
+    "description": "Trigger when email received",
+    "icon": "MailOpen",
+    "configSchema": [
+      {
+        "name": "folder",
+        "label": "Mail Folder",
+        "type": "text",
+        "required": false,
+        "default": "INBOX"
+      },
+      {
+        "name": "filter",
+        "label": "Subject Filter",
+        "type": "text",
+        "required": false,
+        "placeholder": "Invoice*"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "trigger.webhook",
+    "category": "trigger",
+    "label": "Webhook Trigger",
+    "description": "Trigger via HTTP webhook",
+    "icon": "Webhook",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "Webhook Path",
+        "type": "text",
+        "required": true,
+        "placeholder": "/webhook/my-trigger"
+      },
+      {
+        "name": "method",
+        "label": "HTTP Method",
+        "type": "select",
+        "required": false,
+        "default": "POST"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "body",
+        "type": "object",
+        "description": "Request body (JSON)"
+      },
+      {
+        "name": "headers",
+        "type": "object",
+        "description": "Request headers"
+      },
+      {
+        "name": "query",
+        "type": "object",
+        "description": "Query parameters"
+      }
+    ]
+  },
+  {
+    "type": "trigger.queue",
+    "category": "trigger",
+    "label": "Queue Trigger",
+    "description": "Trigger from message queue",
+    "icon": "ListOrdered",
+    "configSchema": [
+      {
+        "name": "queue_name",
+        "label": "Queue Name",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "message",
+        "type": "object",
+        "description": "Message payload from queue"
+      },
+      {
+        "name": "messageId",
+        "type": "string",
+        "description": "Unique message identifier"
+      },
+      {
+        "name": "timestamp",
+        "type": "string",
+        "description": "When message was received"
+      }
+    ]
+  },
+  {
+    "type": "trigger.manual",
+    "category": "trigger",
+    "label": "Manual Trigger",
+    "description": "Start workflow manually",
+    "icon": "Play",
+    "configSchema": [],
+    "outputSchema": [
+      {
+        "name": "triggeredAt",
+        "type": "string",
+        "description": "Timestamp when manually triggered"
+      },
+      {
+        "name": "triggeredBy",
+        "type": "string",
+        "description": "User who triggered the workflow"
+      }
+    ]
+  },
+  {
+    "type": "trigger.form",
+    "category": "trigger",
+    "label": "Form Trigger",
+    "description": "Start workflow when form is submitted",
+    "icon": "FileText",
+    "configSchema": [
+      {
+        "name": "formTitle",
+        "label": "Form Title",
+        "type": "text",
+        "required": true,
+        "placeholder": "Contact Form"
+      },
+      {
+        "name": "formDescription",
+        "label": "Description",
+        "type": "textarea",
+        "required": false,
+        "placeholder": "Please fill out this form..."
+      },
+      {
+        "name": "submitButtonLabel",
+        "label": "Submit Button Text",
+        "type": "text",
+        "required": false,
+        "default": "Submit"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "formData",
+        "type": "object",
+        "description": "All submitted form data"
+      },
+      {
+        "name": "submissionId",
+        "type": "string",
+        "description": "Unique submission ID"
+      },
+      {
+        "name": "submittedAt",
+        "type": "string",
+        "description": "Timestamp of submission"
+      }
+    ]
+  },
+  {
+    "type": "trigger.api_polling",
+    "category": "trigger",
+    "label": "API Polling",
+    "description": "Poll an API endpoint at intervals",
+    "icon": "RefreshCw",
+    "configSchema": [
+      {
+        "name": "url",
+        "label": "API URL",
+        "type": "text",
+        "required": true,
+        "placeholder": "https://api.example.com/status"
+      },
+      {
+        "name": "method",
+        "label": "HTTP Method",
+        "type": "select",
+        "required": false,
+        "default": "GET"
+      },
+      {
+        "name": "interval",
+        "label": "Polling Interval (seconds)",
+        "type": "number",
+        "required": false,
+        "default": "60"
+      },
+      {
+        "name": "headers",
+        "label": "Headers (JSON)",
+        "type": "textarea",
+        "required": false
+      },
+      {
+        "name": "condition",
+        "label": "Trigger Condition (JSONPath)",
+        "type": "text",
+        "required": false,
+        "placeholder": "$.status == 'ready'"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "response",
+        "type": "object",
+        "description": "API response data"
+      },
+      {
+        "name": "statusCode",
+        "type": "number",
+        "description": "HTTP status code"
+      },
+      {
+        "name": "headers",
+        "type": "object",
+        "description": "Response headers"
+      }
+    ]
+  },
+  {
+    "type": "trigger.database_change",
+    "category": "trigger",
+    "label": "Database Change",
+    "description": "Trigger when database records change",
+    "icon": "DatabaseZap",
+    "configSchema": [
+      {
+        "name": "connection",
+        "label": "Connection Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "table",
+        "label": "Table Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "event",
+        "label": "Event Type",
+        "type": "select",
+        "required": false,
+        "default": "INSERT"
+      },
+      {
+        "name": "filter",
+        "label": "Filter Condition",
+        "type": "text",
+        "required": false,
+        "placeholder": "status = 'pending'"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "record",
+        "type": "object",
+        "description": "Changed record data"
+      },
+      {
+        "name": "event",
+        "type": "string",
+        "description": "Event type: INSERT, UPDATE, DELETE"
+      },
+      {
+        "name": "table",
+        "type": "string",
+        "description": "Table name"
+      },
+      {
+        "name": "timestamp",
+        "type": "string",
+        "description": "When the change occurred"
+      }
+    ]
+  },
+  {
+    "type": "trigger.storage_event",
+    "category": "trigger",
+    "label": "Storage Event",
+    "description": "Trigger on S3/MinIO storage events",
+    "icon": "HardDrive",
+    "configSchema": [
+      {
+        "name": "bucket",
+        "label": "Bucket Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "prefix",
+        "label": "Path Prefix",
+        "type": "text",
+        "required": false,
+        "placeholder": "uploads/"
+      },
+      {
+        "name": "event",
+        "label": "Event Type",
+        "type": "select",
+        "required": false,
+        "default": "ObjectCreated"
+      },
+      {
+        "name": "suffix",
+        "label": "File Suffix Filter",
+        "type": "text",
+        "required": false,
+        "placeholder": ".pdf"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "bucket",
+        "type": "string",
+        "description": "Bucket name"
+      },
+      {
+        "name": "key",
+        "type": "string",
+        "description": "Object key/path"
+      },
+      {
+        "name": "event",
+        "type": "string",
+        "description": "Event type"
+      },
+      {
+        "name": "size",
+        "type": "number",
+        "description": "Object size in bytes"
+      },
+      {
+        "name": "timestamp",
+        "type": "string",
+        "description": "When the event occurred"
+      }
+    ]
+  },
+  {
+    "type": "trigger.message_bus",
+    "category": "trigger",
+    "label": "Message Bus",
+    "description": "Trigger from Kafka/RabbitMQ/Redis",
+    "icon": "Radio",
+    "configSchema": [
+      {
+        "name": "provider",
+        "label": "Provider",
+        "type": "select",
+        "required": false,
+        "default": "rabbitmq"
+      },
+      {
+        "name": "connection",
+        "label": "Connection String",
+        "type": "text",
+        "required": true,
+        "placeholder": "amqp://localhost:5672"
+      },
+      {
+        "name": "topic",
+        "label": "Topic/Queue Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "consumer_group",
+        "label": "Consumer Group",
+        "type": "text",
+        "required": false,
+        "placeholder": "skuldbot-workers"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "message",
+        "type": "object",
+        "description": "Message payload"
+      },
+      {
+        "name": "messageId",
+        "type": "string",
+        "description": "Message identifier"
+      },
+      {
+        "name": "topic",
+        "type": "string",
+        "description": "Topic/queue name"
+      },
+      {
+        "name": "timestamp",
+        "type": "string",
+        "description": "When message was received"
+      }
+    ]
+  },
+  {
+    "type": "trigger.chat",
+    "category": "trigger",
+    "label": "Chat Trigger",
+    "description": "Trigger from chat message (Slack, Teams, Telegram)",
+    "icon": "MessageCircle",
+    "configSchema": [
+      {
+        "name": "platform",
+        "label": "Platform",
+        "type": "select",
+        "required": false,
+        "default": "slack"
+      },
+      {
+        "name": "bot_token",
+        "label": "Bot Token",
+        "type": "password",
+        "required": true
+      },
+      {
+        "name": "channel",
+        "label": "Channel/Chat ID",
+        "type": "text",
+        "required": false,
+        "placeholder": "#general or C12345678"
+      },
+      {
+        "name": "command",
+        "label": "Command Prefix",
+        "type": "text",
+        "required": false,
+        "placeholder": "/runbot"
+      },
+      {
+        "name": "mention_only",
+        "label": "Only on Mention",
+        "type": "boolean",
+        "required": false,
+        "default": "true"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "message",
+        "type": "string",
+        "description": "Chat message text"
+      },
+      {
+        "name": "sender",
+        "type": "string",
+        "description": "Username/ID of sender"
+      },
+      {
+        "name": "channel",
+        "type": "string",
+        "description": "Channel/chat ID"
+      },
+      {
+        "name": "platform",
+        "type": "string",
+        "description": "Chat platform"
+      },
+      {
+        "name": "timestamp",
+        "type": "string",
+        "description": "When message was sent"
+      }
+    ]
+  },
+  {
+    "type": "web.open_browser",
+    "category": "web",
+    "label": "Open Browser",
+    "description": "Open a web browser",
+    "icon": "Globe",
+    "configSchema": [
+      {
+        "name": "url",
+        "label": "URL",
+        "type": "text",
+        "required": true,
+        "placeholder": "https://example.com"
+      },
+      {
+        "name": "browser",
+        "label": "Browser",
+        "type": "select",
+        "required": false,
+        "default": "chromium"
+      },
+      {
+        "name": "headless",
+        "label": "Headless Mode (invisible browser)",
+        "type": "boolean",
+        "required": false,
+        "default": "false"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "title",
+        "type": "string",
+        "description": "Page title"
+      },
+      {
+        "name": "url",
+        "type": "string",
+        "description": "Current URL"
+      }
+    ]
+  },
+  {
+    "type": "web.navigate",
+    "category": "web",
+    "label": "Navigate To",
+    "description": "Navigate to URL",
+    "icon": "ExternalLink",
+    "configSchema": [
+      {
+        "name": "url",
+        "label": "URL",
+        "type": "text",
+        "required": true,
+        "placeholder": "https://example.com"
+      },
+      {
+        "name": "wait_until",
+        "label": "Wait Until",
+        "type": "select",
+        "required": false,
+        "default": "load"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "title",
+        "type": "string",
+        "description": "Page title"
+      },
+      {
+        "name": "url",
+        "type": "string",
+        "description": "Final URL after navigation"
+      }
+    ]
+  },
+  {
+    "type": "web.click",
+    "category": "web",
+    "label": "Click Element",
+    "description": "Click on an element",
+    "icon": "MousePointer2",
+    "configSchema": [
+      {
+        "name": "selector",
+        "label": "CSS Selector",
+        "type": "text",
+        "required": true,
+        "placeholder": "#button-id"
+      },
+      {
+        "name": "timeout",
+        "label": "Timeout (ms)",
+        "type": "number",
+        "required": false,
+        "default": "30000"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "clicked",
+        "type": "boolean",
+        "description": "Whether click was successful"
+      }
+    ]
+  },
+  {
+    "type": "web.type",
+    "category": "web",
+    "label": "Type Text",
+    "description": "Type text into field",
+    "icon": "Type",
+    "configSchema": [
+      {
+        "name": "selector",
+        "label": "CSS Selector",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "text",
+        "label": "Text to Type",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "clear",
+        "label": "Clear Field First",
+        "type": "boolean",
+        "required": false,
+        "default": "true"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "typed",
+        "type": "boolean",
+        "description": "Whether text was typed successfully"
+      }
+    ]
+  },
+  {
+    "type": "web.select_option",
+    "category": "web",
+    "label": "Select Option",
+    "description": "Select dropdown option",
+    "icon": "ChevronDown",
+    "configSchema": [
+      {
+        "name": "selector",
+        "label": "CSS Selector",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "value",
+        "label": "Value",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "web.get_text",
+    "category": "web",
+    "label": "Get Text",
+    "description": "Extract text from element",
+    "icon": "TextCursor",
+    "configSchema": [
+      {
+        "name": "selector",
+        "label": "CSS Selector",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "text",
+        "type": "string",
+        "description": "Extracted text content"
+      }
+    ]
+  },
+  {
+    "type": "web.get_attribute",
+    "category": "web",
+    "label": "Get Attribute",
+    "description": "Get element attribute",
+    "icon": "Tag",
+    "configSchema": [
+      {
+        "name": "selector",
+        "label": "CSS Selector",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "attribute",
+        "label": "Attribute Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "href"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "value",
+        "type": "string",
+        "description": "Attribute value"
+      }
+    ]
+  },
+  {
+    "type": "web.screenshot",
+    "category": "web",
+    "label": "Screenshot",
+    "description": "Take a screenshot",
+    "icon": "Camera",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "Save Path",
+        "type": "text",
+        "required": false,
+        "placeholder": "./screenshot.png"
+      },
+      {
+        "name": "full_page",
+        "label": "Full Page",
+        "type": "boolean",
+        "required": false,
+        "default": "false"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "path",
+        "type": "string",
+        "description": "Path to saved screenshot"
+      },
+      {
+        "name": "width",
+        "type": "number",
+        "description": "Screenshot width in pixels"
+      },
+      {
+        "name": "height",
+        "type": "number",
+        "description": "Screenshot height in pixels"
+      }
+    ]
+  },
+  {
+    "type": "web.wait_element",
+    "category": "web",
+    "label": "Wait for Element",
+    "description": "Wait for element to appear",
+    "icon": "Clock",
+    "configSchema": [
+      {
+        "name": "selector",
+        "label": "CSS Selector",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "state",
+        "label": "Wait For",
+        "type": "select",
+        "required": false,
+        "default": "visible"
+      },
+      {
+        "name": "timeout",
+        "label": "Timeout (ms)",
+        "type": "number",
+        "required": false,
+        "default": "30000"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "web.execute_js",
+    "category": "web",
+    "label": "Execute JavaScript",
+    "description": "Run JavaScript in browser",
+    "icon": "Code",
+    "configSchema": [
+      {
+        "name": "script",
+        "label": "JavaScript Code",
+        "type": "textarea",
+        "required": true,
+        "placeholder": "return document.title;"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "result",
+        "type": "any",
+        "description": "Return value from JavaScript"
+      }
+    ]
+  },
+  {
+    "type": "web.scroll",
+    "category": "web",
+    "label": "Scroll Page",
+    "description": "Scroll the page",
+    "icon": "ArrowDown",
+    "configSchema": [
+      {
+        "name": "direction",
+        "label": "Direction",
+        "type": "select",
+        "required": false,
+        "default": "down"
+      },
+      {
+        "name": "selector",
+        "label": "Element (if To Element)",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "web.handle_alert",
+    "category": "web",
+    "label": "Handle Alert",
+    "description": "Accept/dismiss alerts",
+    "icon": "AlertCircle",
+    "configSchema": [
+      {
+        "name": "action",
+        "label": "Action",
+        "type": "select",
+        "required": false,
+        "default": "accept"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "web.switch_tab",
+    "category": "web",
+    "label": "Switch Tab",
+    "description": "Switch browser tab",
+    "icon": "PanelLeft",
+    "configSchema": [
+      {
+        "name": "tab_index",
+        "label": "Tab Index",
+        "type": "number",
+        "required": false,
+        "default": "0"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "web.close_browser",
+    "category": "web",
+    "label": "Close Browser",
+    "description": "Close the browser",
+    "icon": "X",
+    "configSchema": [],
+    "outputSchema": []
+  },
+  {
+    "type": "web.download_file",
+    "category": "web",
+    "label": "Download File",
+    "description": "Download a file",
+    "icon": "Download",
+    "configSchema": [
+      {
+        "name": "url",
+        "label": "URL",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "path",
+        "label": "Save Path",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "desktop.open_app",
+    "category": "desktop",
+    "label": "Open Application",
+    "description": "Launch an application",
+    "icon": "AppWindow",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "Application Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "args",
+        "label": "Arguments",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "desktop.click",
+    "category": "desktop",
+    "label": "Desktop Click",
+    "description": "Click at coordinates or element",
+    "icon": "MousePointer",
+    "configSchema": [
+      {
+        "name": "locator",
+        "label": "Element Locator",
+        "type": "text",
+        "required": false,
+        "placeholder": "name:Button1"
+      },
+      {
+        "name": "x",
+        "label": "X Coordinate",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "y",
+        "label": "Y Coordinate",
+        "type": "number",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "desktop.type_text",
+    "category": "desktop",
+    "label": "Type Text",
+    "description": "Type text with keyboard",
+    "icon": "Keyboard",
+    "configSchema": [
+      {
+        "name": "text",
+        "label": "Text",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "interval",
+        "label": "Key Interval (ms)",
+        "type": "number",
+        "required": false,
+        "default": "50"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "desktop.hotkey",
+    "category": "desktop",
+    "label": "Send Hotkey",
+    "description": "Press keyboard shortcut",
+    "icon": "Command",
+    "configSchema": [
+      {
+        "name": "keys",
+        "label": "Key Combination",
+        "type": "text",
+        "required": true,
+        "placeholder": "ctrl+c"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "desktop.get_window",
+    "category": "desktop",
+    "label": "Get Window",
+    "description": "Find and focus window",
+    "icon": "Square",
+    "configSchema": [
+      {
+        "name": "title",
+        "label": "Window Title",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "partial_match",
+        "label": "Partial Match",
+        "type": "boolean",
+        "required": false,
+        "default": "true"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "desktop.minimize",
+    "category": "desktop",
+    "label": "Minimize Window",
+    "description": "Minimize active window",
+    "icon": "Minus",
+    "configSchema": [],
+    "outputSchema": []
+  },
+  {
+    "type": "desktop.maximize",
+    "category": "desktop",
+    "label": "Maximize Window",
+    "description": "Maximize active window",
+    "icon": "Maximize2",
+    "configSchema": [],
+    "outputSchema": []
+  },
+  {
+    "type": "desktop.close_window",
+    "category": "desktop",
+    "label": "Close Window",
+    "description": "Close active window",
+    "icon": "XSquare",
+    "configSchema": [],
+    "outputSchema": []
+  },
+  {
+    "type": "desktop.screenshot",
+    "category": "desktop",
+    "label": "Desktop Screenshot",
+    "description": "Capture screen region",
+    "icon": "Monitor",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "Save Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "region",
+        "label": "Region (x,y,w,h)",
+        "type": "text",
+        "required": false,
+        "placeholder": "0,0,1920,1080"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "desktop.image_click",
+    "category": "desktop",
+    "label": "Click Image",
+    "description": "Find and click image on screen",
+    "icon": "Image",
+    "configSchema": [
+      {
+        "name": "image_path",
+        "label": "Image Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "confidence",
+        "label": "Confidence (0-1)",
+        "type": "number",
+        "required": false,
+        "default": "0"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "desktop.wait_image",
+    "category": "desktop",
+    "label": "Wait for Image",
+    "description": "Wait for image to appear",
+    "icon": "ScanSearch",
+    "configSchema": [
+      {
+        "name": "image_path",
+        "label": "Image Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "timeout",
+        "label": "Timeout (ms)",
+        "type": "number",
+        "required": false,
+        "default": "30000"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "desktop.clipboard_copy",
+    "category": "desktop",
+    "label": "Copy to Clipboard",
+    "description": "Copy text to clipboard",
+    "icon": "Copy",
+    "configSchema": [
+      {
+        "name": "text",
+        "label": "Text",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "files.read",
+    "category": "files",
+    "label": "Read File",
+    "description": "Read file contents",
+    "icon": "FileInput",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "File Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "encoding",
+        "label": "Encoding",
+        "type": "select",
+        "required": false,
+        "default": "utf-8"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "content",
+        "type": "string",
+        "description": "File contents"
+      },
+      {
+        "name": "size",
+        "type": "number",
+        "description": "File size in bytes"
+      },
+      {
+        "name": "path",
+        "type": "string",
+        "description": "Full file path"
+      }
+    ]
+  },
+  {
+    "type": "files.write",
+    "category": "files",
+    "label": "Write File",
+    "description": "Write to file",
+    "icon": "FileOutput",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "File Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "content",
+        "label": "Content",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "append",
+        "label": "Append Mode",
+        "type": "boolean",
+        "required": false,
+        "default": "false"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "path",
+        "type": "string",
+        "description": "Written file path"
+      },
+      {
+        "name": "bytesWritten",
+        "type": "number",
+        "description": "Bytes written"
+      }
+    ]
+  },
+  {
+    "type": "files.copy",
+    "category": "files",
+    "label": "Copy File",
+    "description": "Copy file or folder",
+    "icon": "Copy",
+    "configSchema": [
+      {
+        "name": "source",
+        "label": "Source Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "destination",
+        "label": "Destination",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "destination",
+        "type": "string",
+        "description": "Destination path"
+      },
+      {
+        "name": "copied",
+        "type": "boolean",
+        "description": "Copy successful"
+      }
+    ]
+  },
+  {
+    "type": "files.move",
+    "category": "files",
+    "label": "Move File",
+    "description": "Move or rename file",
+    "icon": "FolderInput",
+    "configSchema": [
+      {
+        "name": "source",
+        "label": "Source Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "destination",
+        "label": "Destination",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "destination",
+        "type": "string",
+        "description": "New file path"
+      },
+      {
+        "name": "moved",
+        "type": "boolean",
+        "description": "Move successful"
+      }
+    ]
+  },
+  {
+    "type": "files.delete",
+    "category": "files",
+    "label": "Delete File",
+    "description": "Delete file or folder",
+    "icon": "Trash2",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "recursive",
+        "label": "Recursive (folders)",
+        "type": "boolean",
+        "required": false,
+        "default": "false"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "deleted",
+        "type": "boolean",
+        "description": "Deletion successful"
+      },
+      {
+        "name": "path",
+        "type": "string",
+        "description": "Deleted path"
+      }
+    ]
+  },
+  {
+    "type": "files.create_folder",
+    "category": "files",
+    "label": "Create Folder",
+    "description": "Create new folder",
+    "icon": "FolderPlus",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "Folder Path",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "path",
+        "type": "string",
+        "description": "Created folder path"
+      },
+      {
+        "name": "created",
+        "type": "boolean",
+        "description": "Creation successful"
+      }
+    ]
+  },
+  {
+    "type": "files.list",
+    "category": "files",
+    "label": "List Files",
+    "description": "List files in folder",
+    "icon": "FolderOpen",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "Folder Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "pattern",
+        "label": "Pattern",
+        "type": "text",
+        "required": false,
+        "placeholder": "*.csv"
+      },
+      {
+        "name": "recursive",
+        "label": "Recursive",
+        "type": "boolean",
+        "required": false,
+        "default": "false"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "files",
+        "type": "array",
+        "description": "List of file paths"
+      },
+      {
+        "name": "count",
+        "type": "number",
+        "description": "Number of files found"
+      }
+    ]
+  },
+  {
+    "type": "files.exists",
+    "category": "files",
+    "label": "File Exists",
+    "description": "Check if file exists",
+    "icon": "FileSearch",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "File Path",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "exists",
+        "type": "boolean",
+        "description": "Whether file exists"
+      },
+      {
+        "name": "isFile",
+        "type": "boolean",
+        "description": "Is a file (not folder)"
+      },
+      {
+        "name": "isDirectory",
+        "type": "boolean",
+        "description": "Is a directory"
+      }
+    ]
+  },
+  {
+    "type": "files.zip",
+    "category": "files",
+    "label": "Create ZIP",
+    "description": "Compress files to ZIP",
+    "icon": "Archive",
+    "configSchema": [
+      {
+        "name": "source",
+        "label": "Source Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "destination",
+        "label": "ZIP Path",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "path",
+        "type": "string",
+        "description": "Created ZIP path"
+      },
+      {
+        "name": "size",
+        "type": "number",
+        "description": "ZIP file size"
+      },
+      {
+        "name": "filesCount",
+        "type": "number",
+        "description": "Number of files compressed"
+      }
+    ]
+  },
+  {
+    "type": "files.unzip",
+    "category": "files",
+    "label": "Extract ZIP",
+    "description": "Extract ZIP archive",
+    "icon": "FolderArchive",
+    "configSchema": [
+      {
+        "name": "source",
+        "label": "ZIP Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "destination",
+        "label": "Extract To",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "path",
+        "type": "string",
+        "description": "Extraction folder path"
+      },
+      {
+        "name": "files",
+        "type": "array",
+        "description": "List of extracted files"
+      },
+      {
+        "name": "filesCount",
+        "type": "number",
+        "description": "Number of files extracted"
+      }
+    ]
+  },
+  {
+    "type": "files.get_info",
+    "category": "files",
+    "label": "Get File Info",
+    "description": "Get file metadata",
+    "icon": "FileText",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "File Path",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "name",
+        "type": "string",
+        "description": "File name"
+      },
+      {
+        "name": "size",
+        "type": "number",
+        "description": "File size in bytes"
+      },
+      {
+        "name": "extension",
+        "type": "string",
+        "description": "File extension"
+      },
+      {
+        "name": "created",
+        "type": "string",
+        "description": "Creation timestamp"
+      },
+      {
+        "name": "modified",
+        "type": "string",
+        "description": "Last modified timestamp"
+      }
+    ]
+  },
+  {
+    "type": "files.watch",
+    "category": "files",
+    "label": "Watch Folder",
+    "description": "Monitor folder for changes",
+    "icon": "Eye",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "Folder Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "pattern",
+        "label": "File Pattern",
+        "type": "text",
+        "required": false,
+        "placeholder": "*.*"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "changedFile",
+        "type": "string",
+        "description": "Path of changed file"
+      },
+      {
+        "name": "event",
+        "type": "string",
+        "description": "Event type: created, modified, deleted"
+      },
+      {
+        "name": "timestamp",
+        "type": "string",
+        "description": "When change occurred"
+      }
+    ]
+  },
+  {
+    "type": "excel.open",
+    "category": "excel",
+    "label": "Open Excel",
+    "description": "Open Excel workbook",
+    "icon": "FileSpreadsheet",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "File Path",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.read_range",
+    "category": "excel",
+    "label": "Read Range",
+    "description": "Read cell range",
+    "icon": "Table",
+    "configSchema": [
+      {
+        "name": "range",
+        "label": "Range",
+        "type": "text",
+        "required": false,
+        "placeholder": "A1:D100"
+      },
+      {
+        "name": "sheet",
+        "label": "Sheet",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "header",
+        "label": "First Row as Header",
+        "type": "boolean",
+        "required": false,
+        "default": "true"
+      },
+      {
+        "name": "column_names",
+        "label": "Column Names",
+        "type": "text",
+        "required": false,
+        "placeholder": "Name, Date, Status, Amount"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "data",
+        "type": "array",
+        "description": "Array of rows (objects if header=true or column_names defined)"
+      },
+      {
+        "name": "rowCount",
+        "type": "number",
+        "description": "Number of rows read"
+      }
+    ]
+  },
+  {
+    "type": "excel.write_range",
+    "category": "excel",
+    "label": "Write Range",
+    "description": "Write data to cells",
+    "icon": "Table2",
+    "configSchema": [
+      {
+        "name": "range",
+        "label": "Start Cell",
+        "type": "text",
+        "required": true,
+        "placeholder": "A1"
+      },
+      {
+        "name": "data",
+        "label": "Data (JSON)",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "sheet",
+        "label": "Sheet",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.read_cell",
+    "category": "excel",
+    "label": "Read Cell",
+    "description": "Read single cell",
+    "icon": "SquareStack",
+    "configSchema": [
+      {
+        "name": "cell",
+        "label": "Cell",
+        "type": "text",
+        "required": true,
+        "placeholder": "A1"
+      },
+      {
+        "name": "sheet",
+        "label": "Sheet",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "value",
+        "type": "any",
+        "description": "Cell value"
+      }
+    ]
+  },
+  {
+    "type": "excel.write_cell",
+    "category": "excel",
+    "label": "Write Cell",
+    "description": "Write to single cell",
+    "icon": "PenLine",
+    "configSchema": [
+      {
+        "name": "cell",
+        "label": "Cell",
+        "type": "text",
+        "required": true,
+        "placeholder": "A1"
+      },
+      {
+        "name": "value",
+        "label": "Value",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "sheet",
+        "label": "Sheet",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.add_row",
+    "category": "excel",
+    "label": "Add Row",
+    "description": "Append row to sheet",
+    "icon": "ListPlus",
+    "configSchema": [
+      {
+        "name": "data",
+        "label": "Row Data (JSON array)",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "sheet",
+        "label": "Sheet",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.filter",
+    "category": "excel",
+    "label": "Filter Data",
+    "description": "Filter Excel data",
+    "icon": "Filter",
+    "configSchema": [
+      {
+        "name": "column",
+        "label": "Column",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "condition",
+        "label": "Condition",
+        "type": "text",
+        "required": true,
+        "placeholder": "> 100"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.save",
+    "category": "excel",
+    "label": "Save Excel",
+    "description": "Save workbook",
+    "icon": "Save",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "Save Path (optional)",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.close",
+    "category": "excel",
+    "label": "Close Excel",
+    "description": "Close workbook",
+    "icon": "X",
+    "configSchema": [],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.csv_read",
+    "category": "excel",
+    "label": "Read CSV",
+    "description": "Read CSV file",
+    "icon": "FileText",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "File Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "delimiter",
+        "label": "Delimiter",
+        "type": "text",
+        "required": false,
+        "default": ","
+      },
+      {
+        "name": "header",
+        "label": "Has Header",
+        "type": "boolean",
+        "required": false,
+        "default": "true"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.csv_write",
+    "category": "excel",
+    "label": "Write CSV",
+    "description": "Write to CSV file",
+    "icon": "FileOutput",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "File Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "data",
+        "label": "Data (JSON)",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "delimiter",
+        "label": "Delimiter",
+        "type": "text",
+        "required": false,
+        "default": ","
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.pivot",
+    "category": "excel",
+    "label": "Create Pivot",
+    "description": "Create pivot table",
+    "icon": "PieChart",
+    "configSchema": [
+      {
+        "name": "source_range",
+        "label": "Source Range",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "rows",
+        "label": "Row Fields",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "values",
+        "label": "Value Fields",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.create",
+    "category": "excel",
+    "label": "Create Excel",
+    "description": "Create new workbook",
+    "icon": "FilePlus2",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "File Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "sheet_name",
+        "label": "Initial Sheet Name",
+        "type": "text",
+        "required": false,
+        "default": "Sheet1"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.create_sheet",
+    "category": "excel",
+    "label": "Create Sheet",
+    "description": "Create new worksheet",
+    "icon": "Plus",
+    "configSchema": [
+      {
+        "name": "name",
+        "label": "Sheet Name",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.delete_sheet",
+    "category": "excel",
+    "label": "Delete Sheet",
+    "description": "Delete worksheet",
+    "icon": "Trash2",
+    "configSchema": [
+      {
+        "name": "name",
+        "label": "Sheet Name",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.rename_sheet",
+    "category": "excel",
+    "label": "Rename Sheet",
+    "description": "Rename worksheet",
+    "icon": "Edit3",
+    "configSchema": [
+      {
+        "name": "old_name",
+        "label": "Current Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "new_name",
+        "label": "New Name",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.get_sheets",
+    "category": "excel",
+    "label": "Get Sheets",
+    "description": "List all worksheets",
+    "icon": "Layers",
+    "configSchema": [],
+    "outputSchema": [
+      {
+        "name": "sheets",
+        "type": "array",
+        "description": "List of sheet names"
+      }
+    ]
+  },
+  {
+    "type": "excel.delete_row",
+    "category": "excel",
+    "label": "Delete Row",
+    "description": "Delete row from sheet",
+    "icon": "RowsIcon",
+    "configSchema": [
+      {
+        "name": "row",
+        "label": "Row Number",
+        "type": "number",
+        "required": true
+      },
+      {
+        "name": "sheet",
+        "label": "Sheet",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.delete_column",
+    "category": "excel",
+    "label": "Delete Column",
+    "description": "Delete column from sheet",
+    "icon": "Columns",
+    "configSchema": [
+      {
+        "name": "column",
+        "label": "Column (e.g., A, B)",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "sheet",
+        "label": "Sheet",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.insert_row",
+    "category": "excel",
+    "label": "Insert Row",
+    "description": "Insert row at position",
+    "icon": "ListPlus",
+    "configSchema": [
+      {
+        "name": "row",
+        "label": "Row Position",
+        "type": "number",
+        "required": true
+      },
+      {
+        "name": "data",
+        "label": "Row Data (JSON array)",
+        "type": "textarea",
+        "required": false
+      },
+      {
+        "name": "sheet",
+        "label": "Sheet",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.set_format",
+    "category": "excel",
+    "label": "Set Format",
+    "description": "Apply cell formatting",
+    "icon": "PaintBucket",
+    "configSchema": [
+      {
+        "name": "range",
+        "label": "Range",
+        "type": "text",
+        "required": true,
+        "placeholder": "A1:D10"
+      },
+      {
+        "name": "bold",
+        "label": "Bold",
+        "type": "boolean",
+        "required": false,
+        "default": "false"
+      },
+      {
+        "name": "font_size",
+        "label": "Font Size",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "bg_color",
+        "label": "Background Color",
+        "type": "text",
+        "required": false,
+        "placeholder": "#FFFFFF"
+      },
+      {
+        "name": "number_format",
+        "label": "Number Format",
+        "type": "text",
+        "required": false,
+        "placeholder": "#,##0.00"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.merge_cells",
+    "category": "excel",
+    "label": "Merge Cells",
+    "description": "Merge cell range",
+    "icon": "Merge",
+    "configSchema": [
+      {
+        "name": "range",
+        "label": "Range",
+        "type": "text",
+        "required": true,
+        "placeholder": "A1:D1"
+      },
+      {
+        "name": "sheet",
+        "label": "Sheet",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.auto_filter",
+    "category": "excel",
+    "label": "Auto Filter",
+    "description": "Apply auto filter",
+    "icon": "Filter",
+    "configSchema": [
+      {
+        "name": "range",
+        "label": "Range",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "sheet",
+        "label": "Sheet",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.sort",
+    "category": "excel",
+    "label": "Sort Data",
+    "description": "Sort range data",
+    "icon": "ArrowUpDown",
+    "configSchema": [
+      {
+        "name": "range",
+        "label": "Range",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "column",
+        "label": "Sort Column",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "ascending",
+        "label": "Ascending",
+        "type": "boolean",
+        "required": false,
+        "default": "true"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.find_replace",
+    "category": "excel",
+    "label": "Find & Replace",
+    "description": "Find and replace values",
+    "icon": "SearchCode",
+    "configSchema": [
+      {
+        "name": "find",
+        "label": "Find",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "replace",
+        "label": "Replace With",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "range",
+        "label": "Range (optional)",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.create_chart",
+    "category": "excel",
+    "label": "Create Chart",
+    "description": "Create chart from data",
+    "icon": "LineChart",
+    "configSchema": [
+      {
+        "name": "data_range",
+        "label": "Data Range",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "chart_type",
+        "label": "Chart Type",
+        "type": "select",
+        "required": false,
+        "default": "bar"
+      },
+      {
+        "name": "title",
+        "label": "Chart Title",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.export_pdf",
+    "category": "excel",
+    "label": "Export to PDF",
+    "description": "Export workbook to PDF",
+    "icon": "FileDown",
+    "configSchema": [
+      {
+        "name": "output_path",
+        "label": "Output Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "sheet",
+        "label": "Sheet (optional, all if empty)",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "excel.vlookup",
+    "category": "excel",
+    "label": "VLOOKUP",
+    "description": "Perform VLOOKUP",
+    "icon": "Search",
+    "configSchema": [
+      {
+        "name": "lookup_value",
+        "label": "Lookup Value",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "table_range",
+        "label": "Table Range",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "col_index",
+        "label": "Column Index",
+        "type": "number",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "result",
+        "type": "any",
+        "description": "Found value"
+      }
+    ]
+  },
+  {
+    "type": "email.send",
+    "category": "email",
+    "label": "Send Email",
+    "description": "Send an email",
+    "icon": "Send",
+    "configSchema": [
+      {
+        "name": "to",
+        "label": "To",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "subject",
+        "label": "Subject",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "body",
+        "label": "Body",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "html",
+        "label": "HTML Body",
+        "type": "boolean",
+        "required": false,
+        "default": "false"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "email.read",
+    "category": "email",
+    "label": "Read Emails",
+    "description": "Read emails from mailbox",
+    "icon": "MailOpen",
+    "configSchema": [
+      {
+        "name": "folder",
+        "label": "Folder",
+        "type": "text",
+        "required": false,
+        "default": "INBOX"
+      },
+      {
+        "name": "filter",
+        "label": "Subject Filter",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "unread_only",
+        "label": "Unread Only",
+        "type": "boolean",
+        "required": false,
+        "default": "true"
+      },
+      {
+        "name": "limit",
+        "label": "Max Emails",
+        "type": "number",
+        "required": false,
+        "default": "10"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "email.reply",
+    "category": "email",
+    "label": "Reply to Email",
+    "description": "Reply to an email",
+    "icon": "Reply",
+    "configSchema": [
+      {
+        "name": "message_id",
+        "label": "Original Message ID",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "body",
+        "label": "Reply Body",
+        "type": "textarea",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "email.forward",
+    "category": "email",
+    "label": "Forward Email",
+    "description": "Forward an email",
+    "icon": "Forward",
+    "configSchema": [
+      {
+        "name": "message_id",
+        "label": "Original Message ID",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "to",
+        "label": "Forward To",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "email.download_attachment",
+    "category": "email",
+    "label": "Download Attachment",
+    "description": "Save email attachment",
+    "icon": "Paperclip",
+    "configSchema": [
+      {
+        "name": "message_id",
+        "label": "Message ID",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "save_path",
+        "label": "Save Path",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "email.move",
+    "category": "email",
+    "label": "Move Email",
+    "description": "Move email to folder",
+    "icon": "FolderInput",
+    "configSchema": [
+      {
+        "name": "message_id",
+        "label": "Message ID",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "folder",
+        "label": "Target Folder",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "email.delete",
+    "category": "email",
+    "label": "Delete Email",
+    "description": "Delete an email",
+    "icon": "Trash2",
+    "configSchema": [
+      {
+        "name": "message_id",
+        "label": "Message ID",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "email.mark_read",
+    "category": "email",
+    "label": "Mark as Read",
+    "description": "Mark email as read/unread",
+    "icon": "CheckCircle",
+    "configSchema": [
+      {
+        "name": "message_id",
+        "label": "Message ID",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "read",
+        "label": "Mark as Read",
+        "type": "boolean",
+        "required": false,
+        "default": "true"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "email.search",
+    "category": "email",
+    "label": "Search Emails",
+    "description": "Search emails with criteria",
+    "icon": "Search",
+    "configSchema": [
+      {
+        "name": "query",
+        "label": "Search Query",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "folder",
+        "label": "Folder",
+        "type": "text",
+        "required": false,
+        "default": "INBOX"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "email.send_smtp",
+    "category": "email",
+    "label": "Send via SMTP",
+    "description": "Send email via SMTP server",
+    "icon": "Server",
+    "configSchema": [
+      {
+        "name": "smtp_host",
+        "label": "SMTP Host",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "port",
+        "label": "Port",
+        "type": "number",
+        "required": false,
+        "default": "587"
+      },
+      {
+        "name": "username",
+        "label": "Username",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "password",
+        "label": "Password",
+        "type": "password",
+        "required": true
+      },
+      {
+        "name": "tls",
+        "label": "Use TLS",
+        "type": "boolean",
+        "required": false,
+        "default": "true"
+      },
+      {
+        "name": "to",
+        "label": "To",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "subject",
+        "label": "Subject",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "body",
+        "label": "Body",
+        "type": "textarea",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "email.send_outlook",
+    "category": "email",
+    "label": "Send via Outlook",
+    "description": "Send email via Outlook",
+    "icon": "Mail",
+    "configSchema": [
+      {
+        "name": "to",
+        "label": "To",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "cc",
+        "label": "CC",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "bcc",
+        "label": "BCC",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "subject",
+        "label": "Subject",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "body",
+        "label": "Body",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "html",
+        "label": "HTML Body",
+        "type": "boolean",
+        "required": false,
+        "default": "false"
+      },
+      {
+        "name": "attachments",
+        "label": "Attachments (paths)",
+        "type": "textarea",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "email.send_gmail",
+    "category": "email",
+    "label": "Send via Gmail",
+    "description": "Send email via Gmail API",
+    "icon": "Mail",
+    "configSchema": [
+      {
+        "name": "to",
+        "label": "To",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "subject",
+        "label": "Subject",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "body",
+        "label": "Body",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "html",
+        "label": "HTML Body",
+        "type": "boolean",
+        "required": false,
+        "default": "false"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "email.read_imap",
+    "category": "email",
+    "label": "Read via IMAP",
+    "description": "Read emails via IMAP",
+    "icon": "Inbox",
+    "configSchema": [
+      {
+        "name": "imap_host",
+        "label": "IMAP Host",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "port",
+        "label": "Port",
+        "type": "number",
+        "required": false,
+        "default": "993"
+      },
+      {
+        "name": "username",
+        "label": "Username",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "password",
+        "label": "Password",
+        "type": "password",
+        "required": true
+      },
+      {
+        "name": "ssl",
+        "label": "Use SSL",
+        "type": "boolean",
+        "required": false,
+        "default": "true"
+      },
+      {
+        "name": "folder",
+        "label": "Folder",
+        "type": "text",
+        "required": false,
+        "default": "INBOX"
+      },
+      {
+        "name": "limit",
+        "label": "Max Emails",
+        "type": "number",
+        "required": false,
+        "default": "10"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "email.create_draft",
+    "category": "email",
+    "label": "Create Draft",
+    "description": "Create email draft",
+    "icon": "FileEdit",
+    "configSchema": [
+      {
+        "name": "to",
+        "label": "To",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "subject",
+        "label": "Subject",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "body",
+        "label": "Body",
+        "type": "textarea",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "email.get_folders",
+    "category": "email",
+    "label": "Get Folders",
+    "description": "List email folders",
+    "icon": "FolderTree",
+    "configSchema": [],
+    "outputSchema": [
+      {
+        "name": "folders",
+        "type": "array",
+        "description": "List of folder names"
+      }
+    ]
+  },
+  {
+    "type": "api.http_request",
+    "category": "api",
+    "label": "HTTP Request",
+    "description": "Make HTTP request",
+    "icon": "Globe",
+    "configSchema": [
+      {
+        "name": "method",
+        "label": "Method",
+        "type": "select",
+        "required": false,
+        "default": "GET"
+      },
+      {
+        "name": "url",
+        "label": "URL",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "headers",
+        "label": "Headers (JSON)",
+        "type": "textarea",
+        "required": false
+      },
+      {
+        "name": "body",
+        "label": "Body (JSON)",
+        "type": "textarea",
+        "required": false
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "statusCode",
+        "type": "number",
+        "description": "HTTP status code"
+      },
+      {
+        "name": "body",
+        "type": "object",
+        "description": "Response body (JSON)"
+      },
+      {
+        "name": "headers",
+        "type": "object",
+        "description": "Response headers"
+      }
+    ]
+  },
+  {
+    "type": "api.graphql",
+    "category": "api",
+    "label": "GraphQL Query",
+    "description": "Execute GraphQL query",
+    "icon": "Braces",
+    "configSchema": [
+      {
+        "name": "endpoint",
+        "label": "Endpoint",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "query",
+        "label": "Query",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "variables",
+        "label": "Variables (JSON)",
+        "type": "textarea",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "api.rest_get",
+    "category": "api",
+    "label": "REST GET",
+    "description": "Simple GET request",
+    "icon": "ArrowDownToLine",
+    "configSchema": [
+      {
+        "name": "url",
+        "label": "URL",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "headers",
+        "label": "Headers (JSON)",
+        "type": "textarea",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "api.rest_post",
+    "category": "api",
+    "label": "REST POST",
+    "description": "Simple POST request",
+    "icon": "ArrowUpToLine",
+    "configSchema": [
+      {
+        "name": "url",
+        "label": "URL",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "body",
+        "label": "Body (JSON)",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "headers",
+        "label": "Headers (JSON)",
+        "type": "textarea",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "api.soap",
+    "category": "api",
+    "label": "SOAP Request",
+    "description": "Make SOAP request",
+    "icon": "FileCode",
+    "configSchema": [
+      {
+        "name": "wsdl",
+        "label": "WSDL URL",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "operation",
+        "label": "Operation",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "body",
+        "label": "XML Body",
+        "type": "textarea",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "api.oauth_token",
+    "category": "api",
+    "label": "Get OAuth Token",
+    "description": "Authenticate with OAuth",
+    "icon": "Key",
+    "configSchema": [
+      {
+        "name": "token_url",
+        "label": "Token URL",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "client_id",
+        "label": "Client ID",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "client_secret",
+        "label": "Client Secret",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "grant_type",
+        "label": "Grant Type",
+        "type": "select",
+        "required": false,
+        "default": "client_credentials"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "api.parse_json",
+    "category": "api",
+    "label": "Parse JSON",
+    "description": "Parse JSON string",
+    "icon": "Braces",
+    "configSchema": [
+      {
+        "name": "input",
+        "label": "JSON String",
+        "type": "textarea",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "api.json_path",
+    "category": "api",
+    "label": "JSONPath Query",
+    "description": "Extract with JSONPath",
+    "icon": "GitBranch",
+    "configSchema": [
+      {
+        "name": "json",
+        "label": "JSON Data",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "path",
+        "label": "JSONPath",
+        "type": "text",
+        "required": true,
+        "placeholder": "$.data[*].name"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "api.ftp_upload",
+    "category": "api",
+    "label": "FTP Upload",
+    "description": "Upload file via FTP",
+    "icon": "Upload",
+    "configSchema": [
+      {
+        "name": "host",
+        "label": "FTP Host",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "username",
+        "label": "Username",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "password",
+        "label": "Password",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "local_path",
+        "label": "Local File",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "remote_path",
+        "label": "Remote Path",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "database.connect",
+    "category": "database",
+    "label": "Connect Database",
+    "description": "Connect to database using individual credentials (supports vault references)",
+    "icon": "Database",
+    "configSchema": [
+      {
+        "name": "type",
+        "label": "Database Type",
+        "type": "select",
+        "required": false,
+        "default": "postgresql"
+      },
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "port",
+        "label": "Port",
+        "type": "number",
+        "required": false,
+        "placeholder": "5432",
+        "default": "5432"
+      },
+      {
+        "name": "database",
+        "label": "Database Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "mydb"
+      },
+      {
+        "name": "username",
+        "label": "Username",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "password",
+        "label": "Password",
+        "type": "password",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "connected",
+        "type": "boolean",
+        "description": "Connection status"
+      },
+      {
+        "name": "connectionId",
+        "type": "string",
+        "description": "Connection identifier for use in subsequent nodes"
+      },
+      {
+        "name": "database",
+        "type": "string",
+        "description": "Connected database name"
+      }
+    ]
+  },
+  {
+    "type": "database.query",
+    "category": "database",
+    "label": "Execute Query",
+    "description": "Run SQL query on connected database",
+    "icon": "Code",
+    "configSchema": [
+      {
+        "name": "connection",
+        "label": "Connection",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "query",
+        "label": "SQL Query",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "params",
+        "label": "Parameters (JSON)",
+        "type": "textarea",
+        "required": false
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "records",
+        "type": "array",
+        "description": "Query result rows"
+      },
+      {
+        "name": "columns",
+        "type": "array",
+        "description": "Column names"
+      },
+      {
+        "name": "recordCount",
+        "type": "number",
+        "description": "Number of rows returned"
+      }
+    ]
+  },
+  {
+    "type": "database.insert",
+    "category": "database",
+    "label": "Insert Row",
+    "description": "Insert data into table",
+    "icon": "Plus",
+    "configSchema": [
+      {
+        "name": "connection",
+        "label": "Connection",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "table",
+        "label": "Table Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "data",
+        "label": "Data (JSON)",
+        "type": "textarea",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "insertedId",
+        "type": "string",
+        "description": "ID of inserted row"
+      },
+      {
+        "name": "rowsAffected",
+        "type": "number",
+        "description": "Number of rows inserted"
+      }
+    ]
+  },
+  {
+    "type": "database.update",
+    "category": "database",
+    "label": "Update Rows",
+    "description": "Update table data",
+    "icon": "RefreshCw",
+    "configSchema": [
+      {
+        "name": "connection",
+        "label": "Connection",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "table",
+        "label": "Table Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "data",
+        "label": "Data (JSON)",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "where",
+        "label": "WHERE Clause",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "rowsAffected",
+        "type": "number",
+        "description": "Number of rows updated"
+      }
+    ]
+  },
+  {
+    "type": "database.delete",
+    "category": "database",
+    "label": "Delete Rows",
+    "description": "Delete from table",
+    "icon": "Trash2",
+    "configSchema": [
+      {
+        "name": "connection",
+        "label": "Connection",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "table",
+        "label": "Table Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "where",
+        "label": "WHERE Clause",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "rowsAffected",
+        "type": "number",
+        "description": "Number of rows deleted"
+      }
+    ]
+  },
+  {
+    "type": "database.call_procedure",
+    "category": "database",
+    "label": "Call Procedure",
+    "description": "Execute stored procedure",
+    "icon": "Play",
+    "configSchema": [
+      {
+        "name": "procedure",
+        "label": "Procedure Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "params",
+        "label": "Parameters (JSON)",
+        "type": "textarea",
+        "required": false
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "result",
+        "type": "object",
+        "description": "Procedure return value"
+      },
+      {
+        "name": "outParams",
+        "type": "object",
+        "description": "Output parameters"
+      }
+    ]
+  },
+  {
+    "type": "database.transaction",
+    "category": "database",
+    "label": "Transaction",
+    "description": "Start database transaction",
+    "icon": "GitMerge",
+    "configSchema": [],
+    "outputSchema": []
+  },
+  {
+    "type": "database.commit",
+    "category": "database",
+    "label": "Commit",
+    "description": "Commit transaction",
+    "icon": "Check",
+    "configSchema": [],
+    "outputSchema": []
+  },
+  {
+    "type": "database.close",
+    "category": "database",
+    "label": "Close Connection",
+    "description": "Close database connection",
+    "icon": "X",
+    "configSchema": [],
+    "outputSchema": []
+  },
+  {
+    "type": "document.pdf_read",
+    "category": "document",
+    "label": "Read PDF",
+    "description": "Extract text from PDF",
+    "icon": "FileText",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "PDF Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "pages",
+        "label": "Pages (e.g., 1-5)",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "document.pdf_merge",
+    "category": "document",
+    "label": "Merge PDFs",
+    "description": "Combine multiple PDFs",
+    "icon": "FilePlus",
+    "configSchema": [
+      {
+        "name": "files",
+        "label": "PDF Files (JSON array)",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "output",
+        "label": "Output Path",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "document.pdf_split",
+    "category": "document",
+    "label": "Split PDF",
+    "description": "Split PDF into pages",
+    "icon": "Scissors",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "PDF Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "pages",
+        "label": "Pages to Extract",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "output",
+        "label": "Output Path",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "document.pdf_to_image",
+    "category": "document",
+    "label": "PDF to Image",
+    "description": "Convert PDF to images",
+    "icon": "Image",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "PDF Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "output_dir",
+        "label": "Output Directory",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "format",
+        "label": "Image Format",
+        "type": "select",
+        "required": false,
+        "default": "png"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "document.ocr",
+    "category": "document",
+    "label": "OCR Extract",
+    "description": "Extract text with OCR",
+    "icon": "ScanLine",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "Image Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "language",
+        "label": "Language",
+        "type": "select",
+        "required": false,
+        "default": "eng"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "document.word_read",
+    "category": "document",
+    "label": "Read Word",
+    "description": "Read Word document",
+    "icon": "FileType",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "File Path",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "document.word_write",
+    "category": "document",
+    "label": "Write Word",
+    "description": "Create Word document",
+    "icon": "FileType2",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "Output Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "content",
+        "label": "Content",
+        "type": "textarea",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "document.html_to_pdf",
+    "category": "document",
+    "label": "HTML to PDF",
+    "description": "Convert HTML to PDF",
+    "icon": "FileDown",
+    "configSchema": [
+      {
+        "name": "html",
+        "label": "HTML Content or URL",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "output",
+        "label": "Output Path",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "document.pdf_fill_form",
+    "category": "document",
+    "label": "Fill PDF Form",
+    "description": "Fill PDF form fields",
+    "icon": "PenTool",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "PDF Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "fields",
+        "label": "Field Values (JSON)",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "output",
+        "label": "Output Path",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "ai.llm_prompt",
+    "category": "ai",
+    "label": "LLM Prompt",
+    "description": "Send prompt to LLM",
+    "icon": "Sparkles",
+    "configSchema": [
+      {
+        "name": "provider",
+        "label": "Provider",
+        "type": "select",
+        "required": false,
+        "default": "openai"
+      },
+      {
+        "name": "model",
+        "label": "Model",
+        "type": "text",
+        "required": false,
+        "default": "gpt-4"
+      },
+      {
+        "name": "prompt",
+        "label": "Prompt",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "system_prompt",
+        "label": "System Prompt",
+        "type": "textarea",
+        "required": false
+      },
+      {
+        "name": "temperature",
+        "label": "Temperature",
+        "type": "number",
+        "required": false,
+        "default": "0"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "response",
+        "type": "string",
+        "description": "LLM response text"
+      },
+      {
+        "name": "tokens",
+        "type": "number",
+        "description": "Tokens used"
+      }
+    ]
+  },
+  {
+    "type": "ai.agent",
+    "category": "ai",
+    "label": "AI Agent",
+    "description": "Autonomous agent executor",
+    "icon": "Bot",
+    "configSchema": [
+      {
+        "name": "name",
+        "label": "Agent Name",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "goal",
+        "label": "Goal",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "tools",
+        "label": "Available Tools",
+        "type": "textarea",
+        "required": false
+      },
+      {
+        "name": "max_iterations",
+        "label": "Max Iterations",
+        "type": "number",
+        "required": false,
+        "default": "10"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "ai.extract_data",
+    "category": "ai",
+    "label": "AI Extract Data",
+    "description": "Extract structured data",
+    "icon": "FileSearch",
+    "configSchema": [
+      {
+        "name": "input",
+        "label": "Input Text",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "schema",
+        "label": "Output Schema (JSON)",
+        "type": "textarea",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "extracted",
+        "type": "object",
+        "description": "Extracted data matching schema"
+      }
+    ]
+  },
+  {
+    "type": "ai.summarize",
+    "category": "ai",
+    "label": "AI Summarize",
+    "description": "Summarize text content",
+    "icon": "AlignLeft",
+    "configSchema": [
+      {
+        "name": "input",
+        "label": "Input Text",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "style",
+        "label": "Style",
+        "type": "select",
+        "required": false,
+        "default": "concise"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "summary",
+        "type": "string",
+        "description": "Summarized text"
+      }
+    ]
+  },
+  {
+    "type": "ai.classify",
+    "category": "ai",
+    "label": "AI Classify",
+    "description": "Classify text into categories",
+    "icon": "Tags",
+    "configSchema": [
+      {
+        "name": "input",
+        "label": "Input Text",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "categories",
+        "label": "Categories (comma separated)",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "category",
+        "type": "string",
+        "description": "Classified category"
+      },
+      {
+        "name": "confidence",
+        "type": "number",
+        "description": "Confidence score (0-1)"
+      }
+    ]
+  },
+  {
+    "type": "ai.translate",
+    "category": "ai",
+    "label": "AI Translate",
+    "description": "Translate text",
+    "icon": "Languages",
+    "configSchema": [
+      {
+        "name": "input",
+        "label": "Input Text",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "target_language",
+        "label": "Target Language",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "translated",
+        "type": "string",
+        "description": "Translated text"
+      }
+    ]
+  },
+  {
+    "type": "ai.sentiment",
+    "category": "ai",
+    "label": "Sentiment Analysis",
+    "description": "Analyze text sentiment",
+    "icon": "ThumbsUp",
+    "configSchema": [
+      {
+        "name": "input",
+        "label": "Input Text",
+        "type": "textarea",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "sentiment",
+        "type": "string",
+        "description": "positive, negative, or neutral"
+      },
+      {
+        "name": "score",
+        "type": "number",
+        "description": "Sentiment score (-1 to 1)"
+      }
+    ]
+  },
+  {
+    "type": "ai.vision",
+    "category": "ai",
+    "label": "AI Vision",
+    "description": "Analyze images with AI",
+    "icon": "Eye",
+    "configSchema": [
+      {
+        "name": "image_path",
+        "label": "Image Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "prompt",
+        "label": "Question about image",
+        "type": "textarea",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "ai.embeddings",
+    "category": "ai",
+    "label": "Generate Embeddings",
+    "description": "Create text embeddings",
+    "icon": "Binary",
+    "configSchema": [
+      {
+        "name": "text",
+        "label": "Text",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "model",
+        "label": "Model",
+        "type": "text",
+        "required": false,
+        "default": "text-embedding-ada-002"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "ai.repair_data",
+    "category": "ai",
+    "label": "AI Repair Data",
+    "description": "Intelligently repair data quality issues using AI",
+    "icon": "Wrench",
+    "configSchema": [
+      {
+        "name": "data",
+        "label": "Data to Repair",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "validation_report",
+        "label": "Validation Report",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "context",
+        "label": "Context",
+        "type": "select",
+        "required": false,
+        "default": "general"
+      },
+      {
+        "name": "allow_format_normalization",
+        "label": "Allow Format Normalization",
+        "type": "boolean",
+        "required": false,
+        "default": "true"
+      },
+      {
+        "name": "allow_semantic_cleanup",
+        "label": "Allow Semantic Cleanup",
+        "type": "boolean",
+        "required": false,
+        "default": "true"
+      },
+      {
+        "name": "allow_value_inference",
+        "label": "Allow Value Inference (CAUTION)",
+        "type": "boolean",
+        "required": false,
+        "default": "false"
+      },
+      {
+        "name": "allow_sensitive_repair",
+        "label": "Allow Sensitive Field Repair",
+        "type": "boolean",
+        "required": false,
+        "default": "false"
+      },
+      {
+        "name": "min_confidence",
+        "label": "Minimum Confidence (0.0-1.0)",
+        "type": "number",
+        "required": false,
+        "default": "0"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "status",
+        "type": "string",
+        "description": "Result status: repaired, partially_fixed, failed"
+      },
+      {
+        "name": "original_quality",
+        "type": "number",
+        "description": "Original data quality score"
+      },
+      {
+        "name": "repaired_quality",
+        "type": "number",
+        "description": "Quality score after repairs"
+      },
+      {
+        "name": "improvement",
+        "type": "number",
+        "description": "Quality improvement percentage"
+      },
+      {
+        "name": "repaired_data",
+        "type": "array",
+        "description": "Data with applied repairs"
+      },
+      {
+        "name": "repairs",
+        "type": "array",
+        "description": "List of applied repairs with confidence scores"
+      },
+      {
+        "name": "issues_fixed",
+        "type": "number",
+        "description": "Number of issues fixed"
+      }
+    ]
+  },
+  {
+    "type": "ai.suggest_repairs",
+    "category": "ai",
+    "label": "AI Suggest Repairs",
+    "description": "Preview repair suggestions without applying (for human review)",
+    "icon": "Lightbulb",
+    "configSchema": [
+      {
+        "name": "data",
+        "label": "Data to Analyze",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "validation_report",
+        "label": "Validation Report",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "context",
+        "label": "Context",
+        "type": "select",
+        "required": false,
+        "default": "general"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "suggestion_count",
+        "type": "number",
+        "description": "Total number of suggestions"
+      },
+      {
+        "name": "high_confidence",
+        "type": "array",
+        "description": "High confidence suggestions (>= 0.9)"
+      },
+      {
+        "name": "medium_confidence",
+        "type": "array",
+        "description": "Medium confidence suggestions (0.7-0.9)"
+      },
+      {
+        "name": "low_confidence",
+        "type": "array",
+        "description": "Low confidence suggestions (< 0.7)"
+      },
+      {
+        "name": "estimated_quality_after_repair",
+        "type": "number",
+        "description": "Estimated quality if all repairs applied"
+      }
+    ]
+  },
+  {
+    "type": "python.execute",
+    "category": "python",
+    "label": "Execute Python",
+    "description": "Run Python code",
+    "icon": "Code2",
+    "configSchema": [
+      {
+        "name": "code",
+        "label": "Python Code",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "variables",
+        "label": "Input Variables (JSON)",
+        "type": "textarea",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "python.project",
+    "category": "python",
+    "label": "Run Python Project",
+    "description": "Execute Python project",
+    "icon": "FolderCode",
+    "configSchema": [
+      {
+        "name": "project_path",
+        "label": "Project Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "entrypoint",
+        "label": "Entrypoint",
+        "type": "text",
+        "required": true,
+        "placeholder": "main.py"
+      },
+      {
+        "name": "args",
+        "label": "Arguments",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "python.pip_install",
+    "category": "python",
+    "label": "Pip Install",
+    "description": "Install Python packages",
+    "icon": "Package",
+    "configSchema": [
+      {
+        "name": "packages",
+        "label": "Packages",
+        "type": "text",
+        "required": true,
+        "placeholder": "pandas numpy"
+      },
+      {
+        "name": "requirements",
+        "label": "Requirements File",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "python.virtualenv",
+    "category": "python",
+    "label": "Create Virtualenv",
+    "description": "Create Python environment",
+    "icon": "Box",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "Environment Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "python_version",
+        "label": "Python Version",
+        "type": "text",
+        "required": false,
+        "default": "3.10"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "python.function",
+    "category": "python",
+    "label": "Python Function",
+    "description": "Define reusable function",
+    "icon": "Braces",
+    "configSchema": [
+      {
+        "name": "name",
+        "label": "Function Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "code",
+        "label": "Function Code",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "params",
+        "label": "Parameters",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "python.import_module",
+    "category": "python",
+    "label": "Import Module",
+    "description": "Import Python module",
+    "icon": "Import",
+    "configSchema": [
+      {
+        "name": "module",
+        "label": "Module Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "alias",
+        "label": "Alias",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "python.notebook",
+    "category": "python",
+    "label": "Run Notebook",
+    "description": "Execute Jupyter notebook",
+    "icon": "BookOpen",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "Notebook Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "output_path",
+        "label": "Output Path",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "python.eval",
+    "category": "python",
+    "label": "Python Eval",
+    "description": "Evaluate expression",
+    "icon": "Calculator",
+    "configSchema": [
+      {
+        "name": "expression",
+        "label": "Expression",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "control.if",
+    "category": "control",
+    "label": "If Condition",
+    "description": "Container: branch based on condition. Drag nodes inside to execute when condition is true.",
+    "icon": "GitBranch",
+    "configSchema": [
+      {
+        "name": "condition",
+        "label": "Condition",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "result",
+        "type": "boolean",
+        "description": "Condition evaluation result"
+      }
+    ]
+  },
+  {
+    "type": "control.switch",
+    "category": "control",
+    "label": "Switch",
+    "description": "Multi-way branch",
+    "icon": "GitFork",
+    "configSchema": [
+      {
+        "name": "expression",
+        "label": "Expression",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "cases",
+        "label": "Cases (JSON)",
+        "type": "textarea",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "matched_case",
+        "type": "string",
+        "description": "Which case was matched"
+      }
+    ]
+  },
+  {
+    "type": "control.loop",
+    "category": "control",
+    "label": "For Each",
+    "description": "Container: iterate over a collection. Drag nodes inside to process each item. Use 'done' output to continue after loop completes.",
+    "icon": "Repeat",
+    "configSchema": [
+      {
+        "name": "items",
+        "label": "Items Array",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "item_var",
+        "label": "Item Variable Name (access as ${item})",
+        "type": "text",
+        "required": false,
+        "placeholder": "item",
+        "default": "item"
+      },
+      {
+        "name": "accumulator_var",
+        "label": "Accumulator Variable (use control.append)",
+        "type": "text",
+        "required": false,
+        "placeholder": "results",
+        "default": "results"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "index",
+        "type": "number",
+        "description": "Current iteration index (0-based)"
+      },
+      {
+        "name": "total",
+        "type": "number",
+        "description": "Total number of items"
+      },
+      {
+        "name": "isFirst",
+        "type": "boolean",
+        "description": "True if first iteration"
+      },
+      {
+        "name": "isLast",
+        "type": "boolean",
+        "description": "True if last iteration"
+      },
+      {
+        "name": "results",
+        "type": "array",
+        "description": "Accumulated results array (available after loop completes)"
+      },
+      {
+        "name": "iterations",
+        "type": "number",
+        "description": "Total iterations completed"
+      }
+    ]
+  },
+  {
+    "type": "control.while",
+    "category": "control",
+    "label": "While Loop",
+    "description": "Container: loop while condition is true. Use 'done' output to continue after loop ends.",
+    "icon": "RefreshCw",
+    "configSchema": [
+      {
+        "name": "condition",
+        "label": "Condition",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "max_iterations",
+        "label": "Max Iterations (safety limit)",
+        "type": "number",
+        "required": false,
+        "default": "100"
+      },
+      {
+        "name": "accumulator_var",
+        "label": "Accumulator Variable (use control.append)",
+        "type": "text",
+        "required": false,
+        "placeholder": "results",
+        "default": "results"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "iteration",
+        "type": "number",
+        "description": "Current iteration number (1-based)"
+      },
+      {
+        "name": "total_iterations",
+        "type": "number",
+        "description": "Total iterations executed"
+      },
+      {
+        "name": "results",
+        "type": "array",
+        "description": "Accumulated results array (available after loop completes)"
+      },
+      {
+        "name": "exit_reason",
+        "type": "string",
+        "description": "Why loop exited: 'condition_false' | 'max_iterations' | 'break'"
+      }
+    ]
+  },
+  {
+    "type": "control.wait",
+    "category": "control",
+    "label": "Wait",
+    "description": "Pause execution",
+    "icon": "Clock",
+    "configSchema": [
+      {
+        "name": "seconds",
+        "label": "Seconds",
+        "type": "number",
+        "required": true,
+        "default": "1"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "control.set_variable",
+    "category": "control",
+    "label": "Set Variable",
+    "description": "Define or update a variable. Use 'global' scope to access outside loops.",
+    "icon": "Variable",
+    "configSchema": [
+      {
+        "name": "name",
+        "label": "Variable Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "my_variable"
+      },
+      {
+        "name": "value",
+        "label": "Value",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "scope",
+        "label": "Scope",
+        "type": "select",
+        "required": false,
+        "default": "global"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "value",
+        "type": "any",
+        "description": "The value that was set"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "description": "The variable name"
+      }
+    ]
+  },
+  {
+    "type": "control.try_catch",
+    "category": "control",
+    "label": "Try/Catch",
+    "description": "Container: handle errors gracefully. Drag nodes inside to execute with error handling.",
+    "icon": "ShieldAlert",
+    "configSchema": [
+      {
+        "name": "retry_count",
+        "label": "Retry Count",
+        "type": "number",
+        "required": false,
+        "default": "0"
+      },
+      {
+        "name": "retry_delay",
+        "label": "Retry Delay (seconds)",
+        "type": "number",
+        "required": false,
+        "default": "1"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "success",
+        "type": "boolean",
+        "description": "True if executed without errors"
+      },
+      {
+        "name": "error_message",
+        "type": "string",
+        "description": "Error message if failed"
+      },
+      {
+        "name": "retry_attempts",
+        "type": "number",
+        "description": "Number of retry attempts made"
+      }
+    ]
+  },
+  {
+    "type": "control.parallel",
+    "category": "control",
+    "label": "Parallel",
+    "description": "Run branches in parallel",
+    "icon": "GitBranch",
+    "configSchema": [
+      {
+        "name": "branches",
+        "label": "Number of Branches",
+        "type": "number",
+        "required": false,
+        "default": "2"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "control.stop",
+    "category": "control",
+    "label": "Stop Bot",
+    "description": "Stop execution",
+    "icon": "StopCircle",
+    "configSchema": [
+      {
+        "name": "status",
+        "label": "Exit Status",
+        "type": "select",
+        "required": false,
+        "default": "success"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "control.goto",
+    "category": "control",
+    "label": "Go To",
+    "description": "Jump to node",
+    "icon": "CornerRightDown",
+    "configSchema": [
+      {
+        "name": "target_node",
+        "label": "Target Node ID",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "control.map",
+    "category": "control",
+    "label": "Map/Transform",
+    "description": "Transform each item in a collection using an expression",
+    "icon": "Shuffle",
+    "configSchema": [
+      {
+        "name": "items",
+        "label": "Input Array",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "expression",
+        "label": "Transform Expression",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "item_var",
+        "label": "Item Variable Name",
+        "type": "text",
+        "required": false,
+        "placeholder": "item",
+        "default": "item"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "results",
+        "type": "array",
+        "description": "Transformed array"
+      },
+      {
+        "name": "count",
+        "type": "number",
+        "description": "Number of items transformed"
+      }
+    ]
+  },
+  {
+    "type": "control.append",
+    "category": "control",
+    "label": "Append to List",
+    "description": "Add an item to the end of a list",
+    "icon": "ListPlus",
+    "configSchema": [
+      {
+        "name": "list",
+        "label": "Target List Variable",
+        "type": "text",
+        "required": true,
+        "placeholder": "results"
+      },
+      {
+        "name": "item",
+        "label": "Item to Append",
+        "type": "textarea",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "length",
+        "type": "number",
+        "description": "New length of the list"
+      },
+      {
+        "name": "list",
+        "type": "array",
+        "description": "Updated list reference"
+      }
+    ]
+  },
+  {
+    "type": "control.filter",
+    "category": "control",
+    "label": "Filter List",
+    "description": "Filter items that match a condition",
+    "icon": "Filter",
+    "configSchema": [
+      {
+        "name": "items",
+        "label": "Input Array",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "condition",
+        "label": "Filter Condition",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "item_var",
+        "label": "Item Variable Name",
+        "type": "text",
+        "required": false,
+        "placeholder": "item",
+        "default": "item"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "results",
+        "type": "array",
+        "description": "Filtered array (matching items)"
+      },
+      {
+        "name": "rejected",
+        "type": "array",
+        "description": "Rejected array (non-matching items)"
+      },
+      {
+        "name": "count",
+        "type": "number",
+        "description": "Number of matching items"
+      }
+    ]
+  },
+  {
+    "type": "control.reduce",
+    "category": "control",
+    "label": "Reduce/Aggregate",
+    "description": "Reduce array to a single value (sum, count, etc.)",
+    "icon": "Combine",
+    "configSchema": [
+      {
+        "name": "items",
+        "label": "Input Array",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "expression",
+        "label": "Reducer Expression",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "initial",
+        "label": "Initial Value",
+        "type": "text",
+        "required": false,
+        "placeholder": "0",
+        "default": "0"
+      },
+      {
+        "name": "item_var",
+        "label": "Item Variable Name",
+        "type": "text",
+        "required": false,
+        "placeholder": "item",
+        "default": "item"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "result",
+        "type": "any",
+        "description": "Final accumulated value"
+      },
+      {
+        "name": "count",
+        "type": "number",
+        "description": "Number of items processed"
+      }
+    ]
+  },
+  {
+    "type": "logging.log",
+    "category": "logging",
+    "label": "Log Message",
+    "description": "Write log message",
+    "icon": "FileText",
+    "configSchema": [
+      {
+        "name": "message",
+        "label": "Message",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "level",
+        "label": "Level",
+        "type": "select",
+        "required": false,
+        "default": "INFO"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "message",
+        "type": "string",
+        "description": "The logged message"
+      },
+      {
+        "name": "level",
+        "type": "string",
+        "description": "Log level used"
+      },
+      {
+        "name": "timestamp",
+        "type": "string",
+        "description": "Timestamp when logged"
+      }
+    ]
+  },
+  {
+    "type": "logging.screenshot",
+    "category": "logging",
+    "label": "Log Screenshot",
+    "description": "Capture screenshot to log",
+    "icon": "Camera",
+    "configSchema": [
+      {
+        "name": "description",
+        "label": "Description",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "logging.metric",
+    "category": "logging",
+    "label": "Log Metric",
+    "description": "Record numeric metric",
+    "icon": "BarChart3",
+    "configSchema": [
+      {
+        "name": "name",
+        "label": "Metric Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "value",
+        "label": "Value",
+        "type": "number",
+        "required": true
+      },
+      {
+        "name": "unit",
+        "label": "Unit",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "logging.timer_start",
+    "category": "logging",
+    "label": "Start Timer",
+    "description": "Start performance timer",
+    "icon": "Timer",
+    "configSchema": [
+      {
+        "name": "name",
+        "label": "Timer Name",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "logging.timer_stop",
+    "category": "logging",
+    "label": "Stop Timer",
+    "description": "Stop and log timer",
+    "icon": "TimerOff",
+    "configSchema": [
+      {
+        "name": "name",
+        "label": "Timer Name",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "logging.notification",
+    "category": "logging",
+    "label": "Send Notification",
+    "description": "Send alert notification",
+    "icon": "Bell",
+    "configSchema": [
+      {
+        "name": "channel",
+        "label": "Channel",
+        "type": "select",
+        "required": false,
+        "default": "email"
+      },
+      {
+        "name": "message",
+        "label": "Message",
+        "type": "textarea",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "logging.audit",
+    "category": "logging",
+    "label": "Audit Log",
+    "description": "Create audit entry",
+    "icon": "ClipboardList",
+    "configSchema": [
+      {
+        "name": "action",
+        "label": "Action",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "details",
+        "label": "Details (JSON)",
+        "type": "textarea",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "logging.export",
+    "category": "logging",
+    "label": "Export Logs",
+    "description": "Export run logs",
+    "icon": "FileDown",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "Output Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "format",
+        "label": "Format",
+        "type": "select",
+        "required": false,
+        "default": "json"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "security.get_secret",
+    "category": "security",
+    "label": "Get Secret",
+    "description": "Retrieve secret from vault",
+    "icon": "Key",
+    "configSchema": [
+      {
+        "name": "name",
+        "label": "Secret Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "vault",
+        "label": "Vault",
+        "type": "select",
+        "required": false,
+        "default": "orchestrator"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "security.encrypt",
+    "category": "security",
+    "label": "Encrypt Data",
+    "description": "Encrypt sensitive data",
+    "icon": "Lock",
+    "configSchema": [
+      {
+        "name": "data",
+        "label": "Data",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "key",
+        "label": "Encryption Key",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "security.decrypt",
+    "category": "security",
+    "label": "Decrypt Data",
+    "description": "Decrypt encrypted data",
+    "icon": "Unlock",
+    "configSchema": [
+      {
+        "name": "data",
+        "label": "Encrypted Data",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "key",
+        "label": "Decryption Key",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "security.hash",
+    "category": "security",
+    "label": "Hash Data",
+    "description": "Create data hash",
+    "icon": "Hash",
+    "configSchema": [
+      {
+        "name": "data",
+        "label": "Data",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "algorithm",
+        "label": "Algorithm",
+        "type": "select",
+        "required": false,
+        "default": "sha256"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "security.mask_data",
+    "category": "security",
+    "label": "Mask Data",
+    "description": "Mask sensitive data in logs",
+    "icon": "EyeOff",
+    "configSchema": [
+      {
+        "name": "pattern",
+        "label": "Pattern to Mask",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "mask_char",
+        "label": "Mask Character",
+        "type": "text",
+        "required": false,
+        "default": "*"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "security.validate_cert",
+    "category": "security",
+    "label": "Validate Certificate",
+    "description": "Validate SSL certificate",
+    "icon": "ShieldCheck",
+    "configSchema": [
+      {
+        "name": "url",
+        "label": "URL",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "secrets.azure_keyvault",
+    "category": "security",
+    "label": "Azure Key Vault",
+    "description": "Connect to Azure Key Vault (credentials from BotRunner env)",
+    "icon": "KeyRound",
+    "configSchema": [
+      {
+        "name": "vault_url",
+        "label": "Vault URL",
+        "type": "text",
+        "required": true,
+        "placeholder": "https://myvault.vault.azure.net"
+      },
+      {
+        "name": "tenant_id",
+        "label": "Tenant ID",
+        "type": "text",
+        "required": true,
+        "placeholder": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+      },
+      {
+        "name": "client_id",
+        "label": "Client ID",
+        "type": "text",
+        "required": true,
+        "placeholder": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+      },
+      {
+        "name": "use_managed_identity",
+        "label": "Use Managed Identity",
+        "type": "boolean",
+        "required": false,
+        "default": "false"
+      },
+      {
+        "name": "secrets",
+        "label": "Secrets to Load",
+        "type": "textarea",
+        "required": false,
+        "placeholder": "db_password\\napi_key\\nconnection_string"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "loaded",
+        "type": "number",
+        "description": "Number of secrets loaded"
+      },
+      {
+        "name": "secretNames",
+        "type": "array",
+        "description": "Names of loaded secrets"
+      }
+    ]
+  },
+  {
+    "type": "secrets.aws_secrets",
+    "category": "security",
+    "label": "AWS Secrets Manager",
+    "description": "Connect to AWS Secrets Manager (credentials from BotRunner env or IAM Role)",
+    "icon": "KeyRound",
+    "configSchema": [
+      {
+        "name": "region",
+        "label": "AWS Region",
+        "type": "select",
+        "required": false,
+        "default": "us-east-1"
+      },
+      {
+        "name": "use_iam_role",
+        "label": "Use IAM Role",
+        "type": "boolean",
+        "required": false,
+        "default": "true"
+      },
+      {
+        "name": "secrets",
+        "label": "Secrets to Load",
+        "type": "textarea",
+        "required": false,
+        "placeholder": "prod/db/password\\nprod/api/key"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "loaded",
+        "type": "number",
+        "description": "Number of secrets loaded"
+      },
+      {
+        "name": "secretNames",
+        "type": "array",
+        "description": "Names of loaded secrets"
+      }
+    ]
+  },
+  {
+    "type": "secrets.hashicorp_vault",
+    "category": "security",
+    "label": "HashiCorp Vault",
+    "description": "Connect to HashiCorp Vault (credentials from BotRunner env)",
+    "icon": "KeyRound",
+    "configSchema": [
+      {
+        "name": "vault_addr",
+        "label": "Vault Address",
+        "type": "text",
+        "required": true,
+        "placeholder": "https://vault.example.com:8200"
+      },
+      {
+        "name": "auth_method",
+        "label": "Auth Method",
+        "type": "select",
+        "required": false,
+        "default": "token"
+      },
+      {
+        "name": "mount_point",
+        "label": "Secrets Engine Mount",
+        "type": "text",
+        "required": false,
+        "placeholder": "secret",
+        "default": "secret"
+      },
+      {
+        "name": "secrets_path",
+        "label": "Secrets Path",
+        "type": "text",
+        "required": true,
+        "placeholder": "myapp/prod"
+      },
+      {
+        "name": "secrets",
+        "label": "Keys to Load (optional)",
+        "type": "textarea",
+        "required": false,
+        "placeholder": "db_password\\napi_key"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "loaded",
+        "type": "number",
+        "description": "Number of secrets loaded"
+      },
+      {
+        "name": "secretNames",
+        "type": "array",
+        "description": "Names of loaded secrets"
+      }
+    ]
+  },
+  {
+    "type": "secrets.local_vault",
+    "category": "security",
+    "label": "Local Vault",
+    "description": "Unlock local encrypted vault on BotRunner (AES-256-GCM)",
+    "icon": "Lock",
+    "configSchema": [
+      {
+        "name": "vault_path",
+        "label": "Vault Path",
+        "type": "text",
+        "required": false,
+        "placeholder": ".skuldbot or /etc/skuldbot/vault",
+        "default": ".skuldbot"
+      },
+      {
+        "name": "secrets",
+        "label": "Secrets to Load (optional)",
+        "type": "textarea",
+        "required": false,
+        "placeholder": "db_password\\napi_key"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "unlocked",
+        "type": "boolean",
+        "description": "Vault unlock status"
+      },
+      {
+        "name": "secretCount",
+        "type": "number",
+        "description": "Number of secrets loaded"
+      },
+      {
+        "name": "secretNames",
+        "type": "array",
+        "description": "Names of loaded secrets"
+      }
+    ]
+  },
+  {
+    "type": "human.approval",
+    "category": "human",
+    "label": "Request Approval",
+    "description": "Wait for human approval",
+    "icon": "UserCheck",
+    "configSchema": [
+      {
+        "name": "title",
+        "label": "Request Title",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "description",
+        "label": "Description",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "approvers",
+        "label": "Approvers (emails)",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "timeout_minutes",
+        "label": "Timeout (minutes)",
+        "type": "number",
+        "required": false,
+        "default": "60"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "human.input",
+    "category": "human",
+    "label": "Request Input",
+    "description": "Request user input",
+    "icon": "MessageSquare",
+    "configSchema": [
+      {
+        "name": "prompt",
+        "label": "Prompt",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "input_type",
+        "label": "Input Type",
+        "type": "select",
+        "required": false,
+        "default": "text"
+      },
+      {
+        "name": "options",
+        "label": "Options (if Choice)",
+        "type": "text",
+        "required": false
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "human.review",
+    "category": "human",
+    "label": "Data Review",
+    "description": "Present data for review",
+    "icon": "ClipboardCheck",
+    "configSchema": [
+      {
+        "name": "title",
+        "label": "Review Title",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "data",
+        "label": "Data to Review",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "actions",
+        "label": "Available Actions",
+        "type": "text",
+        "required": false,
+        "default": "approve,reject,edit"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "human.exception",
+    "category": "human",
+    "label": "Handle Exception",
+    "description": "Human handles exception",
+    "icon": "AlertTriangle",
+    "configSchema": [
+      {
+        "name": "error",
+        "label": "Error Details",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "options",
+        "label": "Resolution Options",
+        "type": "text",
+        "required": false,
+        "default": "retry,skip,abort"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "human.notification",
+    "category": "human",
+    "label": "Notify User",
+    "description": "Send notification to user",
+    "icon": "Bell",
+    "configSchema": [
+      {
+        "name": "recipient",
+        "label": "Recipient",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "message",
+        "label": "Message",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "priority",
+        "label": "Priority",
+        "type": "select",
+        "required": false,
+        "default": "normal"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "compliance.protect_pii",
+    "category": "compliance",
+    "label": "Protect PII",
+    "description": "Configure field-by-field PII protection with visual builder",
+    "icon": "ShieldCheck",
+    "configSchema": [
+      {
+        "name": "data",
+        "label": "Data to Process",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "rules",
+        "label": "Protection Rules",
+        "type": "protection-builder",
+        "required": false
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "protected_data",
+        "type": "object",
+        "description": "Data with protected PII fields"
+      },
+      {
+        "name": "fields_processed",
+        "type": "number",
+        "description": "Number of fields processed"
+      },
+      {
+        "name": "audit_log",
+        "type": "array",
+        "description": "Audit log of all protection operations"
+      }
+    ]
+  },
+  {
+    "type": "compliance.protect_phi",
+    "category": "compliance",
+    "label": "Protect PHI (HIPAA)",
+    "description": "Configure field-by-field PHI protection for HIPAA compliance",
+    "icon": "HeartPulse",
+    "configSchema": [
+      {
+        "name": "data",
+        "label": "Data to Process",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "rules",
+        "label": "Protection Rules",
+        "type": "protection-builder",
+        "required": false
+      },
+      {
+        "name": "strict_hipaa",
+        "label": "Strict HIPAA Mode",
+        "type": "boolean",
+        "required": false,
+        "default": "true"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "protected_data",
+        "type": "object",
+        "description": "Data with protected PHI fields"
+      },
+      {
+        "name": "hipaa_compliant",
+        "type": "boolean",
+        "description": "Whether result is HIPAA compliant"
+      },
+      {
+        "name": "fields_processed",
+        "type": "number",
+        "description": "Number of fields processed"
+      },
+      {
+        "name": "hipaa_identifiers_protected",
+        "type": "array",
+        "description": "List of HIPAA 18 identifiers that were protected"
+      },
+      {
+        "name": "audit_log",
+        "type": "array",
+        "description": "Audit log of all protection operations"
+      }
+    ]
+  },
+  {
+    "type": "compliance.audit_log",
+    "category": "compliance",
+    "label": "Compliance Audit Log",
+    "description": "Create compliance audit log entry (cannot be disabled)",
+    "icon": "FileText",
+    "configSchema": [
+      {
+        "name": "action",
+        "label": "Action",
+        "type": "select",
+        "required": true
+      },
+      {
+        "name": "data_type",
+        "label": "Data Type",
+        "type": "select",
+        "required": false,
+        "default": "PHI"
+      },
+      {
+        "name": "user",
+        "label": "User",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "details",
+        "label": "Details",
+        "type": "textarea",
+        "required": false
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "audit_entry",
+        "type": "object",
+        "description": "Created audit log entry"
+      },
+      {
+        "name": "timestamp",
+        "type": "string",
+        "description": "Entry timestamp"
+      }
+    ]
+  },
+  {
+    "type": "dataquality.validate",
+    "category": "dataquality",
+    "label": "Validate Data",
+    "description": "Configure field-by-field data validation rules with visual builder",
+    "icon": "ShieldCheck",
+    "configSchema": [
+      {
+        "name": "data",
+        "label": "Data to Validate",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "rules",
+        "label": "Validation Rules",
+        "type": "validation-builder",
+        "required": false
+      },
+      {
+        "name": "fail_on_error",
+        "label": "Fail on Validation Error",
+        "type": "boolean",
+        "required": false,
+        "default": "true"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "valid",
+        "type": "boolean",
+        "description": "Whether all validations passed"
+      },
+      {
+        "name": "validated_data",
+        "type": "object",
+        "description": "The validated data"
+      },
+      {
+        "name": "errors",
+        "type": "array",
+        "description": "List of validation errors"
+      },
+      {
+        "name": "error_count",
+        "type": "number",
+        "description": "Number of validation errors"
+      },
+      {
+        "name": "rules_passed",
+        "type": "number",
+        "description": "Number of rules that passed"
+      },
+      {
+        "name": "rules_failed",
+        "type": "number",
+        "description": "Number of rules that failed"
+      }
+    ]
+  },
+  {
+    "type": "dataquality.profile_data",
+    "category": "dataquality",
+    "label": "Profile Data",
+    "description": "Generate automatic data profile with statistics",
+    "icon": "BarChart3",
+    "configSchema": [
+      {
+        "name": "data",
+        "label": "Data",
+        "type": "textarea",
+        "required": true
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "row_count",
+        "type": "number",
+        "description": "Total number of rows"
+      },
+      {
+        "name": "column_count",
+        "type": "number",
+        "description": "Total number of columns"
+      },
+      {
+        "name": "columns",
+        "type": "object",
+        "description": "Column-by-column statistics (nulls, types, unique values)"
+      }
+    ]
+  },
+  {
+    "type": "dataquality.generate_report",
+    "category": "dataquality",
+    "label": "Generate Quality Report",
+    "description": "Generate comprehensive data quality report",
+    "icon": "FileBarChart",
+    "configSchema": [
+      {
+        "name": "data",
+        "label": "Data",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "data_source",
+        "label": "Data Source Name",
+        "type": "text",
+        "required": false,
+        "placeholder": "Customer Database",
+        "default": "unknown"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "timestamp",
+        "type": "string",
+        "description": "Report generation timestamp"
+      },
+      {
+        "name": "data_source",
+        "type": "string",
+        "description": "Name of data source"
+      },
+      {
+        "name": "total_rows",
+        "type": "number",
+        "description": "Total rows analyzed"
+      },
+      {
+        "name": "validations_run",
+        "type": "number",
+        "description": "Total validations executed"
+      },
+      {
+        "name": "success_rate",
+        "type": "number",
+        "description": "Overall validation success rate"
+      },
+      {
+        "name": "profile",
+        "type": "object",
+        "description": "Data profile"
+      },
+      {
+        "name": "validation_results",
+        "type": "array",
+        "description": "All validation results"
+      },
+      {
+        "name": "summary",
+        "type": "object",
+        "description": "Quality summary with recommendations"
+      }
+    ]
+  },
+  {
+    "type": "data.tap.sqlserver",
+    "category": "data",
+    "label": "Extract SQL Server",
+    "description": "Extract data from Microsoft SQL Server",
+    "icon": "Database",
+    "configSchema": [
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "port",
+        "label": "Port",
+        "type": "number",
+        "required": false,
+        "default": "1433"
+      },
+      {
+        "name": "database",
+        "label": "Database",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "username",
+        "label": "Username",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "password",
+        "label": "Password",
+        "type": "password",
+        "required": true
+      },
+      {
+        "name": "query",
+        "label": "SQL Query",
+        "type": "textarea",
+        "required": false,
+        "placeholder": "SELECT * FROM customers WHERE active = 1"
+      },
+      {
+        "name": "table",
+        "label": "Table (if no query)",
+        "type": "text",
+        "required": false,
+        "placeholder": "customers"
+      },
+      {
+        "name": "columns",
+        "label": "Columns (comma-separated)",
+        "type": "text",
+        "required": false,
+        "placeholder": "id, name, email"
+      },
+      {
+        "name": "filter",
+        "label": "WHERE Filter",
+        "type": "text",
+        "required": false,
+        "placeholder": "status = 'active'"
+      },
+      {
+        "name": "limit",
+        "label": "Row Limit",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "mode",
+        "label": "Mode",
+        "type": "select",
+        "required": false,
+        "default": "memory"
+      },
+      {
+        "name": "batch_size",
+        "label": "Batch Size",
+        "type": "number",
+        "required": false,
+        "default": "10000"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "records",
+        "type": "array",
+        "description": "Extracted records"
+      },
+      {
+        "name": "columns",
+        "type": "array",
+        "description": "Column names"
+      },
+      {
+        "name": "recordCount",
+        "type": "number",
+        "description": "Number of records"
+      }
+    ]
+  },
+  {
+    "type": "data.tap.oracle",
+    "category": "data",
+    "label": "Extract Oracle",
+    "description": "Extract data from Oracle Database",
+    "icon": "Database",
+    "configSchema": [
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "port",
+        "label": "Port",
+        "type": "number",
+        "required": false,
+        "default": "1521"
+      },
+      {
+        "name": "database",
+        "label": "Service Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "username",
+        "label": "Username",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "password",
+        "label": "Password",
+        "type": "password",
+        "required": true
+      },
+      {
+        "name": "query",
+        "label": "SQL Query",
+        "type": "textarea",
+        "required": false,
+        "placeholder": "SELECT * FROM customers WHERE ROWNUM <= 1000"
+      },
+      {
+        "name": "table",
+        "label": "Table (if no query)",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "columns",
+        "label": "Columns",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "filter",
+        "label": "WHERE Filter",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "limit",
+        "label": "Row Limit",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "mode",
+        "label": "Mode",
+        "type": "select",
+        "required": false,
+        "default": "memory"
+      },
+      {
+        "name": "batch_size",
+        "label": "Batch Size",
+        "type": "number",
+        "required": false,
+        "default": "10000"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "records",
+        "type": "array",
+        "description": "Extracted records"
+      },
+      {
+        "name": "columns",
+        "type": "array",
+        "description": "Column names"
+      },
+      {
+        "name": "recordCount",
+        "type": "number",
+        "description": "Number of records"
+      }
+    ]
+  },
+  {
+    "type": "data.tap.postgres",
+    "category": "data",
+    "label": "Extract PostgreSQL",
+    "description": "Extract data from PostgreSQL",
+    "icon": "Database",
+    "configSchema": [
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "port",
+        "label": "Port",
+        "type": "number",
+        "required": false,
+        "default": "5432"
+      },
+      {
+        "name": "database",
+        "label": "Database",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "username",
+        "label": "Username",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "password",
+        "label": "Password",
+        "type": "password",
+        "required": true
+      },
+      {
+        "name": "query",
+        "label": "SQL Query",
+        "type": "textarea",
+        "required": false,
+        "placeholder": "SELECT * FROM users LIMIT 1000"
+      },
+      {
+        "name": "table",
+        "label": "Table (if no query)",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "columns",
+        "label": "Columns",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "filter",
+        "label": "WHERE Filter",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "limit",
+        "label": "Row Limit",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "mode",
+        "label": "Mode",
+        "type": "select",
+        "required": false,
+        "default": "memory"
+      },
+      {
+        "name": "batch_size",
+        "label": "Batch Size",
+        "type": "number",
+        "required": false,
+        "default": "10000"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "records",
+        "type": "array",
+        "description": "Extracted records"
+      },
+      {
+        "name": "columns",
+        "type": "array",
+        "description": "Column names"
+      },
+      {
+        "name": "recordCount",
+        "type": "number",
+        "description": "Number of records"
+      }
+    ]
+  },
+  {
+    "type": "data.tap.mysql",
+    "category": "data",
+    "label": "Extract MySQL",
+    "description": "Extract data from MySQL/MariaDB",
+    "icon": "Database",
+    "configSchema": [
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "port",
+        "label": "Port",
+        "type": "number",
+        "required": false,
+        "default": "3306"
+      },
+      {
+        "name": "database",
+        "label": "Database",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "username",
+        "label": "Username",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "password",
+        "label": "Password",
+        "type": "password",
+        "required": true
+      },
+      {
+        "name": "query",
+        "label": "SQL Query",
+        "type": "textarea",
+        "required": false
+      },
+      {
+        "name": "table",
+        "label": "Table (if no query)",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "columns",
+        "label": "Columns",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "filter",
+        "label": "WHERE Filter",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "limit",
+        "label": "Row Limit",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "mode",
+        "label": "Mode",
+        "type": "select",
+        "required": false,
+        "default": "memory"
+      },
+      {
+        "name": "batch_size",
+        "label": "Batch Size",
+        "type": "number",
+        "required": false,
+        "default": "10000"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "records",
+        "type": "array",
+        "description": "Extracted records"
+      },
+      {
+        "name": "columns",
+        "type": "array",
+        "description": "Column names"
+      },
+      {
+        "name": "recordCount",
+        "type": "number",
+        "description": "Number of records"
+      }
+    ]
+  },
+  {
+    "type": "data.tap.db2",
+    "category": "data",
+    "label": "Extract DB2",
+    "description": "Extract data from IBM DB2",
+    "icon": "Database",
+    "configSchema": [
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "port",
+        "label": "Port",
+        "type": "number",
+        "required": false,
+        "default": "50000"
+      },
+      {
+        "name": "database",
+        "label": "Database",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "username",
+        "label": "Username",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "password",
+        "label": "Password",
+        "type": "password",
+        "required": true
+      },
+      {
+        "name": "query",
+        "label": "SQL Query",
+        "type": "textarea",
+        "required": false
+      },
+      {
+        "name": "table",
+        "label": "Table (if no query)",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "columns",
+        "label": "Columns",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "filter",
+        "label": "WHERE Filter",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "limit",
+        "label": "Row Limit",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "mode",
+        "label": "Mode",
+        "type": "select",
+        "required": false,
+        "default": "memory"
+      },
+      {
+        "name": "batch_size",
+        "label": "Batch Size",
+        "type": "number",
+        "required": false,
+        "default": "10000"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "records",
+        "type": "array",
+        "description": "Extracted records"
+      },
+      {
+        "name": "columns",
+        "type": "array",
+        "description": "Column names"
+      },
+      {
+        "name": "recordCount",
+        "type": "number",
+        "description": "Number of records"
+      }
+    ]
+  },
+  {
+    "type": "data.tap.snowflake",
+    "category": "data",
+    "label": "Extract Snowflake",
+    "description": "Extract data from Snowflake",
+    "icon": "Snowflake",
+    "configSchema": [
+      {
+        "name": "account",
+        "label": "Account Identifier",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "database",
+        "label": "Database",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "schema",
+        "label": "Schema",
+        "type": "text",
+        "required": false,
+        "default": "PUBLIC"
+      },
+      {
+        "name": "warehouse",
+        "label": "Warehouse",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "username",
+        "label": "Username",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "password",
+        "label": "Password",
+        "type": "password",
+        "required": true
+      },
+      {
+        "name": "query",
+        "label": "SQL Query",
+        "type": "textarea",
+        "required": false
+      },
+      {
+        "name": "table",
+        "label": "Table (if no query)",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "columns",
+        "label": "Columns",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "filter",
+        "label": "WHERE Filter",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "limit",
+        "label": "Row Limit",
+        "type": "number",
+        "required": false
+      },
+      {
+        "name": "mode",
+        "label": "Mode",
+        "type": "select",
+        "required": false,
+        "default": "memory"
+      },
+      {
+        "name": "batch_size",
+        "label": "Batch Size",
+        "type": "number",
+        "required": false,
+        "default": "10000"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "records",
+        "type": "array",
+        "description": "Extracted records"
+      },
+      {
+        "name": "columns",
+        "type": "array",
+        "description": "Column names"
+      },
+      {
+        "name": "recordCount",
+        "type": "number",
+        "description": "Number of records"
+      }
+    ]
+  },
+  {
+    "type": "data.tap.csv",
+    "category": "data",
+    "label": "Read CSV",
+    "description": "Extract data from CSV file",
+    "icon": "FileSpreadsheet",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "File Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "delimiter",
+        "label": "Delimiter",
+        "type": "text",
+        "required": false,
+        "default": ","
+      },
+      {
+        "name": "encoding",
+        "label": "Encoding",
+        "type": "select",
+        "required": false,
+        "default": "utf-8"
+      },
+      {
+        "name": "header",
+        "label": "Has Header Row",
+        "type": "boolean",
+        "required": false,
+        "default": "true"
+      },
+      {
+        "name": "columns",
+        "label": "Column Names (if no header)",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "limit",
+        "label": "Row Limit",
+        "type": "number",
+        "required": false
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "records",
+        "type": "array",
+        "description": "Extracted records"
+      },
+      {
+        "name": "columns",
+        "type": "array",
+        "description": "Column names"
+      },
+      {
+        "name": "recordCount",
+        "type": "number",
+        "description": "Number of records"
+      }
+    ]
+  },
+  {
+    "type": "data.tap.excel",
+    "category": "data",
+    "label": "Read Excel (Data)",
+    "description": "Extract data from Excel file for data integration",
+    "icon": "FileSpreadsheet",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "File Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "sheet",
+        "label": "Sheet Name",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "header",
+        "label": "Has Header Row",
+        "type": "boolean",
+        "required": false,
+        "default": "true"
+      },
+      {
+        "name": "columns",
+        "label": "Column Names (if no header)",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "limit",
+        "label": "Row Limit",
+        "type": "number",
+        "required": false
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "records",
+        "type": "array",
+        "description": "Extracted records"
+      },
+      {
+        "name": "columns",
+        "type": "array",
+        "description": "Column names"
+      },
+      {
+        "name": "recordCount",
+        "type": "number",
+        "description": "Number of records"
+      }
+    ]
+  },
+  {
+    "type": "data.tap.s3",
+    "category": "data",
+    "label": "Read from S3",
+    "description": "Extract data from AWS S3",
+    "icon": "Cloud",
+    "configSchema": [
+      {
+        "name": "bucket",
+        "label": "Bucket Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "key",
+        "label": "Object Key (path)",
+        "type": "text",
+        "required": true,
+        "placeholder": "data/customers.csv"
+      },
+      {
+        "name": "aws_access_key",
+        "label": "AWS Access Key",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "aws_secret_key",
+        "label": "AWS Secret Key",
+        "type": "password",
+        "required": true
+      },
+      {
+        "name": "region",
+        "label": "Region",
+        "type": "text",
+        "required": false,
+        "default": "us-east-1"
+      },
+      {
+        "name": "file_type",
+        "label": "File Type",
+        "type": "select",
+        "required": false,
+        "default": "csv"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "records",
+        "type": "array",
+        "description": "Extracted records"
+      },
+      {
+        "name": "columns",
+        "type": "array",
+        "description": "Column names"
+      },
+      {
+        "name": "recordCount",
+        "type": "number",
+        "description": "Number of records"
+      }
+    ]
+  },
+  {
+    "type": "data.tap.sftp",
+    "category": "data",
+    "label": "Read from SFTP",
+    "description": "Extract data from SFTP server",
+    "icon": "Server",
+    "configSchema": [
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "port",
+        "label": "Port",
+        "type": "number",
+        "required": false,
+        "default": "22"
+      },
+      {
+        "name": "path",
+        "label": "File Path",
+        "type": "text",
+        "required": true,
+        "placeholder": "/data/file.csv"
+      },
+      {
+        "name": "username",
+        "label": "Username",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "password",
+        "label": "Password",
+        "type": "password",
+        "required": false
+      },
+      {
+        "name": "private_key",
+        "label": "Private Key Path",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "file_type",
+        "label": "File Type",
+        "type": "select",
+        "required": false,
+        "default": "csv"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "records",
+        "type": "array",
+        "description": "Extracted records"
+      },
+      {
+        "name": "columns",
+        "type": "array",
+        "description": "Column names"
+      },
+      {
+        "name": "recordCount",
+        "type": "number",
+        "description": "Number of records"
+      }
+    ]
+  },
+  {
+    "type": "data.tap.salesforce",
+    "category": "data",
+    "label": "Extract Salesforce",
+    "description": "Extract data from Salesforce using SOQL",
+    "icon": "Cloud",
+    "configSchema": [
+      {
+        "name": "username",
+        "label": "Username",
+        "type": "text",
+        "required": true,
+        "placeholder": "user@company.com"
+      },
+      {
+        "name": "password",
+        "label": "Password",
+        "type": "password",
+        "required": true
+      },
+      {
+        "name": "security_token",
+        "label": "Security Token",
+        "type": "password",
+        "required": true
+      },
+      {
+        "name": "query",
+        "label": "SOQL Query",
+        "type": "textarea",
+        "required": true,
+        "placeholder": "SELECT Id, Name, Email FROM Contact WHERE CreatedDate > LAST_MONTH"
+      },
+      {
+        "name": "domain",
+        "label": "Domain",
+        "type": "select",
+        "required": false,
+        "default": "login"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "records",
+        "type": "array",
+        "description": "Salesforce records"
+      },
+      {
+        "name": "columns",
+        "type": "array",
+        "description": "Field names"
+      },
+      {
+        "name": "recordCount",
+        "type": "number",
+        "description": "Number of records"
+      }
+    ]
+  },
+  {
+    "type": "data.tap.rest_api",
+    "category": "data",
+    "label": "Extract REST API",
+    "description": "Extract data from any REST API with pagination support",
+    "icon": "Globe",
+    "configSchema": [
+      {
+        "name": "url",
+        "label": "API URL",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "method",
+        "label": "HTTP Method",
+        "type": "select",
+        "required": false,
+        "default": "GET"
+      },
+      {
+        "name": "headers",
+        "label": "Headers (JSON)",
+        "type": "textarea",
+        "required": false
+      },
+      {
+        "name": "body",
+        "label": "Request Body (JSON)",
+        "type": "textarea",
+        "required": false
+      },
+      {
+        "name": "auth_type",
+        "label": "Auth Type",
+        "type": "select",
+        "required": false
+      },
+      {
+        "name": "auth_value",
+        "label": "Auth Value",
+        "type": "password",
+        "required": false
+      },
+      {
+        "name": "pagination_type",
+        "label": "Pagination",
+        "type": "select",
+        "required": false
+      },
+      {
+        "name": "pagination_param",
+        "label": "Pagination Param",
+        "type": "text",
+        "required": false,
+        "placeholder": "offset or page or cursor"
+      },
+      {
+        "name": "data_path",
+        "label": "Data Path (JSONPath)",
+        "type": "text",
+        "required": false,
+        "placeholder": "$.data or $.results"
+      },
+      {
+        "name": "limit",
+        "label": "Max Records",
+        "type": "number",
+        "required": false
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "records",
+        "type": "array",
+        "description": "API response records"
+      },
+      {
+        "name": "columns",
+        "type": "array",
+        "description": "Field names"
+      },
+      {
+        "name": "recordCount",
+        "type": "number",
+        "description": "Number of records"
+      }
+    ]
+  },
+  {
+    "type": "data.target.sqlserver",
+    "category": "data",
+    "label": "Load to SQL Server",
+    "description": "Load data into Microsoft SQL Server",
+    "icon": "DatabaseBackup",
+    "configSchema": [
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "port",
+        "label": "Port",
+        "type": "number",
+        "required": false,
+        "default": "1433"
+      },
+      {
+        "name": "database",
+        "label": "Database",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "username",
+        "label": "Username",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "password",
+        "label": "Password",
+        "type": "password",
+        "required": true
+      },
+      {
+        "name": "table",
+        "label": "Target Table",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "records",
+        "label": "Records",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "mode",
+        "label": "Mode",
+        "type": "select",
+        "required": false,
+        "default": "insert"
+      },
+      {
+        "name": "batch_size",
+        "label": "Batch Size",
+        "type": "number",
+        "required": false,
+        "default": "5000"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "insertedCount",
+        "type": "number",
+        "description": "Records inserted"
+      },
+      {
+        "name": "updatedCount",
+        "type": "number",
+        "description": "Records updated"
+      },
+      {
+        "name": "errorCount",
+        "type": "number",
+        "description": "Errors"
+      },
+      {
+        "name": "errors",
+        "type": "array",
+        "description": "Error details"
+      }
+    ]
+  },
+  {
+    "type": "data.target.oracle",
+    "category": "data",
+    "label": "Load to Oracle",
+    "description": "Load data into Oracle Database",
+    "icon": "DatabaseBackup",
+    "configSchema": [
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "port",
+        "label": "Port",
+        "type": "number",
+        "required": false,
+        "default": "1521"
+      },
+      {
+        "name": "database",
+        "label": "Service Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "username",
+        "label": "Username",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "password",
+        "label": "Password",
+        "type": "password",
+        "required": true
+      },
+      {
+        "name": "table",
+        "label": "Target Table",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "records",
+        "label": "Records",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "mode",
+        "label": "Mode",
+        "type": "select",
+        "required": false,
+        "default": "insert"
+      },
+      {
+        "name": "batch_size",
+        "label": "Batch Size",
+        "type": "number",
+        "required": false,
+        "default": "5000"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "insertedCount",
+        "type": "number",
+        "description": "Records inserted"
+      },
+      {
+        "name": "updatedCount",
+        "type": "number",
+        "description": "Records updated"
+      },
+      {
+        "name": "errorCount",
+        "type": "number",
+        "description": "Errors"
+      }
+    ]
+  },
+  {
+    "type": "data.target.postgres",
+    "category": "data",
+    "label": "Load to PostgreSQL",
+    "description": "Load data into PostgreSQL",
+    "icon": "DatabaseBackup",
+    "configSchema": [
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "port",
+        "label": "Port",
+        "type": "number",
+        "required": false,
+        "default": "5432"
+      },
+      {
+        "name": "database",
+        "label": "Database",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "username",
+        "label": "Username",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "password",
+        "label": "Password",
+        "type": "password",
+        "required": true
+      },
+      {
+        "name": "table",
+        "label": "Target Table",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "records",
+        "label": "Records",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "mode",
+        "label": "Mode",
+        "type": "select",
+        "required": false,
+        "default": "insert"
+      },
+      {
+        "name": "batch_size",
+        "label": "Batch Size",
+        "type": "number",
+        "required": false,
+        "default": "5000"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "insertedCount",
+        "type": "number",
+        "description": "Records inserted"
+      },
+      {
+        "name": "updatedCount",
+        "type": "number",
+        "description": "Records updated"
+      },
+      {
+        "name": "errorCount",
+        "type": "number",
+        "description": "Errors"
+      }
+    ]
+  },
+  {
+    "type": "data.target.mysql",
+    "category": "data",
+    "label": "Load to MySQL",
+    "description": "Load data into MySQL/MariaDB",
+    "icon": "DatabaseBackup",
+    "configSchema": [
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "port",
+        "label": "Port",
+        "type": "number",
+        "required": false,
+        "default": "3306"
+      },
+      {
+        "name": "database",
+        "label": "Database",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "username",
+        "label": "Username",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "password",
+        "label": "Password",
+        "type": "password",
+        "required": true
+      },
+      {
+        "name": "table",
+        "label": "Target Table",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "records",
+        "label": "Records",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "mode",
+        "label": "Mode",
+        "type": "select",
+        "required": false,
+        "default": "insert"
+      },
+      {
+        "name": "batch_size",
+        "label": "Batch Size",
+        "type": "number",
+        "required": false,
+        "default": "5000"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "insertedCount",
+        "type": "number",
+        "description": "Records inserted"
+      },
+      {
+        "name": "updatedCount",
+        "type": "number",
+        "description": "Records updated"
+      },
+      {
+        "name": "errorCount",
+        "type": "number",
+        "description": "Errors"
+      }
+    ]
+  },
+  {
+    "type": "data.target.db2",
+    "category": "data",
+    "label": "Load to DB2",
+    "description": "Load data into IBM DB2",
+    "icon": "DatabaseBackup",
+    "configSchema": [
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "port",
+        "label": "Port",
+        "type": "number",
+        "required": false,
+        "default": "50000"
+      },
+      {
+        "name": "database",
+        "label": "Database",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "username",
+        "label": "Username",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "password",
+        "label": "Password",
+        "type": "password",
+        "required": true
+      },
+      {
+        "name": "table",
+        "label": "Target Table",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "records",
+        "label": "Records",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "mode",
+        "label": "Mode",
+        "type": "select",
+        "required": false,
+        "default": "insert"
+      },
+      {
+        "name": "batch_size",
+        "label": "Batch Size",
+        "type": "number",
+        "required": false,
+        "default": "5000"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "insertedCount",
+        "type": "number",
+        "description": "Records inserted"
+      },
+      {
+        "name": "errorCount",
+        "type": "number",
+        "description": "Errors"
+      }
+    ]
+  },
+  {
+    "type": "data.target.snowflake",
+    "category": "data",
+    "label": "Load to Snowflake",
+    "description": "Load data into Snowflake",
+    "icon": "Snowflake",
+    "configSchema": [
+      {
+        "name": "account",
+        "label": "Account Identifier",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "database",
+        "label": "Database",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "schema",
+        "label": "Schema",
+        "type": "text",
+        "required": false,
+        "default": "PUBLIC"
+      },
+      {
+        "name": "warehouse",
+        "label": "Warehouse",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "username",
+        "label": "Username",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "password",
+        "label": "Password",
+        "type": "password",
+        "required": true
+      },
+      {
+        "name": "table",
+        "label": "Target Table",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "records",
+        "label": "Records",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "mode",
+        "label": "Mode",
+        "type": "select",
+        "required": false,
+        "default": "insert"
+      },
+      {
+        "name": "batch_size",
+        "label": "Batch Size",
+        "type": "number",
+        "required": false,
+        "default": "5000"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "insertedCount",
+        "type": "number",
+        "description": "Records inserted"
+      },
+      {
+        "name": "updatedCount",
+        "type": "number",
+        "description": "Records updated"
+      },
+      {
+        "name": "errorCount",
+        "type": "number",
+        "description": "Errors"
+      }
+    ]
+  },
+  {
+    "type": "data.target.bigquery",
+    "category": "data",
+    "label": "Load to BigQuery",
+    "description": "Load data into Google BigQuery",
+    "icon": "Cloud",
+    "configSchema": [
+      {
+        "name": "project",
+        "label": "GCP Project ID",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "dataset",
+        "label": "Dataset",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "table",
+        "label": "Table",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "credentials_json",
+        "label": "Credentials JSON Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "records",
+        "label": "Records",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "mode",
+        "label": "Mode",
+        "type": "select",
+        "required": false,
+        "default": "append"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "insertedCount",
+        "type": "number",
+        "description": "Records inserted"
+      },
+      {
+        "name": "errorCount",
+        "type": "number",
+        "description": "Errors"
+      }
+    ]
+  },
+  {
+    "type": "data.target.csv",
+    "category": "data",
+    "label": "Write CSV",
+    "description": "Write data to CSV file",
+    "icon": "FileSpreadsheet",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "File Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "records",
+        "label": "Records",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "delimiter",
+        "label": "Delimiter",
+        "type": "text",
+        "required": false,
+        "default": ","
+      },
+      {
+        "name": "encoding",
+        "label": "Encoding",
+        "type": "select",
+        "required": false,
+        "default": "utf-8"
+      },
+      {
+        "name": "append",
+        "label": "Append to Existing",
+        "type": "boolean",
+        "required": false,
+        "default": "false"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "insertedCount",
+        "type": "number",
+        "description": "Records written"
+      }
+    ]
+  },
+  {
+    "type": "data.target.excel",
+    "category": "data",
+    "label": "Write Excel (Data)",
+    "description": "Write data to Excel file",
+    "icon": "FileSpreadsheet",
+    "configSchema": [
+      {
+        "name": "path",
+        "label": "File Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "records",
+        "label": "Records",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "sheet",
+        "label": "Sheet Name",
+        "type": "text",
+        "required": false,
+        "default": "Sheet1"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "insertedCount",
+        "type": "number",
+        "description": "Records written"
+      }
+    ]
+  },
+  {
+    "type": "data.target.s3",
+    "category": "data",
+    "label": "Write to S3",
+    "description": "Upload data to AWS S3",
+    "icon": "CloudUpload",
+    "configSchema": [
+      {
+        "name": "bucket",
+        "label": "Bucket Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "key",
+        "label": "Object Key (path)",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "records",
+        "label": "Records",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "aws_access_key",
+        "label": "AWS Access Key",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "aws_secret_key",
+        "label": "AWS Secret Key",
+        "type": "password",
+        "required": true
+      },
+      {
+        "name": "region",
+        "label": "Region",
+        "type": "text",
+        "required": false,
+        "default": "us-east-1"
+      },
+      {
+        "name": "file_type",
+        "label": "File Type",
+        "type": "select",
+        "required": false,
+        "default": "csv"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "insertedCount",
+        "type": "number",
+        "description": "Records uploaded"
+      }
+    ]
+  },
+  {
+    "type": "data.target.sftp",
+    "category": "data",
+    "label": "Write to SFTP",
+    "description": "Upload data to SFTP server",
+    "icon": "ServerCog",
+    "configSchema": [
+      {
+        "name": "host",
+        "label": "Host",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "port",
+        "label": "Port",
+        "type": "number",
+        "required": false,
+        "default": "22"
+      },
+      {
+        "name": "path",
+        "label": "Target Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "records",
+        "label": "Records",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "username",
+        "label": "Username",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "password",
+        "label": "Password",
+        "type": "password",
+        "required": false
+      },
+      {
+        "name": "private_key",
+        "label": "Private Key Path",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "file_type",
+        "label": "File Type",
+        "type": "select",
+        "required": false,
+        "default": "csv"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "insertedCount",
+        "type": "number",
+        "description": "Records uploaded"
+      }
+    ]
+  },
+  {
+    "type": "trigger.voice_inbound",
+    "category": "trigger",
+    "label": "Voice Inbound",
+    "description": "Trigger when phone call is received (Twilio)",
+    "icon": "PhoneIncoming",
+    "configSchema": [
+      {
+        "name": "account_sid",
+        "label": "Twilio Account SID",
+        "type": "text",
+        "required": true,
+        "placeholder": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+        "name": "auth_token",
+        "label": "Twilio Auth Token",
+        "type": "password",
+        "required": true,
+        "placeholder": "Your Twilio Auth Token"
+      },
+      {
+        "name": "phone_number",
+        "label": "Twilio Phone Number",
+        "type": "text",
+        "required": true,
+        "placeholder": "+1234567890"
+      },
+      {
+        "name": "webhook_path",
+        "label": "Webhook Path",
+        "type": "text",
+        "required": false,
+        "placeholder": "/voice/inbound",
+        "default": "/voice/inbound"
+      },
+      {
+        "name": "greeting",
+        "label": "Greeting Message",
+        "type": "textarea",
+        "required": false,
+        "placeholder": "Thank you for calling. How can I help you today?"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "call_sid",
+        "type": "string",
+        "description": "Twilio Call SID"
+      },
+      {
+        "name": "from_number",
+        "type": "string",
+        "description": "Caller phone number"
+      },
+      {
+        "name": "to_number",
+        "type": "string",
+        "description": "Called number"
+      },
+      {
+        "name": "direction",
+        "type": "string",
+        "description": "Call direction (inbound)"
+      }
+    ]
+  },
+  {
+    "type": "voice.call",
+    "category": "voice",
+    "label": "Make Call",
+    "description": "Make an outbound voice call",
+    "icon": "PhoneOutgoing",
+    "configSchema": [
+      {
+        "name": "account_sid",
+        "label": "Twilio Account SID",
+        "type": "text",
+        "required": true,
+        "placeholder": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+        "name": "auth_token",
+        "label": "Twilio Auth Token",
+        "type": "password",
+        "required": true,
+        "placeholder": "Your Twilio Auth Token"
+      },
+      {
+        "name": "from_number",
+        "label": "From Number (Twilio)",
+        "type": "text",
+        "required": true,
+        "placeholder": "+1234567890"
+      },
+      {
+        "name": "to_number",
+        "label": "To Number",
+        "type": "text",
+        "required": true,
+        "placeholder": "+1234567890"
+      },
+      {
+        "name": "twiml_url",
+        "label": "TwiML URL",
+        "type": "text",
+        "required": false,
+        "placeholder": "https://your-app.com/voice/script"
+      },
+      {
+        "name": "twiml",
+        "label": "TwiML (inline)",
+        "type": "textarea",
+        "required": false,
+        "placeholder": "<Response><Say>Hello!</Say></Response>"
+      },
+      {
+        "name": "record",
+        "label": "Record Call",
+        "type": "boolean",
+        "required": false,
+        "default": "true"
+      },
+      {
+        "name": "timeout",
+        "label": "Timeout (seconds)",
+        "type": "number",
+        "required": false,
+        "default": "30"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "call_sid",
+        "type": "string",
+        "description": "Twilio Call SID"
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "description": "Call status"
+      }
+    ]
+  },
+  {
+    "type": "voice.speak",
+    "category": "voice",
+    "label": "Text to Speech",
+    "description": "Convert text to speech audio (Azure TTS)",
+    "icon": "Volume2",
+    "configSchema": [
+      {
+        "name": "azure_speech_key",
+        "label": "Azure Speech Key",
+        "type": "password",
+        "required": true,
+        "placeholder": "Your Azure Speech Services Key"
+      },
+      {
+        "name": "azure_region",
+        "label": "Azure Region",
+        "type": "text",
+        "required": false,
+        "placeholder": "eastus",
+        "default": "eastus"
+      },
+      {
+        "name": "text",
+        "label": "Text to Speak",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "output_path",
+        "label": "Output File Path",
+        "type": "text",
+        "required": false,
+        "placeholder": "/tmp/speech.wav"
+      },
+      {
+        "name": "voice",
+        "label": "Voice",
+        "type": "select",
+        "required": false,
+        "default": "en-US-JennyNeural"
+      },
+      {
+        "name": "style",
+        "label": "Voice Style",
+        "type": "select",
+        "required": false
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "status",
+        "type": "string",
+        "description": "Synthesis status"
+      },
+      {
+        "name": "output_path",
+        "type": "string",
+        "description": "Path to audio file"
+      },
+      {
+        "name": "audio_data",
+        "type": "string",
+        "description": "Base64 encoded audio (if no output_path)"
+      }
+    ]
+  },
+  {
+    "type": "voice.listen",
+    "category": "voice",
+    "label": "Speech to Text",
+    "description": "Transcribe audio to text (Azure STT)",
+    "icon": "Mic",
+    "configSchema": [
+      {
+        "name": "azure_speech_key",
+        "label": "Azure Speech Key",
+        "type": "password",
+        "required": true,
+        "placeholder": "Your Azure Speech Services Key"
+      },
+      {
+        "name": "azure_region",
+        "label": "Azure Region",
+        "type": "text",
+        "required": false,
+        "placeholder": "eastus",
+        "default": "eastus"
+      },
+      {
+        "name": "audio_path",
+        "label": "Audio File Path",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "language",
+        "label": "Language",
+        "type": "select",
+        "required": false,
+        "default": "en-US"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "text",
+        "type": "string",
+        "description": "Transcribed text"
+      },
+      {
+        "name": "confidence",
+        "type": "number",
+        "description": "Recognition confidence (0-1)"
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "description": "Recognition status"
+      }
+    ]
+  },
+  {
+    "type": "voice.twiml_say",
+    "category": "voice",
+    "label": "TwiML Say",
+    "description": "Generate TwiML to speak text in call",
+    "icon": "MessageSquare",
+    "configSchema": [
+      {
+        "name": "text",
+        "label": "Text to Say",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "voice",
+        "label": "Twilio Voice",
+        "type": "select",
+        "required": false,
+        "default": "Polly.Joanna"
+      },
+      {
+        "name": "language",
+        "label": "Language",
+        "type": "text",
+        "required": false,
+        "default": "en-US"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "twiml",
+        "type": "string",
+        "description": "Generated TwiML"
+      }
+    ]
+  },
+  {
+    "type": "voice.twiml_gather",
+    "category": "voice",
+    "label": "TwiML Gather",
+    "description": "Gather user input (voice or DTMF)",
+    "icon": "CircleDot",
+    "configSchema": [
+      {
+        "name": "prompt_text",
+        "label": "Prompt Text",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "action_url",
+        "label": "Action URL",
+        "type": "text",
+        "required": true,
+        "placeholder": "https://your-app.com/process-input"
+      },
+      {
+        "name": "input_type",
+        "label": "Input Type",
+        "type": "select",
+        "required": false,
+        "default": "speech dtmf"
+      },
+      {
+        "name": "timeout",
+        "label": "Timeout (seconds)",
+        "type": "number",
+        "required": false,
+        "default": "5"
+      },
+      {
+        "name": "speech_timeout",
+        "label": "Speech Timeout",
+        "type": "text",
+        "required": false,
+        "default": "auto"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "twiml",
+        "type": "string",
+        "description": "Generated TwiML"
+      }
+    ]
+  },
+  {
+    "type": "voice.transfer",
+    "category": "voice",
+    "label": "Transfer Call",
+    "description": "Transfer call to another number or agent",
+    "icon": "PhoneForwarded",
+    "configSchema": [
+      {
+        "name": "transfer_to",
+        "label": "Transfer To",
+        "type": "text",
+        "required": true,
+        "placeholder": "+1987654321"
+      },
+      {
+        "name": "call_sid",
+        "label": "Call SID",
+        "type": "text",
+        "required": false,
+        "placeholder": "Leave empty for current call"
+      },
+      {
+        "name": "announce_message",
+        "label": "Announce Message",
+        "type": "textarea",
+        "required": false,
+        "placeholder": "Please hold while I transfer your call..."
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "call_sid",
+        "type": "string",
+        "description": "Original call SID"
+      },
+      {
+        "name": "transferred_to",
+        "type": "string",
+        "description": "Destination number"
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "description": "Transfer status"
+      }
+    ]
+  },
+  {
+    "type": "voice.hangup",
+    "category": "voice",
+    "label": "End Call",
+    "description": "End the current voice call",
+    "icon": "PhoneOff",
+    "configSchema": [
+      {
+        "name": "call_sid",
+        "label": "Call SID",
+        "type": "text",
+        "required": false,
+        "placeholder": "Leave empty for current call"
+      },
+      {
+        "name": "farewell_message",
+        "label": "Farewell Message",
+        "type": "textarea",
+        "required": false,
+        "placeholder": "Thank you for calling. Goodbye!"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "call_sid",
+        "type": "string",
+        "description": "Call SID"
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "description": "Final status"
+      },
+      {
+        "name": "conversation_turns",
+        "type": "number",
+        "description": "Total conversation turns"
+      }
+    ]
+  },
+  {
+    "type": "voice.get_recording",
+    "category": "voice",
+    "label": "Get Recording",
+    "description": "Get call recording URL",
+    "icon": "CircleDot",
+    "configSchema": [
+      {
+        "name": "call_sid",
+        "label": "Call SID",
+        "type": "text",
+        "required": false,
+        "placeholder": "Leave empty for current call"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "recording_sid",
+        "type": "string",
+        "description": "Recording SID"
+      },
+      {
+        "name": "url",
+        "type": "string",
+        "description": "Recording URL (MP3)"
+      },
+      {
+        "name": "duration",
+        "type": "number",
+        "description": "Recording duration in seconds"
+      }
+    ]
+  },
+  {
+    "type": "voice.add_turn",
+    "category": "voice",
+    "label": "Add Conversation Turn",
+    "description": "Add a turn to conversation history",
+    "icon": "MessageSquarePlus",
+    "configSchema": [
+      {
+        "name": "role",
+        "label": "Role",
+        "type": "select",
+        "required": true
+      },
+      {
+        "name": "text",
+        "label": "Text",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "confidence",
+        "label": "Confidence",
+        "type": "number",
+        "required": false,
+        "default": "1"
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "voice.get_transcript",
+    "category": "voice",
+    "label": "Get Transcript",
+    "description": "Get full conversation transcript",
+    "icon": "FileText",
+    "configSchema": [
+      {
+        "name": "format",
+        "label": "Format",
+        "type": "select",
+        "required": false,
+        "default": "text"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "transcript",
+        "type": "string",
+        "description": "Full conversation transcript"
+      }
+    ]
+  },
+  {
+    "type": "voice.set_context",
+    "category": "voice",
+    "label": "Set Call Context",
+    "description": "Store context data during call",
+    "icon": "Database",
+    "configSchema": [
+      {
+        "name": "key",
+        "label": "Key",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "value",
+        "label": "Value",
+        "type": "textarea",
+        "required": true
+      }
+    ],
+    "outputSchema": []
+  },
+  {
+    "type": "voice.get_context",
+    "category": "voice",
+    "label": "Get Call Context",
+    "description": "Retrieve context data from call",
+    "icon": "Database",
+    "configSchema": [
+      {
+        "name": "key",
+        "label": "Key",
+        "type": "text",
+        "required": false,
+        "placeholder": "Leave empty to get all context"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "context_value",
+        "type": "any",
+        "description": "Context value or all context"
+      }
+    ]
+  },
+  {
+    "type": "insurance.fnol_record",
+    "category": "insurance",
+    "label": "Create FNOL Record",
+    "description": "Create canonical First Notice of Loss record",
+    "icon": "FileWarning",
+    "configSchema": [
+      {
+        "name": "caller_phone",
+        "label": "Caller Phone",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "caller_name",
+        "label": "Caller Name",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "policy_number",
+        "label": "Policy Number",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "incident_type",
+        "label": "Incident Type",
+        "type": "select",
+        "required": true
+      },
+      {
+        "name": "incident_date",
+        "label": "Incident Date",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "incident_location",
+        "label": "Incident Location",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "incident_description",
+        "label": "Description",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "injuries",
+        "label": "Injuries Reported",
+        "type": "boolean",
+        "required": false,
+        "default": "false"
+      },
+      {
+        "name": "police_report",
+        "label": "Police Report Number",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "recording_url",
+        "label": "Call Recording URL",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "transcript",
+        "label": "Call Transcript",
+        "type": "textarea",
+        "required": false
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "fnol_id",
+        "type": "string",
+        "description": "Unique FNOL record ID"
+      },
+      {
+        "name": "fnol_record",
+        "type": "object",
+        "description": "Complete FNOL record object"
+      },
+      {
+        "name": "created_at",
+        "type": "string",
+        "description": "Record creation timestamp"
+      }
+    ]
+  },
+  {
+    "type": "insurance.lookup_policy",
+    "category": "insurance",
+    "label": "Lookup Policy",
+    "description": "Find policy by phone, name, DOB (caller often doesn't have policy number)",
+    "icon": "Search",
+    "configSchema": [
+      {
+        "name": "api_url",
+        "label": "Policy Lookup API URL",
+        "type": "text",
+        "required": true,
+        "placeholder": "https://your-insurance-system.com/api/policies/lookup"
+      },
+      {
+        "name": "phone_number",
+        "label": "Phone Number (from CallerID)",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "policyholder_name",
+        "label": "Policyholder Name",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "date_of_birth",
+        "label": "Date of Birth",
+        "type": "text",
+        "required": false,
+        "placeholder": "YYYY-MM-DD"
+      },
+      {
+        "name": "ssn_last_four",
+        "label": "SSN Last 4 Digits",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "address",
+        "label": "Address",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "vin",
+        "label": "Vehicle VIN (for auto)",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "policy_number",
+        "label": "Policy Number (if known)",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "method",
+        "label": "HTTP Method",
+        "type": "select",
+        "required": false,
+        "default": "POST"
+      },
+      {
+        "name": "headers",
+        "label": "Headers (JSON)",
+        "type": "textarea",
+        "required": false
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "found",
+        "type": "boolean",
+        "description": "Policy was found"
+      },
+      {
+        "name": "policy_id",
+        "type": "string",
+        "description": "Policy internal ID"
+      },
+      {
+        "name": "policy_number",
+        "type": "string",
+        "description": "Policy number"
+      },
+      {
+        "name": "policyholder_name",
+        "type": "string",
+        "description": "Policyholder name"
+      },
+      {
+        "name": "match_method",
+        "type": "string",
+        "description": "How policy was found (phone, name_dob, etc.)"
+      },
+      {
+        "name": "raw_response",
+        "type": "object",
+        "description": "Raw API response"
+      }
+    ]
+  },
+  {
+    "type": "insurance.validate_policy",
+    "category": "insurance",
+    "label": "Validate Policy",
+    "description": "Check if policy is active and has coverage for claim type",
+    "icon": "ShieldCheck",
+    "configSchema": [
+      {
+        "name": "api_url",
+        "label": "Policy Validation API URL",
+        "type": "text",
+        "required": true,
+        "placeholder": "https://your-insurance-system.com/api/policies/validate"
+      },
+      {
+        "name": "policy_id",
+        "label": "Policy ID (from lookup)",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "policy_number",
+        "label": "Policy Number",
+        "type": "text",
+        "required": false
+      },
+      {
+        "name": "claim_type",
+        "label": "Claim Type to Validate",
+        "type": "select",
+        "required": false
+      },
+      {
+        "name": "check_active",
+        "label": "Check Policy is Active",
+        "type": "boolean",
+        "required": false,
+        "default": "true"
+      },
+      {
+        "name": "check_coverage",
+        "label": "Verify Coverage Type",
+        "type": "boolean",
+        "required": false,
+        "default": "true"
+      },
+      {
+        "name": "method",
+        "label": "HTTP Method",
+        "type": "select",
+        "required": false,
+        "default": "POST"
+      },
+      {
+        "name": "headers",
+        "label": "Headers (JSON)",
+        "type": "textarea",
+        "required": false
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "valid",
+        "type": "boolean",
+        "description": "Policy is valid for this claim type"
+      },
+      {
+        "name": "is_active",
+        "type": "boolean",
+        "description": "Policy is currently active"
+      },
+      {
+        "name": "has_coverage",
+        "type": "boolean",
+        "description": "Policy has coverage for claim type"
+      },
+      {
+        "name": "policyholder_name",
+        "type": "string",
+        "description": "Policyholder name"
+      },
+      {
+        "name": "coverage_type",
+        "type": "string",
+        "description": "Type of coverage"
+      },
+      {
+        "name": "effective_date",
+        "type": "string",
+        "description": "Policy effective date"
+      },
+      {
+        "name": "expiration_date",
+        "type": "string",
+        "description": "Policy expiration date"
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "description": "Policy status (active, cancelled, expired)"
+      },
+      {
+        "name": "deductible",
+        "type": "number",
+        "description": "Deductible amount"
+      },
+      {
+        "name": "coverage_limit",
+        "type": "number",
+        "description": "Coverage limit"
+      },
+      {
+        "name": "raw_response",
+        "type": "object",
+        "description": "Raw API response"
+      }
+    ]
+  },
+  {
+    "type": "insurance.extract_claim_data",
+    "category": "insurance",
+    "label": "Extract Claim Data",
+    "description": "Use AI to extract structured claim data from conversation",
+    "icon": "Brain",
+    "configSchema": [
+      {
+        "name": "transcript",
+        "label": "Conversation Transcript",
+        "type": "textarea",
+        "required": true
+      },
+      {
+        "name": "claim_type",
+        "label": "Expected Claim Type",
+        "type": "select",
+        "required": false
+      },
+      {
+        "name": "llm_provider",
+        "label": "LLM Provider",
+        "type": "select",
+        "required": false,
+        "default": "openai"
+      }
+    ],
+    "outputSchema": [
+      {
+        "name": "extracted_data",
+        "type": "object",
+        "description": "Structured claim data"
+      },
+      {
+        "name": "confidence",
+        "type": "number",
+        "description": "Extraction confidence (0-1)"
+      },
+      {
+        "name": "missing_fields",
+        "type": "array",
+        "description": "Fields that couldn't be extracted"
+      }
+    ]
+  }
+]

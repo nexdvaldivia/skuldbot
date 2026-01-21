@@ -1,0 +1,372 @@
+export const metadata = {
+  title: 'Human in Loop',
+  description: 'Components for human approval, review, and intervention in automated workflows.',
+}
+
+export const sections = [
+  { title: 'Request Approval', id: 'human-approval' },
+  { title: 'Request Input', id: 'human-input' },
+  { title: 'Data Review', id: 'human-review' },
+  { title: 'Handle Exception', id: 'human-exception' },
+  { title: 'Notify User', id: 'human-notification' },
+]
+
+# Human in Loop
+
+Components for human approval, review, and intervention in automated workflows. {{ className: 'lead' }}
+
+<Note>
+  This category contains **5 components**. See also: [Control Flow](/components/control) · [Email](/components/email) · [Logging](/components/logging)
+</Note>
+
+## Common Use Cases
+
+- Request human approval
+- Review AI decisions
+- Escalate exceptions
+- Collect human input
+
+---
+
+## Request Approval {{ id: 'human-approval' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-user-check"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m16 11 2 2 4-4" />
+  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+  <circle cx="9" cy="7" r="4" />
+</svg>
+`} label="Request Approval" description="Wait for human approval" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `human.approval`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Request manager approval for high-value transactions
+- Get sign-off before processing sensitive data
+- Approve exceptions before continuing
+- Gate critical operations with human review
+
+### Configuration
+
+<Properties>
+  <Property name="title" type="text" required>
+    Request Title
+  </Property>
+  <Property name="description" type="textarea" required>
+    Description
+  </Property>
+  <Property name="approvers" type="text">
+    Approvers (emails)
+  </Property>
+  <Property name="timeout_minutes" type="number">
+    Timeout (minutes) Default: `60`
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "human.approval",
+  "label": "Request Approval",
+  "config": {
+    "title": "your-title",
+    "description": "your-description",
+    "approvers": "your-approvers",
+    "timeout_minutes": "60"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Request Input {{ id: 'human-input' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-message-square"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
+</svg>
+`} label="Request Input" description="Request user input" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `human.input`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Collect missing information from users
+- Request clarification on ambiguous data
+- Get user preferences for processing
+- Gather additional details needed for workflow
+
+### Configuration
+
+<Properties>
+  <Property name="prompt" type="textarea" required>
+    Prompt
+  </Property>
+  <Property name="input_type" type="select">
+    Input Type Default: `text`
+  </Property>
+  <Property name="options" type="text">
+    Options (if Choice)
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "human.input",
+  "label": "Request Input",
+  "config": {
+    "prompt": "your-prompt",
+    "input_type": "text",
+    "options": "your-options"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Data Review {{ id: 'human-review' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-clipboard-check"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+  <path d="m9 14 2 2 4-4" />
+</svg>
+`} label="Data Review" description="Present data for review" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `human.review`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Review AI-extracted data before processing
+- Verify critical data before submission
+- Quality check automated outputs
+- Validate processed results
+
+### Configuration
+
+<Properties>
+  <Property name="title" type="text" required>
+    Review Title
+  </Property>
+  <Property name="data" type="textarea" required>
+    Data to Review
+  </Property>
+  <Property name="actions" type="text">
+    Available Actions Default: `approve,reject,edit`
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "human.review",
+  "label": "Data Review",
+  "config": {
+    "title": "your-title",
+    "data": "your-data",
+    "actions": "approve,reject,edit"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Handle Exception {{ id: 'human-exception' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-triangle-alert"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+  <path d="M12 9v4" />
+  <path d="M12 17h.01" />
+</svg>
+`} label="Handle Exception" description="Human handles exception" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `human.exception`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Handle cases AI cannot resolve
+- Route complex issues to humans
+- Escalate edge cases for decision
+- Manage workflow exceptions
+
+### Configuration
+
+<Properties>
+  <Property name="error" type="textarea" required>
+    Error Details
+  </Property>
+  <Property name="options" type="text">
+    Resolution Options Default: `retry,skip,abort`
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "human.exception",
+  "label": "Handle Exception",
+  "config": {
+    "error": "your-error",
+    "options": "retry,skip,abort"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Notify User {{ id: 'human-notification' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-bell"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M10.268 21a2 2 0 0 0 3.464 0" />
+  <path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" />
+</svg>
+`} label="Notify User" description="Send notification to user" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `human.notification`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Alert users of workflow status
+- Notify stakeholders of completions
+- Send progress updates
+- Inform teams of issues
+
+### Configuration
+
+<Properties>
+  <Property name="recipient" type="text" required>
+    Recipient
+  </Property>
+  <Property name="message" type="textarea" required>
+    Message
+  </Property>
+  <Property name="priority" type="select">
+    Priority Default: `normal`
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "human.notification",
+  "label": "Notify User",
+  "config": {
+    "recipient": "your-recipient",
+    "message": "your-message",
+    "priority": "normal"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+

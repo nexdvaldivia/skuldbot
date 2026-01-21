@@ -27,7 +27,9 @@ import GroupNode from "./GroupNode";
 import AnimatedEdge from "./AnimatedEdge";
 import EmptyState from "./EmptyState";
 import NodeSearchDialog, { useNodeSearch } from "./NodeSearchDialog";
-import { FlowNode, FlowEdge, isContainerNodeType } from "../types/flow";
+import { FlowNode, FlowEdge, isContainerNodeType, NodeCategory } from "../types/flow";
+import { PlanStep, AIConnection } from "../types/ai-planner";
+import { getNodeTemplate } from "../data/nodeTemplates";
 
 const nodeTypes: NodeTypes = {
   customNode: CustomNode,
@@ -111,6 +113,246 @@ export default function BotEditor() {
     window.addEventListener('pendingNodeChange', handlePendingChange as EventListener);
     return () => window.removeEventListener('pendingNodeChange', handlePendingChange as EventListener);
   }, []);
+
+  // Listen for AI Planner apply event - creates nodes and edges from plan
+  useEffect(() => {
+    const handleAIPlannerApply = (e: CustomEvent<{ planSteps: PlanStep[] }>) => {
+      const { planSteps } = e.detail;
+      if (!planSteps || planSteps.length === 0) return;
+
+      // Push current state to history for undo
+      pushState(nodesRef.current, edgesRef.current);
+
+      // Calculate starting position for new nodes
+      const existingNodes = nodesRef.current;
+      const startX = existingNodes.length > 0
+        ? Math.max(...existingNodes.map(n => n.position.x)) + 300
+        : 100;
+      const startY = 100;
+      const nodeSpacing = 180; // Vertical spacing between nodes
+
+      // Create nodes from plan steps
+      const newNodes: FlowNode[] = [];
+      const labelToIdMap: Map<string, string> = new Map();
+
+      planSteps.forEach((step, index) => {
+        const template = getNodeTemplate(step.nodeType);
+        const nodeId = `${step.nodeType}-${Date.now()}-${index}`;
+
+        // Store mapping of label to ID for connection lookup
+        labelToIdMap.set(step.label, nodeId);
+        labelToIdMap.set(step.id, nodeId);
+
+        // Determine node type (groupNode for containers, customNode for regular)
+        const isContainer = isContainerNodeType(step.nodeType);
+
+        // Position: AI nodes (embeddings, memory) go to the left of agent
+        let xOffset = 0;
+        let yOffset = index * nodeSpacing;
+
+        // Special positioning for AI flow pattern
+        if (step.nodeType === "ai.embeddings") {
+          xOffset = -250;
+          yOffset = (index - 1) * nodeSpacing + 60;
+        } else if (step.nodeType === "vectordb.memory") {
+          xOffset = -250;
+          yOffset = (index - 1) * nodeSpacing + 180;
+        }
+
+        const newNode: FlowNode = {
+          id: nodeId,
+          type: isContainer ? "groupNode" : "customNode",
+          position: { x: startX + xOffset, y: startY + yOffset },
+          ...(isContainer && { style: { width: 400, height: 250 } }),
+          data: {
+            label: step.label,
+            nodeType: step.nodeType,
+            config: { ...template?.defaultConfig, ...step.config },
+            category: (template?.category || step.nodeType.split(".")[0]) as NodeCategory,
+            icon: template?.icon || "Box",
+          },
+        };
+
+        newNodes.push(newNode);
+      });
+
+      // Create edges: standard flow edges (success connections)
+      const newEdges: FlowEdge[] = [];
+
+      // Connect nodes sequentially (skip AI config nodes like model/embeddings/memory)
+      const flowNodes = newNodes.filter(n =>
+        !["ai.model", "ai.embeddings", "vectordb.memory"].includes(n.data.nodeType)
+      );
+
+      for (let i = 0; i < flowNodes.length - 1; i++) {
+        const sourceNode = flowNodes[i];
+        const targetNode = flowNodes[i + 1];
+
+        newEdges.push({
+          id: `${sourceNode.id}-success-${targetNode.id}`,
+          source: sourceNode.id,
+          target: targetNode.id,
+          sourceHandle: "success",
+          targetHandle: null,
+          type: "animated",
+          data: { edgeType: "success" as const },
+        });
+      }
+
+      // Create AI-specific connections from plan steps
+      planSteps.forEach((step) => {
+        if (step.aiConnections) {
+          step.aiConnections.forEach((conn: AIConnection) => {
+            const sourceId = labelToIdMap.get(conn.from);
+            const targetId = labelToIdMap.get(conn.to);
+
+            if (sourceId && targetId) {
+              if (conn.type === "model") {
+                newEdges.push({
+                  id: `${sourceId}-model-${targetId}`,
+                  source: sourceId,
+                  target: targetId,
+                  sourceHandle: "model-out",
+                  targetHandle: "model",
+                  type: "animated",
+                  data: { edgeType: "model" as const },
+                });
+              } else if (conn.type === "embeddings") {
+                newEdges.push({
+                  id: `${sourceId}-embeddings-${targetId}`,
+                  source: sourceId,
+                  target: targetId,
+                  sourceHandle: "embeddings-out",
+                  targetHandle: "embeddings",
+                  type: "animated",
+                  data: { edgeType: "embeddings" as const },
+                });
+              } else if (conn.type === "memory") {
+                newEdges.push({
+                  id: `${sourceId}-memory-${targetId}`,
+                  source: sourceId,
+                  target: targetId,
+                  sourceHandle: "memory-out",
+                  targetHandle: "memory",
+                  type: "animated",
+                  data: { edgeType: "memory" as const, memoryType: "both" },
+                });
+              } else if (conn.type === "tool") {
+                newEdges.push({
+                  id: `${sourceId}-tool-${targetId}`,
+                  source: sourceId,
+                  target: targetId,
+                  sourceHandle: "success",
+                  targetHandle: "tools",
+                  type: "animated",
+                  data: {
+                    edgeType: "tool" as const,
+                    toolName: conn.toolName || "Tool",
+                    toolDescription: conn.toolDescription,
+                  },
+                });
+              }
+            }
+          });
+        }
+      });
+
+      // Auto-detect AI patterns and create connections if not explicitly defined
+      const modelNode = newNodes.find(n => n.data.nodeType === "ai.model");
+      const embeddingsNode = newNodes.find(n => n.data.nodeType === "ai.embeddings");
+      const memoryNode = newNodes.find(n => n.data.nodeType === "vectordb.memory");
+      const agentNode = newNodes.find(n => n.data.nodeType === "ai.agent");
+
+      // Model → Agent (if both exist and no explicit connection)
+      if (modelNode && agentNode) {
+        const hasModelToAgent = newEdges.some(e =>
+          e.source === modelNode.id && e.target === agentNode.id && e.data?.edgeType === "model"
+        );
+        if (!hasModelToAgent) {
+          newEdges.push({
+            id: `${modelNode.id}-model-${agentNode.id}`,
+            source: modelNode.id,
+            target: agentNode.id,
+            sourceHandle: "model-out",
+            targetHandle: "model",
+            type: "animated",
+            data: { edgeType: "model" as const },
+          });
+        }
+      }
+
+      // Embeddings → Agent (if both exist and no explicit connection)
+      if (embeddingsNode && agentNode) {
+        const hasEmbeddingsToAgent = newEdges.some(e =>
+          e.source === embeddingsNode.id && e.target === agentNode.id && e.data?.edgeType === "embeddings"
+        );
+        if (!hasEmbeddingsToAgent) {
+          newEdges.push({
+            id: `${embeddingsNode.id}-embeddings-${agentNode.id}`,
+            source: embeddingsNode.id,
+            target: agentNode.id,
+            sourceHandle: "embeddings-out",
+            targetHandle: "embeddings",
+            type: "animated",
+            data: { edgeType: "embeddings" as const },
+          });
+        }
+      }
+
+      // Embeddings → Memory (if both exist and no agent, or explicit)
+      if (embeddingsNode && memoryNode) {
+        const hasEmbeddingsToMemory = newEdges.some(e =>
+          e.source === embeddingsNode.id && e.target === memoryNode.id && e.data?.edgeType === "embeddings"
+        );
+        if (!hasEmbeddingsToMemory) {
+          newEdges.push({
+            id: `${embeddingsNode.id}-embeddings-${memoryNode.id}`,
+            source: embeddingsNode.id,
+            target: memoryNode.id,
+            sourceHandle: "embeddings-out",
+            targetHandle: "embeddings",
+            type: "animated",
+            data: { edgeType: "embeddings" as const },
+          });
+        }
+      }
+
+      // Memory → Agent (if both exist and no explicit connection)
+      if (memoryNode && agentNode) {
+        const hasMemoryToAgent = newEdges.some(e =>
+          e.source === memoryNode.id && e.target === agentNode.id && e.data?.edgeType === "memory"
+        );
+        if (!hasMemoryToAgent) {
+          newEdges.push({
+            id: `${memoryNode.id}-memory-${agentNode.id}`,
+            source: memoryNode.id,
+            target: agentNode.id,
+            sourceHandle: "memory-out",
+            targetHandle: "memory",
+            type: "animated",
+            data: { edgeType: "memory" as const, memoryType: "both" },
+          });
+        }
+      }
+
+      // Update store with new nodes and edges
+      updateActiveBotNodes([...existingNodes, ...newNodes]);
+      updateActiveBotEdges([...edgesRef.current, ...newEdges]);
+
+      // Mark as dirty
+      if (activeBotId) {
+        setTabDirty(`bot-${activeBotId}`, true);
+      }
+
+      // Fit view to show all nodes
+      setTimeout(() => {
+        fitView({ padding: 0.2, duration: 300 });
+      }, 100);
+    };
+
+    window.addEventListener('ai-planner-apply', handleAIPlannerApply as EventListener);
+    return () => window.removeEventListener('ai-planner-apply', handleAIPlannerApply as EventListener);
+  }, [updateActiveBotNodes, updateActiveBotEdges, activeBotId, setTabDirty, fitView, pushState]);
 
   // Mark tab as dirty and push to history
   const markDirty = useCallback(() => {
@@ -517,6 +759,28 @@ export default function BotEditor() {
     (connection: Connection) => {
       pushToHistory();
 
+      // Determine edge type based on source/target handles
+      let edgeType: string = connection.sourceHandle || "success";
+
+      // Map special handle names to proper edge types
+      if (connection.sourceHandle === "model-out" && connection.targetHandle === "model") {
+        edgeType = "model";
+      } else if (connection.sourceHandle === "embeddings-out" && connection.targetHandle === "embeddings") {
+        edgeType = "embeddings";
+      } else if (connection.sourceHandle === "memory-out" && connection.targetHandle === "memory") {
+        edgeType = "memory";
+      } else if (connection.targetHandle === "tools") {
+        edgeType = "tool";
+      } else if (connection.sourceHandle === "connection-out" && connection.targetHandle === "connection") {
+        edgeType = "connection";
+      }
+
+      console.log("[BotEditor] onConnect:", {
+        sourceHandle: connection.sourceHandle,
+        targetHandle: connection.targetHandle,
+        edgeType,
+      });
+
       const edge: FlowEdge = {
         id: `${connection.source}-${connection.sourceHandle}-${connection.target}`,
         source: connection.source!,
@@ -525,9 +789,11 @@ export default function BotEditor() {
         targetHandle: connection.targetHandle,
         type: "animated",
         data: {
-          edgeType: connection.sourceHandle as "success" | "error",
+          edgeType: edgeType as "success" | "error" | "model" | "embeddings" | "memory" | "tool" | "connection",
         },
       };
+
+      console.log("[BotEditor] Created edge:", edge);
 
       const newEdges = addEdge(edge, edges) as FlowEdge[];
       updateActiveBotEdges(newEdges);

@@ -1,0 +1,430 @@
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { PassportStrategy } from '@nestjs/passport';
+import {
+  Strategy as SamlStrategy,
+  Profile as SamlProfile,
+  VerifiedCallback,
+} from '@node-saml/passport-saml';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Request } from 'express';
+import { Tenant } from '../../tenants/entities/tenant.entity';
+import { User, UserStatus, AuthProvider } from '../../users/entities/user.entity';
+import { Role } from '../../roles/entities/role.entity';
+import { SamlConfig, SsoUserProfile, SsoProvider } from './sso.types';
+
+/**
+ * SAML 2.0 Authentication Strategy.
+ *
+ * Supports enterprise SAML providers:
+ * - Okta
+ * - Azure AD
+ * - OneLogin
+ * - PingIdentity
+ * - Generic SAML 2.0 IdPs
+ *
+ * Features:
+ * - Just-in-time user provisioning
+ * - Attribute mapping
+ * - Group-to-role mapping
+ * - Single Logout (SLO) support
+ */
+@Injectable()
+export class MultiTenantSamlStrategy extends PassportStrategy(
+  SamlStrategy,
+  'saml',
+) {
+  constructor(
+    @InjectRepository(Tenant)
+    private readonly tenantRepository: Repository<Tenant>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    @InjectRepository(Role)
+    private readonly roleRepository: Repository<Role>,
+  ) {
+    // Initialize with a dummy config - actual config is loaded per-tenant
+    super(
+      {
+        // These are overridden per-request in getSamlOptions
+        entryPoint: 'https://placeholder.com/sso',
+        issuer: 'https://placeholder.com/saml/metadata',
+        callbackUrl: 'https://placeholder.com/auth/saml/callback',
+        cert: 'placeholder',
+        passReqToCallback: true,
+      },
+      async (
+        req: Request,
+        profile: SamlProfile,
+        done: VerifiedCallback,
+      ) => {
+        try {
+          const user = await this.validateSamlResponse(req, profile);
+          done(null, user);
+        } catch (error) {
+          done(error as Error, undefined);
+        }
+      },
+    );
+  }
+
+  /**
+   * Get SAML options for a specific tenant.
+   * Called by the SAML library before each authentication request.
+   */
+  async getSamlOptions(req: Request): Promise<any> {
+    const tenantSlug = req.params.tenant || req.query.tenant as string;
+
+    if (!tenantSlug) {
+      throw new UnauthorizedException({
+        code: 'TENANT_REQUIRED',
+        message: 'Tenant identifier is required for SSO.',
+      });
+    }
+
+    const tenant = await this.tenantRepository.findOne({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new UnauthorizedException({
+        code: 'TENANT_NOT_FOUND',
+        message: 'Tenant not found.',
+      });
+    }
+
+    if (!tenant.ssoEnabled || tenant.ssoProvider !== 'saml') {
+      throw new UnauthorizedException({
+        code: 'SSO_NOT_CONFIGURED',
+        message: 'SAML SSO is not configured for this tenant.',
+      });
+    }
+
+    const ssoConfig = tenant.ssoConfig as SamlConfig;
+
+    return {
+      entryPoint: ssoConfig.idp.ssoUrl,
+      issuer: ssoConfig.sp.entityId,
+      callbackUrl: ssoConfig.sp.assertionConsumerServiceUrl,
+      cert: ssoConfig.idp.certificate,
+      privateKey: ssoConfig.sp.privateKey,
+      signatureAlgorithm: ssoConfig.signatureAlgorithm || 'sha256',
+      digestAlgorithm: ssoConfig.digestAlgorithm || 'sha256',
+      wantAssertionsSigned: ssoConfig.wantAssertionsSigned ?? true,
+      wantAuthnResponseSigned: ssoConfig.wantResponseSigned ?? true,
+      authnContext: ssoConfig.authnContext,
+      identifierFormat:
+        'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
+      acceptedClockSkewMs: 60000, // 1 minute
+      // Store tenant info for callback
+      additionalParams: {
+        tenant: tenantSlug,
+      },
+    };
+  }
+
+  /**
+   * Validate SAML response and provision/authenticate user.
+   */
+  private async validateSamlResponse(
+    req: Request,
+    profile: SamlProfile,
+  ): Promise<User> {
+    const tenantSlug = req.params.tenant || req.query.tenant as string;
+
+    const tenant = await this.tenantRepository.findOne({
+      where: { slug: tenantSlug },
+    });
+
+    if (!tenant) {
+      throw new UnauthorizedException('Tenant not found');
+    }
+
+    const ssoConfig = tenant.ssoConfig as SamlConfig;
+
+    // Extract user profile from SAML attributes
+    const userProfile = this.extractUserProfile(profile, ssoConfig);
+
+    // Validate email domain if restrictions are set
+    if (ssoConfig.allowedDomains && ssoConfig.allowedDomains.length > 0) {
+      const emailDomain = userProfile.email.split('@')[1];
+      if (!ssoConfig.allowedDomains.includes(emailDomain)) {
+        throw new UnauthorizedException({
+          code: 'DOMAIN_NOT_ALLOWED',
+          message: 'Your email domain is not allowed for this organization.',
+        });
+      }
+    }
+
+    // Find or create user
+    let user = await this.userRepository.findOne({
+      where: {
+        email: userProfile.email.toLowerCase(),
+        tenantId: tenant.id,
+      },
+      relations: ['roles'],
+    });
+
+    if (!user) {
+      // JIT Provisioning
+      if (!ssoConfig.autoProvision) {
+        throw new UnauthorizedException({
+          code: 'USER_NOT_FOUND',
+          message: 'User not found and auto-provisioning is disabled.',
+        });
+      }
+
+      user = await this.provisionUser(tenant, userProfile, ssoConfig);
+    } else {
+      // Update user attributes from IdP
+      user = await this.updateUserFromProfile(user, userProfile, ssoConfig);
+    }
+
+    // Check user status
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException({
+        code: 'USER_INACTIVE',
+        message: `User account is ${user.status}.`,
+      });
+    }
+
+    // Store SAML session info
+    (user as any).samlSessionIndex = profile.sessionIndex;
+
+    return user;
+  }
+
+  /**
+   * Extract user profile from SAML attributes.
+   */
+  private extractUserProfile(
+    profile: SamlProfile,
+    config: SamlConfig,
+  ): SsoUserProfile {
+    const mapping = config.attributeMapping;
+
+    // Get email - required
+    const email =
+      this.getAttribute(profile, mapping.email) ||
+      profile.nameID ||
+      profile.email;
+
+    if (!email) {
+      throw new UnauthorizedException({
+        code: 'EMAIL_MISSING',
+        message: 'Email attribute not found in SAML response.',
+      });
+    }
+
+    // Get optional attributes
+    const firstName = mapping.firstName
+      ? this.getAttribute(profile, mapping.firstName)
+      : undefined;
+    const lastName = mapping.lastName
+      ? this.getAttribute(profile, mapping.lastName)
+      : undefined;
+    const displayName = mapping.displayName
+      ? this.getAttribute(profile, mapping.displayName)
+      : undefined;
+    const groups = mapping.groups
+      ? this.getAttributeArray(profile, mapping.groups)
+      : undefined;
+
+    return {
+      email: email.toLowerCase(),
+      firstName,
+      lastName,
+      displayName,
+      groups,
+      provider: SsoProvider.SAML_GENERIC,
+      providerId: profile.nameID || email,
+      rawAttributes: profile,
+    };
+  }
+
+  /**
+   * Get a single attribute value from SAML profile.
+   */
+  private getAttribute(profile: SamlProfile, attributeName: string): string | undefined {
+    // Handle different attribute formats
+    const value =
+      (profile as any)[attributeName] ||
+      (profile as any)[`urn:oid:${attributeName}`] ||
+      profile.attributes?.[attributeName];
+
+    if (Array.isArray(value)) {
+      return value[0];
+    }
+
+    return value;
+  }
+
+  /**
+   * Get an array attribute from SAML profile.
+   */
+  private getAttributeArray(
+    profile: SamlProfile,
+    attributeName: string,
+  ): string[] {
+    const value = this.getAttribute(profile, attributeName);
+
+    if (!value) {
+      return [];
+    }
+
+    if (Array.isArray(value)) {
+      return value;
+    }
+
+    return [value];
+  }
+
+  /**
+   * Provision a new user from SAML profile.
+   */
+  private async provisionUser(
+    tenant: Tenant,
+    profile: SsoUserProfile,
+    config: SamlConfig,
+  ): Promise<User> {
+    // Determine roles
+    const roles = await this.mapGroupsToRoles(
+      tenant.id,
+      profile.groups || [],
+      config.groupMapping,
+      config.defaultRoleId,
+    );
+
+    const user = this.userRepository.create({
+      email: profile.email.toLowerCase(),
+      firstName: profile.firstName || profile.displayName?.split(' ')[0] || 'User',
+      lastName:
+        profile.lastName ||
+        profile.displayName?.split(' ').slice(1).join(' ') ||
+        '',
+      tenantId: tenant.id,
+      authProvider: AuthProvider.SAML,
+      externalId: profile.providerId, // SSO provider ID
+      status: UserStatus.ACTIVE,
+      emailVerified: true, // Trust IdP email verification
+      emailVerifiedAt: new Date(),
+      roles,
+    });
+
+    return this.userRepository.save(user);
+  }
+
+  /**
+   * Update existing user from SAML profile.
+   */
+  private async updateUserFromProfile(
+    user: User,
+    profile: SsoUserProfile,
+    config: SamlConfig,
+  ): Promise<User> {
+    // Update SSO provider ID if not set
+    if (!user.externalId) {
+      user.externalId = profile.providerId;
+      user.authProvider = AuthProvider.SAML;
+    }
+
+    // Update name if changed and JIT is enabled
+    if (config.jitProvisioning) {
+      if (profile.firstName) user.firstName = profile.firstName;
+      if (profile.lastName) user.lastName = profile.lastName;
+
+      // Update roles from groups if mapping is configured
+      if (config.groupMapping && profile.groups) {
+        const roles = await this.mapGroupsToRoles(
+          user.tenantId,
+          profile.groups,
+          config.groupMapping,
+          config.defaultRoleId,
+        );
+        if (roles.length > 0) {
+          user.roles = roles;
+        }
+      }
+    }
+
+    user.lastLoginAt = new Date();
+
+    return this.userRepository.save(user);
+  }
+
+  /**
+   * Map IdP groups to SkuldBot roles.
+   */
+  private async mapGroupsToRoles(
+    tenantId: string,
+    groups: string[],
+    groupMapping: Record<string, string> | undefined,
+    defaultRoleId: string | undefined,
+  ): Promise<Role[]> {
+    const roleIds: string[] = [];
+
+    // Map groups to roles
+    if (groupMapping) {
+      for (const group of groups) {
+        const roleId = groupMapping[group];
+        if (roleId) {
+          roleIds.push(roleId);
+        }
+      }
+    }
+
+    // Add default role if no roles mapped
+    if (roleIds.length === 0 && defaultRoleId) {
+      roleIds.push(defaultRoleId);
+    }
+
+    // Fallback to viewer role
+    if (roleIds.length === 0) {
+      const viewerRole = await this.roleRepository.findOne({
+        where: { tenantId, name: 'viewer' },
+      });
+      if (viewerRole) {
+        return [viewerRole];
+      }
+      return [];
+    }
+
+    return this.roleRepository.findByIds(roleIds);
+  }
+}
+
+/**
+ * Generate SAML Service Provider metadata.
+ */
+export function generateSamlMetadata(config: SamlConfig): string {
+  const sp = config.sp;
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<EntityDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata"
+                  entityID="${sp.entityId}">
+  <SPSSODescriptor AuthnRequestsSigned="${config.signRequests || false}"
+                   WantAssertionsSigned="${config.wantAssertionsSigned || true}"
+                   protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+    <NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress</NameIDFormat>
+    <AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+                              Location="${sp.assertionConsumerServiceUrl}"
+                              index="1"/>
+    ${
+      sp.singleLogoutServiceUrl
+        ? `<SingleLogoutService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+                            Location="${sp.singleLogoutServiceUrl}"/>`
+        : ''
+    }
+    ${
+      sp.certificate
+        ? `<KeyDescriptor use="signing">
+      <ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+        <ds:X509Data>
+          <ds:X509Certificate>${sp.certificate.replace(/-----BEGIN CERTIFICATE-----/g, '').replace(/-----END CERTIFICATE-----/g, '').replace(/\n/g, '')}</ds:X509Certificate>
+        </ds:X509Data>
+      </ds:KeyInfo>
+    </KeyDescriptor>`
+        : ''
+    }
+  </SPSSODescriptor>
+</EntityDescriptor>`;
+}

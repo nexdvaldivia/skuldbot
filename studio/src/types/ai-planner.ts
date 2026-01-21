@@ -1,6 +1,15 @@
 // AI Planner Types
 // Types for the AI-powered RPA planning assistant
 
+// Connection types for AI nodes (model, embeddings, memory, tools)
+export interface AIConnection {
+  from: string;               // ID or label of source node
+  to: string;                 // ID or label of target node
+  type: "model" | "embeddings" | "memory" | "tool";
+  toolName?: string;          // For tool connections
+  toolDescription?: string;   // For tool connections
+}
+
 export interface PlanStep {
   id: string;
   nodeType: string;           // e.g., "web.open_browser", "email.read"
@@ -9,6 +18,8 @@ export interface PlanStep {
   config: Record<string, unknown>; // Pre-filled configuration
   reasoning?: string;         // AI's reasoning for this step
   isManual?: boolean;         // User-added vs AI-generated
+  // AI-specific connections (for embeddings→memory→agent patterns)
+  aiConnections?: AIConnection[];
 }
 
 export interface ConversationMessage {

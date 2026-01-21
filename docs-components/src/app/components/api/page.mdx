@@ -1,0 +1,689 @@
+export const metadata = {
+  title: 'API / HTTP',
+  description: 'Components for making HTTP requests and working with REST/GraphQL APIs. Full support for authentication and headers.',
+}
+
+export const sections = [
+  { title: 'HTTP Request', id: 'api-http_request' },
+  { title: 'GraphQL Query', id: 'api-graphql' },
+  { title: 'REST GET', id: 'api-rest_get' },
+  { title: 'REST POST', id: 'api-rest_post' },
+  { title: 'SOAP Request', id: 'api-soap' },
+  { title: 'Get OAuth Token', id: 'api-oauth_token' },
+  { title: 'Parse JSON', id: 'api-parse_json' },
+  { title: 'JSONPath Query', id: 'api-json_path' },
+  { title: 'FTP Upload', id: 'api-ftp_upload' },
+]
+
+# API / HTTP
+
+Components for making HTTP requests and working with REST/GraphQL APIs. Full support for authentication and headers. {{ className: 'lead' }}
+
+<Note>
+  This category contains **9 components**. See also: [Data Transform](/components/data) · [Database](/components/database) · [Web Automation](/components/web)
+</Note>
+
+## Common Use Cases
+
+- Integrate with REST APIs
+- Call GraphQL endpoints
+- Authenticate with OAuth2
+- Parse JSON responses
+
+---
+
+## HTTP Request {{ id: 'api-http_request' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-globe"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <circle cx="12" cy="12" r="10" />
+  <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+  <path d="M2 12h20" />
+</svg>
+`} label="HTTP Request" description="Make HTTP request" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `api.http_request`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Fetch data from REST APIs
+- Submit forms to web services
+- Call microservice endpoints
+- Integrate with third-party platforms
+
+<Prerequisites>
+
+- API endpoint URL
+- Authentication credentials (API key, OAuth, etc.)
+
+</Prerequisites>
+
+### Configuration
+
+<Properties>
+  <Property name="method" type="select">
+    Method Default: `GET`
+  </Property>
+  <Property name="url" type="text" required>
+    URL
+  </Property>
+  <Property name="headers" type="textarea">
+    Headers (JSON)
+  </Property>
+  <Property name="body" type="textarea">
+    Body (JSON)
+  </Property>
+</Properties>
+
+### Setup Guide
+
+
+<Collapsible title="Configure API Authentication">
+
+**Bearer Token:** Add header `Authorization: Bearer ${vault.api_token}`
+
+**API Key:** Add header `X-API-Key: ${vault.api_key}`
+
+**Basic Auth:** Configure auth type as `basic` with `${vault.api_user}` and `${vault.api_pass}`
+
+</Collapsible>
+
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${HTTP Request.variableName}`.
+
+<Properties>
+  <Property name="statusCode" type="number">
+    HTTP status code
+  </Property>
+  <Property name="body" type="object">
+    Response body (JSON)
+  </Property>
+  <Property name="headers" type="object">
+    Response headers
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "api.http_request",
+  "label": "HTTP Request",
+  "config": {
+    "url": "https://api.example.com/invoices",
+    "method": "GET",
+    "headers": "{\"Authorization\": \"Bearer ${api_token}\"}"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## GraphQL Query {{ id: 'api-graphql' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-braces"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" />
+  <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" />
+</svg>
+`} label="GraphQL Query" description="Execute GraphQL query" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `api.graphql`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Query GraphQL APIs efficiently
+- Fetch nested data in single request
+- Perform mutations with variables
+- Integrate with modern API platforms
+
+### Configuration
+
+<Properties>
+  <Property name="endpoint" type="text" required>
+    Endpoint
+  </Property>
+  <Property name="query" type="textarea" required>
+    Query
+  </Property>
+  <Property name="variables" type="textarea">
+    Variables (JSON)
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "api.graphql",
+  "label": "GraphQL Query",
+  "config": {
+    "url": "https://api.example.com/graphql",
+    "query": "query { users { id name } }"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## REST GET {{ id: 'api-rest_get' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-arrow-down-to-line"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 17V3" />
+  <path d="m6 11 6 6 6-6" />
+  <path d="M19 21H5" />
+</svg>
+`} label="REST GET" description="Simple GET request" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `api.rest_get`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Retrieve records from CRM systems
+- Fetch user data from identity providers
+- Get product catalogs from e-commerce APIs
+- Read configuration from remote services
+
+### Configuration
+
+<Properties>
+  <Property name="url" type="text" required>
+    URL
+  </Property>
+  <Property name="headers" type="textarea">
+    Headers (JSON)
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "api.rest_get",
+  "label": "REST GET",
+  "config": {
+    "url": "your-url",
+    "headers": "your-headers"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## REST POST {{ id: 'api-rest_post' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-arrow-up-to-line"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M5 3h14" />
+  <path d="m18 13-6-6-6 6" />
+  <path d="M12 7v14" />
+</svg>
+`} label="REST POST" description="Simple POST request" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `api.rest_post`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Create new records in external systems
+- Submit orders to fulfillment services
+- Post data to analytics platforms
+- Send notifications to messaging services
+
+### Configuration
+
+<Properties>
+  <Property name="url" type="text" required>
+    URL
+  </Property>
+  <Property name="body" type="textarea" required>
+    Body (JSON)
+  </Property>
+  <Property name="headers" type="textarea">
+    Headers (JSON)
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "api.rest_post",
+  "label": "REST POST",
+  "config": {
+    "url": "your-url",
+    "body": "your-body",
+    "headers": "your-headers"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## SOAP Request {{ id: 'api-soap' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-code"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M10 12.5 8 15l2 2.5" />
+  <path d="m14 12.5 2 2.5-2 2.5" />
+</svg>
+`} label="SOAP Request" description="Make SOAP request" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `api.soap`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Integrate with legacy enterprise systems
+- Call SAP web services
+- Access banking/financial SOAP APIs
+- Interface with government services
+
+### Configuration
+
+<Properties>
+  <Property name="wsdl" type="text" required>
+    WSDL URL
+  </Property>
+  <Property name="operation" type="text" required>
+    Operation
+  </Property>
+  <Property name="body" type="textarea">
+    XML Body
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "api.soap",
+  "label": "SOAP Request",
+  "config": {
+    "wsdl": "your-wsdl",
+    "operation": "your-operation",
+    "body": "your-body"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Get OAuth Token {{ id: 'api-oauth_token' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-key"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4" />
+  <path d="m21 2-9.6 9.6" />
+  <circle cx="7.5" cy="15.5" r="5.5" />
+</svg>
+`} label="Get OAuth Token" description="Authenticate with OAuth" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `api.oauth_token`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Get access tokens for API authentication
+- Refresh expired OAuth tokens
+- Implement OAuth2 client credentials flow
+- Authenticate with Microsoft/Google APIs
+
+### Configuration
+
+<Properties>
+  <Property name="token_url" type="text" required>
+    Token URL
+  </Property>
+  <Property name="client_id" type="text" required>
+    Client ID
+  </Property>
+  <Property name="client_secret" type="text" required>
+    Client Secret
+  </Property>
+  <Property name="grant_type" type="select">
+    Grant Type Default: `client_credentials`
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "api.oauth_token",
+  "label": "Get OAuth Token",
+  "config": {
+    "token_url": "your-token_url",
+    "client_id": "your-client_id",
+    "client_secret": "your-client_secret",
+    "grant_type": "client_credentials"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Parse JSON {{ id: 'api-parse_json' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-braces"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" />
+  <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" />
+</svg>
+`} label="Parse JSON" description="Parse JSON string" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `api.parse_json`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Parse API response bodies
+- Convert JSON strings to objects
+- Process webhook payloads
+- Handle configuration files
+
+### Configuration
+
+<Properties>
+  <Property name="input" type="textarea" required>
+    JSON String
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "api.parse_json",
+  "label": "Parse JSON",
+  "config": {
+    "input": "your-input"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## JSONPath Query {{ id: 'api-json_path' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-git-branch"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <line x1="6" x2="6" y1="3" y2="15" />
+  <circle cx="18" cy="6" r="3" />
+  <circle cx="6" cy="18" r="3" />
+  <path d="M18 9a9 9 0 0 1-9 9" />
+</svg>
+`} label="JSONPath Query" description="Extract with JSONPath" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `api.json_path`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Extract specific values from JSON
+- Navigate nested API responses
+- Filter arrays in JSON data
+- Access deeply nested properties
+
+### Configuration
+
+<Properties>
+  <Property name="json" type="textarea" required>
+    JSON Data
+  </Property>
+  <Property name="path" type="text" required>
+    JSONPath (e.g., `$.data[*].name`)
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "api.json_path",
+  "label": "JSONPath Query",
+  "config": {
+    "json": "your-json",
+    "path": "$.data[*].name"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## FTP Upload {{ id: 'api-ftp_upload' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-upload"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 3v12" />
+  <path d="m17 8-5-5-5 5" />
+  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+</svg>
+`} label="FTP Upload" description="Upload file via FTP" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `api.ftp_upload`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Upload files to FTP/SFTP servers
+- Send reports to partner systems
+- Distribute files to remote locations
+- Transfer data to legacy systems
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="text" required>
+    FTP Host
+  </Property>
+  <Property name="username" type="text" required>
+    Username
+  </Property>
+  <Property name="password" type="text" required>
+    Password
+  </Property>
+  <Property name="local_path" type="text" required>
+    Local File
+  </Property>
+  <Property name="remote_path" type="text" required>
+    Remote Path
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "api.ftp_upload",
+  "label": "FTP Upload",
+  "config": {
+    "host": "your-host",
+    "username": "your-username",
+    "password": "your-password",
+    "local_path": "your-local_path"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+

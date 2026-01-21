@@ -1,0 +1,1060 @@
+export const metadata = {
+  title: 'Triggers',
+  description: 'Components that start your automation workflow. Every workflow needs at least one trigger.',
+}
+
+export const sections = [
+  { title: 'File Watch', id: 'trigger-file_watch' },
+  { title: 'Email Trigger', id: 'trigger-email_received' },
+  { title: 'Webhook Trigger', id: 'trigger-webhook' },
+  { title: 'Queue Trigger', id: 'trigger-queue' },
+  { title: 'Manual Trigger', id: 'trigger-manual' },
+  { title: 'Form Trigger', id: 'trigger-form' },
+  { title: 'API Polling', id: 'trigger-api_polling' },
+  { title: 'Database Change', id: 'trigger-database_change' },
+  { title: 'Storage Event', id: 'trigger-storage_event' },
+  { title: 'Message Bus', id: 'trigger-message_bus' },
+  { title: 'Chat Trigger', id: 'trigger-chat' },
+  { title: 'Voice Inbound', id: 'trigger-voice_inbound' },
+]
+
+# Triggers
+
+Components that start your automation workflow. Every workflow needs at least one trigger. {{ className: 'lead' }}
+
+<Note>
+  This category contains **12 components**. See also: [Control Flow](/components/control) · [Logging](/components/logging)
+</Note>
+
+## Common Use Cases
+
+- Start workflows on schedule
+- React to file changes or emails
+- Process incoming webhooks
+- Accept form submissions
+
+---
+
+## File Watch {{ id: 'trigger-file_watch' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-eye"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+  <circle cx="12" cy="12" r="3" />
+</svg>
+`} label="File Watch" description="Trigger when file changes" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.file_watch`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Process invoices dropped into a shared folder
+- Import CSV data when uploaded to SFTP
+- Monitor log files for error patterns
+- Auto-process scanned documents from scanners
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    Watch Path (e.g., `/path/to/folder`)
+  </Property>
+  <Property name="pattern" type="text">
+    File Pattern (e.g., `*.csv`)
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${File Watch.variableName}`.
+
+<Properties>
+  <Property name="filePath" type="string">
+    Full path of the changed file
+  </Property>
+  <Property name="fileName" type="string">
+    Name of the changed file
+  </Property>
+  <Property name="event" type="string">
+    Event type: created, modified, deleted
+  </Property>
+  <Property name="timestamp" type="string">
+    When the event occurred
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "trigger.file_watch",
+  "label": "File Watch",
+  "config": {
+    "path": "/data/incoming",
+    "pattern": "*.csv"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Email Trigger {{ id: 'trigger-email_received' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-mail-open"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M21.2 8.4c.5.38.8.97.8 1.6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V10a2 2 0 0 1 .8-1.6l8-6a2 2 0 0 1 2.4 0l8 6Z" />
+  <path d="m22 10-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 10" />
+</svg>
+`} label="Email Trigger" description="Trigger when email received" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.email_received`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Parse incoming purchase orders from vendors
+- Process customer support tickets
+- Extract attachments from automated reports
+- Forward filtered emails to specific teams
+
+### Configuration
+
+<Properties>
+  <Property name="folder" type="text">
+    Mail Folder Default: `INBOX`
+  </Property>
+  <Property name="filter" type="text">
+    Subject Filter (e.g., `Invoice*`)
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "trigger.email_received",
+  "label": "Email Trigger",
+  "config": {
+    "folder": "INBOX",
+    "filter": "Invoice*"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Webhook Trigger {{ id: 'trigger-webhook' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-webhook"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2" />
+  <path d="m6 17 3.13-5.78c.53-.97.1-2.18-.5-3.1a4 4 0 1 1 6.89-4.06" />
+  <path d="m12 6 3.13 5.73C15.66 12.7 16.9 13 18 13a4 4 0 0 1 0 8" />
+</svg>
+`} label="Webhook Trigger" description="Trigger via HTTP webhook" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.webhook`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Process incoming orders from e-commerce platforms
+- Handle Stripe/PayPal payment notifications
+- React to GitHub/GitLab CI/CD events
+- Receive alerts from monitoring systems
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    Webhook Path (e.g., `/webhook/my-trigger`)
+  </Property>
+  <Property name="method" type="select">
+    HTTP Method Default: `POST`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Webhook Trigger.variableName}`.
+
+<Properties>
+  <Property name="body" type="object">
+    Request body (JSON)
+  </Property>
+  <Property name="headers" type="object">
+    Request headers
+  </Property>
+  <Property name="query" type="object">
+    Query parameters
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "trigger.webhook",
+  "label": "Webhook Trigger",
+  "config": {
+    "path": "/api/invoices/process",
+    "method": "POST"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Queue Trigger {{ id: 'trigger-queue' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-list-ordered"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M11 5h10" />
+  <path d="M11 12h10" />
+  <path d="M11 19h10" />
+  <path d="M4 4h1v5" />
+  <path d="M4 9h2" />
+  <path d="M6.5 20H3.4c0-1 2.6-1.925 2.6-3.5a1.5 1.5 0 0 0-2.6-1.02" />
+</svg>
+`} label="Queue Trigger" description="Trigger from message queue" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.queue`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Process items from a work queue (FIFO)
+- Distribute tasks among multiple bot runners
+- Handle high-volume transaction processing
+- Retry failed items with exponential backoff
+
+### Configuration
+
+<Properties>
+  <Property name="queue_name" type="text" required>
+    Queue Name
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Queue Trigger.variableName}`.
+
+<Properties>
+  <Property name="message" type="object">
+    Message payload from queue
+  </Property>
+  <Property name="messageId" type="string">
+    Unique message identifier
+  </Property>
+  <Property name="timestamp" type="string">
+    When message was received
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "trigger.queue",
+  "label": "Queue Trigger",
+  "config": {
+    "queue_name": "your-queue_name"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Manual Trigger {{ id: 'trigger-manual' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-play"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
+</svg>
+`} label="Manual Trigger" description="Start workflow manually" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.manual`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Testing and debugging workflows before scheduling
+- Running ad-hoc reports on demand
+- One-time data migrations or cleanups
+- Demo and training scenarios
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Manual Trigger.variableName}`.
+
+<Properties>
+  <Property name="triggeredAt" type="string">
+    Timestamp when manually triggered
+  </Property>
+  <Property name="triggeredBy" type="string">
+    User who triggered the workflow
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "trigger.manual",
+  "label": "Manual Trigger",
+  "config": {
+    // No configuration required
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Form Trigger {{ id: 'trigger-form' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-text"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M10 9H8" />
+  <path d="M16 13H8" />
+  <path d="M16 17H8" />
+</svg>
+`} label="Form Trigger" description="Start workflow when form is submitted" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.form`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Employee onboarding request forms
+- IT support ticket submission
+- Expense report submission with receipts
+- Customer feedback collection
+
+### Configuration
+
+<Properties>
+  <Property name="formTitle" type="text" required>
+    Form Title (e.g., `Contact Form`)
+  </Property>
+  <Property name="formDescription" type="textarea">
+    Description (e.g., `Please fill out this form...`)
+  </Property>
+  <Property name="submitButtonLabel" type="text">
+    Submit Button Text Default: `Submit`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Form Trigger.variableName}`.
+
+<Properties>
+  <Property name="formData" type="object">
+    All submitted form data
+  </Property>
+  <Property name="submissionId" type="string">
+    Unique submission ID
+  </Property>
+  <Property name="submittedAt" type="string">
+    Timestamp of submission
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "trigger.form",
+  "label": "Form Trigger",
+  "config": {
+    "formTitle": "New Employee Request",
+    "submitButtonLabel": "Submit Request"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## API Polling {{ id: 'trigger-api_polling' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-refresh-cw"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+  <path d="M21 3v5h-5" />
+  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+  <path d="M8 16H3v5" />
+</svg>
+`} label="API Polling" description="Poll an API endpoint at intervals" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.api_polling`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Check for new orders in an ERP system every 5 minutes
+- Monitor stock levels in inventory systems
+- Poll legacy systems without webhook support
+- Sync data from APIs with rate limits
+
+### Configuration
+
+<Properties>
+  <Property name="url" type="text" required>
+    API URL (e.g., `https://api.example.com/status`)
+  </Property>
+  <Property name="method" type="select">
+    HTTP Method Default: `GET`
+  </Property>
+  <Property name="interval" type="number">
+    Polling Interval (seconds) Default: `60`
+  </Property>
+  <Property name="headers" type="textarea">
+    Headers (JSON)
+  </Property>
+  <Property name="condition" type="text">
+    Trigger Condition (JSONPath) (e.g., `$.status == 'ready'`)
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${API Polling.variableName}`.
+
+<Properties>
+  <Property name="response" type="object">
+    API response data
+  </Property>
+  <Property name="statusCode" type="number">
+    HTTP status code
+  </Property>
+  <Property name="headers" type="object">
+    Response headers
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "trigger.api_polling",
+  "label": "API Polling",
+  "config": {
+    "url": "https://api.example.com/status",
+    "method": "GET",
+    "interval": "60",
+    "headers": "your-headers"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Database Change {{ id: 'trigger-database_change' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-database-zap"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <ellipse cx="12" cy="5" rx="9" ry="3" />
+  <path d="M3 5V19A9 3 0 0 0 15 21.84" />
+  <path d="M21 5V8" />
+  <path d="M21 12L18 17H22L19 22" />
+  <path d="M3 12A9 3 0 0 0 14.59 14.87" />
+</svg>
+`} label="Database Change" description="Trigger when database records change" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.database_change`
+  </Property>
+</Properties>
+
+### When to Use
+
+- React to new customer registrations
+- Process orders when status changes to "approved"
+- Audit trail for sensitive data modifications
+- Sync changes to external systems in real-time
+
+### Configuration
+
+<Properties>
+  <Property name="connection" type="text" required>
+    Connection Name
+  </Property>
+  <Property name="table" type="text" required>
+    Table Name
+  </Property>
+  <Property name="event" type="select">
+    Event Type Default: `INSERT`
+  </Property>
+  <Property name="filter" type="text">
+    Filter Condition (e.g., `status = 'pending'`)
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Database Change.variableName}`.
+
+<Properties>
+  <Property name="record" type="object">
+    Changed record data
+  </Property>
+  <Property name="event" type="string">
+    Event type: INSERT, UPDATE, DELETE
+  </Property>
+  <Property name="table" type="string">
+    Table name
+  </Property>
+  <Property name="timestamp" type="string">
+    When the change occurred
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "trigger.database_change",
+  "label": "Database Change",
+  "config": {
+    "connection": "your-connection",
+    "table": "your-table",
+    "event": "INSERT",
+    "filter": "status = 'pending'"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Storage Event {{ id: 'trigger-storage_event' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-hard-drive"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <line x1="22" x2="2" y1="12" y2="12" />
+  <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+  <line x1="6" x2="6.01" y1="16" y2="16" />
+  <line x1="10" x2="10.01" y1="16" y2="16" />
+</svg>
+`} label="Storage Event" description="Trigger on S3/MinIO storage events" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.storage_event`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Process files uploaded to S3/Azure Blob/MinIO
+- Trigger ML pipelines when training data arrives
+- Archive documents after processing
+- Generate thumbnails for uploaded images
+
+### Configuration
+
+<Properties>
+  <Property name="bucket" type="text" required>
+    Bucket Name
+  </Property>
+  <Property name="prefix" type="text">
+    Path Prefix (e.g., `uploads/`)
+  </Property>
+  <Property name="event" type="select">
+    Event Type Default: `ObjectCreated`
+  </Property>
+  <Property name="suffix" type="text">
+    File Suffix Filter (e.g., `.pdf`)
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Storage Event.variableName}`.
+
+<Properties>
+  <Property name="bucket" type="string">
+    Bucket name
+  </Property>
+  <Property name="key" type="string">
+    Object key/path
+  </Property>
+  <Property name="event" type="string">
+    Event type
+  </Property>
+  <Property name="size" type="number">
+    Object size in bytes
+  </Property>
+  <Property name="timestamp" type="string">
+    When the event occurred
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "trigger.storage_event",
+  "label": "Storage Event",
+  "config": {
+    "bucket": "your-bucket",
+    "prefix": "uploads/",
+    "event": "ObjectCreated",
+    "suffix": ".pdf"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Message Bus {{ id: 'trigger-message_bus' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-radio"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M16.247 7.761a6 6 0 0 1 0 8.478" />
+  <path d="M19.075 4.933a10 10 0 0 1 0 14.134" />
+  <path d="M4.925 19.067a10 10 0 0 1 0-14.134" />
+  <path d="M7.753 16.239a6 6 0 0 1 0-8.478" />
+  <circle cx="12" cy="12" r="2" />
+</svg>
+`} label="Message Bus" description="Trigger from Kafka/RabbitMQ/Redis" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.message_bus`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Process events from Kafka streams
+- Handle RabbitMQ work queues
+- React to Redis pub/sub messages
+- Integrate with enterprise event buses
+
+### Configuration
+
+<Properties>
+  <Property name="provider" type="select">
+    Provider Default: `rabbitmq`
+  </Property>
+  <Property name="connection" type="text" required>
+    Connection String (e.g., `amqp://localhost:5672`)
+  </Property>
+  <Property name="topic" type="text" required>
+    Topic/Queue Name
+  </Property>
+  <Property name="consumer_group" type="text">
+    Consumer Group (e.g., `skuldbot-workers`)
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Message Bus.variableName}`.
+
+<Properties>
+  <Property name="message" type="object">
+    Message payload
+  </Property>
+  <Property name="messageId" type="string">
+    Message identifier
+  </Property>
+  <Property name="topic" type="string">
+    Topic/queue name
+  </Property>
+  <Property name="timestamp" type="string">
+    When message was received
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "trigger.message_bus",
+  "label": "Message Bus",
+  "config": {
+    "provider": "rabbitmq",
+    "connection": "amqp://localhost:5672",
+    "topic": "your-topic",
+    "consumer_group": "skuldbot-workers"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Chat Trigger {{ id: 'trigger-chat' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-message-circle"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" />
+</svg>
+`} label="Chat Trigger" description="Trigger from chat message (Slack, Teams, Telegram)" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.chat`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Bot commands in Slack channels
+- Microsoft Teams approval workflows
+- Telegram notifications with actions
+- Discord server automation
+
+### Configuration
+
+<Properties>
+  <Property name="platform" type="select">
+    Platform Default: `slack`
+  </Property>
+  <Property name="bot_token" type="password" required>
+    Bot Token
+  </Property>
+  <Property name="channel" type="text">
+    Channel/Chat ID (e.g., `#general or C12345678`)
+  </Property>
+  <Property name="command" type="text">
+    Command Prefix (e.g., `/runbot`)
+  </Property>
+  <Property name="mention_only" type="boolean">
+    Only on Mention Default: `true`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Chat Trigger.variableName}`.
+
+<Properties>
+  <Property name="message" type="string">
+    Chat message text
+  </Property>
+  <Property name="sender" type="string">
+    Username/ID of sender
+  </Property>
+  <Property name="channel" type="string">
+    Channel/chat ID
+  </Property>
+  <Property name="platform" type="string">
+    Chat platform
+  </Property>
+  <Property name="timestamp" type="string">
+    When message was sent
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "trigger.chat",
+  "label": "Chat Trigger",
+  "config": {
+    "platform": "slack",
+    "bot_token": "your-bot_token",
+    "channel": "#general or C12345678",
+    "command": "/runbot"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Voice Inbound {{ id: 'trigger-voice_inbound' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-phone-incoming"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M16 2v6h6" />
+  <path d="m22 2-6 6" />
+  <path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384" />
+</svg>
+`} label="Voice Inbound" description="Trigger when phone call is received (Twilio)" bgColor="#d1fae5" textColor="#047857" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.voice_inbound`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="account_sid" type="text" required>
+    Twilio Account SID
+
+    Example: `ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+  </Property>
+  <Property name="auth_token" type="password" required>
+    Twilio Auth Token (e.g., `Your Twilio Auth Token`)
+  </Property>
+  <Property name="phone_number" type="text" required>
+    Twilio Phone Number (e.g., `+1234567890`)
+  </Property>
+  <Property name="webhook_path" type="text">
+    Webhook Path (e.g., `/voice/inbound`) Default: `/voice/inbound`
+  </Property>
+  <Property name="greeting" type="textarea">
+    Greeting Message
+
+    Example: `Thank you for calling. How can I help you today?`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Voice Inbound.variableName}`.
+
+<Properties>
+  <Property name="call_sid" type="string">
+    Twilio Call SID
+  </Property>
+  <Property name="from_number" type="string">
+    Caller phone number
+  </Property>
+  <Property name="to_number" type="string">
+    Called number
+  </Property>
+  <Property name="direction" type="string">
+    Call direction (inbound)
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "trigger.voice_inbound",
+  "label": "Voice Inbound",
+  "config": {
+    "account_sid": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "auth_token": "Your Twilio Auth Token",
+    "phone_number": "+1234567890",
+    "webhook_path": "/voice/inbound"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+

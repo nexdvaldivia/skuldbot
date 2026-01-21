@@ -197,7 +197,7 @@ export default function WelcomeScreen() {
   return (
     <div className="h-screen w-screen bg-gradient-to-br from-slate-50 to-slate-100 flex">
       {/* Left Panel - Branding */}
-      <div className="w-[400px] bg-gradient-to-br from-primary-600 to-primary-700 p-8 flex flex-col">
+      <div className="w-[400px] bg-gradient-to-br from-primary-400 to-primary-600 p-8 flex flex-col">
         <div className="flex items-center gap-4 mb-8">
           <SkuldLogo size={48} className="text-white" />
           <div>

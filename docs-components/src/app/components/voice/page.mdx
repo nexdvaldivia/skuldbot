@@ -1,0 +1,1013 @@
+export const metadata = {
+  title: 'Voice',
+  description: 'Components for text-to-speech, speech recognition, and voice interactions.',
+}
+
+export const sections = [
+  { title: 'Make Call', id: 'voice-call' },
+  { title: 'Text to Speech', id: 'voice-speak' },
+  { title: 'Speech to Text', id: 'voice-listen' },
+  { title: 'TwiML Say', id: 'voice-twiml_say' },
+  { title: 'TwiML Gather', id: 'voice-twiml_gather' },
+  { title: 'Transfer Call', id: 'voice-transfer' },
+  { title: 'End Call', id: 'voice-hangup' },
+  { title: 'Get Recording', id: 'voice-get_recording' },
+  { title: 'Add Conversation Turn', id: 'voice-add_turn' },
+  { title: 'Get Transcript', id: 'voice-get_transcript' },
+  { title: 'Set Call Context', id: 'voice-set_context' },
+  { title: 'Get Call Context', id: 'voice-get_context' },
+]
+
+# Voice
+
+Components for text-to-speech, speech recognition, and voice interactions. {{ className: 'lead' }}
+
+<Note>
+  This category contains **12 components**. See also: [AI / LLM](/components/ai) · [File Operations](/components/files) · [API / HTTP](/components/api)
+</Note>
+
+## Common Use Cases
+
+- Convert text to audio
+- Transcribe audio files
+- Build voice assistants
+- Generate audio reports
+
+---
+
+## Make Call {{ id: 'voice-call' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-phone-outgoing"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m16 8 6-6" />
+  <path d="M22 8V2h-6" />
+  <path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384" />
+</svg>
+`} label="Make Call" description="Make an outbound voice call" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `voice.call`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Make automated outbound calls to customers
+- Send appointment reminders via phone
+- Conduct automated surveys
+- Trigger alert calls for urgent notifications
+
+### Configuration
+
+<Properties>
+  <Property name="account_sid" type="text" required>
+    Twilio Account SID
+
+    Example: `ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+  </Property>
+  <Property name="auth_token" type="password" required>
+    Twilio Auth Token (e.g., `Your Twilio Auth Token`)
+  </Property>
+  <Property name="from_number" type="text" required>
+    From Number (Twilio) (e.g., `+1234567890`)
+  </Property>
+  <Property name="to_number" type="text" required>
+    To Number (e.g., `+1234567890`)
+  </Property>
+  <Property name="twiml_url" type="text">
+    TwiML URL
+
+    Example: `https://your-app.com/voice/script`
+  </Property>
+  <Property name="twiml" type="textarea">
+    TwiML (inline)
+
+    Example: `&lt;Response&gt;&lt;Say&gt;Hello!&lt;/Say&gt;&lt;/Response&gt;`
+  </Property>
+  <Property name="record" type="boolean">
+    Record Call Default: `true`
+  </Property>
+  <Property name="timeout" type="number">
+    Timeout (seconds) Default: `30`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Make Call.variableName}`.
+
+<Properties>
+  <Property name="call_sid" type="string">
+    Twilio Call SID
+  </Property>
+  <Property name="status" type="string">
+    Call status
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "voice.call",
+  "label": "Make Call",
+  "config": {
+    "account_sid": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "auth_token": "Your Twilio Auth Token",
+    "from_number": "+1234567890",
+    "to_number": "+1234567890"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Text to Speech {{ id: 'voice-speak' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-volume-2"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z" />
+  <path d="M16 9a5 5 0 0 1 0 6" />
+  <path d="M19.364 18.364a9 9 0 0 0 0-12.728" />
+</svg>
+`} label="Text to Speech" description="Convert text to speech audio (Azure TTS)" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `voice.speak`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Generate audio for IVR systems
+- Create voiceovers for videos
+- Convert text reports to audio
+- Build accessible audio content
+
+### Configuration
+
+<Properties>
+  <Property name="azure_speech_key" type="password" required>
+    Azure Speech Key (e.g., `Your Azure Speech Services Key`)
+  </Property>
+  <Property name="azure_region" type="text">
+    Azure Region (e.g., `eastus`) Default: `eastus`
+  </Property>
+  <Property name="text" type="textarea" required>
+    Text to Speak
+  </Property>
+  <Property name="output_path" type="text">
+    Output File Path (e.g., `/tmp/speech.wav`)
+  </Property>
+  <Property name="voice" type="select">
+    Voice Default: `en-US-JennyNeural`
+  </Property>
+  <Property name="style" type="select">
+    Voice Style
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Text to Speech.variableName}`.
+
+<Properties>
+  <Property name="status" type="string">
+    Synthesis status
+  </Property>
+  <Property name="output_path" type="string">
+    Path to audio file
+  </Property>
+  <Property name="audio_data" type="string">
+    Base64 encoded audio (if no output_path)
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "voice.speak",
+  "label": "Text to Speech",
+  "config": {
+    "azure_speech_key": "Your Azure Speech Services Key",
+    "azure_region": "eastus",
+    "text": "your-text",
+    "output_path": "/tmp/speech.wav"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Speech to Text {{ id: 'voice-listen' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-mic"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 19v3" />
+  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+  <rect x="9" y="2" width="6" height="13" rx="3" />
+</svg>
+`} label="Speech to Text" description="Transcribe audio to text (Azure STT)" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `voice.listen`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Transcribe customer call recordings
+- Convert voice notes to text
+- Process audio messages
+- Enable voice-to-text workflows
+
+### Configuration
+
+<Properties>
+  <Property name="azure_speech_key" type="password" required>
+    Azure Speech Key (e.g., `Your Azure Speech Services Key`)
+  </Property>
+  <Property name="azure_region" type="text">
+    Azure Region (e.g., `eastus`) Default: `eastus`
+  </Property>
+  <Property name="audio_path" type="text" required>
+    Audio File Path
+  </Property>
+  <Property name="language" type="select">
+    Language Default: `en-US`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Speech to Text.variableName}`.
+
+<Properties>
+  <Property name="text" type="string">
+    Transcribed text
+  </Property>
+  <Property name="confidence" type="number">
+    Recognition confidence (0-1)
+  </Property>
+  <Property name="status" type="string">
+    Recognition status
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "voice.listen",
+  "label": "Speech to Text",
+  "config": {
+    "azure_speech_key": "Your Azure Speech Services Key",
+    "azure_region": "eastus",
+    "audio_path": "your-audio_path",
+    "language": "en-US"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## TwiML Say {{ id: 'voice-twiml_say' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-message-square"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
+</svg>
+`} label="TwiML Say" description="Generate TwiML to speak text in call" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `voice.twiml_say`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Build dynamic IVR prompts
+- Create call scripts
+- Generate welcome messages
+- Build interactive voice menus
+
+### Configuration
+
+<Properties>
+  <Property name="text" type="textarea" required>
+    Text to Say
+  </Property>
+  <Property name="voice" type="select">
+    Twilio Voice Default: `Polly.Joanna`
+  </Property>
+  <Property name="language" type="text">
+    Language Default: `en-US`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${TwiML Say.variableName}`.
+
+<Properties>
+  <Property name="twiml" type="string">
+    Generated TwiML
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "voice.twiml_say",
+  "label": "TwiML Say",
+  "config": {
+    "text": "your-text",
+    "voice": "Polly.Joanna",
+    "language": "en-US"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## TwiML Gather {{ id: 'voice-twiml_gather' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-circle-dot"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <circle cx="12" cy="12" r="10" />
+  <circle cx="12" cy="12" r="1" />
+</svg>
+`} label="TwiML Gather" description="Gather user input (voice or DTMF)" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `voice.twiml_gather`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Collect user input via keypad or speech
+- Build IVR menu selections
+- Gather survey responses
+- Capture account numbers from callers
+
+### Configuration
+
+<Properties>
+  <Property name="prompt_text" type="textarea" required>
+    Prompt Text
+  </Property>
+  <Property name="action_url" type="text" required>
+    Action URL
+
+    Example: `https://your-app.com/process-input`
+  </Property>
+  <Property name="input_type" type="select">
+    Input Type Default: `speech dtmf`
+  </Property>
+  <Property name="timeout" type="number">
+    Timeout (seconds) Default: `5`
+  </Property>
+  <Property name="speech_timeout" type="text">
+    Speech Timeout Default: `auto`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${TwiML Gather.variableName}`.
+
+<Properties>
+  <Property name="twiml" type="string">
+    Generated TwiML
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "voice.twiml_gather",
+  "label": "TwiML Gather",
+  "config": {
+    "prompt_text": "your-prompt_text",
+    "action_url": "https://your-app.com/process-input",
+    "input_type": "speech dtmf",
+    "timeout": "5"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Transfer Call {{ id: 'voice-transfer' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-phone-forwarded"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M14 6h8" />
+  <path d="m18 2 4 4-4 4" />
+  <path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384" />
+</svg>
+`} label="Transfer Call" description="Transfer call to another number or agent" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `voice.transfer`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Transfer calls to human agents
+- Route calls to appropriate departments
+- Escalate calls to supervisors
+- Connect callers to specialists
+
+### Configuration
+
+<Properties>
+  <Property name="transfer_to" type="text" required>
+    Transfer To (e.g., `+1987654321`)
+  </Property>
+  <Property name="call_sid" type="text">
+    Call SID (e.g., `Leave empty for current call`)
+  </Property>
+  <Property name="announce_message" type="textarea">
+    Announce Message
+
+    Example: `Please hold while I transfer your call...`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Transfer Call.variableName}`.
+
+<Properties>
+  <Property name="call_sid" type="string">
+    Original call SID
+  </Property>
+  <Property name="transferred_to" type="string">
+    Destination number
+  </Property>
+  <Property name="status" type="string">
+    Transfer status
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "voice.transfer",
+  "label": "Transfer Call",
+  "config": {
+    "transfer_to": "+1987654321",
+    "call_sid": "Leave empty for current call",
+    "announce_message": "Please hold while I transfer your call..."
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## End Call {{ id: 'voice-hangup' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-phone-off"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M10.1 13.9a14 14 0 0 0 3.732 2.668 1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2 18 18 0 0 1-12.728-5.272" />
+  <path d="M22 2 2 22" />
+  <path d="M4.76 13.582A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 .244.473" />
+</svg>
+`} label="End Call" description="End the current voice call" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `voice.hangup`
+  </Property>
+</Properties>
+
+### When to Use
+
+- End calls gracefully with farewell message
+- Terminate automated calls
+- Clean up call resources
+- Complete call workflows
+
+### Configuration
+
+<Properties>
+  <Property name="call_sid" type="text">
+    Call SID (e.g., `Leave empty for current call`)
+  </Property>
+  <Property name="farewell_message" type="textarea">
+    Farewell Message
+
+    Example: `Thank you for calling. Goodbye!`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${End Call.variableName}`.
+
+<Properties>
+  <Property name="call_sid" type="string">
+    Call SID
+  </Property>
+  <Property name="status" type="string">
+    Final status
+  </Property>
+  <Property name="conversation_turns" type="number">
+    Total conversation turns
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "voice.hangup",
+  "label": "End Call",
+  "config": {
+    "call_sid": "Leave empty for current call",
+    "farewell_message": "Thank you for calling. Goodbye!"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Get Recording {{ id: 'voice-get_recording' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-circle-dot"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <circle cx="12" cy="12" r="10" />
+  <circle cx="12" cy="12" r="1" />
+</svg>
+`} label="Get Recording" description="Get call recording URL" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `voice.get_recording`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Retrieve call recordings for review
+- Archive calls for compliance
+- Get recordings for transcription
+- Access call audio for quality assurance
+
+### Configuration
+
+<Properties>
+  <Property name="call_sid" type="text">
+    Call SID (e.g., `Leave empty for current call`)
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Get Recording.variableName}`.
+
+<Properties>
+  <Property name="recording_sid" type="string">
+    Recording SID
+  </Property>
+  <Property name="url" type="string">
+    Recording URL (MP3)
+  </Property>
+  <Property name="duration" type="number">
+    Recording duration in seconds
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "voice.get_recording",
+  "label": "Get Recording",
+  "config": {
+    "call_sid": "Leave empty for current call"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Add Conversation Turn {{ id: 'voice-add_turn' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-message-square-plus"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
+  <path d="M12 8v6" />
+  <path d="M9 11h6" />
+</svg>
+`} label="Add Conversation Turn" description="Add a turn to conversation history" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `voice.add_turn`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Build conversation history for context
+- Track call dialog for AI processing
+- Record conversation flow
+- Build transcript incrementally
+
+### Configuration
+
+<Properties>
+  <Property name="role" type="select" required>
+    Role
+  </Property>
+  <Property name="text" type="textarea" required>
+    Text
+  </Property>
+  <Property name="confidence" type="number">
+    Confidence Default: `1`
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "voice.add_turn",
+  "label": "Add Conversation Turn",
+  "config": {
+    "role": "option",
+    "text": "your-text",
+    "confidence": "1"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Get Transcript {{ id: 'voice-get_transcript' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-text"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M10 9H8" />
+  <path d="M16 13H8" />
+  <path d="M16 17H8" />
+</svg>
+`} label="Get Transcript" description="Get full conversation transcript" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `voice.get_transcript`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Get full call transcript for analysis
+- Export conversation for compliance
+- Feed transcript to AI for processing
+- Generate call summaries
+
+### Configuration
+
+<Properties>
+  <Property name="format" type="select">
+    Format Default: `text`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Get Transcript.variableName}`.
+
+<Properties>
+  <Property name="transcript" type="string">
+    Full conversation transcript
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "voice.get_transcript",
+  "label": "Get Transcript",
+  "config": {
+    "format": "text"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Set Call Context {{ id: 'voice-set_context' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-database"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <ellipse cx="12" cy="5" rx="9" ry="3" />
+  <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+  <path d="M3 12A9 3 0 0 0 21 12" />
+</svg>
+`} label="Set Call Context" description="Store context data during call" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `voice.set_context`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Store caller information during call
+- Track conversation state
+- Save data between call steps
+- Maintain context for AI decisions
+
+### Configuration
+
+<Properties>
+  <Property name="key" type="text" required>
+    Key
+  </Property>
+  <Property name="value" type="textarea" required>
+    Value
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "voice.set_context",
+  "label": "Set Call Context",
+  "config": {
+    "key": "your-key",
+    "value": "your-value"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Get Call Context {{ id: 'voice-get_context' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-database"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <ellipse cx="12" cy="5" rx="9" ry="3" />
+  <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+  <path d="M3 12A9 3 0 0 0 21 12" />
+</svg>
+`} label="Get Call Context" description="Retrieve context data from call" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `voice.get_context`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Retrieve stored call data
+- Access previous responses
+- Get caller details for personalization
+- Retrieve context for decision making
+
+### Configuration
+
+<Properties>
+  <Property name="key" type="text">
+    Key (e.g., `Leave empty to get all context`)
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Get Call Context.variableName}`.
+
+<Properties>
+  <Property name="context_value" type="any">
+    Context value or all context
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "voice.get_context",
+  "label": "Get Call Context",
+  "config": {
+    "key": "Leave empty to get all context"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+

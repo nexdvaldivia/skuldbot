@@ -1,0 +1,1187 @@
+export const metadata = {
+  title: 'Vector Database',
+  description: 'Components for storing and querying vector embeddings. Support for pgvector, Pinecone, Qdrant, ChromaDB, and Supabase.',
+}
+
+export const sections = [
+  { title: 'pgvector Connect', id: 'pgvector-connect' },
+  { title: 'pgvector Upsert', id: 'pgvector-upsert' },
+  { title: 'pgvector Query', id: 'pgvector-query' },
+  { title: 'pgvector Delete', id: 'pgvector-delete' },
+  { title: 'pgvector Admin', id: 'pgvector-admin' },
+  { title: 'Pinecone Connect', id: 'pinecone-connect' },
+  { title: 'Pinecone Upsert', id: 'pinecone-upsert' },
+  { title: 'Pinecone Query', id: 'pinecone-query' },
+  { title: 'Pinecone Delete', id: 'pinecone-delete' },
+  { title: 'Qdrant Connect', id: 'qdrant-connect' },
+  { title: 'Qdrant Upsert', id: 'qdrant-upsert' },
+  { title: 'Qdrant Query', id: 'qdrant-query' },
+  { title: 'Qdrant Delete', id: 'qdrant-delete' },
+  { title: 'ChromaDB Connect', id: 'chroma-connect' },
+  { title: 'ChromaDB Add', id: 'chroma-add' },
+  { title: 'ChromaDB Query', id: 'chroma-query' },
+  { title: 'ChromaDB Update', id: 'chroma-update' },
+  { title: 'ChromaDB Delete', id: 'chroma-delete' },
+  { title: 'Supabase Connect', id: 'supabase-connect' },
+  { title: 'Supabase Upsert', id: 'supabase-upsert' },
+  { title: 'Supabase Query', id: 'supabase-query' },
+  { title: 'Supabase Delete', id: 'supabase-delete' },
+  { title: 'Supabase Stats', id: 'supabase-stats' },
+  { title: 'Vector Memory', id: 'vector-memory' },
+  { title: 'Load Documents', id: 'load-documents' },
+  { title: 'Embed Documents', id: 'embed-documents' },
+]
+
+# Vector Database
+
+Components for storing and querying vector embeddings in vector databases. Essential for RAG (Retrieval-Augmented Generation) pipelines. {{ className: 'lead' }}
+
+<Note>
+  This category contains **26 components** across 5 providers plus utilities. See also: [AI / LLM](/components/ai) · [Document Processing](/components/document)
+</Note>
+
+## RAG Architecture
+
+```
+┌──────────────┐     ┌──────────────────────┐     ┌──────────────────────┐
+│  Embeddings  │────▶│  Vector Database     │────▶│     AI Agent         │
+│  (Config)    │     │  (Storage)           │     │                      │
+│              │     │                      │     │                      │
+│ - Model      │     │ - Database           │     │ - Model (required)   │
+│ - Provider   │     │ - Table/Collection   │     │ - Embed (optional)   │
+│ - API Key    │     │ - Index              │     │ - Memory (optional)  │
+└──────────────┘     └──────────────────────┘     └──────────────────────┘
+    MODEL ONLY          CHUNK & VECTOR              EXECUTION
+                        STORAGE
+```
+
+<Warning>
+  **Important**: The [Embeddings](/components/ai#ai-embeddings) node only configures the MODEL that generates vectors.
+  The nodes in this section configure WHERE the chunks and vectors are stored (database, table, collection, index).
+</Warning>
+
+## Providers Comparison
+
+| Provider | Type | Best For | Filtering | Setup |
+|----------|------|----------|-----------|-------|
+| **pgvector** | Self-hosted | Enterprise, existing PostgreSQL | SQL WHERE | Medium |
+| **Pinecone** | Cloud | Production, serverless | JSON metadata | Easy |
+| **Qdrant** | Self-hosted/Cloud | High performance | Advanced | Medium |
+| **ChromaDB** | Local | Development, prototyping | Simple | Very Easy |
+| **Supabase** | Managed Cloud | Serverless apps | SQL/JSON | Easy |
+
+---
+
+## pgvector (PostgreSQL)
+
+PostgreSQL with the pgvector extension. Best for enterprise, on-premise, and existing PostgreSQL users.
+
+### pgvector Connect {{ id: 'pgvector-connect' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <ellipse cx="12" cy="5" rx="9" ry="3"/>
+  <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/>
+  <path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>
+</svg>
+`} label="pgvector Connect" description="Connect to PostgreSQL with pgvector extension" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.pgvector_connect`
+  </Property>
+</Properties>
+
+#### Configuration
+
+<Properties>
+  <Property name="host" type="text" required>
+    PostgreSQL Host Default: `localhost`
+  </Property>
+  <Property name="port" type="number">
+    Port Default: `5432`
+  </Property>
+  <Property name="database" type="text" required>
+    Database Name
+  </Property>
+  <Property name="user" type="text" required>
+    Username (supports `${DB_USER}`)
+  </Property>
+  <Property name="password" type="password" required>
+    Password (supports `${DB_PASSWORD}`)
+  </Property>
+  <Property name="ssl" type="boolean">
+    Use SSL Default: `false`
+  </Property>
+  <Property name="ssl_mode" type="select">
+    SSL Mode Options: disable, allow, prefer, require, verify-ca, verify-full
+  </Property>
+  <Property name="table" type="text" required>
+    Table Name for vectors
+  </Property>
+  <Property name="dimension" type="number">
+    Vector Dimension Default: `1536` (OpenAI), `768` (BERT)
+  </Property>
+  <Property name="create_table_if_not_exists" type="boolean">
+    Auto-create table Default: `true`
+  </Property>
+  <Property name="index_type" type="select">
+    Index Type Options: none, ivfflat (balanced), hnsw (fastest, more memory)
+  </Property>
+  <Property name="pool_size" type="number">
+    Connection Pool Size Default: `5`
+  </Property>
+</Properties>
+
+#### Output Variables
+
+<Properties>
+  <Property name="connection_id" type="string">
+    Connection identifier for subsequent operations
+  </Property>
+  <Property name="table_exists" type="boolean">
+    Whether the table already existed
+  </Property>
+  <Property name="table_created" type="boolean">
+    Whether the table was created
+  </Property>
+  <Property name="index_exists" type="boolean">
+    Whether a vector index exists
+  </Property>
+  <Property name="row_count" type="number">
+    Current number of rows in table
+  </Property>
+  <Property name="pgvector_version" type="string">
+    pgvector extension version
+  </Property>
+</Properties>
+
+---
+
+### pgvector Upsert {{ id: 'pgvector-upsert' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M12 3v12"/>
+  <path d="m8 11 4 4 4-4"/>
+  <path d="M8 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4"/>
+</svg>
+`} label="pgvector Upsert" description="Insert or update vectors with batch support" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.pgvector_upsert`
+  </Property>
+</Properties>
+
+#### Configuration
+
+<Properties>
+  <Property name="connection" type="text" required>
+    Connection ID `${pgvector Connect.connection_id}`
+  </Property>
+  <Property name="vectors" type="textarea" required>
+    Vectors (JSON array or `${Embed Documents.embeddings}`)
+  </Property>
+  <Property name="documents" type="textarea">
+    Original text content (for retrieval)
+  </Property>
+  <Property name="metadata" type="textarea">
+    Metadata (JSON array)
+  </Property>
+  <Property name="ids" type="textarea">
+    IDs (auto-generated UUIDs if empty)
+  </Property>
+  <Property name="batch_size" type="number">
+    Batch Size Default: `100`
+  </Property>
+  <Property name="on_conflict" type="select">
+    On Conflict: update, skip, error Default: `update`
+  </Property>
+</Properties>
+
+#### Output Variables
+
+<Properties>
+  <Property name="upserted_count" type="number">
+    Total vectors upserted
+  </Property>
+  <Property name="inserted_count" type="number">
+    New vectors inserted
+  </Property>
+  <Property name="updated_count" type="number">
+    Existing vectors updated
+  </Property>
+  <Property name="ids" type="array">
+    IDs of all upserted vectors
+  </Property>
+</Properties>
+
+---
+
+### pgvector Query {{ id: 'pgvector-query' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="11" cy="11" r="8"/>
+  <path d="m21 21-4.3-4.3"/>
+</svg>
+`} label="pgvector Query" description="Semantic search with SQL filtering (RAG retrieval)" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.pgvector_query`
+  </Property>
+</Properties>
+
+#### Configuration
+
+<Properties>
+  <Property name="connection" type="text" required>
+    Connection ID
+  </Property>
+  <Property name="query_vector" type="textarea">
+    Query Vector `${Embeddings.embedding}`
+  </Property>
+  <Property name="query_text" type="textarea">
+    OR Query Text (auto-embed)
+  </Property>
+  <Property name="top_k" type="number">
+    Top K Results Default: `5`
+  </Property>
+  <Property name="distance_metric" type="select">
+    Distance Metric: cosine (recommended), l2, inner_product
+  </Property>
+  <Property name="score_threshold" type="number">
+    Min Similarity Score (0-1)
+  </Property>
+  <Property name="filter" type="textarea">
+    Metadata Filter (SQL WHERE) e.g., `category = 'docs' AND created_at > '2024-01-01'`
+  </Property>
+  <Property name="include_metadata" type="boolean">
+    Include Metadata Default: `true`
+  </Property>
+  <Property name="include_documents" type="boolean">
+    Include Documents Default: `true`
+  </Property>
+</Properties>
+
+#### Output Variables
+
+<Properties>
+  <Property name="results" type="array">
+    Array of {id, score, metadata, document}
+  </Property>
+  <Property name="count" type="number">
+    Number of results returned
+  </Property>
+  <Property name="context" type="string">
+    Combined document text for LLM context
+  </Property>
+  <Property name="sources" type="array">
+    Source citations with IDs and scores
+  </Property>
+</Properties>
+
+---
+
+### pgvector Delete {{ id: 'pgvector-delete' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M3 6h18"/>
+  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+</svg>
+`} label="pgvector Delete" description="Delete vectors by ID, filter, or TTL" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.pgvector_delete`
+  </Property>
+</Properties>
+
+#### Configuration
+
+<Properties>
+  <Property name="connection" type="text" required>
+    Connection ID
+  </Property>
+  <Property name="ids" type="textarea">
+    IDs to Delete (JSON array)
+  </Property>
+  <Property name="filter" type="textarea">
+    Filter (SQL WHERE) e.g., `expires_at < NOW()`
+  </Property>
+  <Property name="dry_run" type="boolean">
+    Dry Run (count without deleting) Default: `false`
+  </Property>
+</Properties>
+
+---
+
+### pgvector Admin {{ id: 'pgvector-admin' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+  <circle cx="12" cy="12" r="3"/>
+</svg>
+`} label="pgvector Admin" description="Administrative operations: vacuum, reindex, stats" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.pgvector_admin`
+  </Property>
+</Properties>
+
+#### Configuration
+
+<Properties>
+  <Property name="connection" type="text" required>
+    Connection ID
+  </Property>
+  <Property name="operation" type="select" required>
+    Operation: stats, vacuum, reindex, analyze, truncate, drop_index, create_index
+  </Property>
+  <Property name="index_type" type="select">
+    Index Type (for create): ivfflat, hnsw
+  </Property>
+</Properties>
+
+---
+
+## Pinecone (Cloud Serverless)
+
+Managed vector database in the cloud. Best for production, serverless, and managed infrastructure.
+
+### Pinecone Connect {{ id: 'pinecone-connect' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+</svg>
+`} label="Pinecone Connect" description="Connect to Pinecone serverless vector database" bgColor="#dcfce7" textColor="#16a34a" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.pinecone_connect`
+  </Property>
+</Properties>
+
+#### Configuration
+
+<Properties>
+  <Property name="api_key" type="password" required>
+    Pinecone API Key `${PINECONE_API_KEY}`
+  </Property>
+  <Property name="environment" type="text" required>
+    Environment/Region e.g., `us-east-1-aws`
+  </Property>
+  <Property name="index_name" type="text" required>
+    Index Name
+  </Property>
+  <Property name="namespace" type="text">
+    Namespace (multi-tenant isolation)
+  </Property>
+  <Property name="create_if_not_exists" type="boolean">
+    Create Index if Not Exists
+  </Property>
+  <Property name="dimension" type="number">
+    Vector Dimension Default: `1536`
+  </Property>
+  <Property name="metric" type="select">
+    Distance Metric: cosine, euclidean, dotproduct
+  </Property>
+  <Property name="pod_type" type="select">
+    Pod Type: serverless (recommended), p1.x1, p2.x1, s1.x1
+  </Property>
+</Properties>
+
+#### Output Variables
+
+<Properties>
+  <Property name="connection_id" type="string">
+    Connection identifier
+  </Property>
+  <Property name="total_vectors" type="number">
+    Total vectors in the index
+  </Property>
+  <Property name="namespaces" type="array">
+    Available namespaces
+  </Property>
+  <Property name="index_fullness" type="number">
+    Index capacity usage (0-1)
+  </Property>
+</Properties>
+
+---
+
+### Pinecone Upsert {{ id: 'pinecone-upsert' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+  <polyline points="17 8 12 3 7 8"/>
+  <line x1="12" x2="12" y1="3" y2="15"/>
+</svg>
+`} label="Pinecone Upsert" description="Insert or update vectors with hybrid search support" bgColor="#dcfce7" textColor="#16a34a" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.pinecone_upsert`
+  </Property>
+</Properties>
+
+#### Configuration
+
+<Properties>
+  <Property name="connection" type="text" required>
+    Connection ID
+  </Property>
+  <Property name="vectors" type="textarea" required>
+    Vectors (JSON array)
+  </Property>
+  <Property name="ids" type="textarea" required>
+    IDs (required for Pinecone)
+  </Property>
+  <Property name="metadata" type="textarea">
+    Metadata (JSON array)
+  </Property>
+  <Property name="sparse_vectors" type="textarea">
+    Sparse Vectors (for hybrid search)
+  </Property>
+  <Property name="batch_size" type="number">
+    Batch Size (max 100) Default: `100`
+  </Property>
+  <Property name="async_mode" type="boolean">
+    Async Mode (faster, no confirmation)
+  </Property>
+</Properties>
+
+---
+
+### Pinecone Query {{ id: 'pinecone-query' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="11" cy="11" r="8"/>
+  <path d="m21 21-4.3-4.3"/>
+</svg>
+`} label="Pinecone Query" description="Semantic and hybrid search with metadata filtering" bgColor="#dcfce7" textColor="#16a34a" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.pinecone_query`
+  </Property>
+</Properties>
+
+#### Configuration
+
+<Properties>
+  <Property name="connection" type="text" required>
+    Connection ID
+  </Property>
+  <Property name="query_vector" type="textarea">
+    Query Vector
+  </Property>
+  <Property name="query_text" type="textarea">
+    OR Query Text (auto-embed)
+  </Property>
+  <Property name="sparse_vector" type="textarea">
+    Sparse Vector (for hybrid search)
+  </Property>
+  <Property name="alpha" type="number">
+    Hybrid Alpha (0=sparse, 1=dense) Default: `0.5`
+  </Property>
+  <Property name="top_k" type="number">
+    Top K Results Default: `5`
+  </Property>
+  <Property name="filter" type="textarea">
+    Metadata Filter (JSON) e.g., `{"category": {"$eq": "docs"}}`
+  </Property>
+  <Property name="include_metadata" type="boolean">
+    Include Metadata Default: `true`
+  </Property>
+</Properties>
+
+---
+
+### Pinecone Delete {{ id: 'pinecone-delete' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M3 6h18"/>
+  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+</svg>
+`} label="Pinecone Delete" description="Delete vectors from Pinecone" bgColor="#dcfce7" textColor="#16a34a" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.pinecone_delete`
+  </Property>
+</Properties>
+
+#### Configuration
+
+<Properties>
+  <Property name="connection" type="text" required>
+    Connection ID
+  </Property>
+  <Property name="ids" type="textarea">
+    IDs to Delete
+  </Property>
+  <Property name="filter" type="textarea">
+    Metadata Filter
+  </Property>
+  <Property name="delete_all" type="boolean">
+    Delete All in Namespace
+  </Property>
+</Properties>
+
+---
+
+## Qdrant (High-Performance)
+
+High-performance vector database with advanced filtering. Best for self-hosted and high-performance requirements.
+
+### Qdrant Connect {{ id: 'qdrant-connect' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+</svg>
+`} label="Qdrant Connect" description="Connect to Qdrant (local Docker or Qdrant Cloud)" bgColor="#fef3c7" textColor="#d97706" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.qdrant_connect`
+  </Property>
+</Properties>
+
+#### Configuration
+
+<Properties>
+  <Property name="url" type="text" required>
+    URL `http://localhost:6333` or `https://xxx.qdrant.io`
+  </Property>
+  <Property name="api_key" type="password">
+    API Key (Qdrant Cloud)
+  </Property>
+  <Property name="prefer_grpc" type="boolean">
+    Use gRPC (faster) Default: `true`
+  </Property>
+  <Property name="grpc_port" type="number">
+    gRPC Port Default: `6334`
+  </Property>
+  <Property name="collection" type="text" required>
+    Collection Name
+  </Property>
+  <Property name="create_if_not_exists" type="boolean">
+    Create if Not Exists Default: `true`
+  </Property>
+  <Property name="dimension" type="number">
+    Vector Dimension Default: `1536`
+  </Property>
+  <Property name="distance" type="select">
+    Distance Metric: Cosine, Euclid, Dot
+  </Property>
+  <Property name="on_disk" type="boolean">
+    Store Vectors on Disk (for large datasets)
+  </Property>
+</Properties>
+
+---
+
+### Qdrant Upsert {{ id: 'qdrant-upsert' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+  <polyline points="17 8 12 3 7 8"/>
+  <line x1="12" x2="12" y1="3" y2="15"/>
+</svg>
+`} label="Qdrant Upsert" description="Insert or update points with multi-vector support" bgColor="#fef3c7" textColor="#d97706" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.qdrant_upsert`
+  </Property>
+</Properties>
+
+#### Configuration
+
+<Properties>
+  <Property name="connection" type="text" required>
+    Connection ID
+  </Property>
+  <Property name="vectors" type="textarea" required>
+    Vectors (JSON array)
+  </Property>
+  <Property name="payloads" type="textarea">
+    Payloads (metadata)
+  </Property>
+  <Property name="ids" type="textarea">
+    IDs (auto-UUID if empty)
+  </Property>
+  <Property name="vector_name" type="text">
+    Vector Name (for multi-vector collections)
+  </Property>
+  <Property name="wait" type="boolean">
+    Wait for Index Default: `true`
+  </Property>
+</Properties>
+
+---
+
+### Qdrant Query {{ id: 'qdrant-query' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="11" cy="11" r="8"/>
+  <path d="m21 21-4.3-4.3"/>
+</svg>
+`} label="Qdrant Query" description="Vector search with advanced payload filtering" bgColor="#fef3c7" textColor="#d97706" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.qdrant_query`
+  </Property>
+</Properties>
+
+#### Configuration
+
+<Properties>
+  <Property name="connection" type="text" required>
+    Connection ID
+  </Property>
+  <Property name="query_vector" type="textarea">
+    Query Vector
+  </Property>
+  <Property name="query_text" type="textarea">
+    OR Query Text (auto-embed)
+  </Property>
+  <Property name="top_k" type="number">
+    Top K Default: `5`
+  </Property>
+  <Property name="filter" type="textarea">
+    Payload Filter (Qdrant syntax) e.g., `{"must": [{"key": "category", "match": {"value": "docs"}}]}`
+  </Property>
+  <Property name="with_payload" type="boolean">
+    Include Payload Default: `true`
+  </Property>
+</Properties>
+
+---
+
+### Qdrant Delete {{ id: 'qdrant-delete' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M3 6h18"/>
+  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+</svg>
+`} label="Qdrant Delete" description="Delete points by ID or filter" bgColor="#fef3c7" textColor="#d97706" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.qdrant_delete`
+  </Property>
+</Properties>
+
+---
+
+## ChromaDB (Local/Development)
+
+Open-source embedding database. Best for local development, prototyping, and simple RAG.
+
+### ChromaDB Connect {{ id: 'chroma-connect' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>
+  <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
+  <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>
+  <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>
+  <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.555C21.965 6.012 17.461 2 12 2z"/>
+</svg>
+`} label="ChromaDB Connect" description="Connect to ChromaDB (in-memory, local, or server)" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.chroma_connect`
+  </Property>
+</Properties>
+
+#### Configuration
+
+<Properties>
+  <Property name="mode" type="select">
+    Mode: memory (ephemeral), persistent (local disk), server (remote)
+  </Property>
+  <Property name="persist_directory" type="text">
+    Persist Directory (for persistent mode) e.g., `./chroma_data`
+  </Property>
+  <Property name="host" type="text">
+    Server Host (for server mode)
+  </Property>
+  <Property name="port" type="number">
+    Server Port Default: `8000`
+  </Property>
+  <Property name="collection" type="text" required>
+    Collection Name
+  </Property>
+  <Property name="embedding_function" type="select">
+    Embedding Function: openai, openai-large, sentence-transformers, none
+  </Property>
+  <Property name="openai_api_key" type="password">
+    OpenAI API Key (if using OpenAI embeddings)
+  </Property>
+</Properties>
+
+---
+
+### ChromaDB Add {{ id: 'chroma-add' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M5 12h14"/>
+  <path d="M12 5v14"/>
+</svg>
+`} label="ChromaDB Add" description="Add documents to ChromaDB (auto-embeds by default)" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.chroma_add`
+  </Property>
+</Properties>
+
+#### Configuration
+
+<Properties>
+  <Property name="connection" type="text" required>
+    Connection ID
+  </Property>
+  <Property name="documents" type="textarea" required>
+    Documents (text) - auto-embedded
+  </Property>
+  <Property name="metadatas" type="textarea">
+    Metadata (JSON array)
+  </Property>
+  <Property name="ids" type="textarea">
+    IDs (auto-generated if empty)
+  </Property>
+  <Property name="embeddings" type="textarea">
+    Pre-computed Embeddings (skip auto-embed)
+  </Property>
+</Properties>
+
+---
+
+### ChromaDB Query {{ id: 'chroma-query' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="11" cy="11" r="8"/>
+  <path d="m21 21-4.3-4.3"/>
+</svg>
+`} label="ChromaDB Query" description="Semantic search in ChromaDB" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.chroma_query`
+  </Property>
+</Properties>
+
+#### Configuration
+
+<Properties>
+  <Property name="connection" type="text" required>
+    Connection ID
+  </Property>
+  <Property name="query_texts" type="textarea">
+    Query Text (auto-embedded)
+  </Property>
+  <Property name="query_embeddings" type="textarea">
+    OR Query Embedding
+  </Property>
+  <Property name="n_results" type="number">
+    Number of Results Default: `5`
+  </Property>
+  <Property name="where" type="textarea">
+    Metadata Filter e.g., `{"category": "docs"}`
+  </Property>
+  <Property name="where_document" type="textarea">
+    Document Filter e.g., `{"$contains": "keyword"}`
+  </Property>
+</Properties>
+
+---
+
+### ChromaDB Update {{ id: 'chroma-update' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+  <path d="M3 3v5h5"/>
+  <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+  <path d="M16 16h5v5"/>
+</svg>
+`} label="ChromaDB Update" description="Update documents in ChromaDB" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.chroma_update`
+  </Property>
+</Properties>
+
+---
+
+### ChromaDB Delete {{ id: 'chroma-delete' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M3 6h18"/>
+  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+</svg>
+`} label="ChromaDB Delete" description="Delete documents from ChromaDB" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.chroma_delete`
+  </Property>
+</Properties>
+
+---
+
+## Supabase (Managed pgvector)
+
+Managed PostgreSQL with pgvector in the cloud. Best for serverless apps and Supabase ecosystem.
+
+### Supabase Connect {{ id: 'supabase-connect' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <ellipse cx="12" cy="5" rx="9" ry="3"/>
+  <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/>
+  <path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>
+</svg>
+`} label="Supabase Connect" description="Connect to Supabase pgvector (managed cloud)" bgColor="#dcfce7" textColor="#16a34a" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.supabase_connect`
+  </Property>
+</Properties>
+
+#### Configuration
+
+<Properties>
+  <Property name="url" type="text" required>
+    Supabase URL `https://xxx.supabase.co`
+  </Property>
+  <Property name="api_key" type="password" required>
+    Service Role Key
+  </Property>
+  <Property name="table" type="text" required>
+    Table Name Default: `documents`
+  </Property>
+  <Property name="dimension" type="number">
+    Vector Dimension Default: `1536`
+  </Property>
+  <Property name="create_table_if_not_exists" type="boolean">
+    Auto-create Table Default: `true`
+  </Property>
+  <Property name="index_type" type="select">
+    Index Type: none, ivfflat (recommended), hnsw
+  </Property>
+</Properties>
+
+---
+
+### Supabase Upsert {{ id: 'supabase-upsert' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+  <polyline points="17 8 12 3 7 8"/>
+  <line x1="12" x2="12" y1="3" y2="15"/>
+</svg>
+`} label="Supabase Upsert" description="Insert or update documents in Supabase" bgColor="#dcfce7" textColor="#16a34a" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.supabase_upsert`
+  </Property>
+</Properties>
+
+#### Configuration
+
+<Properties>
+  <Property name="documents" type="textarea" required>
+    Documents (JSON) `[{"id": "doc1", "content": "...", "metadata": {...}}]`
+  </Property>
+  <Property name="auto_embed" type="boolean">
+    Auto-generate Embeddings Default: `true`
+  </Property>
+</Properties>
+
+---
+
+### Supabase Query {{ id: 'supabase-query' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="11" cy="11" r="8"/>
+  <path d="m21 21-4.3-4.3"/>
+</svg>
+`} label="Supabase Query" description="Semantic search in Supabase" bgColor="#dcfce7" textColor="#16a34a" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.supabase_query`
+  </Property>
+</Properties>
+
+#### Configuration
+
+<Properties>
+  <Property name="query" type="textarea" required>
+    Query Text
+  </Property>
+  <Property name="top_k" type="number">
+    Number of Results Default: `5`
+  </Property>
+  <Property name="min_score" type="number">
+    Minimum Similarity Score Default: `0.5`
+  </Property>
+  <Property name="filter_metadata" type="textarea">
+    Metadata Filter (JSONB) `{"category": "docs"}`
+  </Property>
+</Properties>
+
+---
+
+### Supabase Delete {{ id: 'supabase-delete' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M3 6h18"/>
+  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+</svg>
+`} label="Supabase Delete" description="Delete documents from Supabase" bgColor="#dcfce7" textColor="#16a34a" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.supabase_delete`
+  </Property>
+</Properties>
+
+---
+
+### Supabase Stats {{ id: 'supabase-stats' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <line x1="12" x2="12" y1="20" y2="10"/>
+  <line x1="18" x2="18" y1="20" y2="4"/>
+  <line x1="6" x2="6" y1="20" y2="16"/>
+</svg>
+`} label="Supabase Stats" description="Get Supabase table statistics" bgColor="#dcfce7" textColor="#16a34a" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.supabase_stats`
+  </Property>
+</Properties>
+
+---
+
+## Utilities
+
+### Vector Memory {{ id: 'vector-memory' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/>
+  <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/>
+  <path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/>
+  <path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/>
+  <path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/>
+  <path d="M3.477 10.896a4 4 0 0 1 .585-.396"/>
+  <path d="M19.938 10.5a4 4 0 0 1 .585.396"/>
+  <path d="M6 18a4 4 0 0 1-1.967-.516"/>
+  <path d="M19.967 17.484A4 4 0 0 1 18 18"/>
+</svg>
+`} label="Vector Memory" description="Vector store memory for AI Agent (automatic RAG)" bgColor="#f0abfc" textColor="#a21caf" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.memory`
+  </Property>
+</Properties>
+
+### Description
+
+Connect this node directly to AI Agent's "Memory" port for automatic RAG. It configures a vector store and handles retrieval automatically.
+
+#### Configuration
+
+<Properties>
+  <Property name="provider" type="select">
+    Vector Store: chroma (local), pgvector, supabase, pinecone, qdrant
+  </Property>
+  <Property name="collection" type="text">
+    Collection Name Default: `agent_memory`
+  </Property>
+  <Property name="memory_type" type="select">
+    Memory Type: retrieve (RAG context), store (save interactions), both (full memory)
+  </Property>
+  <Property name="top_k" type="number">
+    Results to Retrieve Default: `5`
+  </Property>
+  <Property name="min_score" type="number">
+    Min Similarity Score Default: `0.5`
+  </Property>
+</Properties>
+
+---
+
+### Load Documents {{ id: 'load-documents' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+  <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+  <path d="M10 9H8"/>
+  <path d="M16 13H8"/>
+  <path d="M16 17H8"/>
+</svg>
+`} label="Load Documents" description="Load and chunk documents for vector storage" bgColor="#e0e7ff" textColor="#4338ca" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.load_documents`
+  </Property>
+</Properties>
+
+#### Configuration
+
+<Properties>
+  <Property name="source_type" type="select" required>
+    Source Type: text, file, url, pdf, docx, csv, json, html, markdown
+  </Property>
+  <Property name="source" type="textarea" required>
+    Source (text, path, or URL)
+  </Property>
+  <Property name="splitter" type="select">
+    Text Splitter: recursive (recommended), token, sentence, paragraph, markdown, code
+  </Property>
+  <Property name="chunk_size" type="number">
+    Chunk Size (chars) Default: `1000`
+  </Property>
+  <Property name="chunk_overlap" type="number">
+    Chunk Overlap (chars) Default: `200`
+  </Property>
+  <Property name="add_source_metadata" type="boolean">
+    Add Source Metadata Default: `true`
+  </Property>
+</Properties>
+
+#### Output Variables
+
+<Properties>
+  <Property name="documents" type="array">
+    Chunked documents with metadata
+  </Property>
+  <Property name="chunk_count" type="number">
+    Number of chunks created
+  </Property>
+  <Property name="total_chars" type="number">
+    Total characters processed
+  </Property>
+</Properties>
+
+---
+
+### Embed Documents {{ id: 'embed-documents' }}
+
+<NodeHeader icon={`
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="14" y="14" width="4" height="6" rx="2"/>
+  <rect x="6" y="4" width="4" height="6" rx="2"/>
+  <path d="M6 20h4"/>
+  <path d="M14 10h4"/>
+  <path d="M6 14h2v6"/>
+  <path d="M14 4h2v6"/>
+</svg>
+`} label="Embed Documents" description="Generate embeddings for documents" bgColor="#e0e7ff" textColor="#4338ca" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.embed_documents`
+  </Property>
+</Properties>
+
+#### Configuration
+
+<Properties>
+  <Property name="documents" type="textarea" required>
+    Documents `${Load Documents.documents}`
+  </Property>
+  <Property name="model" type="select">
+    Embedding Model: text-embedding-3-small (1536d, fast), text-embedding-3-large (3072d, best), text-embedding-ada-002 (legacy)
+  </Property>
+  <Property name="api_key" type="password">
+    OpenAI API Key
+  </Property>
+  <Property name="batch_size" type="number">
+    Batch Size Default: `100`
+  </Property>
+</Properties>
+
+#### Output Variables
+
+<Properties>
+  <Property name="embeddings" type="array">
+    Generated embeddings
+  </Property>
+  <Property name="documents" type="array">
+    Documents with embeddings attached
+  </Property>
+  <Property name="dimension" type="number">
+    Embedding dimension
+  </Property>
+  <Property name="tokens_used" type="number">
+    Total tokens processed
+  </Property>
+</Properties>
+
+---
+
+## Complete RAG Pipeline Example
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│ Load Documents  │────▶│ Embed Documents │────▶│ pgvector Upsert │
+│                 │     │                 │     │                 │
+│ source: PDF     │     │ model: text-    │     │ table:          │
+│ chunk_size:1000 │     │ embedding-3-    │     │ embeddings      │
+│ overlap: 200    │     │ small           │     │                 │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+                                                        │
+                                                        ▼
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│    AI Agent     │◀────│  Vector Memory  │◀────│ pgvector Query  │
+│                 │     │                 │     │                 │
+│ "Answer         │     │ provider:       │     │ top_k: 5        │
+│  questions      │     │ pgvector        │     │ filter: SQL     │
+│  about docs"    │     │ memory_type:    │     │                 │
+│                 │     │ retrieve        │     │                 │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+```
+

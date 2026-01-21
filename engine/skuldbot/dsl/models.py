@@ -23,6 +23,59 @@ class NodeOutput(BaseModel):
     error: str = Field(..., description="ID del nodo siguiente en caso de error")
 
 
+class ToolConnection(BaseModel):
+    """Conexión de herramienta para AI Agent"""
+
+    name: str = Field(..., description="Nombre de la herramienta")
+    description: str = Field(..., description="Descripción para el LLM")
+    nodeId: str = Field(..., description="ID del nodo a ejecutar")
+    inputMapping: Optional[Dict[str, str]] = Field(None, description="Mapeo de parámetros")
+
+
+class MemoryConnection(BaseModel):
+    """Conexión de memoria vectorial para AI Agent"""
+
+    provider: str = Field("chroma", description="Proveedor de vectordb (chroma, pgvector, pinecone, qdrant, supabase)")
+    collection: str = Field("agent_memory", description="Nombre de la colección")
+    memory_type: str = Field("both", description="Tipo de memoria (retrieve, store, both)")
+    top_k: int = Field(5, description="Número de documentos a recuperar")
+    min_score: float = Field(0.5, description="Score mínimo para recuperación")
+    connection_params: Optional[Dict[str, Any]] = Field(None, description="Parámetros de conexión del proveedor")
+
+
+class EmbeddingsConnection(BaseModel):
+    """Configuración de embeddings conectada visualmente (estilo n8n)"""
+
+    provider: str = Field("openai", description="Proveedor de embeddings (openai, azure, ollama, cohere, huggingface, google, aws)")
+    model: str = Field("text-embedding-3-small", description="Modelo de embeddings")
+    dimension: int = Field(1536, description="Dimensión del vector")
+    # Provider-specific fields
+    api_key: Optional[str] = Field(None, description="API key del proveedor")
+    base_url: Optional[str] = Field(None, description="URL base (para Azure, Ollama, HuggingFace)")
+    api_version: Optional[str] = Field(None, description="Versión de API (para Azure)")
+    project_id: Optional[str] = Field(None, description="Project ID (para Google)")
+    location: Optional[str] = Field(None, description="Ubicación/Region (para Google, AWS)")
+    aws_access_key: Optional[str] = Field(None, description="AWS Access Key")
+    aws_secret_key: Optional[str] = Field(None, description="AWS Secret Key")
+    region: Optional[str] = Field(None, description="AWS Region")
+
+
+class ModelConnection(BaseModel):
+    """Configuración de LLM/Chat Model conectada visualmente (estilo n8n)"""
+
+    provider: str = Field("openai", description="Proveedor de LLM (openai, anthropic, azure, ollama, google, aws, groq, mistral)")
+    model: str = Field("gpt-4o", description="Modelo de LLM")
+    temperature: float = Field(0.7, ge=0, le=2, description="Temperatura de generación")
+    max_tokens: Optional[int] = Field(None, description="Máximo de tokens a generar")
+    # Provider-specific fields
+    api_key: Optional[str] = Field(None, description="API key del proveedor")
+    base_url: Optional[str] = Field(None, description="URL base (para Azure, Ollama)")
+    api_version: Optional[str] = Field(None, description="Versión de API (para Azure)")
+    aws_access_key: Optional[str] = Field(None, description="AWS Access Key (para Bedrock)")
+    aws_secret_key: Optional[str] = Field(None, description="AWS Secret Key (para Bedrock)")
+    region: Optional[str] = Field(None, description="AWS Region (para Bedrock)")
+
+
 class NodeDefinition(BaseModel):
     """Definición de un nodo en el flujo"""
 
@@ -32,6 +85,14 @@ class NodeDefinition(BaseModel):
     outputs: NodeOutput = Field(..., description="Salidas del nodo")
     label: Optional[str] = Field(None, description="Etiqueta visible para el usuario")
     description: Optional[str] = Field(None, description="Descripción del nodo")
+    # AI Agent specific fields (connected visually in n8n style)
+    tools: Optional[List[ToolConnection]] = Field(None, description="Herramientas conectadas (solo para ai.agent)")
+    model_config_: Optional[ModelConnection] = Field(None, alias="model_config", description="Configuración de LLM conectada visualmente")
+    memory: Optional[MemoryConnection] = Field(None, description="Memoria vectorial conectada (solo para ai.agent)")
+    embeddings: Optional[EmbeddingsConnection] = Field(None, description="Configuración de embeddings conectada visualmente")
+
+    class Config:
+        populate_by_name = True
 
     @field_validator("id")
     @classmethod
@@ -84,12 +145,12 @@ class BotDefinition(BaseModel):
     @classmethod
     def validate_nodes(cls, v: List[NodeDefinition]) -> List[NodeDefinition]:
         if not v:
-            raise ValueError("Bot debe tener al menos un nodo")
+            raise ValueError("Bot must have at least one node")
 
-        # Validar IDs únicos
+        # Validate unique IDs
         ids = [node.id for node in v]
         if len(ids) != len(set(ids)):
-            raise ValueError("Los IDs de nodos deben ser únicos")
+            raise ValueError("Node IDs must be unique")
 
         return v
 
@@ -99,18 +160,18 @@ class BotDefinition(BaseModel):
         if v and "nodes" in info.data:
             node_ids = [node.id for node in info.data["nodes"]]
             if v not in node_ids:
-                raise ValueError(f"start_node '{v}' no existe en la lista de nodos")
+                raise ValueError(f"start_node '{v}' does not exist in the node list")
         return v
 
     def get_node(self, node_id: str) -> Optional[NodeDefinition]:
-        """Obtiene un nodo por su ID"""
+        """Gets a node by its ID"""
         for node in self.nodes:
             if node.id == node_id:
                 return node
         return None
 
     def get_start_node(self) -> Optional[NodeDefinition]:
-        """Obtiene el nodo inicial"""
+        """Gets the start node"""
         if self.start_node:
             return self.get_node(self.start_node)
         # Si no se especifica, retornar el primer nodo

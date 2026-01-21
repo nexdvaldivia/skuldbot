@@ -13,6 +13,7 @@ import ReactFlow, {
   applyEdgeChanges,
   NodeChange,
   EdgeChange,
+  SelectionMode,
 } from "reactflow";
 import "reactflow/dist/style.css";
 
@@ -22,6 +23,7 @@ import GroupNode from "./GroupNode";
 import AnimatedEdge from "./AnimatedEdge";
 import EmptyState from "./EmptyState";
 import { FlowNode, FlowEdge, isContainerNodeType } from "../types/flow";
+import { getCategoryColor } from "../utils/nodeCategories";
 
 const nodeTypes: NodeTypes = {
   customNode: CustomNode,
@@ -276,6 +278,77 @@ export default function FlowEditor() {
 
   const onConnect = useCallback(
     (connection: Connection) => {
+      // Get source node to determine color and other metadata
+      const sourceNode = connection.source
+        ? nodes.find((n) => n.id === connection.source)
+        : null;
+
+      // Get color from source node's category
+      const sourceColor = sourceNode
+        ? getCategoryColor(sourceNode.data.category)
+        : "#6b7280"; // Default gray
+
+      // Determine edge type based on source/target handles
+      const isToolConnection =
+        connection.sourceHandle === "tool-out" &&
+        connection.targetHandle === "tools";
+
+      const isMemoryConnection =
+        connection.sourceHandle === "memory-out" &&
+        connection.targetHandle === "memory";
+
+      const isEmbeddingsConnection =
+        connection.sourceHandle === "embeddings-out" &&
+        connection.targetHandle === "embeddings";
+
+      const isModelConnection =
+        connection.sourceHandle === "model-out" &&
+        connection.targetHandle === "model";
+
+      const isConnectionConnection =
+        connection.sourceHandle === "connection-out" &&
+        connection.targetHandle === "connection";
+
+      // For tool connections, get label for the tool name
+      let toolName = "";
+      let toolDescription = "";
+      if (isToolConnection && sourceNode) {
+        toolName = sourceNode.data.label
+          .toLowerCase()
+          .replace(/\s+/g, "_")
+          .replace(/[^a-z0-9_]/g, "");
+        toolDescription = `Execute ${sourceNode.data.label} node`;
+      }
+
+      // For memory connections, get the memory type from the source node config
+      let memoryType: "retrieve" | "store" | "both" = "both";
+      if (isMemoryConnection && sourceNode && sourceNode.data.config?.memory_type) {
+        memoryType = sourceNode.data.config.memory_type;
+      }
+
+      // Determine edge type
+      let edgeType: "success" | "error" | "tool" | "memory" | "embeddings" | "model" | "connection";
+      if (isToolConnection) {
+        edgeType = "tool";
+      } else if (isMemoryConnection) {
+        edgeType = "memory";
+      } else if (isEmbeddingsConnection) {
+        edgeType = "embeddings";
+      } else if (isModelConnection) {
+        edgeType = "model";
+      } else if (isConnectionConnection) {
+        edgeType = "connection";
+      } else {
+        edgeType = connection.sourceHandle as "success" | "error";
+      }
+
+      // For connection edges, get the connection type from source node
+      let connectionType = "";
+      if (isConnectionConnection && sourceNode) {
+        // Extract connection type from node type (e.g., "ms365.connection" -> "ms365")
+        connectionType = sourceNode.data.nodeType.split(".")[0];
+      }
+
       const edge: FlowEdge = {
         id: `${connection.source}-${connection.sourceHandle}-${connection.target}`,
         source: connection.source!,
@@ -284,14 +357,18 @@ export default function FlowEditor() {
         targetHandle: connection.targetHandle,
         type: "animated",
         data: {
-          edgeType: connection.sourceHandle as "success" | "error",
+          edgeType,
+          sourceColor,
+          ...(isToolConnection && { toolName, toolDescription }),
+          ...(isMemoryConnection && { memoryType }),
+          ...(isConnectionConnection && { connectionType }),
         },
       };
 
       const newEdges = addEdge(edge, edges) as FlowEdge[];
       setEdges(newEdges);
     },
-    [edges, setEdges]
+    [edges, nodes, setEdges]
   );
 
   // Single click just selects the node (React Flow handles this automatically)
@@ -537,6 +614,11 @@ export default function FlowEditor() {
         nodesDraggable={true}
         nodesConnectable={true}
         elementsSelectable={true}
+        selectionOnDrag={false}
+        selectionMode={SelectionMode.Partial}
+        selectionKeyCode="Shift"
+        multiSelectionKeyCode="Shift"
+        panOnScroll={true}
         deleteKeyCode={null}
         proOptions={{ hideAttribution: true }}
         elevateEdgesOnSelect={true}

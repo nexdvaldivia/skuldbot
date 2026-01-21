@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SkuldBot Runner{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-online { background-color: #22c55e; }
+        .status-offline { background-color: #ef4444; }
+        .status-busy { background-color: #f59e0b; }
+
+        .log-info { color: #3b82f6; }
+        .log-warn { color: #f59e0b; }
+        .log-error { color: #ef4444; }
+        .log-debug { color: #6b7280; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="flex items-center">
+                        <svg class="h-8 w-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        <span class="ml-2 text-xl font-bold text-gray-900">SkuldBot Runner</span>
+                    </a>
+                </div>
+
+                <div class="flex items-center space-x-4">
+                    <a href="/" class="px-3 py-2 text-sm font-medium {% if request.url.path == '/' %}text-primary-600 border-b-2 border-primary-600{% else %}text-gray-500 hover:text-gray-700{% endif %}">
+                        Dashboard
+                    </a>
+                    <a href="/config" class="px-3 py-2 text-sm font-medium {% if request.url.path == '/config' %}text-primary-600 border-b-2 border-primary-600{% else %}text-gray-500 hover:text-gray-700{% endif %}">
+                        Configuration
+                    </a>
+                    <a href="/secrets" class="px-3 py-2 text-sm font-medium {% if request.url.path == '/secrets' %}text-primary-600 border-b-2 border-primary-600{% else %}text-gray-500 hover:text-gray-700{% endif %}">
+                        Secrets
+                    </a>
+                    <a href="/logs" class="px-3 py-2 text-sm font-medium {% if request.url.path == '/logs' %}text-primary-600 border-b-2 border-primary-600{% else %}text-gray-500 hover:text-gray-700{% endif %}">
+                        Logs
+                    </a>
+                </div>
+
+                <!-- Status indicator -->
+                <div class="flex items-center">
+                    <span id="connection-status" class="flex items-center text-sm">
+                        <span class="status-dot status-offline mr-2"></span>
+                        <span class="text-gray-500">Checking...</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <p class="text-center text-sm text-gray-500">
+                SkuldBot Runner v0.1.0 | Local Management UI
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        // Check status periodically
+        async function checkStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+
+                const statusEl = document.getElementById('connection-status');
+                const dot = statusEl.querySelector('.status-dot');
+                const text = statusEl.querySelector('span:last-child');
+
+                if (data.status === 'running') {
+                    dot.className = 'status-dot status-online';
+                    text.textContent = data.current_job ? 'Busy' : 'Online';
+                    if (data.current_job) {
+                        dot.className = 'status-dot status-busy';
+                    }
+                } else {
+                    dot.className = 'status-dot status-offline';
+                    text.textContent = 'Offline';
+                }
+            } catch (e) {
+                const statusEl = document.getElementById('connection-status');
+                statusEl.querySelector('.status-dot').className = 'status-dot status-offline';
+                statusEl.querySelector('span:last-child').textContent = 'Error';
+            }
+        }
+
+        checkStatus();
+        setInterval(checkStatus, 5000);
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

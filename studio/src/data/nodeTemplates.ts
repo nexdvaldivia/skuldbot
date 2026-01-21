@@ -1708,49 +1708,45 @@ export const nodeTemplates: NodeTemplate[] = [
   // ============================================
   // AI - AI / Intelligent Automation
   // ============================================
-  {
-    type: "ai.llm_prompt",
-    category: "ai",
-    label: "LLM Prompt",
-    description: "Send prompt to LLM",
-    icon: "Sparkles",
-    defaultConfig: { provider: "openai", model: "gpt-4", temperature: 0.7 },
-    configSchema: [
-      { name: "provider", label: "Provider", type: "select", default: "openai", options: [{ value: "openai", label: "OpenAI" }, { value: "anthropic", label: "Anthropic" }, { value: "local", label: "Local LLM" }] },
-      { name: "model", label: "Model", type: "text", default: "gpt-4" },
-      { name: "prompt", label: "Prompt", type: "textarea", required: true, supportsExpressions: true },
-      { name: "system_prompt", label: "System Prompt", type: "textarea" },
-      { name: "temperature", label: "Temperature", type: "number", default: 0.7 },
-    ],
-    outputSchema: [
-      { name: "response", type: "string", description: "LLM response text" },
-      { name: "tokens", type: "number", description: "Tokens used" },
-    ],
-  },
+  // NOTE: ai.llm_prompt was removed - use AI Agent instead
+  // AI Agent already has goal (prompt) and system_prompt
+  // Connect AI Model node to configure the LLM provider
   {
     type: "ai.agent",
     category: "ai",
     label: "AI Agent",
-    description: "Autonomous agent executor",
+    description: "Autonomous ReAct agent with tool execution. Connect an AI Model node to configure the LLM.",
     icon: "Bot",
     defaultConfig: { max_iterations: 10 },
     configSchema: [
-      { name: "name", label: "Agent Name", type: "text" },
-      { name: "goal", label: "Goal", type: "textarea", required: true },
-      { name: "tools", label: "Available Tools", type: "textarea" },
+      { name: "name", label: "Agent Name", type: "text", placeholder: "My Agent" },
+      { name: "goal", label: "Goal / Task", type: "textarea", required: true, supportsExpressions: true, placeholder: "Describe what the agent should accomplish..." },
+      { name: "system_prompt", label: "System Prompt", type: "textarea", placeholder: "You are a helpful assistant that can use tools to accomplish tasks." },
       { name: "max_iterations", label: "Max Iterations", type: "number", default: 10 },
+      // Note: LLM is configured via connected "AI Model" node (ai.model) → Model handle
+      // Note: Tools connect via "tool" edges → Tools handle
+      // Note: Memory connects via "memory" edge from Vector Memory → Memory handle
+      // Note: Embeddings connect via "embeddings" edge → Embed handle
+    ],
+    outputSchema: [
+      { name: "result", type: "string", description: "Final agent response/result" },
+      { name: "tool_calls", type: "array", description: "List of tools called during execution" },
+      { name: "iterations", type: "number", description: "Number of reasoning iterations" },
+      { name: "reasoning_trace", type: "array", description: "Step-by-step reasoning trace" },
     ],
   },
   {
     type: "ai.extract_data",
     category: "ai",
     label: "AI Extract Data",
-    description: "Extract structured data",
+    description: "Extract structured data from text. Connect AI Model node to configure LLM.",
     icon: "FileSearch",
     defaultConfig: {},
     configSchema: [
       { name: "input", label: "Input Text", type: "textarea", required: true, supportsExpressions: true },
-      { name: "schema", label: "Output Schema (JSON)", type: "textarea", required: true },
+      { name: "schema", label: "Output Schema (JSON)", type: "textarea", required: true, placeholder: '{"name": "string", "email": "string", "amount": "number"}' },
+      { name: "instructions", label: "Additional Instructions", type: "textarea", placeholder: "Optional extraction hints..." },
+      // Note: LLM is configured via connected "AI Model" node (ai.model) → Model handle
     ],
     outputSchema: [
       { name: "extracted", type: "object", description: "Extracted data matching schema" },
@@ -1760,12 +1756,20 @@ export const nodeTemplates: NodeTemplate[] = [
     type: "ai.summarize",
     category: "ai",
     label: "AI Summarize",
-    description: "Summarize text content",
+    description: "Summarize text content. Connect AI Model node to configure LLM.",
     icon: "AlignLeft",
     defaultConfig: { style: "concise" },
     configSchema: [
       { name: "input", label: "Input Text", type: "textarea", required: true, supportsExpressions: true },
-      { name: "style", label: "Style", type: "select", default: "concise", options: [{ value: "concise", label: "Concise" }, { value: "detailed", label: "Detailed" }, { value: "bullets", label: "Bullet Points" }] },
+      { name: "style", label: "Style", type: "select", default: "concise", options: [
+        { value: "concise", label: "Concise" },
+        { value: "detailed", label: "Detailed" },
+        { value: "bullets", label: "Bullet Points" },
+        { value: "executive", label: "Executive Summary" },
+      ]},
+      { name: "max_length", label: "Max Length (words)", type: "number", placeholder: "Optional limit" },
+      { name: "language", label: "Output Language", type: "text", placeholder: "Same as input" },
+      // Note: LLM is configured via connected "AI Model" node (ai.model) → Model handle
     ],
     outputSchema: [
       { name: "summary", type: "string", description: "Summarized text" },
@@ -1775,77 +1779,85 @@ export const nodeTemplates: NodeTemplate[] = [
     type: "ai.classify",
     category: "ai",
     label: "AI Classify",
-    description: "Classify text into categories",
+    description: "Classify text into categories. Connect AI Model node to configure LLM.",
     icon: "Tags",
-    defaultConfig: {},
+    defaultConfig: { multi_label: false },
     configSchema: [
       { name: "input", label: "Input Text", type: "textarea", required: true, supportsExpressions: true },
-      { name: "categories", label: "Categories (comma separated)", type: "text", required: true },
+      { name: "categories", label: "Categories (comma separated)", type: "text", required: true, placeholder: "spam, not_spam" },
+      { name: "multi_label", label: "Allow Multiple Labels", type: "boolean", default: false },
+      // Note: LLM is configured via connected "AI Model" node (ai.model) → Model handle
     ],
     outputSchema: [
       { name: "category", type: "string", description: "Classified category" },
       { name: "confidence", type: "number", description: "Confidence score (0-1)" },
+      { name: "all_scores", type: "object", description: "Confidence for each category" },
     ],
   },
   {
     type: "ai.translate",
     category: "ai",
     label: "AI Translate",
-    description: "Translate text",
+    description: "Translate text to another language. Connect AI Model node to configure LLM.",
     icon: "Languages",
     defaultConfig: {},
     configSchema: [
       { name: "input", label: "Input Text", type: "textarea", required: true, supportsExpressions: true },
-      { name: "target_language", label: "Target Language", type: "text", required: true },
+      { name: "target_language", label: "Target Language", type: "text", required: true, placeholder: "Spanish, French, German..." },
+      { name: "source_language", label: "Source Language", type: "text", placeholder: "Auto-detect if empty" },
+      { name: "preserve_formatting", label: "Preserve Formatting", type: "boolean", default: true },
+      // Note: LLM is configured via connected "AI Model" node (ai.model) → Model handle
     ],
     outputSchema: [
       { name: "translated", type: "string", description: "Translated text" },
+      { name: "detected_language", type: "string", description: "Detected source language" },
     ],
   },
   {
     type: "ai.sentiment",
     category: "ai",
     label: "Sentiment Analysis",
-    description: "Analyze text sentiment",
+    description: "Analyze text sentiment. Connect AI Model node to configure LLM.",
     icon: "ThumbsUp",
-    defaultConfig: {},
+    defaultConfig: { detailed: false },
     configSchema: [
       { name: "input", label: "Input Text", type: "textarea", required: true, supportsExpressions: true },
+      { name: "detailed", label: "Detailed Analysis", type: "boolean", default: false },
+      // Note: LLM is configured via connected "AI Model" node (ai.model) → Model handle
     ],
     outputSchema: [
       { name: "sentiment", type: "string", description: "positive, negative, or neutral" },
       { name: "score", type: "number", description: "Sentiment score (-1 to 1)" },
+      { name: "emotions", type: "object", description: "Detected emotions (if detailed)" },
     ],
   },
   {
     type: "ai.vision",
     category: "ai",
     label: "AI Vision",
-    description: "Analyze images with AI",
+    description: "Analyze images with AI. Connect AI Model node (must support vision).",
     icon: "Eye",
     defaultConfig: {},
     configSchema: [
-      { name: "image_path", label: "Image Path", type: "text", required: true },
-      { name: "prompt", label: "Question about image", type: "textarea", required: true },
+      { name: "image_path", label: "Image Path", type: "text", required: true, supportsExpressions: true },
+      { name: "prompt", label: "Question about image", type: "textarea", required: true, placeholder: "What is in this image?" },
+      { name: "detail", label: "Detail Level", type: "select", default: "auto", options: [
+        { value: "auto", label: "Auto" },
+        { value: "low", label: "Low (faster)" },
+        { value: "high", label: "High (more detail)" },
+      ]},
+      // Note: LLM is configured via connected "AI Model" node (ai.model) → Model handle
+      // Must use a vision-capable model (GPT-4o, Claude 3, Gemini 1.5, etc.)
     ],
-  },
-  {
-    type: "ai.embeddings",
-    category: "ai",
-    label: "Generate Embeddings",
-    description: "Create text embeddings",
-    icon: "Binary",
-    defaultConfig: {},
-    configSchema: [
-      { name: "text", label: "Text", type: "textarea", required: true },
-      { name: "model", label: "Model", type: "text", default: "text-embedding-ada-002" },
+    outputSchema: [
+      { name: "description", type: "string", description: "AI analysis of the image" },
     ],
   },
   {
     type: "ai.repair_data",
     category: "ai",
     label: "AI Repair Data",
-    description: "Intelligently repair data quality issues using AI",
+    description: "Intelligently repair data quality issues. Connect AI Model node to configure LLM.",
     icon: "Wrench",
     defaultConfig: {
       context: "general",
@@ -1869,6 +1881,7 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "allow_value_inference", label: "Allow Value Inference (CAUTION)", type: "boolean", default: false },
       { name: "allow_sensitive_repair", label: "Allow Sensitive Field Repair", type: "boolean", default: false },
       { name: "min_confidence", label: "Minimum Confidence (0.0-1.0)", type: "number", default: 0.9 },
+      // Note: LLM is configured via connected "AI Model" node (ai.model) → Model handle
     ],
     outputSchema: [
       { name: "status", type: "string", description: "Result status: repaired, partially_fixed, failed" },
@@ -1884,7 +1897,7 @@ export const nodeTemplates: NodeTemplate[] = [
     type: "ai.suggest_repairs",
     category: "ai",
     label: "AI Suggest Repairs",
-    description: "Preview repair suggestions without applying (for human review)",
+    description: "Preview repair suggestions for human review. Connect AI Model node.",
     icon: "Lightbulb",
     defaultConfig: { context: "general" },
     configSchema: [
@@ -1896,6 +1909,7 @@ export const nodeTemplates: NodeTemplate[] = [
         { value: "healthcare", label: "Healthcare" },
         { value: "finance", label: "Finance" },
       ]},
+      // Note: LLM is configured via connected "AI Model" node (ai.model) → Model handle
     ],
     outputSchema: [
       { name: "suggestion_count", type: "number", description: "Total number of suggestions" },
@@ -1903,6 +1917,984 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "medium_confidence", type: "array", description: "Medium confidence suggestions (0.7-0.9)" },
       { name: "low_confidence", type: "array", description: "Low confidence suggestions (< 0.7)" },
       { name: "estimated_quality_after_repair", type: "number", description: "Estimated quality if all repairs applied" },
+    ],
+  },
+
+  // ============================================
+  // VECTORDB - Vector Databases / Memory (RAG)
+  // ============================================
+
+  // ──────────────────────────────────────────────────
+  // pgvector - PostgreSQL with vector extension (LOCAL / On-Premise)
+  // Best for: Enterprise, on-premise, existing PostgreSQL users
+  // ──────────────────────────────────────────────────
+  {
+    type: "vectordb.pgvector_connect",
+    category: "vectordb",
+    label: "pgvector Connect",
+    description: "Connect to PostgreSQL with pgvector extension (local/on-premise)",
+    icon: "Database",
+    defaultConfig: { port: 5432, dimension: 1536, ssl: false, pool_size: 5, create_table_if_not_exists: true },
+    configSchema: [
+      // Connection Settings
+      { name: "host", label: "Host", type: "text", required: true, placeholder: "localhost", default: "localhost" },
+      { name: "port", label: "Port", type: "number", default: 5432 },
+      { name: "database", label: "Database", type: "text", required: true, placeholder: "vectors" },
+      { name: "user", label: "Username", type: "text", required: true, supportsExpressions: true, placeholder: "${DB_USER}" },
+      { name: "password", label: "Password", type: "password", required: true, supportsExpressions: true, placeholder: "${DB_PASSWORD}" },
+      // SSL/Security
+      { name: "ssl", label: "Use SSL", type: "boolean", default: false },
+      { name: "ssl_mode", label: "SSL Mode", type: "select", default: "prefer", options: [
+        { value: "disable", label: "Disable" },
+        { value: "allow", label: "Allow" },
+        { value: "prefer", label: "Prefer" },
+        { value: "require", label: "Require" },
+        { value: "verify-ca", label: "Verify CA" },
+        { value: "verify-full", label: "Verify Full" },
+      ]},
+      // Table Configuration
+      { name: "table", label: "Table Name", type: "text", required: true, placeholder: "embeddings" },
+      { name: "dimension", label: "Vector Dimension", type: "number", default: 1536, placeholder: "1536 for OpenAI, 768 for BERT" },
+      { name: "create_table_if_not_exists", label: "Auto-create Table", type: "boolean", default: true },
+      // Index Configuration (critical for performance)
+      { name: "index_type", label: "Index Type", type: "select", default: "ivfflat", options: [
+        { value: "none", label: "No Index (small datasets)" },
+        { value: "ivfflat", label: "IVFFlat (balanced)" },
+        { value: "hnsw", label: "HNSW (fastest, more memory)" },
+      ]},
+      { name: "index_lists", label: "IVFFlat Lists (sqrt of rows)", type: "number", default: 100 },
+      // Connection Pool
+      { name: "pool_size", label: "Connection Pool Size", type: "number", default: 5 },
+      { name: "connection_timeout", label: "Connection Timeout (seconds)", type: "number", default: 30 },
+    ],
+    outputSchema: [
+      { name: "connection_id", type: "string", description: "Connection identifier for subsequent operations" },
+      { name: "table_exists", type: "boolean", description: "Whether the table already exists" },
+      { name: "table_created", type: "boolean", description: "Whether the table was created" },
+      { name: "index_exists", type: "boolean", description: "Whether a vector index exists" },
+      { name: "row_count", type: "number", description: "Current number of rows in table" },
+      { name: "pg_version", type: "string", description: "PostgreSQL version" },
+      { name: "pgvector_version", type: "string", description: "pgvector extension version" },
+    ],
+  },
+  {
+    type: "vectordb.pgvector_upsert",
+    category: "vectordb",
+    label: "pgvector Upsert",
+    description: "Insert or update vectors in pgvector with batch support",
+    icon: "DatabaseBackup",
+    defaultConfig: { batch_size: 100, on_conflict: "update" },
+    configSchema: [
+      { name: "connection", label: "Connection", type: "text", required: true, supportsExpressions: true, placeholder: "${pgvector Connect.connection_id}" },
+      // Data Input - supports multiple formats
+      { name: "vectors", label: "Vectors", type: "textarea", required: true, supportsExpressions: true, placeholder: "JSON array of vectors or ${Generate Embeddings.embeddings}" },
+      { name: "documents", label: "Documents/Content (optional)", type: "textarea", supportsExpressions: true, placeholder: "Original text content for retrieval" },
+      { name: "metadata", label: "Metadata", type: "textarea", supportsExpressions: true, placeholder: "JSON array of metadata objects" },
+      { name: "ids", label: "IDs (optional)", type: "textarea", supportsExpressions: true, placeholder: "Auto-generated UUIDs if empty" },
+      // Batch Processing
+      { name: "batch_size", label: "Batch Size", type: "number", default: 100 },
+      { name: "on_conflict", label: "On Conflict", type: "select", default: "update", options: [
+        { value: "update", label: "Update existing" },
+        { value: "skip", label: "Skip duplicates" },
+        { value: "error", label: "Raise error" },
+      ]},
+      // Metadata columns to update on conflict
+      { name: "update_metadata", label: "Update Metadata on Conflict", type: "boolean", default: true },
+      { name: "update_vector", label: "Update Vector on Conflict", type: "boolean", default: true },
+    ],
+    outputSchema: [
+      { name: "upserted_count", type: "number", description: "Number of vectors upserted" },
+      { name: "inserted_count", type: "number", description: "Number of new vectors inserted" },
+      { name: "updated_count", type: "number", description: "Number of vectors updated" },
+      { name: "skipped_count", type: "number", description: "Number of vectors skipped (duplicates)" },
+      { name: "ids", type: "array", description: "IDs of all upserted vectors" },
+      { name: "duration_ms", type: "number", description: "Operation duration in milliseconds" },
+    ],
+  },
+  {
+    type: "vectordb.pgvector_query",
+    category: "vectordb",
+    label: "pgvector Query",
+    description: "Semantic search in pgvector with advanced filtering (RAG retrieval)",
+    icon: "Search",
+    defaultConfig: { top_k: 5, distance_metric: "cosine", include_metadata: true, include_documents: true },
+    configSchema: [
+      { name: "connection", label: "Connection", type: "text", required: true, supportsExpressions: true },
+      // Query Input - vector or text (auto-embed)
+      { name: "query_vector", label: "Query Vector", type: "textarea", supportsExpressions: true, placeholder: "${Generate Embeddings.embedding}" },
+      { name: "query_text", label: "OR Query Text (auto-embed)", type: "textarea", supportsExpressions: true, placeholder: "Natural language query" },
+      { name: "embedding_model", label: "Embedding Model (for text)", type: "select", default: "text-embedding-3-small", options: [
+        { value: "text-embedding-3-small", label: "OpenAI text-embedding-3-small" },
+        { value: "text-embedding-3-large", label: "OpenAI text-embedding-3-large" },
+        { value: "text-embedding-ada-002", label: "OpenAI Ada 002" },
+      ]},
+      // Search Parameters
+      { name: "top_k", label: "Top K Results", type: "number", default: 5 },
+      { name: "distance_metric", label: "Distance Metric", type: "select", default: "cosine", options: [
+        { value: "cosine", label: "Cosine Similarity (recommended)" },
+        { value: "l2", label: "Euclidean (L2)" },
+        { value: "inner_product", label: "Inner Product (normalized vectors)" },
+      ]},
+      { name: "score_threshold", label: "Min Similarity Score (0-1)", type: "number", default: 0, placeholder: "0 = return all" },
+      // Filtering
+      { name: "filter", label: "Metadata Filter (SQL WHERE)", type: "textarea", supportsExpressions: true, placeholder: "category = 'docs' AND created_at > '2024-01-01'" },
+      { name: "filter_json", label: "OR Filter (JSON)", type: "textarea", supportsExpressions: true, placeholder: '{"category": "docs", "status": "active"}' },
+      // Output Options
+      { name: "include_metadata", label: "Include Metadata", type: "boolean", default: true },
+      { name: "include_documents", label: "Include Documents", type: "boolean", default: true },
+      { name: "include_vectors", label: "Include Vectors", type: "boolean", default: false },
+      { name: "include_distance", label: "Include Distance Score", type: "boolean", default: true },
+      // Reranking (advanced)
+      { name: "rerank", label: "Rerank Results", type: "boolean", default: false },
+      { name: "rerank_model", label: "Rerank Model", type: "select", default: "none", options: [
+        { value: "none", label: "No reranking" },
+        { value: "cohere-rerank", label: "Cohere Rerank" },
+        { value: "cross-encoder", label: "Cross-Encoder" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "results", type: "array", description: "Array of {id, score, metadata, document, vector}" },
+      { name: "count", type: "number", description: "Number of results returned" },
+      { name: "query_time_ms", type: "number", description: "Query execution time" },
+      { name: "context", type: "string", description: "Combined document text for LLM context" },
+      { name: "sources", type: "array", description: "Source citations with IDs and scores" },
+    ],
+  },
+  {
+    type: "vectordb.pgvector_delete",
+    category: "vectordb",
+    label: "pgvector Delete",
+    description: "Delete vectors from pgvector by ID, filter, or TTL",
+    icon: "Trash2",
+    defaultConfig: { confirm_delete: true },
+    configSchema: [
+      { name: "connection", label: "Connection", type: "text", required: true, supportsExpressions: true },
+      { name: "ids", label: "IDs to Delete", type: "textarea", supportsExpressions: true, placeholder: "JSON array of IDs" },
+      { name: "filter", label: "Filter (SQL WHERE)", type: "textarea", supportsExpressions: true, placeholder: "expires_at < NOW() OR status = 'archived'" },
+      { name: "filter_json", label: "OR Filter (JSON)", type: "textarea", supportsExpressions: true },
+      { name: "delete_all", label: "Delete ALL (DANGER)", type: "boolean", default: false },
+      { name: "confirm_delete", label: "Confirm Delete (set false for scripts)", type: "boolean", default: true },
+      { name: "dry_run", label: "Dry Run (count without deleting)", type: "boolean", default: false },
+    ],
+    outputSchema: [
+      { name: "deleted_count", type: "number", description: "Number of vectors deleted" },
+      { name: "would_delete", type: "number", description: "Count of vectors that would be deleted (dry run)" },
+      { name: "deleted_ids", type: "array", description: "IDs of deleted vectors" },
+    ],
+  },
+  {
+    type: "vectordb.pgvector_admin",
+    category: "vectordb",
+    label: "pgvector Admin",
+    description: "Administrative operations: vacuum, reindex, stats",
+    icon: "Settings",
+    defaultConfig: {},
+    configSchema: [
+      { name: "connection", label: "Connection", type: "text", required: true, supportsExpressions: true },
+      { name: "operation", label: "Operation", type: "select", required: true, options: [
+        { value: "stats", label: "Get Statistics" },
+        { value: "vacuum", label: "Vacuum Table" },
+        { value: "reindex", label: "Rebuild Index" },
+        { value: "analyze", label: "Analyze Table" },
+        { value: "truncate", label: "Truncate Table (DANGER)" },
+        { value: "drop_index", label: "Drop Index" },
+        { value: "create_index", label: "Create/Recreate Index" },
+      ]},
+      { name: "index_type", label: "Index Type (for create)", type: "select", default: "hnsw", options: [
+        { value: "ivfflat", label: "IVFFlat" },
+        { value: "hnsw", label: "HNSW" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "success", type: "boolean", description: "Operation completed successfully" },
+      { name: "row_count", type: "number", description: "Current row count" },
+      { name: "table_size", type: "string", description: "Table size on disk" },
+      { name: "index_size", type: "string", description: "Index size on disk" },
+      { name: "message", type: "string", description: "Operation result message" },
+    ],
+  },
+
+  // ──────────────────────────────────────────────────
+  // Pinecone - Managed Vector Database (Cloud)
+  // Best for: Production, serverless, managed infrastructure
+  // ──────────────────────────────────────────────────
+  {
+    type: "vectordb.pinecone_connect",
+    category: "vectordb",
+    label: "Pinecone Connect",
+    description: "Connect to Pinecone serverless vector database",
+    icon: "Cloud",
+    defaultConfig: { metric: "cosine" },
+    configSchema: [
+      { name: "api_key", label: "API Key", type: "password", required: true, supportsExpressions: true, placeholder: "${PINECONE_API_KEY}" },
+      { name: "environment", label: "Environment/Region", type: "text", required: true, placeholder: "us-east-1-aws or gcp-starter" },
+      { name: "index_name", label: "Index Name", type: "text", required: true },
+      { name: "namespace", label: "Namespace (multi-tenant isolation)", type: "text", supportsExpressions: true },
+      // Auto-create index if not exists
+      { name: "create_if_not_exists", label: "Create Index if Not Exists", type: "boolean", default: false },
+      { name: "dimension", label: "Vector Dimension (for create)", type: "number", default: 1536 },
+      { name: "metric", label: "Distance Metric (for create)", type: "select", default: "cosine", options: [
+        { value: "cosine", label: "Cosine" },
+        { value: "euclidean", label: "Euclidean" },
+        { value: "dotproduct", label: "Dot Product" },
+      ]},
+      // Pod type (serverless vs pod-based)
+      { name: "pod_type", label: "Pod Type", type: "select", default: "serverless", options: [
+        { value: "serverless", label: "Serverless (recommended)" },
+        { value: "p1.x1", label: "p1.x1 (pod-based)" },
+        { value: "p2.x1", label: "p2.x1 (pod-based)" },
+        { value: "s1.x1", label: "s1.x1 (storage optimized)" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "connection_id", type: "string", description: "Connection identifier" },
+      { name: "dimension", type: "number", description: "Vector dimension of the index" },
+      { name: "total_vectors", type: "number", description: "Total vectors in the index" },
+      { name: "namespaces", type: "array", description: "Available namespaces" },
+      { name: "index_fullness", type: "number", description: "Index capacity usage (0-1)" },
+      { name: "ready", type: "boolean", description: "Index is ready for queries" },
+    ],
+  },
+  {
+    type: "vectordb.pinecone_upsert",
+    category: "vectordb",
+    label: "Pinecone Upsert",
+    description: "Insert or update vectors in Pinecone with batch processing",
+    icon: "Upload",
+    defaultConfig: { batch_size: 100, async_mode: false },
+    configSchema: [
+      { name: "connection", label: "Connection", type: "text", required: true, supportsExpressions: true },
+      { name: "namespace", label: "Namespace (override)", type: "text", supportsExpressions: true },
+      // Data Input
+      { name: "vectors", label: "Vectors", type: "textarea", required: true, supportsExpressions: true },
+      { name: "ids", label: "IDs (required)", type: "textarea", required: true, supportsExpressions: true },
+      { name: "metadata", label: "Metadata", type: "textarea", supportsExpressions: true },
+      // Sparse vectors for hybrid search
+      { name: "sparse_vectors", label: "Sparse Vectors (hybrid search)", type: "textarea", supportsExpressions: true },
+      // Batch settings
+      { name: "batch_size", label: "Batch Size (max 100)", type: "number", default: 100 },
+      { name: "async_mode", label: "Async Mode (faster, no confirmation)", type: "boolean", default: false },
+    ],
+    outputSchema: [
+      { name: "upserted_count", type: "number", description: "Number of vectors upserted" },
+      { name: "batch_count", type: "number", description: "Number of batches processed" },
+      { name: "duration_ms", type: "number", description: "Total operation time" },
+    ],
+  },
+  {
+    type: "vectordb.pinecone_query",
+    category: "vectordb",
+    label: "Pinecone Query",
+    description: "Semantic and hybrid search in Pinecone",
+    icon: "Search",
+    defaultConfig: { top_k: 5, include_metadata: true },
+    configSchema: [
+      { name: "connection", label: "Connection", type: "text", required: true, supportsExpressions: true },
+      { name: "namespace", label: "Namespace (override)", type: "text", supportsExpressions: true },
+      // Query Input
+      { name: "query_vector", label: "Query Vector", type: "textarea", supportsExpressions: true },
+      { name: "query_text", label: "OR Query Text (auto-embed)", type: "textarea", supportsExpressions: true },
+      { name: "embedding_model", label: "Embedding Model", type: "select", default: "text-embedding-3-small", options: [
+        { value: "text-embedding-3-small", label: "OpenAI text-embedding-3-small" },
+        { value: "text-embedding-3-large", label: "OpenAI text-embedding-3-large" },
+      ]},
+      // Hybrid Search (dense + sparse)
+      { name: "sparse_vector", label: "Sparse Vector (hybrid)", type: "textarea", supportsExpressions: true },
+      { name: "alpha", label: "Hybrid Alpha (0=sparse, 1=dense)", type: "number", default: 0.5 },
+      // Search Parameters
+      { name: "top_k", label: "Top K Results", type: "number", default: 5 },
+      { name: "score_threshold", label: "Min Score", type: "number", default: 0 },
+      // Filtering
+      { name: "filter", label: "Metadata Filter", type: "textarea", supportsExpressions: true, placeholder: '{"category": {"$eq": "docs"}}' },
+      // Output Options
+      { name: "include_metadata", label: "Include Metadata", type: "boolean", default: true },
+      { name: "include_values", label: "Include Vector Values", type: "boolean", default: false },
+    ],
+    outputSchema: [
+      { name: "results", type: "array", description: "Array of {id, score, metadata, values}" },
+      { name: "count", type: "number", description: "Number of results" },
+      { name: "namespace", type: "string", description: "Namespace queried" },
+      { name: "context", type: "string", description: "Combined text for LLM" },
+    ],
+  },
+  {
+    type: "vectordb.pinecone_delete",
+    category: "vectordb",
+    label: "Pinecone Delete",
+    description: "Delete vectors from Pinecone",
+    icon: "Trash2",
+    defaultConfig: {},
+    configSchema: [
+      { name: "connection", label: "Connection", type: "text", required: true, supportsExpressions: true },
+      { name: "namespace", label: "Namespace", type: "text", supportsExpressions: true },
+      { name: "ids", label: "IDs to Delete", type: "textarea", supportsExpressions: true },
+      { name: "filter", label: "Metadata Filter", type: "textarea", supportsExpressions: true },
+      { name: "delete_all", label: "Delete All in Namespace", type: "boolean", default: false },
+    ],
+    outputSchema: [
+      { name: "success", type: "boolean", description: "Delete operation completed" },
+      { name: "message", type: "string", description: "Result message" },
+    ],
+  },
+
+  // ──────────────────────────────────────────────────
+  // Qdrant - High-performance vector database
+  // Best for: Self-hosted, high performance, advanced filtering
+  // ──────────────────────────────────────────────────
+  {
+    type: "vectordb.qdrant_connect",
+    category: "vectordb",
+    label: "Qdrant Connect",
+    description: "Connect to Qdrant (local Docker or Qdrant Cloud)",
+    icon: "Hexagon",
+    defaultConfig: { grpc_port: 6334, prefer_grpc: true },
+    configSchema: [
+      // Connection
+      { name: "url", label: "URL", type: "text", required: true, placeholder: "http://localhost:6333 or https://xxx.qdrant.io" },
+      { name: "api_key", label: "API Key (Qdrant Cloud)", type: "password", supportsExpressions: true },
+      { name: "prefer_grpc", label: "Use gRPC (faster)", type: "boolean", default: true },
+      { name: "grpc_port", label: "gRPC Port", type: "number", default: 6334 },
+      // Collection
+      { name: "collection", label: "Collection Name", type: "text", required: true },
+      // Auto-create collection
+      { name: "create_if_not_exists", label: "Create if Not Exists", type: "boolean", default: true },
+      { name: "dimension", label: "Vector Dimension", type: "number", default: 1536 },
+      { name: "distance", label: "Distance Metric", type: "select", default: "Cosine", options: [
+        { value: "Cosine", label: "Cosine" },
+        { value: "Euclid", label: "Euclidean" },
+        { value: "Dot", label: "Dot Product" },
+      ]},
+      // Optimization
+      { name: "on_disk", label: "Store Vectors on Disk", type: "boolean", default: false },
+      { name: "hnsw_config", label: "HNSW M Parameter", type: "number", default: 16 },
+    ],
+    outputSchema: [
+      { name: "connection_id", type: "string", description: "Connection identifier" },
+      { name: "collection_exists", type: "boolean", description: "Collection exists" },
+      { name: "points_count", type: "number", description: "Number of points" },
+      { name: "indexed_vectors_count", type: "number", description: "Indexed vectors" },
+      { name: "segments_count", type: "number", description: "Number of segments" },
+      { name: "status", type: "string", description: "Collection status" },
+    ],
+  },
+  {
+    type: "vectordb.qdrant_upsert",
+    category: "vectordb",
+    label: "Qdrant Upsert",
+    description: "Insert or update points in Qdrant",
+    icon: "Upload",
+    defaultConfig: { batch_size: 100, wait: true },
+    configSchema: [
+      { name: "connection", label: "Connection", type: "text", required: true, supportsExpressions: true },
+      // Data
+      { name: "vectors", label: "Vectors", type: "textarea", required: true, supportsExpressions: true },
+      { name: "payloads", label: "Payloads (metadata)", type: "textarea", supportsExpressions: true },
+      { name: "ids", label: "IDs (optional, auto-UUID)", type: "textarea", supportsExpressions: true },
+      // Named vectors support
+      { name: "vector_name", label: "Vector Name (multi-vector)", type: "text", placeholder: "Leave empty for default" },
+      // Batch
+      { name: "batch_size", label: "Batch Size", type: "number", default: 100 },
+      { name: "wait", label: "Wait for Index", type: "boolean", default: true },
+    ],
+    outputSchema: [
+      { name: "upserted_count", type: "number", description: "Points upserted" },
+      { name: "ids", type: "array", description: "Point IDs" },
+      { name: "status", type: "string", description: "Operation status" },
+    ],
+  },
+  {
+    type: "vectordb.qdrant_query",
+    category: "vectordb",
+    label: "Qdrant Query",
+    description: "Vector search with advanced payload filtering",
+    icon: "Search",
+    defaultConfig: { top_k: 5, with_payload: true },
+    configSchema: [
+      { name: "connection", label: "Connection", type: "text", required: true, supportsExpressions: true },
+      // Query
+      { name: "query_vector", label: "Query Vector", type: "textarea", supportsExpressions: true },
+      { name: "query_text", label: "OR Query Text", type: "textarea", supportsExpressions: true },
+      { name: "vector_name", label: "Vector Name (multi-vector)", type: "text" },
+      // Parameters
+      { name: "top_k", label: "Top K", type: "number", default: 5 },
+      { name: "score_threshold", label: "Score Threshold", type: "number" },
+      // Filtering (Qdrant's powerful filter syntax)
+      { name: "filter", label: "Payload Filter", type: "textarea", supportsExpressions: true, placeholder: '{"must": [{"key": "category", "match": {"value": "docs"}}]}' },
+      // Output
+      { name: "with_payload", label: "Include Payload", type: "boolean", default: true },
+      { name: "with_vectors", label: "Include Vectors", type: "boolean", default: false },
+    ],
+    outputSchema: [
+      { name: "results", type: "array", description: "Search results" },
+      { name: "count", type: "number", description: "Result count" },
+      { name: "context", type: "string", description: "Combined text" },
+    ],
+  },
+  {
+    type: "vectordb.qdrant_delete",
+    category: "vectordb",
+    label: "Qdrant Delete",
+    description: "Delete points by ID or filter",
+    icon: "Trash2",
+    defaultConfig: { wait: true },
+    configSchema: [
+      { name: "connection", label: "Connection", type: "text", required: true, supportsExpressions: true },
+      { name: "ids", label: "Point IDs", type: "textarea", supportsExpressions: true },
+      { name: "filter", label: "Payload Filter", type: "textarea", supportsExpressions: true },
+      { name: "wait", label: "Wait for Completion", type: "boolean", default: true },
+    ],
+    outputSchema: [
+      { name: "deleted_count", type: "number", description: "Points deleted" },
+      { name: "status", type: "string", description: "Operation status" },
+    ],
+  },
+
+  // ──────────────────────────────────────────────────
+  // ChromaDB - Open-source embedding database
+  // Best for: Local development, prototyping, simple RAG
+  // ──────────────────────────────────────────────────
+  {
+    type: "vectordb.chroma_connect",
+    category: "vectordb",
+    label: "ChromaDB Connect",
+    description: "Connect to ChromaDB (in-memory, local, or server)",
+    icon: "Palette",
+    defaultConfig: { mode: "persistent" },
+    configSchema: [
+      // Mode selection
+      { name: "mode", label: "Mode", type: "select", default: "persistent", options: [
+        { value: "memory", label: "In-Memory (ephemeral)" },
+        { value: "persistent", label: "Persistent (local disk)" },
+        { value: "server", label: "Server (remote)" },
+      ]},
+      // Persistent mode
+      { name: "persist_directory", label: "Persist Directory", type: "text", placeholder: "./chroma_data" },
+      // Server mode
+      { name: "host", label: "Server Host", type: "text", placeholder: "localhost" },
+      { name: "port", label: "Server Port", type: "number", default: 8000 },
+      { name: "ssl", label: "Use SSL", type: "boolean", default: false },
+      { name: "headers", label: "Auth Headers (JSON)", type: "textarea", supportsExpressions: true },
+      // Collection
+      { name: "collection", label: "Collection Name", type: "text", required: true },
+      // Embedding function
+      { name: "embedding_function", label: "Embedding Function", type: "select", default: "openai", options: [
+        { value: "openai", label: "OpenAI (text-embedding-3-small)" },
+        { value: "openai-large", label: "OpenAI (text-embedding-3-large)" },
+        { value: "sentence-transformers", label: "Sentence Transformers (local)" },
+        { value: "none", label: "None (bring your own)" },
+      ]},
+      { name: "openai_api_key", label: "OpenAI API Key", type: "password", supportsExpressions: true },
+    ],
+    outputSchema: [
+      { name: "connection_id", type: "string", description: "Connection identifier" },
+      { name: "collection_exists", type: "boolean", description: "Collection exists" },
+      { name: "count", type: "number", description: "Document count" },
+      { name: "metadata", type: "object", description: "Collection metadata" },
+    ],
+  },
+  {
+    type: "vectordb.chroma_add",
+    category: "vectordb",
+    label: "ChromaDB Add",
+    description: "Add documents to ChromaDB (auto-embeds by default)",
+    icon: "Plus",
+    defaultConfig: {},
+    configSchema: [
+      { name: "connection", label: "Connection", type: "text", required: true, supportsExpressions: true },
+      // Documents - the main input
+      { name: "documents", label: "Documents (text)", type: "textarea", required: true, supportsExpressions: true },
+      { name: "metadatas", label: "Metadata", type: "textarea", supportsExpressions: true },
+      { name: "ids", label: "IDs (auto-generated if empty)", type: "textarea", supportsExpressions: true },
+      // Optional pre-computed embeddings
+      { name: "embeddings", label: "Embeddings (skip auto-embed)", type: "textarea", supportsExpressions: true },
+    ],
+    outputSchema: [
+      { name: "added_count", type: "number", description: "Documents added" },
+      { name: "ids", type: "array", description: "Document IDs" },
+    ],
+  },
+  {
+    type: "vectordb.chroma_query",
+    category: "vectordb",
+    label: "ChromaDB Query",
+    description: "Semantic search in ChromaDB",
+    icon: "Search",
+    defaultConfig: { n_results: 5 },
+    configSchema: [
+      { name: "connection", label: "Connection", type: "text", required: true, supportsExpressions: true },
+      // Query - text or embedding
+      { name: "query_texts", label: "Query Text", type: "textarea", supportsExpressions: true },
+      { name: "query_embeddings", label: "OR Query Embedding", type: "textarea", supportsExpressions: true },
+      // Parameters
+      { name: "n_results", label: "Number of Results", type: "number", default: 5 },
+      // Filtering
+      { name: "where", label: "Metadata Filter", type: "textarea", supportsExpressions: true, placeholder: '{"category": "docs"}' },
+      { name: "where_document", label: "Document Filter", type: "textarea", supportsExpressions: true, placeholder: '{"$contains": "keyword"}' },
+      // Include
+      { name: "include", label: "Include Fields", type: "text", default: "documents,metadatas,distances" },
+    ],
+    outputSchema: [
+      { name: "results", type: "array", description: "Search results" },
+      { name: "count", type: "number", description: "Result count" },
+      { name: "context", type: "string", description: "Combined documents" },
+    ],
+  },
+  {
+    type: "vectordb.chroma_update",
+    category: "vectordb",
+    label: "ChromaDB Update",
+    description: "Update documents in ChromaDB",
+    icon: "RefreshCw",
+    defaultConfig: {},
+    configSchema: [
+      { name: "connection", label: "Connection", type: "text", required: true, supportsExpressions: true },
+      { name: "ids", label: "IDs to Update", type: "textarea", required: true, supportsExpressions: true },
+      { name: "documents", label: "New Documents", type: "textarea", supportsExpressions: true },
+      { name: "metadatas", label: "New Metadata", type: "textarea", supportsExpressions: true },
+      { name: "embeddings", label: "New Embeddings", type: "textarea", supportsExpressions: true },
+    ],
+    outputSchema: [
+      { name: "updated_count", type: "number", description: "Documents updated" },
+    ],
+  },
+  {
+    type: "vectordb.chroma_delete",
+    category: "vectordb",
+    label: "ChromaDB Delete",
+    description: "Delete documents from ChromaDB",
+    icon: "Trash2",
+    defaultConfig: {},
+    configSchema: [
+      { name: "connection", label: "Connection", type: "text", required: true, supportsExpressions: true },
+      { name: "ids", label: "IDs to Delete", type: "textarea", supportsExpressions: true },
+      { name: "where", label: "Metadata Filter", type: "textarea", supportsExpressions: true },
+      { name: "where_document", label: "Document Filter", type: "textarea", supportsExpressions: true },
+    ],
+    outputSchema: [
+      { name: "deleted_count", type: "number", description: "Documents deleted" },
+    ],
+  },
+
+  // ──────────────────────────────────────────────────
+  // SUPABASE - pgvector as a Service
+  // Managed PostgreSQL with pgvector in the cloud
+  // Best for: Production apps, serverless, Supabase ecosystem
+  // ──────────────────────────────────────────────────
+  {
+    type: "vectordb.supabase_connect",
+    category: "vectordb",
+    label: "Supabase Connect",
+    description: "Connect to Supabase pgvector (managed cloud database)",
+    icon: "Database",
+    defaultConfig: { dimension: 1536, create_table_if_not_exists: true, index_type: "ivfflat" },
+    configSchema: [
+      // Project
+      { name: "url", label: "Supabase URL", type: "text", required: true, placeholder: "https://xxx.supabase.co" },
+      { name: "api_key", label: "Service Role Key", type: "password", required: true, supportsExpressions: true },
+      // Table
+      { name: "table", label: "Table Name", type: "text", required: true, default: "documents" },
+      { name: "dimension", label: "Vector Dimension", type: "number", default: 1536 },
+      { name: "create_table_if_not_exists", label: "Auto-create Table", type: "boolean", default: true },
+      // Index
+      { name: "index_type", label: "Index Type", type: "select", default: "ivfflat", options: [
+        { value: "none", label: "No Index (small datasets)" },
+        { value: "ivfflat", label: "IVFFlat (balanced, recommended)" },
+        { value: "hnsw", label: "HNSW (fastest queries, more memory)" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "connection_id", type: "string", description: "Connection identifier" },
+      { name: "project_ref", type: "string", description: "Supabase project reference" },
+      { name: "table_exists", type: "boolean", description: "Whether table existed" },
+      { name: "table_created", type: "boolean", description: "Whether table was created" },
+      { name: "row_count", type: "number", description: "Current row count" },
+    ],
+  },
+  {
+    type: "vectordb.supabase_upsert",
+    category: "vectordb",
+    label: "Supabase Upsert",
+    description: "Insert or update documents in Supabase",
+    icon: "Upload",
+    defaultConfig: { auto_embed: true },
+    configSchema: [
+      { name: "documents", label: "Documents", type: "textarea", required: true, supportsExpressions: true, placeholder: '[{"id": "doc1", "content": "...", "metadata": {...}}]' },
+      { name: "auto_embed", label: "Auto-generate Embeddings", type: "boolean", default: true },
+    ],
+    outputSchema: [
+      { name: "inserted", type: "number", description: "New documents inserted" },
+      { name: "updated", type: "number", description: "Existing documents updated" },
+      { name: "total", type: "number", description: "Total documents processed" },
+    ],
+  },
+  {
+    type: "vectordb.supabase_query",
+    category: "vectordb",
+    label: "Supabase Query",
+    description: "Semantic search in Supabase",
+    icon: "Search",
+    defaultConfig: { top_k: 5, min_score: 0.5, include_metadata: true, include_content: true },
+    configSchema: [
+      { name: "query", label: "Query Text", type: "textarea", required: true, supportsExpressions: true },
+      { name: "top_k", label: "Number of Results", type: "number", default: 5 },
+      { name: "min_score", label: "Minimum Similarity Score", type: "number", default: 0.5, placeholder: "0.0 - 1.0" },
+      { name: "filter_metadata", label: "Metadata Filter (JSONB)", type: "textarea", supportsExpressions: true, placeholder: '{"category": "docs"}' },
+      { name: "include_metadata", label: "Include Metadata", type: "boolean", default: true },
+      { name: "include_content", label: "Include Content", type: "boolean", default: true },
+    ],
+    outputSchema: [
+      { name: "results", type: "array", description: "Search results with id, score, content, metadata" },
+      { name: "count", type: "number", description: "Number of results" },
+    ],
+  },
+  {
+    type: "vectordb.supabase_delete",
+    category: "vectordb",
+    label: "Supabase Delete",
+    description: "Delete documents from Supabase",
+    icon: "Trash2",
+    defaultConfig: {},
+    configSchema: [
+      { name: "ids", label: "Document IDs", type: "textarea", supportsExpressions: true, placeholder: '["id1", "id2"]' },
+      { name: "filter_metadata", label: "OR Metadata Filter", type: "textarea", supportsExpressions: true },
+      { name: "delete_all", label: "Delete ALL (danger)", type: "boolean", default: false },
+    ],
+    outputSchema: [
+      { name: "deleted", type: "number", description: "Documents deleted" },
+    ],
+  },
+  {
+    type: "vectordb.supabase_stats",
+    category: "vectordb",
+    label: "Supabase Stats",
+    description: "Get Supabase table statistics",
+    icon: "BarChart2",
+    defaultConfig: {},
+    configSchema: [],
+    outputSchema: [
+      { name: "table", type: "string", description: "Table name" },
+      { name: "row_count", type: "number", description: "Total rows" },
+      { name: "table_size", type: "string", description: "Table size" },
+      { name: "supabase_url", type: "string", description: "Supabase URL" },
+      { name: "project_ref", type: "string", description: "Project reference" },
+    ],
+  },
+
+  // ──────────────────────────────────────────────────
+  // Vector Memory - AI Agent Integration
+  // Connects directly to AI Agent for automatic RAG
+  // ──────────────────────────────────────────────────
+  {
+    type: "vectordb.memory",
+    category: "vectordb",
+    label: "Vector Memory",
+    description: "Vector store memory for AI Agent (automatic RAG). Connect to AI Agent's Memory input.",
+    icon: "Brain",
+    defaultConfig: { provider: "chroma", collection: "agent_memory", memory_type: "both", top_k: 5, min_score: 0.5 },
+    configSchema: [
+      // Provider selection
+      { name: "provider", label: "Vector Store Provider", type: "select", default: "chroma", options: [
+        { value: "chroma", label: "ChromaDB (Local, easy setup)" },
+        { value: "pgvector", label: "pgvector (PostgreSQL, on-premise)" },
+        { value: "supabase", label: "Supabase (pgvector cloud)" },
+        { value: "pinecone", label: "Pinecone (Serverless cloud)" },
+        { value: "qdrant", label: "Qdrant (High-performance)" },
+      ]},
+      // Collection/table name
+      { name: "collection", label: "Collection Name", type: "text", default: "agent_memory", placeholder: "agent_memory" },
+      // Memory behavior
+      { name: "memory_type", label: "Memory Type", type: "select", default: "both", options: [
+        { value: "retrieve", label: "Retrieve Only (RAG context injection)" },
+        { value: "store", label: "Store Only (save agent interactions)" },
+        { value: "both", label: "Both (full conversational memory)" },
+      ]},
+      // Retrieval settings
+      { name: "top_k", label: "Results to Retrieve (top_k)", type: "number", default: 5 },
+      { name: "min_score", label: "Min Similarity Score (0-1)", type: "number", default: 0.5 },
+      // ChromaDB settings (shown when provider=chroma)
+      { name: "persist_directory", label: "Persist Directory (ChromaDB)", type: "text", placeholder: "./chroma_data", visibleWhen: { field: "provider", value: "chroma" } },
+      // pgvector settings (shown when provider=pgvector)
+      { name: "host", label: "Host", type: "text", default: "localhost", visibleWhen: { field: "provider", value: "pgvector" } },
+      { name: "port", label: "Port", type: "number", default: 5432, visibleWhen: { field: "provider", value: "pgvector" } },
+      { name: "database", label: "Database", type: "text", default: "vectors", visibleWhen: { field: "provider", value: "pgvector" } },
+      { name: "user", label: "User", type: "text", default: "postgres", visibleWhen: { field: "provider", value: "pgvector" } },
+      { name: "password", label: "Password", type: "text", secret: true, visibleWhen: { field: "provider", value: "pgvector" } },
+      { name: "table", label: "Table", type: "text", default: "embeddings", visibleWhen: { field: "provider", value: "pgvector" } },
+      // Supabase settings (shown when provider=supabase)
+      { name: "url", label: "Supabase URL", type: "text", placeholder: "https://xxx.supabase.co", visibleWhen: { field: "provider", value: "supabase" } },
+      { name: "api_key", label: "Supabase API Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "supabase" } },
+      // Pinecone settings (shown when provider=pinecone)
+      { name: "api_key", label: "Pinecone API Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "pinecone" } },
+      { name: "index_name", label: "Index Name", type: "text", visibleWhen: { field: "provider", value: "pinecone" } },
+      { name: "namespace", label: "Namespace", type: "text", visibleWhen: { field: "provider", value: "pinecone" } },
+      // Qdrant settings (shown when provider=qdrant)
+      { name: "host", label: "Host", type: "text", default: "localhost", visibleWhen: { field: "provider", value: "qdrant" } },
+      { name: "port", label: "Port", type: "number", default: 6333, visibleWhen: { field: "provider", value: "qdrant" } },
+      { name: "api_key", label: "API Key (optional)", type: "text", secret: true, visibleWhen: { field: "provider", value: "qdrant" } },
+    ],
+    outputSchema: [
+      { name: "provider", type: "string", description: "Vector store provider" },
+      { name: "collection", type: "string", description: "Collection/table name" },
+      { name: "memory_type", type: "string", description: "Memory type (retrieve/store/both)" },
+      { name: "ready", type: "boolean", description: "Memory initialized and ready" },
+    ],
+  },
+
+  // ──────────────────────────────────────────────────
+  // Document Loaders - Prepare content for vector stores
+  // ──────────────────────────────────────────────────
+  {
+    type: "vectordb.load_documents",
+    category: "vectordb",
+    label: "Load Documents",
+    description: "Load and chunk documents for vector storage",
+    icon: "FileText",
+    defaultConfig: { chunk_size: 1000, chunk_overlap: 200, splitter: "recursive" },
+    configSchema: [
+      // Source
+      { name: "source_type", label: "Source Type", type: "select", required: true, options: [
+        { value: "text", label: "Raw Text" },
+        { value: "file", label: "File Path" },
+        { value: "url", label: "URL" },
+        { value: "pdf", label: "PDF File" },
+        { value: "docx", label: "Word Document" },
+        { value: "csv", label: "CSV File" },
+        { value: "json", label: "JSON File" },
+        { value: "html", label: "HTML" },
+        { value: "markdown", label: "Markdown" },
+      ]},
+      { name: "source", label: "Source (text, path, or URL)", type: "textarea", required: true, supportsExpressions: true },
+      // Chunking
+      { name: "splitter", label: "Text Splitter", type: "select", default: "recursive", options: [
+        { value: "recursive", label: "Recursive Character (recommended)" },
+        { value: "token", label: "Token-based" },
+        { value: "sentence", label: "Sentence" },
+        { value: "paragraph", label: "Paragraph" },
+        { value: "markdown", label: "Markdown Headers" },
+        { value: "code", label: "Code (language-aware)" },
+      ]},
+      { name: "chunk_size", label: "Chunk Size (chars)", type: "number", default: 1000 },
+      { name: "chunk_overlap", label: "Chunk Overlap (chars)", type: "number", default: 200 },
+      // Metadata
+      { name: "add_source_metadata", label: "Add Source Metadata", type: "boolean", default: true },
+      { name: "custom_metadata", label: "Custom Metadata", type: "textarea", supportsExpressions: true },
+    ],
+    outputSchema: [
+      { name: "documents", type: "array", description: "Chunked documents with metadata" },
+      { name: "chunk_count", type: "number", description: "Number of chunks created" },
+      { name: "total_chars", type: "number", description: "Total characters processed" },
+    ],
+  },
+  {
+    type: "vectordb.embed_documents",
+    category: "vectordb",
+    label: "Embed Documents",
+    description: "Generate embeddings for documents",
+    icon: "Binary",
+    defaultConfig: { model: "text-embedding-3-small", batch_size: 100 },
+    configSchema: [
+      { name: "documents", label: "Documents", type: "textarea", required: true, supportsExpressions: true, placeholder: "${Load Documents.documents}" },
+      { name: "model", label: "Embedding Model", type: "select", default: "text-embedding-3-small", options: [
+        { value: "text-embedding-3-small", label: "OpenAI text-embedding-3-small (1536d, fast)" },
+        { value: "text-embedding-3-large", label: "OpenAI text-embedding-3-large (3072d, best)" },
+        { value: "text-embedding-ada-002", label: "OpenAI Ada 002 (1536d, legacy)" },
+      ]},
+      { name: "api_key", label: "OpenAI API Key", type: "password", supportsExpressions: true, placeholder: "${OPENAI_API_KEY}" },
+      { name: "batch_size", label: "Batch Size", type: "number", default: 100 },
+    ],
+    outputSchema: [
+      { name: "embeddings", type: "array", description: "Generated embeddings" },
+      { name: "documents", type: "array", description: "Documents with embeddings attached" },
+      { name: "dimension", type: "number", description: "Embedding dimension" },
+      { name: "tokens_used", type: "number", description: "Total tokens processed" },
+    ],
+  },
+
+  // ──────────────────────────────────────────────────
+  // Embeddings Model - Visual connector for embeddings config (n8n-style)
+  // Connects to Vector Memory, Vector Stores, AI Agent via "embeddings" handle
+  // ──────────────────────────────────────────────────
+  {
+    type: "ai.embeddings",
+    category: "ai",
+    label: "Embeddings",
+    description: "Configure embeddings model. Connect to Vector Memory or AI Agent.",
+    icon: "Sparkles",
+    defaultConfig: { provider: "openai", model: "text-embedding-3-small", dimension: 1536 },
+    configSchema: [
+      // Provider selection
+      { name: "provider", label: "Embeddings Provider", type: "select", required: true, default: "openai", options: [
+        { value: "openai", label: "OpenAI" },
+        { value: "azure", label: "Azure OpenAI" },
+        { value: "ollama", label: "Ollama (Local)" },
+        { value: "cohere", label: "Cohere" },
+        { value: "huggingface", label: "HuggingFace" },
+        { value: "google", label: "Google (Vertex AI)" },
+        { value: "aws", label: "AWS Bedrock" },
+      ]},
+      // OpenAI models
+      { name: "model", label: "Model", type: "select", default: "text-embedding-3-small", visibleWhen: { field: "provider", value: "openai" }, options: [
+        { value: "text-embedding-3-small", label: "text-embedding-3-small (1536d, fastest)" },
+        { value: "text-embedding-3-large", label: "text-embedding-3-large (3072d, best quality)" },
+        { value: "text-embedding-ada-002", label: "text-embedding-ada-002 (1536d, legacy)" },
+      ]},
+      { name: "api_key", label: "OpenAI API Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "openai" }, placeholder: "${OPENAI_API_KEY}" },
+      // Azure OpenAI
+      { name: "model", label: "Deployment Name", type: "text", visibleWhen: { field: "provider", value: "azure" }, placeholder: "text-embedding-ada-002" },
+      { name: "api_key", label: "Azure API Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "azure" } },
+      { name: "base_url", label: "Azure Endpoint", type: "text", visibleWhen: { field: "provider", value: "azure" }, placeholder: "https://your-resource.openai.azure.com" },
+      { name: "api_version", label: "API Version", type: "text", default: "2024-02-01", visibleWhen: { field: "provider", value: "azure" } },
+      // Ollama (Local)
+      { name: "model", label: "Model", type: "select", visibleWhen: { field: "provider", value: "ollama" }, options: [
+        { value: "nomic-embed-text", label: "nomic-embed-text (768d, recommended)" },
+        { value: "mxbai-embed-large", label: "mxbai-embed-large (1024d)" },
+        { value: "all-minilm", label: "all-minilm (384d, fast)" },
+        { value: "snowflake-arctic-embed", label: "snowflake-arctic-embed (1024d)" },
+      ]},
+      { name: "base_url", label: "Ollama URL", type: "text", default: "http://localhost:11434", visibleWhen: { field: "provider", value: "ollama" } },
+      // Cohere
+      { name: "model", label: "Model", type: "select", visibleWhen: { field: "provider", value: "cohere" }, options: [
+        { value: "embed-english-v3.0", label: "embed-english-v3.0 (1024d)" },
+        { value: "embed-multilingual-v3.0", label: "embed-multilingual-v3.0 (1024d)" },
+        { value: "embed-english-light-v3.0", label: "embed-english-light-v3.0 (384d, fast)" },
+      ]},
+      { name: "api_key", label: "Cohere API Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "cohere" } },
+      // HuggingFace
+      { name: "model", label: "Model ID", type: "text", visibleWhen: { field: "provider", value: "huggingface" }, placeholder: "sentence-transformers/all-MiniLM-L6-v2" },
+      { name: "api_key", label: "HuggingFace API Token", type: "text", secret: true, visibleWhen: { field: "provider", value: "huggingface" } },
+      { name: "base_url", label: "Inference Endpoint (optional)", type: "text", visibleWhen: { field: "provider", value: "huggingface" }, placeholder: "https://api-inference.huggingface.co" },
+      // Google Vertex AI
+      { name: "model", label: "Model", type: "select", visibleWhen: { field: "provider", value: "google" }, options: [
+        { value: "textembedding-gecko@003", label: "textembedding-gecko@003 (768d)" },
+        { value: "textembedding-gecko-multilingual@001", label: "textembedding-gecko-multilingual (768d)" },
+        { value: "text-embedding-004", label: "text-embedding-004 (768d, latest)" },
+      ]},
+      { name: "api_key", label: "Google API Key / Service Account", type: "text", secret: true, visibleWhen: { field: "provider", value: "google" } },
+      { name: "project_id", label: "Project ID", type: "text", visibleWhen: { field: "provider", value: "google" } },
+      { name: "location", label: "Location", type: "text", default: "us-central1", visibleWhen: { field: "provider", value: "google" } },
+      // AWS Bedrock
+      { name: "model", label: "Model", type: "select", visibleWhen: { field: "provider", value: "aws" }, options: [
+        { value: "amazon.titan-embed-text-v1", label: "Titan Embed Text v1 (1536d)" },
+        { value: "amazon.titan-embed-text-v2:0", label: "Titan Embed Text v2 (1024d)" },
+        { value: "cohere.embed-english-v3", label: "Cohere Embed English v3 (1024d)" },
+        { value: "cohere.embed-multilingual-v3", label: "Cohere Embed Multilingual v3 (1024d)" },
+      ]},
+      { name: "aws_access_key", label: "AWS Access Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "aws" } },
+      { name: "aws_secret_key", label: "AWS Secret Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "aws" } },
+      { name: "region", label: "AWS Region", type: "text", default: "us-east-1", visibleWhen: { field: "provider", value: "aws" } },
+      // Advanced settings
+      { name: "dimension", label: "Vector Dimension (auto-detected)", type: "number", default: 1536 },
+      { name: "batch_size", label: "Batch Size", type: "number", default: 100 },
+    ],
+    outputSchema: [
+      { name: "provider", type: "string", description: "Embeddings provider name" },
+      { name: "model", type: "string", description: "Model being used" },
+      { name: "dimension", type: "number", description: "Vector dimension" },
+      { name: "ready", type: "boolean", description: "Embeddings configured and ready" },
+    ],
+  },
+
+  // ──────────────────────────────────────────────────
+  // LLM Model - Visual connector for LLM config (n8n-style)
+  // Connects to AI Agent via "model" handle
+  // ──────────────────────────────────────────────────
+  {
+    type: "ai.model",
+    category: "ai",
+    label: "AI Model",
+    description: "Configure AI/LLM model. Connect to AI Agent.",
+    icon: "Cpu",
+    defaultConfig: { provider: "openai", model: "gpt-4o", temperature: 0.7 },
+    configSchema: [
+      // Provider selection
+      { name: "provider", label: "LLM Provider", type: "select", required: true, default: "openai", options: [
+        { value: "openai", label: "OpenAI" },
+        { value: "anthropic", label: "Anthropic (Claude)" },
+        { value: "azure", label: "Azure AI Foundry" },
+        { value: "ollama", label: "Ollama (Local)" },
+        { value: "google", label: "Google (Gemini)" },
+        { value: "aws", label: "AWS Bedrock" },
+        { value: "groq", label: "Groq" },
+        { value: "mistral", label: "Mistral AI" },
+      ]},
+      // OpenAI models
+      { name: "model", label: "Model", type: "select", default: "gpt-4o", visibleWhen: { field: "provider", value: "openai" }, options: [
+        { value: "gpt-4o", label: "GPT-4o (recommended)" },
+        { value: "gpt-4o-mini", label: "GPT-4o Mini (fast & cheap)" },
+        { value: "gpt-4-turbo", label: "GPT-4 Turbo" },
+        { value: "gpt-4", label: "GPT-4" },
+        { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" },
+        { value: "o1-preview", label: "o1-preview (reasoning)" },
+        { value: "o1-mini", label: "o1-mini (reasoning, fast)" },
+      ]},
+      { name: "api_key", label: "OpenAI API Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "openai" }, placeholder: "${OPENAI_API_KEY}" },
+      // Anthropic models
+      { name: "model", label: "Model", type: "select", default: "claude-3-5-sonnet-20241022", visibleWhen: { field: "provider", value: "anthropic" }, options: [
+        { value: "claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet (recommended)" },
+        { value: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku (fast)" },
+        { value: "claude-3-opus-20240229", label: "Claude 3 Opus (most capable)" },
+        { value: "claude-3-sonnet-20240229", label: "Claude 3 Sonnet" },
+        { value: "claude-3-haiku-20240307", label: "Claude 3 Haiku" },
+      ]},
+      { name: "api_key", label: "Anthropic API Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "anthropic" }, placeholder: "${ANTHROPIC_API_KEY}" },
+      // Azure AI Foundry
+      { name: "model", label: "Deployment Name", type: "text", visibleWhen: { field: "provider", value: "azure" }, placeholder: "gpt-4o" },
+      { name: "api_key", label: "Azure API Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "azure" } },
+      { name: "base_url", label: "Azure Endpoint", type: "text", visibleWhen: { field: "provider", value: "azure" }, placeholder: "https://your-resource.services.ai.azure.com" },
+      { name: "api_version", label: "API Version", type: "text", default: "2024-10-01-preview", visibleWhen: { field: "provider", value: "azure" } },
+      // Ollama (Local)
+      { name: "model", label: "Model", type: "select", visibleWhen: { field: "provider", value: "ollama" }, options: [
+        { value: "llama3.2", label: "Llama 3.2 (recommended)" },
+        { value: "llama3.1", label: "Llama 3.1" },
+        { value: "mistral", label: "Mistral 7B" },
+        { value: "mixtral", label: "Mixtral 8x7B" },
+        { value: "codellama", label: "Code Llama" },
+        { value: "phi3", label: "Phi-3" },
+        { value: "qwen2.5", label: "Qwen 2.5" },
+      ]},
+      { name: "base_url", label: "Ollama URL", type: "text", default: "http://localhost:11434", visibleWhen: { field: "provider", value: "ollama" } },
+      // Google Gemini
+      { name: "model", label: "Model", type: "select", visibleWhen: { field: "provider", value: "google" }, options: [
+        { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
+        { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash (fast)" },
+        { value: "gemini-2.0-flash-exp", label: "Gemini 2.0 Flash (experimental)" },
+      ]},
+      { name: "api_key", label: "Google API Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "google" } },
+      // AWS Bedrock
+      { name: "model", label: "Model", type: "select", visibleWhen: { field: "provider", value: "aws" }, options: [
+        { value: "anthropic.claude-3-5-sonnet-20241022-v2:0", label: "Claude 3.5 Sonnet v2" },
+        { value: "anthropic.claude-3-5-haiku-20241022-v1:0", label: "Claude 3.5 Haiku" },
+        { value: "amazon.titan-text-premier-v1:0", label: "Titan Text Premier" },
+        { value: "meta.llama3-2-90b-instruct-v1:0", label: "Llama 3.2 90B" },
+        { value: "mistral.mistral-large-2407-v1:0", label: "Mistral Large" },
+      ]},
+      { name: "aws_access_key", label: "AWS Access Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "aws" } },
+      { name: "aws_secret_key", label: "AWS Secret Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "aws" } },
+      { name: "region", label: "AWS Region", type: "text", default: "us-east-1", visibleWhen: { field: "provider", value: "aws" } },
+      // Groq
+      { name: "model", label: "Model", type: "select", visibleWhen: { field: "provider", value: "groq" }, options: [
+        { value: "llama-3.3-70b-versatile", label: "Llama 3.3 70B Versatile" },
+        { value: "llama-3.1-70b-versatile", label: "Llama 3.1 70B" },
+        { value: "mixtral-8x7b-32768", label: "Mixtral 8x7B" },
+        { value: "gemma2-9b-it", label: "Gemma 2 9B" },
+      ]},
+      { name: "api_key", label: "Groq API Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "groq" } },
+      // Mistral AI
+      { name: "model", label: "Model", type: "select", visibleWhen: { field: "provider", value: "mistral" }, options: [
+        { value: "mistral-large-latest", label: "Mistral Large" },
+        { value: "mistral-medium-latest", label: "Mistral Medium" },
+        { value: "mistral-small-latest", label: "Mistral Small" },
+        { value: "codestral-latest", label: "Codestral (code)" },
+      ]},
+      { name: "api_key", label: "Mistral API Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "mistral" } },
+      // Common settings
+      { name: "temperature", label: "Temperature", type: "number", default: 0.7 },
+      { name: "max_tokens", label: "Max Tokens (optional)", type: "number" },
+    ],
+    outputSchema: [
+      { name: "provider", type: "string", description: "LLM provider name" },
+      { name: "model", type: "string", description: "Model being used" },
+      { name: "ready", type: "boolean", description: "Model configured and ready" },
     ],
   },
 
@@ -3326,6 +4318,866 @@ export const nodeTemplates: NodeTemplate[] = [
     ],
     outputSchema: [
       { name: "insertedCount", type: "number", description: "Records uploaded" },
+    ],
+  },
+
+  // ============================================
+  // VOICE - Telephony & Speech (SkuldVoice)
+  // ============================================
+
+  // --- VOICE TRIGGER ---
+  {
+    type: "trigger.voice_inbound",
+    category: "trigger",
+    label: "Voice Inbound",
+    description: "Trigger when phone call is received (Twilio)",
+    icon: "PhoneIncoming",
+    defaultConfig: {},
+    configSchema: [
+      { name: "account_sid", label: "Twilio Account SID", type: "text", required: true, placeholder: "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" },
+      { name: "auth_token", label: "Twilio Auth Token", type: "password", required: true, placeholder: "Your Twilio Auth Token" },
+      { name: "phone_number", label: "Twilio Phone Number", type: "text", required: true, placeholder: "+1234567890" },
+      { name: "webhook_path", label: "Webhook Path", type: "text", placeholder: "/voice/inbound", default: "/voice/inbound" },
+      { name: "greeting", label: "Greeting Message", type: "textarea", placeholder: "Thank you for calling. How can I help you today?" },
+    ],
+    outputSchema: [
+      { name: "call_sid", type: "string", description: "Twilio Call SID" },
+      { name: "from_number", type: "string", description: "Caller phone number" },
+      { name: "to_number", type: "string", description: "Called number" },
+      { name: "direction", type: "string", description: "Call direction (inbound)" },
+    ],
+  },
+
+  // --- VOICE ACTIONS ---
+  {
+    type: "voice.call",
+    category: "voice",
+    label: "Make Call",
+    description: "Make an outbound voice call",
+    icon: "PhoneOutgoing",
+    defaultConfig: { record: true, timeout: 30 },
+    configSchema: [
+      { name: "account_sid", label: "Twilio Account SID", type: "text", required: true, placeholder: "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" },
+      { name: "auth_token", label: "Twilio Auth Token", type: "password", required: true, placeholder: "Your Twilio Auth Token" },
+      { name: "from_number", label: "From Number (Twilio)", type: "text", required: true, placeholder: "+1234567890" },
+      { name: "to_number", label: "To Number", type: "text", required: true, placeholder: "+1234567890", supportsExpressions: true },
+      { name: "twiml_url", label: "TwiML URL", type: "text", placeholder: "https://your-app.com/voice/script" },
+      { name: "twiml", label: "TwiML (inline)", type: "textarea", placeholder: "<Response><Say>Hello!</Say></Response>" },
+      { name: "record", label: "Record Call", type: "boolean", default: true },
+      { name: "timeout", label: "Timeout (seconds)", type: "number", default: 30 },
+    ],
+    outputSchema: [
+      { name: "call_sid", type: "string", description: "Twilio Call SID" },
+      { name: "status", type: "string", description: "Call status" },
+    ],
+  },
+  {
+    type: "voice.speak",
+    category: "voice",
+    label: "Text to Speech",
+    description: "Convert text to speech audio (Azure TTS)",
+    icon: "Volume2",
+    defaultConfig: { voice: "en-US-JennyNeural", region: "eastus" },
+    configSchema: [
+      { name: "azure_speech_key", label: "Azure Speech Key", type: "password", required: true, placeholder: "Your Azure Speech Services Key" },
+      { name: "azure_region", label: "Azure Region", type: "text", default: "eastus", placeholder: "eastus" },
+      { name: "text", label: "Text to Speak", type: "textarea", required: true, supportsExpressions: true },
+      { name: "output_path", label: "Output File Path", type: "text", placeholder: "/tmp/speech.wav" },
+      { name: "voice", label: "Voice", type: "select", default: "en-US-JennyNeural", options: [
+        { value: "en-US-JennyNeural", label: "Jenny (US English)" },
+        { value: "en-US-GuyNeural", label: "Guy (US English)" },
+        { value: "en-GB-SoniaNeural", label: "Sonia (UK English)" },
+        { value: "es-ES-ElviraNeural", label: "Elvira (Spanish)" },
+        { value: "es-MX-DaliaNeural", label: "Dalia (Mexican Spanish)" },
+      ]},
+      { name: "style", label: "Voice Style", type: "select", options: [
+        { value: "customerservice", label: "Customer Service" },
+        { value: "cheerful", label: "Cheerful" },
+        { value: "empathetic", label: "Empathetic" },
+        { value: "calm", label: "Calm" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "status", type: "string", description: "Synthesis status" },
+      { name: "output_path", type: "string", description: "Path to audio file" },
+      { name: "audio_data", type: "string", description: "Base64 encoded audio (if no output_path)" },
+    ],
+  },
+  {
+    type: "voice.listen",
+    category: "voice",
+    label: "Speech to Text",
+    description: "Transcribe audio to text (Azure STT)",
+    icon: "Mic",
+    defaultConfig: { language: "en-US", region: "eastus" },
+    configSchema: [
+      { name: "azure_speech_key", label: "Azure Speech Key", type: "password", required: true, placeholder: "Your Azure Speech Services Key" },
+      { name: "azure_region", label: "Azure Region", type: "text", default: "eastus", placeholder: "eastus" },
+      { name: "audio_path", label: "Audio File Path", type: "text", required: true, supportsExpressions: true },
+      { name: "language", label: "Language", type: "select", default: "en-US", options: [
+        { value: "en-US", label: "English (US)" },
+        { value: "en-GB", label: "English (UK)" },
+        { value: "es-ES", label: "Spanish (Spain)" },
+        { value: "es-MX", label: "Spanish (Mexico)" },
+        { value: "fr-FR", label: "French" },
+        { value: "de-DE", label: "German" },
+        { value: "pt-BR", label: "Portuguese (Brazil)" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "text", type: "string", description: "Transcribed text" },
+      { name: "confidence", type: "number", description: "Recognition confidence (0-1)" },
+      { name: "status", type: "string", description: "Recognition status" },
+    ],
+  },
+  {
+    type: "voice.twiml_say",
+    category: "voice",
+    label: "TwiML Say",
+    description: "Generate TwiML to speak text in call",
+    icon: "MessageSquare",
+    defaultConfig: { voice: "Polly.Joanna", language: "en-US" },
+    configSchema: [
+      { name: "text", label: "Text to Say", type: "textarea", required: true, supportsExpressions: true },
+      { name: "voice", label: "Twilio Voice", type: "select", default: "Polly.Joanna", options: [
+        { value: "Polly.Joanna", label: "Joanna (US Female)" },
+        { value: "Polly.Matthew", label: "Matthew (US Male)" },
+        { value: "Polly.Amy", label: "Amy (UK Female)" },
+        { value: "Polly.Brian", label: "Brian (UK Male)" },
+        { value: "Polly.Conchita", label: "Conchita (Spanish Female)" },
+      ]},
+      { name: "language", label: "Language", type: "text", default: "en-US" },
+    ],
+    outputSchema: [
+      { name: "twiml", type: "string", description: "Generated TwiML" },
+    ],
+  },
+  {
+    type: "voice.twiml_gather",
+    category: "voice",
+    label: "TwiML Gather",
+    description: "Gather user input (voice or DTMF)",
+    icon: "CircleDot",
+    defaultConfig: { input_type: "speech dtmf", timeout: 5 },
+    configSchema: [
+      { name: "prompt_text", label: "Prompt Text", type: "textarea", required: true, supportsExpressions: true },
+      { name: "action_url", label: "Action URL", type: "text", required: true, placeholder: "https://your-app.com/process-input" },
+      { name: "input_type", label: "Input Type", type: "select", default: "speech dtmf", options: [
+        { value: "speech", label: "Speech Only" },
+        { value: "dtmf", label: "DTMF Only" },
+        { value: "speech dtmf", label: "Speech & DTMF" },
+      ]},
+      { name: "timeout", label: "Timeout (seconds)", type: "number", default: 5 },
+      { name: "speech_timeout", label: "Speech Timeout", type: "text", default: "auto" },
+    ],
+    outputSchema: [
+      { name: "twiml", type: "string", description: "Generated TwiML" },
+    ],
+  },
+  {
+    type: "voice.transfer",
+    category: "voice",
+    label: "Transfer Call",
+    description: "Transfer call to another number or agent",
+    icon: "PhoneForwarded",
+    defaultConfig: {},
+    configSchema: [
+      { name: "transfer_to", label: "Transfer To", type: "text", required: true, placeholder: "+1987654321", supportsExpressions: true },
+      { name: "call_sid", label: "Call SID", type: "text", supportsExpressions: true, placeholder: "Leave empty for current call" },
+      { name: "announce_message", label: "Announce Message", type: "textarea", placeholder: "Please hold while I transfer your call..." },
+    ],
+    outputSchema: [
+      { name: "call_sid", type: "string", description: "Original call SID" },
+      { name: "transferred_to", type: "string", description: "Destination number" },
+      { name: "status", type: "string", description: "Transfer status" },
+    ],
+  },
+  {
+    type: "voice.hangup",
+    category: "voice",
+    label: "End Call",
+    description: "End the current voice call",
+    icon: "PhoneOff",
+    defaultConfig: {},
+    configSchema: [
+      { name: "call_sid", label: "Call SID", type: "text", supportsExpressions: true, placeholder: "Leave empty for current call" },
+      { name: "farewell_message", label: "Farewell Message", type: "textarea", placeholder: "Thank you for calling. Goodbye!" },
+    ],
+    outputSchema: [
+      { name: "call_sid", type: "string", description: "Call SID" },
+      { name: "status", type: "string", description: "Final status" },
+      { name: "conversation_turns", type: "number", description: "Total conversation turns" },
+    ],
+  },
+  {
+    type: "voice.get_recording",
+    category: "voice",
+    label: "Get Recording",
+    description: "Get call recording URL",
+    icon: "CircleDot",
+    defaultConfig: {},
+    configSchema: [
+      { name: "call_sid", label: "Call SID", type: "text", supportsExpressions: true, placeholder: "Leave empty for current call" },
+    ],
+    outputSchema: [
+      { name: "recording_sid", type: "string", description: "Recording SID" },
+      { name: "url", type: "string", description: "Recording URL (MP3)" },
+      { name: "duration", type: "number", description: "Recording duration in seconds" },
+    ],
+  },
+  {
+    type: "voice.add_turn",
+    category: "voice",
+    label: "Add Conversation Turn",
+    description: "Add a turn to conversation history",
+    icon: "MessageSquarePlus",
+    defaultConfig: { confidence: 1.0 },
+    configSchema: [
+      { name: "role", label: "Role", type: "select", required: true, options: [
+        { value: "caller", label: "Caller" },
+        { value: "agent", label: "Agent" },
+        { value: "system", label: "System" },
+      ]},
+      { name: "text", label: "Text", type: "textarea", required: true, supportsExpressions: true },
+      { name: "confidence", label: "Confidence", type: "number", default: 1.0 },
+    ],
+    outputSchema: [],
+  },
+  {
+    type: "voice.get_transcript",
+    category: "voice",
+    label: "Get Transcript",
+    description: "Get full conversation transcript",
+    icon: "FileText",
+    defaultConfig: { format: "text" },
+    configSchema: [
+      { name: "format", label: "Format", type: "select", default: "text", options: [
+        { value: "text", label: "Plain Text" },
+        { value: "markdown", label: "Markdown" },
+        { value: "json", label: "JSON" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "transcript", type: "string", description: "Full conversation transcript" },
+    ],
+  },
+  {
+    type: "voice.set_context",
+    category: "voice",
+    label: "Set Call Context",
+    description: "Store context data during call",
+    icon: "Database",
+    defaultConfig: {},
+    configSchema: [
+      { name: "key", label: "Key", type: "text", required: true },
+      { name: "value", label: "Value", type: "textarea", required: true, supportsExpressions: true },
+    ],
+    outputSchema: [],
+  },
+  {
+    type: "voice.get_context",
+    category: "voice",
+    label: "Get Call Context",
+    description: "Retrieve context data from call",
+    icon: "Database",
+    defaultConfig: {},
+    configSchema: [
+      { name: "key", label: "Key", type: "text", placeholder: "Leave empty to get all context", supportsExpressions: true },
+    ],
+    outputSchema: [
+      { name: "context_value", type: "any", description: "Context value or all context" },
+    ],
+  },
+
+  // ============================================
+  // INSURANCE - FNOL & Policy Operations
+  // ============================================
+
+  {
+    type: "insurance.fnol_record",
+    category: "insurance",
+    label: "Create FNOL Record",
+    description: "Create canonical First Notice of Loss record",
+    icon: "FileWarning",
+    defaultConfig: {},
+    configSchema: [
+      { name: "caller_phone", label: "Caller Phone", type: "text", required: true, supportsExpressions: true },
+      { name: "caller_name", label: "Caller Name", type: "text", supportsExpressions: true },
+      { name: "policy_number", label: "Policy Number", type: "text", supportsExpressions: true },
+      { name: "incident_type", label: "Incident Type", type: "select", required: true, options: [
+        { value: "auto", label: "Auto/Vehicle" },
+        { value: "property", label: "Property" },
+        { value: "liability", label: "Liability" },
+        { value: "health", label: "Health" },
+        { value: "workers_comp", label: "Workers Compensation" },
+        { value: "other", label: "Other" },
+      ]},
+      { name: "incident_date", label: "Incident Date", type: "text", supportsExpressions: true },
+      { name: "incident_location", label: "Incident Location", type: "text", supportsExpressions: true },
+      { name: "incident_description", label: "Description", type: "textarea", required: true, supportsExpressions: true },
+      { name: "injuries", label: "Injuries Reported", type: "boolean", default: false },
+      { name: "police_report", label: "Police Report Number", type: "text", supportsExpressions: true },
+      { name: "recording_url", label: "Call Recording URL", type: "text", supportsExpressions: true },
+      { name: "transcript", label: "Call Transcript", type: "textarea", supportsExpressions: true },
+    ],
+    outputSchema: [
+      { name: "fnol_id", type: "string", description: "Unique FNOL record ID" },
+      { name: "fnol_record", type: "object", description: "Complete FNOL record object" },
+      { name: "created_at", type: "string", description: "Record creation timestamp" },
+    ],
+  },
+  {
+    type: "insurance.lookup_policy",
+    category: "insurance",
+    label: "Lookup Policy",
+    description: "Find policy by phone, name, DOB (caller often doesn't have policy number)",
+    icon: "Search",
+    defaultConfig: { method: "POST" },
+    configSchema: [
+      { name: "api_url", label: "Policy Lookup API URL", type: "text", required: true, placeholder: "https://your-insurance-system.com/api/policies/lookup" },
+      // Primary: CallerID from Twilio (automatic)
+      { name: "phone_number", label: "Phone Number (from CallerID)", type: "text", supportsExpressions: true, placeholder: "${Voice Trigger.caller_number}" },
+      // Fallback criteria if phone doesn't match
+      { name: "policyholder_name", label: "Policyholder Name", type: "text", supportsExpressions: true },
+      { name: "date_of_birth", label: "Date of Birth", type: "text", supportsExpressions: true, placeholder: "YYYY-MM-DD" },
+      { name: "ssn_last_four", label: "SSN Last 4 Digits", type: "text", supportsExpressions: true },
+      { name: "address", label: "Address", type: "text", supportsExpressions: true },
+      { name: "vin", label: "Vehicle VIN (for auto)", type: "text", supportsExpressions: true },
+      // If caller has it
+      { name: "policy_number", label: "Policy Number (if known)", type: "text", supportsExpressions: true },
+      { name: "method", label: "HTTP Method", type: "select", default: "POST", options: [
+        { value: "GET", label: "GET" },
+        { value: "POST", label: "POST" },
+      ]},
+      { name: "headers", label: "Headers (JSON)", type: "textarea", placeholder: '{"Authorization": "Bearer ${API_KEY}"}', supportsExpressions: true },
+    ],
+    outputSchema: [
+      { name: "found", type: "boolean", description: "Policy was found" },
+      { name: "policy_id", type: "string", description: "Policy internal ID" },
+      { name: "policy_number", type: "string", description: "Policy number" },
+      { name: "policyholder_name", type: "string", description: "Policyholder name" },
+      { name: "match_method", type: "string", description: "How policy was found (phone, name_dob, etc.)" },
+      { name: "raw_response", type: "object", description: "Raw API response" },
+    ],
+  },
+  {
+    type: "insurance.validate_policy",
+    category: "insurance",
+    label: "Validate Policy",
+    description: "Check if policy is active and has coverage for claim type",
+    icon: "ShieldCheck",
+    defaultConfig: { check_active: true },
+    configSchema: [
+      { name: "api_url", label: "Policy Validation API URL", type: "text", required: true, placeholder: "https://your-insurance-system.com/api/policies/validate" },
+      { name: "policy_id", label: "Policy ID (from lookup)", type: "text", supportsExpressions: true, placeholder: "${Lookup Policy.policy_id}" },
+      { name: "policy_number", label: "Policy Number", type: "text", supportsExpressions: true, placeholder: "${Lookup Policy.policy_number}" },
+      { name: "claim_type", label: "Claim Type to Validate", type: "select", options: [
+        { value: "auto", label: "Auto/Vehicle" },
+        { value: "property", label: "Property" },
+        { value: "liability", label: "Liability" },
+        { value: "health", label: "Health" },
+        { value: "any", label: "Any Coverage" },
+      ]},
+      { name: "check_active", label: "Check Policy is Active", type: "boolean", default: true },
+      { name: "check_coverage", label: "Verify Coverage Type", type: "boolean", default: true },
+      { name: "method", label: "HTTP Method", type: "select", default: "POST", options: [
+        { value: "GET", label: "GET" },
+        { value: "POST", label: "POST" },
+      ]},
+      { name: "headers", label: "Headers (JSON)", type: "textarea", placeholder: '{"Authorization": "Bearer ${API_KEY}"}', supportsExpressions: true },
+    ],
+    outputSchema: [
+      { name: "valid", type: "boolean", description: "Policy is valid for this claim type" },
+      { name: "is_active", type: "boolean", description: "Policy is currently active" },
+      { name: "has_coverage", type: "boolean", description: "Policy has coverage for claim type" },
+      { name: "policyholder_name", type: "string", description: "Policyholder name" },
+      { name: "coverage_type", type: "string", description: "Type of coverage" },
+      { name: "effective_date", type: "string", description: "Policy effective date" },
+      { name: "expiration_date", type: "string", description: "Policy expiration date" },
+      { name: "status", type: "string", description: "Policy status (active, cancelled, expired)" },
+      { name: "deductible", type: "number", description: "Deductible amount" },
+      { name: "coverage_limit", type: "number", description: "Coverage limit" },
+      { name: "raw_response", type: "object", description: "Raw API response" },
+    ],
+  },
+  {
+    type: "insurance.extract_claim_data",
+    category: "insurance",
+    label: "Extract Claim Data",
+    description: "Use AI to extract structured claim data from conversation",
+    icon: "Brain",
+    defaultConfig: {},
+    configSchema: [
+      { name: "transcript", label: "Conversation Transcript", type: "textarea", required: true, supportsExpressions: true },
+      { name: "claim_type", label: "Expected Claim Type", type: "select", options: [
+        { value: "auto", label: "Auto/Vehicle" },
+        { value: "property", label: "Property" },
+        { value: "any", label: "Any/Auto-detect" },
+      ]},
+      { name: "llm_provider", label: "LLM Provider", type: "select", default: "openai", options: [
+        { value: "openai", label: "OpenAI" },
+        { value: "anthropic", label: "Anthropic Claude" },
+        { value: "azure_openai", label: "Azure OpenAI" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "extracted_data", type: "object", description: "Structured claim data" },
+      { name: "confidence", type: "number", description: "Extraction confidence (0-1)" },
+      { name: "missing_fields", type: "array", description: "Fields that couldn't be extracted" },
+    ],
+  },
+
+  // ============================================
+  // MICROSOFT 365 - Email, Calendar, OneDrive, Teams
+  // ============================================
+
+  // --- MS365 Connection ---
+  {
+    type: "ms365.connection",
+    category: "ms365",
+    label: "MS365 Connection",
+    description: "Configure Microsoft 365 authentication",
+    icon: "KeyRound",
+    defaultConfig: { auth_type: "client_credentials" },
+    configSchema: [
+      { name: "tenant_id", label: "Tenant ID", type: "text", required: true, placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" },
+      { name: "client_id", label: "Client (App) ID", type: "text", required: true, placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" },
+      { name: "client_secret", label: "Client Secret", type: "password", required: true, supportsExpressions: true, placeholder: "${vault.ms365_secret}" },
+      { name: "user_email", label: "Target Mailbox", type: "text", placeholder: "user@company.com", description: "Email address for delegated access" },
+    ],
+    outputSchema: [
+      { name: "status", type: "string", description: "Connection status" },
+      { name: "authenticated", type: "boolean", description: "Whether authentication succeeded" },
+    ],
+  },
+
+  // --- MS365 Email Triggers ---
+  {
+    type: "trigger.ms365_email",
+    category: "trigger",
+    label: "MS365 Email Received",
+    description: "Trigger when new email arrives in Microsoft 365 mailbox",
+    icon: "Mail",
+    defaultConfig: { folder: "inbox", check_interval: 60 },
+    configSchema: [
+      { name: "folder", label: "Mail Folder", type: "select", default: "inbox", options: [
+        { value: "inbox", label: "Inbox" },
+        { value: "sentitems", label: "Sent Items" },
+        { value: "drafts", label: "Drafts" },
+        { value: "archive", label: "Archive" },
+        { value: "junkemail", label: "Junk" },
+      ]},
+      { name: "filter_from", label: "From (Email)", type: "text", placeholder: "sender@example.com" },
+      { name: "filter_subject", label: "Subject Contains", type: "text", placeholder: "Invoice" },
+      { name: "filter_has_attachment", label: "Has Attachment", type: "boolean" },
+      { name: "filter_unread_only", label: "Unread Only", type: "boolean", default: true },
+      { name: "check_interval", label: "Check Interval (seconds)", type: "number", default: 60 },
+    ],
+    outputSchema: [
+      { name: "id", type: "string", description: "Email message ID" },
+      { name: "subject", type: "string", description: "Email subject" },
+      { name: "from", type: "object", description: "Sender info { name, email }" },
+      { name: "to", type: "array", description: "Recipients list" },
+      { name: "body", type: "object", description: "Email body { content, contentType }" },
+      { name: "bodyPreview", type: "string", description: "Preview of email body" },
+      { name: "receivedDateTime", type: "string", description: "When email was received" },
+      { name: "hasAttachments", type: "boolean", description: "Whether email has attachments" },
+      { name: "isRead", type: "boolean", description: "Read status" },
+      { name: "importance", type: "string", description: "Email importance" },
+    ],
+  },
+
+  // --- MS365 Email Read Operations ---
+  {
+    type: "ms365.email_list",
+    category: "ms365",
+    label: "List Emails",
+    description: "List emails from a Microsoft 365 folder",
+    icon: "Mail",
+    defaultConfig: { folder: "inbox", top: 10 },
+    configSchema: [
+      { name: "folder", label: "Mail Folder", type: "select", default: "inbox", options: [
+        { value: "inbox", label: "Inbox" },
+        { value: "sentitems", label: "Sent Items" },
+        { value: "drafts", label: "Drafts" },
+        { value: "archive", label: "Archive" },
+        { value: "deleteditems", label: "Deleted Items" },
+        { value: "junkemail", label: "Junk" },
+      ]},
+      { name: "top", label: "Max Results", type: "number", default: 10 },
+      { name: "filter", label: "OData Filter", type: "text", placeholder: "isRead eq false", description: "OData filter expression" },
+      { name: "search", label: "Search Query", type: "text", placeholder: "subject:invoice", description: "Search in email content" },
+      { name: "order_by", label: "Order By", type: "select", default: "receivedDateTime desc", options: [
+        { value: "receivedDateTime desc", label: "Newest First" },
+        { value: "receivedDateTime asc", label: "Oldest First" },
+        { value: "subject asc", label: "Subject A-Z" },
+        { value: "from/emailAddress/name asc", label: "Sender A-Z" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "emails", type: "array", description: "List of email objects" },
+      { name: "count", type: "number", description: "Number of emails returned" },
+    ],
+  },
+  {
+    type: "ms365.email_get",
+    category: "ms365",
+    label: "Get Email",
+    description: "Get a single email by ID with full details",
+    icon: "FileText",
+    defaultConfig: { include_body: true, include_attachments: false },
+    configSchema: [
+      { name: "message_id", label: "Message ID", type: "text", required: true, supportsExpressions: true },
+      { name: "include_body", label: "Include Body", type: "boolean", default: true },
+      { name: "include_attachments", label: "Include Attachments", type: "boolean", default: false },
+    ],
+    outputSchema: [
+      { name: "id", type: "string", description: "Email message ID" },
+      { name: "subject", type: "string", description: "Email subject" },
+      { name: "from", type: "object", description: "Sender info { name, email }" },
+      { name: "to", type: "array", description: "To recipients" },
+      { name: "cc", type: "array", description: "CC recipients" },
+      { name: "bcc", type: "array", description: "BCC recipients" },
+      { name: "body", type: "object", description: "Email body { content, contentType }" },
+      { name: "receivedDateTime", type: "string", description: "When received" },
+      { name: "hasAttachments", type: "boolean", description: "Has attachments" },
+      { name: "attachments", type: "array", description: "Attachment list if requested" },
+    ],
+  },
+  {
+    type: "ms365.email_search",
+    category: "ms365",
+    label: "Search Emails",
+    description: "Search emails using Microsoft Search",
+    icon: "Search",
+    defaultConfig: { folder: "inbox", top: 25 },
+    configSchema: [
+      { name: "query", label: "Search Query", type: "text", required: true, supportsExpressions: true, placeholder: "from:john@example.com subject:urgent" },
+      { name: "folder", label: "Folder", type: "select", default: "inbox", options: [
+        { value: "inbox", label: "Inbox" },
+        { value: "sentitems", label: "Sent Items" },
+        { value: "all", label: "All Folders" },
+      ]},
+      { name: "top", label: "Max Results", type: "number", default: 25 },
+    ],
+    outputSchema: [
+      { name: "emails", type: "array", description: "Matching emails" },
+      { name: "count", type: "number", description: "Number of results" },
+    ],
+  },
+  {
+    type: "ms365.email_get_attachments",
+    category: "ms365",
+    label: "Get Attachments",
+    description: "Get list of attachments from an email",
+    icon: "Paperclip",
+    defaultConfig: {},
+    configSchema: [
+      { name: "message_id", label: "Message ID", type: "text", required: true, supportsExpressions: true },
+    ],
+    outputSchema: [
+      { name: "attachments", type: "array", description: "List of attachments with id, name, size, contentType" },
+      { name: "count", type: "number", description: "Number of attachments" },
+    ],
+  },
+  {
+    type: "ms365.email_download_attachment",
+    category: "ms365",
+    label: "Download Attachment",
+    description: "Download an email attachment to file",
+    icon: "Download",
+    defaultConfig: {},
+    configSchema: [
+      { name: "message_id", label: "Message ID", type: "text", required: true, supportsExpressions: true },
+      { name: "attachment_id", label: "Attachment ID", type: "text", required: true, supportsExpressions: true },
+      { name: "save_path", label: "Save Path", type: "text", placeholder: "/downloads/file.pdf", supportsExpressions: true },
+    ],
+    outputSchema: [
+      { name: "savedPath", type: "string", description: "Path where file was saved" },
+      { name: "name", type: "string", description: "Attachment filename" },
+      { name: "size", type: "number", description: "File size in bytes" },
+      { name: "contentType", type: "string", description: "MIME type" },
+    ],
+  },
+
+  // --- MS365 Email Send Operations ---
+  {
+    type: "ms365.email_send",
+    category: "ms365",
+    label: "Send Email",
+    description: "Send a new email via Microsoft 365",
+    icon: "Send",
+    defaultConfig: { body_type: "html", importance: "normal", save_to_sent: true },
+    configSchema: [
+      { name: "to", label: "To", type: "text", required: true, supportsExpressions: true, placeholder: "recipient@example.com" },
+      { name: "cc", label: "CC", type: "text", supportsExpressions: true, placeholder: "cc@example.com" },
+      { name: "bcc", label: "BCC", type: "text", supportsExpressions: true, placeholder: "bcc@example.com" },
+      { name: "subject", label: "Subject", type: "text", required: true, supportsExpressions: true },
+      { name: "body", label: "Body", type: "textarea", required: true, supportsExpressions: true },
+      { name: "body_type", label: "Body Type", type: "select", default: "html", options: [
+        { value: "html", label: "HTML" },
+        { value: "text", label: "Plain Text" },
+      ]},
+      { name: "importance", label: "Importance", type: "select", default: "normal", options: [
+        { value: "low", label: "Low" },
+        { value: "normal", label: "Normal" },
+        { value: "high", label: "High" },
+      ]},
+      { name: "attachments", label: "Attachments", type: "text", supportsExpressions: true, placeholder: "Comma-separated file paths" },
+      { name: "save_to_sent", label: "Save to Sent Items", type: "boolean", default: true },
+    ],
+    outputSchema: [
+      { name: "status", type: "string", description: "Send status" },
+      { name: "to", type: "array", description: "Recipients" },
+      { name: "subject", type: "string", description: "Email subject" },
+      { name: "timestamp", type: "string", description: "When sent" },
+    ],
+  },
+  {
+    type: "ms365.email_reply",
+    category: "ms365",
+    label: "Reply to Email",
+    description: "Reply to an existing email",
+    icon: "Reply",
+    defaultConfig: { reply_all: false, body_type: "html" },
+    configSchema: [
+      { name: "message_id", label: "Message ID", type: "text", required: true, supportsExpressions: true },
+      { name: "body", label: "Reply Body", type: "textarea", required: true, supportsExpressions: true },
+      { name: "reply_all", label: "Reply All", type: "boolean", default: false },
+      { name: "body_type", label: "Body Type", type: "select", default: "html", options: [
+        { value: "html", label: "HTML" },
+        { value: "text", label: "Plain Text" },
+      ]},
+      { name: "attachments", label: "Attachments", type: "text", supportsExpressions: true, placeholder: "Comma-separated file paths" },
+    ],
+    outputSchema: [
+      { name: "status", type: "string", description: "Reply status" },
+      { name: "action", type: "string", description: "reply or reply_all" },
+      { name: "originalMessageId", type: "string", description: "Original message ID" },
+      { name: "timestamp", type: "string", description: "When sent" },
+    ],
+  },
+  {
+    type: "ms365.email_forward",
+    category: "ms365",
+    label: "Forward Email",
+    description: "Forward an email to other recipients",
+    icon: "Forward",
+    defaultConfig: {},
+    configSchema: [
+      { name: "message_id", label: "Message ID", type: "text", required: true, supportsExpressions: true },
+      { name: "to", label: "Forward To", type: "text", required: true, supportsExpressions: true, placeholder: "recipient@example.com" },
+      { name: "comment", label: "Comment", type: "textarea", supportsExpressions: true, placeholder: "FYI - please review" },
+    ],
+    outputSchema: [
+      { name: "status", type: "string", description: "Forward status" },
+      { name: "originalMessageId", type: "string", description: "Original message ID" },
+      { name: "to", type: "array", description: "Forward recipients" },
+      { name: "timestamp", type: "string", description: "When forwarded" },
+    ],
+  },
+  {
+    type: "ms365.email_draft",
+    category: "ms365",
+    label: "Create Draft",
+    description: "Create an email draft",
+    icon: "FilePen",
+    defaultConfig: { body_type: "html" },
+    configSchema: [
+      { name: "to", label: "To", type: "text", required: true, supportsExpressions: true },
+      { name: "cc", label: "CC", type: "text", supportsExpressions: true },
+      { name: "subject", label: "Subject", type: "text", required: true, supportsExpressions: true },
+      { name: "body", label: "Body", type: "textarea", required: true, supportsExpressions: true },
+      { name: "body_type", label: "Body Type", type: "select", default: "html", options: [
+        { value: "html", label: "HTML" },
+        { value: "text", label: "Plain Text" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "id", type: "string", description: "Draft message ID" },
+      { name: "subject", type: "string", description: "Draft subject" },
+      { name: "webLink", type: "string", description: "Link to draft in Outlook" },
+    ],
+  },
+
+  // --- MS365 Email Manage Operations ---
+  {
+    type: "ms365.email_move",
+    category: "ms365",
+    label: "Move Email",
+    description: "Move an email to another folder",
+    icon: "FolderInput",
+    defaultConfig: {},
+    configSchema: [
+      { name: "message_id", label: "Message ID", type: "text", required: true, supportsExpressions: true },
+      { name: "destination_folder", label: "Destination Folder", type: "select", required: true, options: [
+        { value: "inbox", label: "Inbox" },
+        { value: "archive", label: "Archive" },
+        { value: "deleteditems", label: "Deleted Items" },
+        { value: "junkemail", label: "Junk" },
+        { value: "drafts", label: "Drafts" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "id", type: "string", description: "Message ID in new location" },
+      { name: "parentFolderId", type: "string", description: "New folder ID" },
+    ],
+  },
+  {
+    type: "ms365.email_copy",
+    category: "ms365",
+    label: "Copy Email",
+    description: "Copy an email to another folder",
+    icon: "Copy",
+    defaultConfig: {},
+    configSchema: [
+      { name: "message_id", label: "Message ID", type: "text", required: true, supportsExpressions: true },
+      { name: "destination_folder", label: "Destination Folder", type: "select", required: true, options: [
+        { value: "inbox", label: "Inbox" },
+        { value: "archive", label: "Archive" },
+        { value: "drafts", label: "Drafts" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "id", type: "string", description: "Copied message ID" },
+      { name: "parentFolderId", type: "string", description: "Destination folder ID" },
+    ],
+  },
+  {
+    type: "ms365.email_delete",
+    category: "ms365",
+    label: "Delete Email",
+    description: "Delete an email (soft or permanent)",
+    icon: "Trash2",
+    defaultConfig: { permanent: false },
+    configSchema: [
+      { name: "message_id", label: "Message ID", type: "text", required: true, supportsExpressions: true },
+      { name: "permanent", label: "Permanent Delete", type: "boolean", default: false, description: "If unchecked, moves to Deleted Items" },
+    ],
+    outputSchema: [
+      { name: "status", type: "string", description: "Delete status" },
+      { name: "messageId", type: "string", description: "Deleted message ID" },
+      { name: "permanent", type: "boolean", description: "Whether permanently deleted" },
+    ],
+  },
+  {
+    type: "ms365.email_mark_read",
+    category: "ms365",
+    label: "Mark Read/Unread",
+    description: "Mark an email as read or unread",
+    icon: "MailCheck",
+    defaultConfig: { is_read: true },
+    configSchema: [
+      { name: "message_id", label: "Message ID", type: "text", required: true, supportsExpressions: true },
+      { name: "is_read", label: "Mark as Read", type: "boolean", default: true },
+    ],
+    outputSchema: [
+      { name: "id", type: "string", description: "Message ID" },
+      { name: "isRead", type: "boolean", description: "New read status" },
+    ],
+  },
+  {
+    type: "ms365.email_flag",
+    category: "ms365",
+    label: "Flag Email",
+    description: "Set follow-up flag on an email",
+    icon: "Flag",
+    defaultConfig: { flag_status: "flagged" },
+    configSchema: [
+      { name: "message_id", label: "Message ID", type: "text", required: true, supportsExpressions: true },
+      { name: "flag_status", label: "Flag Status", type: "select", default: "flagged", options: [
+        { value: "flagged", label: "Flagged" },
+        { value: "complete", label: "Complete" },
+        { value: "notFlagged", label: "Not Flagged" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "id", type: "string", description: "Message ID" },
+      { name: "flag", type: "string", description: "New flag status" },
+    ],
+  },
+  {
+    type: "ms365.email_categories",
+    category: "ms365",
+    label: "Set Categories",
+    description: "Set categories on an email",
+    icon: "Tags",
+    defaultConfig: {},
+    configSchema: [
+      { name: "message_id", label: "Message ID", type: "text", required: true, supportsExpressions: true },
+      { name: "categories", label: "Categories", type: "text", required: true, supportsExpressions: true, placeholder: "Important, Client, Follow-up" },
+    ],
+    outputSchema: [
+      { name: "id", type: "string", description: "Message ID" },
+      { name: "categories", type: "array", description: "Applied categories" },
+    ],
+  },
+  {
+    type: "ms365.email_importance",
+    category: "ms365",
+    label: "Set Importance",
+    description: "Set importance level on an email",
+    icon: "AlertCircle",
+    defaultConfig: { importance: "high" },
+    configSchema: [
+      { name: "message_id", label: "Message ID", type: "text", required: true, supportsExpressions: true },
+      { name: "importance", label: "Importance", type: "select", default: "high", options: [
+        { value: "low", label: "Low" },
+        { value: "normal", label: "Normal" },
+        { value: "high", label: "High" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "id", type: "string", description: "Message ID" },
+      { name: "importance", type: "string", description: "New importance level" },
+    ],
+  },
+
+  // --- MS365 Folders ---
+  {
+    type: "ms365.folder_list",
+    category: "ms365",
+    label: "List Folders",
+    description: "List mail folders",
+    icon: "FolderTree",
+    defaultConfig: {},
+    configSchema: [
+      { name: "parent_folder_id", label: "Parent Folder ID", type: "text", supportsExpressions: true, placeholder: "Leave empty for root folders" },
+    ],
+    outputSchema: [
+      { name: "folders", type: "array", description: "List of folders with id, displayName, totalItemCount, unreadItemCount" },
+      { name: "count", type: "number", description: "Number of folders" },
+    ],
+  },
+  {
+    type: "ms365.folder_create",
+    category: "ms365",
+    label: "Create Folder",
+    description: "Create a new mail folder",
+    icon: "FolderPlus",
+    defaultConfig: {},
+    configSchema: [
+      { name: "display_name", label: "Folder Name", type: "text", required: true, supportsExpressions: true },
+      { name: "parent_folder_id", label: "Parent Folder ID", type: "text", supportsExpressions: true, placeholder: "Leave empty for root level" },
+    ],
+    outputSchema: [
+      { name: "id", type: "string", description: "Created folder ID" },
+      { name: "displayName", type: "string", description: "Folder name" },
+    ],
+  },
+  {
+    type: "ms365.folder_delete",
+    category: "ms365",
+    label: "Delete Folder",
+    description: "Delete a mail folder",
+    icon: "FolderMinus",
+    defaultConfig: {},
+    configSchema: [
+      { name: "folder_id", label: "Folder ID", type: "text", required: true, supportsExpressions: true },
+    ],
+    outputSchema: [
+      { name: "status", type: "string", description: "Delete status" },
+      { name: "folderId", type: "string", description: "Deleted folder ID" },
     ],
   },
 ];

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/tauri";
-import { FlowState, FlowNode, FlowEdge, BotDSL, FormTriggerConfig } from "../types/flow";
+import { FlowState, FlowNode, FlowEdge, BotDSL, DSLNode, FormTriggerConfig } from "../types/flow";
 import { useToastStore } from "./toastStore";
 import { useLogsStore } from "./logsStore";
 
@@ -123,7 +123,17 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   // DSL Operations
   generateDSL: () => {
     const state = get();
-    const dslNodes = state.nodes.map((node) => {
+
+    // AI sub-nodes (config nodes) that don't have their own execution flow
+    // These provide configuration to other nodes via visual connections
+    const AI_CONFIG_NODES = ["ai.model", "ai.embeddings"];
+
+    // Filter out AI config nodes from the execution flow
+    const executableNodes = state.nodes.filter(
+      (node) => !AI_CONFIG_NODES.includes(node.data.nodeType)
+    );
+
+    const dslNodes = executableNodes.map((node) => {
       // Find outgoing edges
       const successEdge = state.edges.find(
         (e) => e.source === node.id && e.sourceHandle === "success"
@@ -132,7 +142,222 @@ export const useFlowStore = create<FlowState>((set, get) => ({
         (e) => e.source === node.id && e.sourceHandle === "error"
       );
 
-      return {
+      // AI nodes that can receive model configuration via visual connection
+      const AI_NODES_WITH_MODEL = [
+        "ai.agent",
+        "ai.extract_data",
+        "ai.summarize",
+        "ai.classify",
+        "ai.translate",
+        "ai.sentiment",
+        "ai.vision",
+        "ai.repair_data",
+        "ai.suggest_repairs",
+      ];
+
+      // For AI nodes: find model connections
+      // For AI Agent specifically: also find tool and memory connections
+      let tools: { nodeId: string; name: string; description: string }[] | undefined;
+      let memory: Record<string, any> | undefined;
+      let model_config: Record<string, any> | undefined;
+
+      // Process model connection for ALL AI nodes that support it
+      if (AI_NODES_WITH_MODEL.includes(node.data.nodeType)) {
+        // Find model connection (edge coming INTO this node's "model" handle)
+        const allEdgesToNode = state.edges.filter(e => e.target === node.id);
+        console.log(`[flowStore] Node ${node.id} (${node.data.nodeType}) - all incoming edges:`, allEdgesToNode.map(e => ({
+          id: e.id,
+          source: e.source,
+          sourceHandle: e.sourceHandle,
+          targetHandle: e.targetHandle,
+          edgeType: e.data?.edgeType
+        })));
+
+        const modelEdge = state.edges.find(
+          (e) => e.target === node.id && e.targetHandle === "model" && e.data?.edgeType === "model"
+        );
+        console.log(`[flowStore] Model edge for ${node.id}:`, modelEdge ? { source: modelEdge.source, targetHandle: modelEdge.targetHandle, edgeType: modelEdge.data?.edgeType } : 'NOT FOUND');
+        if (modelEdge) {
+          const modelNode = state.nodes.find((n) => n.id === modelEdge.source);
+          if (modelNode && modelNode.data.nodeType === "ai.model") {
+            // Extract model config from the connected AI Model node
+            const modConfig = modelNode.data.config || {};
+            model_config = {
+              provider: modConfig.provider || "openai",
+              model: modConfig.model || "gpt-4o",
+              temperature: modConfig.temperature ?? 0.7,
+            };
+            // Add optional max_tokens if specified
+            if (modConfig.max_tokens) {
+              model_config.max_tokens = modConfig.max_tokens;
+            }
+            // Add provider-specific params
+            if (modConfig.provider === "openai") {
+              model_config.api_key = modConfig.api_key;
+            } else if (modConfig.provider === "anthropic") {
+              model_config.api_key = modConfig.api_key;
+            } else if (modConfig.provider === "azure") {
+              model_config.api_key = modConfig.api_key;
+              model_config.base_url = modConfig.base_url;
+              model_config.api_version = modConfig.api_version;
+            } else if (modConfig.provider === "ollama") {
+              model_config.base_url = modConfig.base_url || "http://localhost:11434";
+            } else if (modConfig.provider === "google") {
+              model_config.api_key = modConfig.api_key;
+            } else if (modConfig.provider === "aws") {
+              model_config.aws_access_key = modConfig.aws_access_key;
+              model_config.aws_secret_key = modConfig.aws_secret_key;
+              model_config.region = modConfig.region;
+            } else if (modConfig.provider === "groq") {
+              model_config.api_key = modConfig.api_key;
+            } else if (modConfig.provider === "mistral") {
+              model_config.api_key = modConfig.api_key;
+            }
+          }
+        }
+      }
+
+      // AI Agent-specific connections: tools and memory
+      if (node.data.nodeType === "ai.agent") {
+        // Find tool connections
+        const toolEdges = state.edges.filter(
+          (e) => e.target === node.id && e.targetHandle === "tools" && e.data?.edgeType === "tool"
+        );
+        if (toolEdges.length > 0) {
+          tools = toolEdges.map((edge) => {
+            const sourceNode = state.nodes.find((n) => n.id === edge.source);
+            return {
+              nodeId: edge.source,
+              name: edge.data?.toolName || sourceNode?.data.label.toLowerCase().replace(/\s+/g, "_") || "unknown_tool",
+              description: edge.data?.toolDescription || `Execute ${sourceNode?.data.label || "node"}`,
+            };
+          });
+        }
+
+        // Find memory connections (edges coming INTO this node's "memory" handle)
+        const memoryEdge = state.edges.find(
+          (e) => e.target === node.id && e.targetHandle === "memory" && e.data?.edgeType === "memory"
+        );
+        if (memoryEdge) {
+          const memoryNode = state.nodes.find((n) => n.id === memoryEdge.source);
+          if (memoryNode && memoryNode.data.nodeType === "vectordb.memory") {
+            // Extract memory config from the connected Vector Memory node
+            const memConfig = memoryNode.data.config || {};
+            memory = {
+              provider: memConfig.provider || "chroma",
+              collection: memConfig.collection || "agent_memory",
+              memory_type: memoryEdge.data?.memoryType || memConfig.memory_type || "both",
+              top_k: memConfig.top_k || 5,
+              min_score: memConfig.min_score || 0.5,
+            };
+            // Add connection params based on provider
+            if (memConfig.provider === "pgvector") {
+              memory.connection_params = {
+                host: memConfig.host,
+                port: memConfig.port,
+                database: memConfig.database,
+                user: memConfig.user,
+                password: memConfig.password,
+                table: memConfig.table,
+              };
+            } else if (memConfig.provider === "supabase") {
+              memory.connection_params = {
+                url: memConfig.url,
+                api_key: memConfig.api_key,
+                table: memConfig.table,
+              };
+            } else if (memConfig.provider === "pinecone") {
+              memory.connection_params = {
+                api_key: memConfig.api_key,
+                index_name: memConfig.index_name,
+                namespace: memConfig.namespace,
+              };
+            } else if (memConfig.provider === "qdrant") {
+              memory.connection_params = {
+                host: memConfig.host,
+                port: memConfig.port,
+                api_key: memConfig.api_key,
+                collection: memConfig.collection,
+              };
+            }
+            // ChromaDB uses persist_directory if provided
+            else if (memConfig.provider === "chroma" && memConfig.persist_directory) {
+              memory.connection_params = {
+                persist_directory: memConfig.persist_directory,
+              };
+            }
+          }
+        }
+      }
+
+      // Find embeddings connections (edges coming INTO this node's "embeddings" handle)
+      // This applies to AI Agent and Vector Memory nodes
+      let embeddings: Record<string, any> | undefined;
+      const embeddingsEdge = state.edges.find(
+        (e) => e.target === node.id && e.targetHandle === "embeddings" && e.data?.edgeType === "embeddings"
+      );
+      if (embeddingsEdge) {
+        const embeddingsNode = state.nodes.find((n) => n.id === embeddingsEdge.source);
+        if (embeddingsNode && embeddingsNode.data.nodeType === "ai.embeddings") {
+          // Extract embeddings config from the connected Embeddings node
+          const embConfig = embeddingsNode.data.config || {};
+          embeddings = {
+            provider: embConfig.provider || "openai",
+            model: embConfig.model || "text-embedding-3-small",
+            dimension: embConfig.dimension || 1536,
+          };
+          // Add provider-specific params
+          if (embConfig.provider === "openai") {
+            embeddings.api_key = embConfig.api_key;
+          } else if (embConfig.provider === "azure") {
+            embeddings.api_key = embConfig.api_key;
+            embeddings.base_url = embConfig.base_url;
+            embeddings.api_version = embConfig.api_version;
+          } else if (embConfig.provider === "ollama") {
+            embeddings.base_url = embConfig.base_url || "http://localhost:11434";
+          } else if (embConfig.provider === "cohere") {
+            embeddings.api_key = embConfig.api_key;
+          } else if (embConfig.provider === "huggingface") {
+            embeddings.api_key = embConfig.api_key;
+            embeddings.base_url = embConfig.base_url;
+          } else if (embConfig.provider === "google") {
+            embeddings.api_key = embConfig.api_key;
+            embeddings.project_id = embConfig.project_id;
+            embeddings.location = embConfig.location;
+          } else if (embConfig.provider === "aws") {
+            embeddings.aws_access_key = embConfig.aws_access_key;
+            embeddings.aws_secret_key = embConfig.aws_secret_key;
+            embeddings.region = embConfig.region;
+          }
+        }
+      }
+
+      // Find connection edges (e.g., MS365 Connection -> MS365 Trigger)
+      // Nodes that need a connection: trigger.ms365_email
+      const NODES_WITH_CONNECTION = ["trigger.ms365_email"];
+      let connection_config: Record<string, any> | undefined;
+
+      if (NODES_WITH_CONNECTION.includes(node.data.nodeType)) {
+        const connectionEdge = state.edges.find(
+          (e) => e.target === node.id && e.targetHandle === "connection" && e.data?.edgeType === "connection"
+        );
+        if (connectionEdge) {
+          const connectionNode = state.nodes.find((n) => n.id === connectionEdge.source);
+          if (connectionNode && connectionNode.data.nodeType === "ms365.connection") {
+            // Extract connection config from the connected MS365 Connection node
+            const connConfig = connectionNode.data.config || {};
+            connection_config = {
+              tenant_id: connConfig.tenant_id,
+              client_id: connConfig.client_id,
+              client_secret: connConfig.client_secret,
+              user_email: connConfig.user_email,
+            };
+          }
+        }
+      }
+
+      // Build DSL node
+      const dslNode: DSLNode = {
         id: node.id,
         type: node.data.nodeType,
         config: node.data.config,
@@ -143,6 +368,34 @@ export const useFlowStore = create<FlowState>((set, get) => ({
         },
         label: node.data.label,
       };
+
+      // Add tools array only for AI Agent nodes that have tools connected
+      if (tools && tools.length > 0) {
+        dslNode.tools = tools;
+      }
+
+      // Add model config for AI nodes that have AI Model connected
+      // Note: template uses model_config_ (with underscore) to avoid conflicts with Python reserved words
+      if (model_config) {
+        dslNode.model_config_ = model_config as DSLNode["model_config_"];
+      }
+
+      // Add memory config only for AI Agent nodes that have Vector Memory connected
+      if (memory) {
+        dslNode.memory = memory as DSLNode["memory"];
+      }
+
+      // Add embeddings config for nodes that have Embeddings model connected
+      if (embeddings) {
+        dslNode.embeddings = embeddings as DSLNode["embeddings"];
+      }
+
+      // Add connection config for nodes that have service connection (MS365, etc.)
+      if (connection_config) {
+        (dslNode as any).connection_config = connection_config;
+      }
+
+      return dslNode;
     });
 
     // Find all trigger nodes

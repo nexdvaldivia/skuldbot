@@ -1,0 +1,290 @@
+export const metadata = {
+  title: 'Data Quality',
+  description: 'Components for validating and ensuring data quality in your workflows.',
+}
+
+export const sections = [
+  { title: 'Validate Data', id: 'dataquality-validate' },
+  { title: 'Profile Data', id: 'dataquality-profile_data' },
+  { title: 'Generate Quality Report', id: 'dataquality-generate_report' },
+]
+
+# Data Quality
+
+Components for validating and ensuring data quality in your workflows. {{ className: 'lead' }}
+
+<Note>
+  This category contains **3 components**. See also: [Data Transform](/components/data) · [Compliance](/components/compliance) · [Database](/components/database)
+</Note>
+
+## Common Use Cases
+
+- Validate data formats
+- Check for duplicates
+- Enforce business rules
+- Clean and standardize data
+
+---
+
+## Validate Data {{ id: 'dataquality-validate' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-shield-check"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+  <path d="m9 12 2 2 4-4" />
+</svg>
+`} label="Validate Data" description="Configure field-by-field data validation rules with visual builder" bgColor="#e0f2fe" textColor="#0369a1" />
+
+<Properties>
+  <Property name="type" type="string">
+    `dataquality.validate`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="data" type="textarea" required>
+    Data to Validate
+  </Property>
+  <Property name="rules" type="validation-builder">
+    Validation Rules
+  </Property>
+  <Property name="fail_on_error" type="boolean">
+    Fail on Validation Error Default: `true`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Validate Data.variableName}`.
+
+<Properties>
+  <Property name="valid" type="boolean">
+    Whether all validations passed
+  </Property>
+  <Property name="validated_data" type="object">
+    The validated data
+  </Property>
+  <Property name="errors" type="array">
+    List of validation errors
+  </Property>
+  <Property name="error_count" type="number">
+    Number of validation errors
+  </Property>
+  <Property name="rules_passed" type="number">
+    Number of rules that passed
+  </Property>
+  <Property name="rules_failed" type="number">
+    Number of rules that failed
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "dataquality.validate",
+  "label": "Validate Data",
+  "config": {
+    "data": "your-data",
+    "rules": "your-rules",
+    "fail_on_error": "true"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Profile Data {{ id: 'dataquality-profile_data' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-chart-column"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+  <path d="M18 17V9" />
+  <path d="M13 17V5" />
+  <path d="M8 17v-3" />
+</svg>
+`} label="Profile Data" description="Generate automatic data profile with statistics" bgColor="#e0f2fe" textColor="#0369a1" />
+
+<Properties>
+  <Property name="type" type="string">
+    `dataquality.profile_data`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Generate automatic data statistics
+- Discover data patterns
+- Identify anomalies
+- Understand data characteristics
+
+### Configuration
+
+<Properties>
+  <Property name="data" type="textarea" required>
+    Data
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Profile Data.variableName}`.
+
+<Properties>
+  <Property name="row_count" type="number">
+    Total number of rows
+  </Property>
+  <Property name="column_count" type="number">
+    Total number of columns
+  </Property>
+  <Property name="columns" type="object">
+    Column-by-column statistics (nulls, types, unique values)
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "dataquality.profile_data",
+  "label": "Profile Data",
+  "config": {
+    "data": "your-data"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Generate Quality Report {{ id: 'dataquality-generate_report' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-chart-column-increasing"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M8 18v-2" />
+  <path d="M12 18v-4" />
+  <path d="M16 18v-6" />
+</svg>
+`} label="Generate Quality Report" description="Generate comprehensive data quality report" bgColor="#e0f2fe" textColor="#0369a1" />
+
+<Properties>
+  <Property name="type" type="string">
+    `dataquality.generate_report`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Create data quality scorecards
+- Generate validation reports
+- Document data issues
+- Report quality metrics
+
+### Configuration
+
+<Properties>
+  <Property name="data" type="textarea" required>
+    Data
+  </Property>
+  <Property name="data_source" type="text">
+    Data Source Name (e.g., `Customer Database`) Default: `unknown`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Generate Quality Report.variableName}`.
+
+<Properties>
+  <Property name="timestamp" type="string">
+    Report generation timestamp
+  </Property>
+  <Property name="data_source" type="string">
+    Name of data source
+  </Property>
+  <Property name="total_rows" type="number">
+    Total rows analyzed
+  </Property>
+  <Property name="validations_run" type="number">
+    Total validations executed
+  </Property>
+  <Property name="success_rate" type="number">
+    Overall validation success rate
+  </Property>
+  <Property name="profile" type="object">
+    Data profile
+  </Property>
+  <Property name="validation_results" type="array">
+    All validation results
+  </Property>
+  <Property name="summary" type="object">
+    Quality summary with recommendations
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "dataquality.generate_report",
+  "label": "Generate Quality Report",
+  "config": {
+    "data": "your-data",
+    "data_source": "Customer Database"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+

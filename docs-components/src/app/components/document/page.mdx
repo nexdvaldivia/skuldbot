@@ -1,0 +1,668 @@
+export const metadata = {
+  title: 'Document Processing',
+  description: 'Components for processing documents with OCR, PDF extraction, and intelligent parsing.',
+}
+
+export const sections = [
+  { title: 'Read PDF', id: 'document-pdf_read' },
+  { title: 'Merge PDFs', id: 'document-pdf_merge' },
+  { title: 'Split PDF', id: 'document-pdf_split' },
+  { title: 'PDF to Image', id: 'document-pdf_to_image' },
+  { title: 'OCR Extract', id: 'document-ocr' },
+  { title: 'Read Word', id: 'document-word_read' },
+  { title: 'Write Word', id: 'document-word_write' },
+  { title: 'HTML to PDF', id: 'document-html_to_pdf' },
+  { title: 'Fill PDF Form', id: 'document-pdf_fill_form' },
+]
+
+# Document Processing
+
+Components for processing documents with OCR, PDF extraction, and intelligent parsing. {{ className: 'lead' }}
+
+<Note>
+  This category contains **9 components**. See also: [AI / LLM](/components/ai) · [File Operations](/components/files) · [Data Transform](/components/data)
+</Note>
+
+## Common Use Cases
+
+- Extract text from PDFs
+- OCR scanned documents
+- Parse invoices and receipts
+- Generate PDF reports
+
+---
+
+## Read PDF {{ id: 'document-pdf_read' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-text"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M10 9H8" />
+  <path d="M16 13H8" />
+  <path d="M16 17H8" />
+</svg>
+`} label="Read PDF" description="Extract text from PDF" bgColor="#fee2e2" textColor="#b91c1c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `document.pdf_read`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Extract text from invoices for processing
+- Read content from contracts
+- Parse PDF reports for data extraction
+- Get text from scanned documents (with OCR)
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    PDF Path
+  </Property>
+  <Property name="pages" type="text">
+    Pages (e.g., 1-5)
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "document.pdf_read",
+  "label": "Read PDF",
+  "config": {
+    "path": "your-path",
+    "pages": "your-pages"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Merge PDFs {{ id: 'document-pdf_merge' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-plus"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M9 15h6" />
+  <path d="M12 18v-6" />
+</svg>
+`} label="Merge PDFs" description="Combine multiple PDFs" bgColor="#fee2e2" textColor="#b91c1c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `document.pdf_merge`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Combine multiple invoices into one PDF
+- Merge report pages into single document
+- Create document packages
+- Consolidate statements
+
+### Configuration
+
+<Properties>
+  <Property name="files" type="textarea" required>
+    PDF Files (JSON array)
+  </Property>
+  <Property name="output" type="text" required>
+    Output Path
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "document.pdf_merge",
+  "label": "Merge PDFs",
+  "config": {
+    "files": "your-files",
+    "output": "your-output"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Split PDF {{ id: 'document-pdf_split' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-scissors"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <circle cx="6" cy="6" r="3" />
+  <path d="M8.12 8.12 12 12" />
+  <path d="M20 4 8.12 15.88" />
+  <circle cx="6" cy="18" r="3" />
+  <path d="M14.8 14.8 20 20" />
+</svg>
+`} label="Split PDF" description="Split PDF into pages" bgColor="#fee2e2" textColor="#b91c1c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `document.pdf_split`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Extract specific pages from large PDFs
+- Separate combined documents
+- Extract invoice pages from batch scans
+- Create individual documents from merged files
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    PDF Path
+  </Property>
+  <Property name="pages" type="text" required>
+    Pages to Extract
+  </Property>
+  <Property name="output" type="text" required>
+    Output Path
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "document.pdf_split",
+  "label": "Split PDF",
+  "config": {
+    "path": "your-path",
+    "pages": "your-pages",
+    "output": "your-output"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## PDF to Image {{ id: 'document-pdf_to_image' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-image"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+  <circle cx="9" cy="9" r="2" />
+  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+</svg>
+`} label="PDF to Image" description="Convert PDF to images" bgColor="#fee2e2" textColor="#b91c1c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `document.pdf_to_image`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Convert PDF pages for image processing
+- Create thumbnails for document preview
+- Prepare documents for OCR
+- Generate images for web display
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    PDF Path
+  </Property>
+  <Property name="output_dir" type="text" required>
+    Output Directory
+  </Property>
+  <Property name="format" type="select">
+    Image Format Default: `png`
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "document.pdf_to_image",
+  "label": "PDF to Image",
+  "config": {
+    "path": "your-path",
+    "output_dir": "your-output_dir",
+    "format": "png"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## OCR Extract {{ id: 'document-ocr' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-scan-line"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+  <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+  <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+  <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+  <path d="M7 12h10" />
+</svg>
+`} label="OCR Extract" description="Extract text with OCR" bgColor="#fee2e2" textColor="#b91c1c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `document.ocr`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Extract text from scanned documents
+- Digitize paper invoices
+- Process handwritten forms
+- Read text from images
+
+<Prerequisites>
+
+- OCR provider configured (Azure Document Intelligence, AWS Textract, or Google Vision)
+- Image or PDF file to process
+
+</Prerequisites>
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    Image Path
+  </Property>
+  <Property name="language" type="select">
+    Language Default: `eng`
+  </Property>
+</Properties>
+
+### Setup Guide
+
+
+<Collapsible title="Configure Azure Document Intelligence">
+
+1. Create a Document Intelligence resource in Azure
+2. Get endpoint and key
+3. Add to secrets: `azure_doc_endpoint`, `azure_doc_key`
+4. Supports: Invoices, Receipts, IDs, Custom models
+
+</Collapsible>
+
+<Collapsible title="Configure AWS Textract">
+
+1. Create IAM user with Textract permissions
+2. Add to secrets: `aws_access_key`, `aws_secret_key`, `aws_region`
+3. Supports: Tables, Forms, Queries
+
+</Collapsible>
+
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "document.ocr",
+  "label": "OCR Extract",
+  "config": {
+    "path": "your-path",
+    "language": "eng"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Read Word {{ id: 'document-word_read' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-type"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M11 18h2" />
+  <path d="M12 12v6" />
+  <path d="M9 13v-.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v.5" />
+</svg>
+`} label="Read Word" description="Read Word document" bgColor="#fee2e2" textColor="#b91c1c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `document.word_read`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Extract content from Word documents
+- Parse document templates
+- Read contracts and agreements
+- Process Word-based reports
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    File Path
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "document.word_read",
+  "label": "Read Word",
+  "config": {
+    "path": "your-path"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Write Word {{ id: 'document-word_write' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-type-corner"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 22h6a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v6" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M3 16v-1.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 .5.5V16" />
+  <path d="M6 22h2" />
+  <path d="M7 14v8" />
+</svg>
+`} label="Write Word" description="Create Word document" bgColor="#fee2e2" textColor="#b91c1c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `document.word_write`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Generate contracts from templates
+- Create formatted reports
+- Produce mail merge documents
+- Build proposals and quotes
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    Output Path
+  </Property>
+  <Property name="content" type="textarea" required>
+    Content
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "document.word_write",
+  "label": "Write Word",
+  "config": {
+    "path": "your-path",
+    "content": "your-content"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## HTML to PDF {{ id: 'document-html_to_pdf' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-down"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M12 18v-6" />
+  <path d="m9 15 3 3 3-3" />
+</svg>
+`} label="HTML to PDF" description="Convert HTML to PDF" bgColor="#fee2e2" textColor="#b91c1c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `document.html_to_pdf`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Convert web pages to PDF reports
+- Generate PDF from HTML templates
+- Create printable documents from web content
+- Archive web pages as PDFs
+
+### Configuration
+
+<Properties>
+  <Property name="html" type="textarea" required>
+    HTML Content or URL
+  </Property>
+  <Property name="output" type="text" required>
+    Output Path
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "document.html_to_pdf",
+  "label": "HTML to PDF",
+  "config": {
+    "html": "your-html",
+    "output": "your-output"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Fill PDF Form {{ id: 'document-pdf_fill_form' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-pen-tool"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M15.707 21.293a1 1 0 0 1-1.414 0l-1.586-1.586a1 1 0 0 1 0-1.414l5.586-5.586a1 1 0 0 1 1.414 0l1.586 1.586a1 1 0 0 1 0 1.414z" />
+  <path d="m18 13-1.375-6.874a1 1 0 0 0-.746-.776L3.235 2.028a1 1 0 0 0-1.207 1.207L5.35 15.879a1 1 0 0 0 .776.746L13 18" />
+  <path d="m2.3 2.3 7.286 7.286" />
+  <circle cx="11" cy="11" r="2" />
+</svg>
+`} label="Fill PDF Form" description="Fill PDF form fields" bgColor="#fee2e2" textColor="#b91c1c" />
+
+<Properties>
+  <Property name="type" type="string">
+    `document.pdf_fill_form`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Fill out PDF forms automatically
+- Complete government/tax forms
+- Populate application forms
+- Fill insurance claim forms
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    PDF Path
+  </Property>
+  <Property name="fields" type="textarea" required>
+    Field Values (JSON)
+  </Property>
+  <Property name="output" type="text" required>
+    Output Path
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "document.pdf_fill_form",
+  "label": "Fill PDF Form",
+  "config": {
+    "path": "your-path",
+    "fields": "your-fields",
+    "output": "your-output"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+

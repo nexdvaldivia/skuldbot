@@ -8,6 +8,9 @@ from skuldbot.dsl.models import (
     NodeOutput,
     ErrorDefinition,
     VariableDefinition,
+    ToolConnection,
+    MemoryConnection,
+    EmbeddingsConnection,
 )
 from skuldbot.dsl.validator import DSLValidator
 
@@ -17,6 +20,9 @@ __all__ = [
     "NodeOutput",
     "ErrorDefinition",
     "VariableDefinition",
+    "ToolConnection",
+    "MemoryConnection",
+    "EmbeddingsConnection",
     "DSLValidator",
 ]
 

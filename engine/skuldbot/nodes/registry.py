@@ -29,6 +29,9 @@ class NodeCategory(str, Enum):
     HUMAN = "human"
     COMPLIANCE = "compliance"
     DATAQUALITY = "dataquality"
+    VOICE = "voice"
+    INSURANCE = "insurance"
+    VECTORDB = "vectordb"
 
 
 @dataclass
@@ -1650,17 +1653,41 @@ register_node(NodeMapping(
     pre_keywords=["Configure AI Provider    ${AI_PROVIDER}    ${AI_API_KEY}    ${AI_MODEL}"],
 ))
 
+# --- AI Model (Configuration Node for n8n-style visual connections) ---
+register_node(NodeMapping(
+    node_type="ai.model",
+    category=NodeCategory.AI,
+    keyword="Configure AI Model",
+    library=LIB_SKULD_AI,
+    description="Configure LLM provider and model (OpenAI, Anthropic, Azure, AWS Bedrock, Groq, Ollama). Connect to AI Agent.",
+    config_mapping={
+        "provider": "provider",
+        "model": "model",
+        "temperature": "temperature",
+        "max_tokens": "max_tokens",
+        "api_key": "api_key",
+        "base_url": "base_url",
+        "api_version": "api_version",
+        "region": "region",
+    },
+    return_variable=None,  # Config node, no direct output
+))
+
 register_node(NodeMapping(
     node_type="ai.agent",
     category=NodeCategory.AI,
-    keyword="Send Agent Message",
+    keyword="Run Agent With Tools",
     library=LIB_SKULD_AI,
-    description="Run AI agent conversation",
+    description="Run autonomous ReAct AI agent with tool execution. Connect AI Model, Embeddings, and Vector Memory nodes visually.",
     config_mapping={
-        "message": "message",
+        "goal": "goal",
+        "tools": "tools",  # JSON list of tool definitions from connected nodes
+        "system_prompt": "system_prompt",
+        "max_iterations": "max_iterations",
+        "name": "agent_name",
     },
-    return_variable="agent_response",
-    pre_keywords=["Start AI Agent Session    ${AGENT_SYSTEM_PROMPT}    ${AGENT_NAME}"],
+    return_variable="agent_result",
+    pre_keywords=["Configure AI Provider    ${AI_PROVIDER}    ${AI_API_KEY}    ${AI_MODEL}"],
 ))
 
 register_node(NodeMapping(
@@ -1753,12 +1780,15 @@ register_node(NodeMapping(
     category=NodeCategory.AI,
     keyword="Generate Embeddings",
     library=LIB_SKULD_AI,
-    description="Generate vector embeddings for text",
+    description="Configure embeddings model (OpenAI, Azure, Ollama, Cohere). Connect to AI Agent or Vector Memory for RAG.",
     config_mapping={
-        "text": "text",
+        "provider": "provider",
         "model": "model",
+        "dimension": "dimension",
+        "api_key": "api_key",
+        "base_url": "base_url",
     },
-    return_variable="embeddings",
+    return_variable=None,  # Config node for visual connections
 ))
 
 register_node(NodeMapping(
@@ -2025,6 +2055,324 @@ register_node(NodeMapping(
 
 
 # =============================================================================
+# VOICE NODES (SkuldVoice Library - skuldbot.libs.voice)
+# =============================================================================
+
+# Librería SkuldVoice con alias Voice
+LIB_SKULD_VOICE = LibraryImport("skuldbot.libs.voice.SkuldVoice", alias="Voice")
+
+# Voice Trigger - Incoming calls
+register_node(NodeMapping(
+    node_type="trigger.voice_inbound",
+    category=NodeCategory.TRIGGER,
+    keyword="Handle Incoming Call",
+    library=LIB_SKULD_VOICE,
+    description="Webhook trigger for incoming voice calls (Twilio)",
+    config_mapping={
+        "account_sid": "account_sid",
+        "auth_token": "auth_token",
+        "phone_number": "phone_number",
+        "webhook_path": "webhook_path",
+        "greeting": "greeting",
+        "call_data": "call_data",
+    },
+    return_variable="call_info",
+    pre_keywords=["Configure Voice Provider    twilio_account_sid=${account_sid}    twilio_auth_token=${auth_token}    twilio_phone_number=${phone_number}"],
+))
+
+# Outbound call
+register_node(NodeMapping(
+    node_type="voice.call",
+    category=NodeCategory.VOICE,
+    keyword="Make Outbound Call",
+    library=LIB_SKULD_VOICE,
+    description="Make an outbound voice call",
+    config_mapping={
+        "to_number": "to_number",
+        "twiml_url": "twiml_url",
+        "twiml": "twiml",
+        "record": "record",
+        "timeout": "timeout",
+    },
+    return_variable="call_result",
+))
+
+# Speech-to-Text
+register_node(NodeMapping(
+    node_type="voice.listen",
+    category=NodeCategory.VOICE,
+    keyword="Transcribe Audio File",
+    library=LIB_SKULD_VOICE,
+    description="Transcribe audio to text (Speech-to-Text)",
+    config_mapping={
+        "audio_path": "audio_path",
+        "language": "language",
+    },
+    return_variable="transcription",
+))
+
+# Text-to-Speech
+register_node(NodeMapping(
+    node_type="voice.speak",
+    category=NodeCategory.VOICE,
+    keyword="Synthesize Speech",
+    library=LIB_SKULD_VOICE,
+    description="Convert text to speech audio (Text-to-Speech)",
+    config_mapping={
+        "text": "text",
+        "output_path": "output_path",
+        "voice": "voice",
+        "style": "style",
+    },
+    return_variable="speech_result",
+))
+
+# TwiML generation for Say
+register_node(NodeMapping(
+    node_type="voice.twiml_say",
+    category=NodeCategory.VOICE,
+    keyword="Generate TwiML Say",
+    library=LIB_SKULD_VOICE,
+    description="Generate TwiML to speak text in a call",
+    config_mapping={
+        "text": "text",
+        "voice": "voice",
+        "language": "language",
+    },
+    return_variable="twiml",
+))
+
+# TwiML generation for Gather (input)
+register_node(NodeMapping(
+    node_type="voice.twiml_gather",
+    category=NodeCategory.VOICE,
+    keyword="Generate TwiML Gather",
+    library=LIB_SKULD_VOICE,
+    description="Generate TwiML to gather user input (voice or DTMF)",
+    config_mapping={
+        "prompt_text": "prompt_text",
+        "action_url": "action_url",
+        "input_type": "input_type",
+        "timeout": "timeout",
+        "speech_timeout": "speech_timeout",
+    },
+    return_variable="twiml",
+))
+
+# End call
+register_node(NodeMapping(
+    node_type="voice.hangup",
+    category=NodeCategory.VOICE,
+    keyword="End Call",
+    library=LIB_SKULD_VOICE,
+    description="End the current voice call",
+    config_mapping={
+        "call_sid": "call_sid",
+        "farewell_message": "farewell_message",
+    },
+    return_variable="end_result",
+))
+
+# Transfer call
+register_node(NodeMapping(
+    node_type="voice.transfer",
+    category=NodeCategory.VOICE,
+    keyword="Transfer Call",
+    library=LIB_SKULD_VOICE,
+    description="Transfer call to another number or agent",
+    config_mapping={
+        "transfer_to": "transfer_to",
+        "call_sid": "call_sid",
+        "announce_message": "announce_message",
+    },
+    return_variable="transfer_result",
+))
+
+# Get call status
+register_node(NodeMapping(
+    node_type="voice.get_status",
+    category=NodeCategory.VOICE,
+    keyword="Get Call Status",
+    library=LIB_SKULD_VOICE,
+    description="Get the current status of a call",
+    config_mapping={
+        "call_sid": "call_sid",
+    },
+    return_variable="call_status",
+))
+
+# Get recording
+register_node(NodeMapping(
+    node_type="voice.get_recording",
+    category=NodeCategory.VOICE,
+    keyword="Get Call Recording",
+    library=LIB_SKULD_VOICE,
+    description="Get the recording URL for a call",
+    config_mapping={
+        "call_sid": "call_sid",
+    },
+    return_variable="recording",
+))
+
+# Conversation management
+register_node(NodeMapping(
+    node_type="voice.add_turn",
+    category=NodeCategory.VOICE,
+    keyword="Add Conversation Turn",
+    library=LIB_SKULD_VOICE,
+    description="Add a turn to the conversation history",
+    config_mapping={
+        "role": "role",
+        "text": "text",
+        "confidence": "confidence",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="voice.get_transcript",
+    category=NodeCategory.VOICE,
+    keyword="Get Conversation Transcript",
+    library=LIB_SKULD_VOICE,
+    description="Get the full conversation transcript",
+    config_mapping={
+        "format": "format",
+    },
+    return_variable="transcript",
+))
+
+register_node(NodeMapping(
+    node_type="voice.clear_conversation",
+    category=NodeCategory.VOICE,
+    keyword="Clear Conversation",
+    library=LIB_SKULD_VOICE,
+    description="Clear the conversation history",
+    config_mapping={},
+))
+
+# Context management
+register_node(NodeMapping(
+    node_type="voice.set_context",
+    category=NodeCategory.VOICE,
+    keyword="Set Call Context",
+    library=LIB_SKULD_VOICE,
+    description="Store context data during a call",
+    config_mapping={
+        "key": "key",
+        "value": "value",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="voice.get_context",
+    category=NodeCategory.VOICE,
+    keyword="Get Call Context",
+    library=LIB_SKULD_VOICE,
+    description="Retrieve context data from the call",
+    config_mapping={
+        "key": "key",
+    },
+    return_variable="context_value",
+))
+
+register_node(NodeMapping(
+    node_type="voice.get_call_info",
+    category=NodeCategory.VOICE,
+    keyword="Get Current Call Info",
+    library=LIB_SKULD_VOICE,
+    description="Get information about the current call",
+    config_mapping={},
+    return_variable="call_info",
+))
+
+
+# =============================================================================
+# INSURANCE NODES (FNOL, Policy, Claims)
+# =============================================================================
+
+# Note: Insurance nodes use generic keywords (HTTP, AI, etc.) internally
+# They are high-level abstractions for insurance-specific workflows
+
+register_node(NodeMapping(
+    node_type="insurance.fnol_record",
+    category=NodeCategory.INSURANCE,
+    keyword="Create FNOL Record",
+    library=None,  # Uses built-in keyword
+    description="Create canonical First Notice of Loss record",
+    config_mapping={
+        "caller_phone": "caller_phone",
+        "caller_name": "caller_name",
+        "policy_number": "policy_number",
+        "incident_type": "incident_type",
+        "incident_date": "incident_date",
+        "incident_location": "incident_location",
+        "incident_description": "incident_description",
+        "injuries": "injuries",
+        "police_report": "police_report",
+        "recording_url": "recording_url",
+        "transcript": "transcript",
+    },
+    return_variable="fnol_record",
+))
+
+# Lookup policy by multiple criteria (phone, name, DOB, etc.)
+register_node(NodeMapping(
+    node_type="insurance.lookup_policy",
+    category=NodeCategory.INSURANCE,
+    keyword="Lookup Insurance Policy",
+    library=None,  # Uses HTTP library internally
+    description="Find policy by phone, name, DOB, or other criteria (caller often doesn't have policy number)",
+    config_mapping={
+        "api_url": "api_url",
+        # Multiple search criteria - use whichever is available
+        "phone_number": "phone_number",        # Primary: from Twilio CallerID
+        "policyholder_name": "policyholder_name",  # Fallback 1
+        "date_of_birth": "date_of_birth",      # Fallback 2
+        "ssn_last_four": "ssn_last_four",      # Fallback 3 (regulated)
+        "address": "address",                   # Fallback 4
+        "vin": "vin",                          # For auto policies
+        "policy_number": "policy_number",      # If caller has it
+        "method": "method",
+        "headers": "headers",
+    },
+    return_variable="policy_lookup_result",
+))
+
+# Validate policy (after lookup, check if active and has coverage)
+register_node(NodeMapping(
+    node_type="insurance.validate_policy",
+    category=NodeCategory.INSURANCE,
+    keyword="Validate Insurance Policy",
+    library=None,  # Uses HTTP library internally
+    description="Validate policy is active and has coverage for claim type",
+    config_mapping={
+        "api_url": "api_url",
+        "policy_id": "policy_id",              # From lookup result
+        "policy_number": "policy_number",
+        "claim_type": "claim_type",            # auto, property, liability, health
+        "check_active": "check_active",        # Verify not expired/cancelled
+        "check_coverage": "check_coverage",    # Verify coverage type
+        "method": "method",
+        "headers": "headers",
+    },
+    return_variable="policy_validation",
+))
+
+register_node(NodeMapping(
+    node_type="insurance.extract_claim_data",
+    category=NodeCategory.INSURANCE,
+    keyword="Extract Claim Data From Transcript",
+    library=None,  # Uses AI library internally
+    description="Use AI to extract structured claim data from conversation",
+    config_mapping={
+        "transcript": "transcript",
+        "claim_type": "claim_type",
+        "llm_provider": "llm_provider",
+    },
+    return_variable="extracted_claim",
+))
+
+
+# =============================================================================
 # UTILITY FUNCTIONS
 # =============================================================================
 
@@ -2050,6 +2398,95 @@ def get_category_summary() -> Dict[str, int]:
         cat = node.category.value
         summary[cat] = summary.get(cat, 0) + 1
     return summary
+
+
+def generate_ai_planner_catalog() -> str:
+    """
+    Genera el catálogo de nodos para el AI Planner.
+    Este catálogo se usa en el system prompt para que el LLM conozca
+    todos los nodos disponibles.
+
+    Returns:
+        String formateado con todos los nodos agrupados por categoría
+    """
+    # Nombres legibles para categorías
+    category_labels = {
+        "trigger": "TRIGGERS",
+        "web": "WEB AUTOMATION",
+        "desktop": "DESKTOP AUTOMATION",
+        "files": "FILES & FOLDERS",
+        "excel": "EXCEL & CSV",
+        "email": "EMAIL",
+        "api": "API & HTTP",
+        "database": "DATABASE",
+        "document": "DOCUMENTS (PDF, OCR)",
+        "ai": "AI & LLM (requires SkuldAI license)",
+        "vectordb": "VECTOR DATABASE (RAG, pgvector, Pinecone, Qdrant, ChromaDB, Supabase)",
+        "python": "PYTHON EXECUTION",
+        "control": "CONTROL FLOW",
+        "logging": "LOGGING & MONITORING",
+        "security": "SECURITY & SECRETS",
+        "human": "HUMAN-IN-THE-LOOP",
+        "compliance": "COMPLIANCE (requires SkuldCompliance license)",
+        "dataquality": "DATA QUALITY (requires SkuldDataQuality license)",
+        "voice": "VOICE/TELEPHONY (requires SkuldVoice - Twilio + Azure Speech)",
+        "insurance": "INSURANCE (FNOL & Claims)",
+        "data": "DATA INTEGRATION",
+    }
+
+    # Agrupar nodos por categoría
+    nodes_by_category: Dict[str, List[NodeMapping]] = {}
+    for node in NODE_REGISTRY.values():
+        cat = node.category.value
+        if cat not in nodes_by_category:
+            nodes_by_category[cat] = []
+        nodes_by_category[cat].append(node)
+
+    # Generar texto
+    lines = []
+    lines.append("AVAILABLE NODE CATEGORIES AND TYPES:")
+    lines.append("")
+
+    # Orden específico de categorías (las más usadas primero)
+    category_order = [
+        "trigger", "web", "email", "files", "excel", "api", "database",
+        "document", "control", "logging", "data", "ai", "vectordb", "voice",
+        "compliance", "dataquality", "insurance", "human", "security",
+        "python", "desktop"
+    ]
+
+    for cat in category_order:
+        if cat not in nodes_by_category:
+            continue
+
+        label = category_labels.get(cat, cat.upper())
+        lines.append(f"{label}:")
+
+        for node in sorted(nodes_by_category[cat], key=lambda n: n.node_type):
+            lines.append(f"- {node.node_type}: {node.description}")
+
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def get_ai_planner_catalog_json() -> List[Dict[str, Any]]:
+    """
+    Genera el catálogo de nodos en formato JSON para el AI Planner.
+
+    Returns:
+        Lista de diccionarios con información de cada nodo
+    """
+    catalog = []
+    for node in NODE_REGISTRY.values():
+        catalog.append({
+            "node_type": node.node_type,
+            "category": node.category.value,
+            "description": node.description,
+            "config_fields": list(node.config_mapping.keys()) if node.config_mapping else [],
+            "has_output": node.return_variable is not None,
+        })
+    return catalog
 
 
 # =============================================================================
@@ -2468,6 +2905,503 @@ register_node(NodeMapping(
         "expectations": "expectations",
     },
     return_variable="custom_profile",
+))
+
+
+# =============================================================================
+# VECTOR DATABASE NODES
+# =============================================================================
+
+LIB_SKULD_VECTORDB = LibraryImport("skuldbot.libs.vectordb.SkuldVectorDB", alias="VectorDB")
+
+# --- Embeddings ---
+
+register_node(NodeMapping(
+    node_type="vectordb.configure_embeddings",
+    category=NodeCategory.VECTORDB,
+    keyword="Configure Embeddings Provider",
+    library=LIB_SKULD_VECTORDB,
+    description="Configure embeddings provider (OpenAI, Azure, Ollama)",
+    config_mapping={
+        "provider": "provider",
+        "api_key": "api_key",
+        "model": "model",
+        "base_url": "base_url",
+        "dimension": "dimension",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.generate_embedding",
+    category=NodeCategory.VECTORDB,
+    keyword="Generate Embedding",
+    library=LIB_SKULD_VECTORDB,
+    description="Generate embedding vector for text",
+    config_mapping={
+        "text": "text",
+    },
+    return_variable="embedding",
+))
+
+# --- pgvector (PostgreSQL) ---
+
+register_node(NodeMapping(
+    node_type="vectordb.pgvector_connect",
+    category=NodeCategory.VECTORDB,
+    keyword="Connect To PGVector",
+    library=LIB_SKULD_VECTORDB,
+    description="Connect to PostgreSQL with pgvector extension (local/on-premise)",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "user": "user",
+        "password": "password",
+        "table": "table",
+        "dimension": "dimension",
+        "ssl": "ssl",
+        "ssl_mode": "ssl_mode",
+        "create_table_if_not_exists": "create_table_if_not_exists",
+        "index_type": "index_type",
+        "pool_size": "pool_size",
+    },
+    return_variable="pgvector_connection",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.pgvector_upsert",
+    category=NodeCategory.VECTORDB,
+    keyword="PGVector Upsert",
+    library=LIB_SKULD_VECTORDB,
+    description="Insert or update documents in pgvector",
+    config_mapping={
+        "documents": "documents",
+        "auto_embed": "auto_embed",
+    },
+    return_variable="upsert_result",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.pgvector_query",
+    category=NodeCategory.VECTORDB,
+    keyword="PGVector Query",
+    library=LIB_SKULD_VECTORDB,
+    description="Semantic search in pgvector",
+    config_mapping={
+        "query": "query",
+        "top_k": "top_k",
+        "filter_metadata": "filter_metadata",
+        "min_score": "min_score",
+        "include_metadata": "include_metadata",
+        "include_content": "include_content",
+    },
+    return_variable="search_results",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.pgvector_delete",
+    category=NodeCategory.VECTORDB,
+    keyword="PGVector Delete",
+    library=LIB_SKULD_VECTORDB,
+    description="Delete documents from pgvector",
+    config_mapping={
+        "ids": "ids",
+        "filter_metadata": "filter_metadata",
+        "delete_all": "delete_all",
+    },
+    return_variable="delete_result",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.pgvector_stats",
+    category=NodeCategory.VECTORDB,
+    keyword="PGVector Get Stats",
+    library=LIB_SKULD_VECTORDB,
+    description="Get pgvector table statistics",
+    config_mapping={},
+    return_variable="pgvector_stats",
+))
+
+# --- Pinecone ---
+
+register_node(NodeMapping(
+    node_type="vectordb.pinecone_connect",
+    category=NodeCategory.VECTORDB,
+    keyword="Connect To Pinecone",
+    library=LIB_SKULD_VECTORDB,
+    description="Connect to Pinecone serverless vector database",
+    config_mapping={
+        "api_key": "api_key",
+        "index_name": "index_name",
+        "namespace": "namespace",
+        "dimension": "dimension",
+        "metric": "metric",
+        "create_if_not_exists": "create_if_not_exists",
+        "cloud": "cloud",
+        "region": "region",
+    },
+    return_variable="pinecone_connection",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.pinecone_upsert",
+    category=NodeCategory.VECTORDB,
+    keyword="Pinecone Upsert",
+    library=LIB_SKULD_VECTORDB,
+    description="Insert documents into Pinecone",
+    config_mapping={
+        "documents": "documents",
+        "namespace": "namespace",
+        "auto_embed": "auto_embed",
+        "batch_size": "batch_size",
+    },
+    return_variable="upsert_result",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.pinecone_query",
+    category=NodeCategory.VECTORDB,
+    keyword="Pinecone Query",
+    library=LIB_SKULD_VECTORDB,
+    description="Semantic search in Pinecone",
+    config_mapping={
+        "query": "query",
+        "top_k": "top_k",
+        "namespace": "namespace",
+        "filter_metadata": "filter_metadata",
+        "min_score": "min_score",
+        "include_metadata": "include_metadata",
+    },
+    return_variable="search_results",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.pinecone_delete",
+    category=NodeCategory.VECTORDB,
+    keyword="Pinecone Delete",
+    library=LIB_SKULD_VECTORDB,
+    description="Delete vectors from Pinecone",
+    config_mapping={
+        "ids": "ids",
+        "namespace": "namespace",
+        "filter_metadata": "filter_metadata",
+        "delete_all": "delete_all",
+    },
+    return_variable="delete_result",
+))
+
+# --- Qdrant ---
+
+register_node(NodeMapping(
+    node_type="vectordb.qdrant_connect",
+    category=NodeCategory.VECTORDB,
+    keyword="Connect To Qdrant",
+    library=LIB_SKULD_VECTORDB,
+    description="Connect to Qdrant vector database",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "api_key": "api_key",
+        "collection": "collection",
+        "dimension": "dimension",
+        "metric": "metric",
+        "create_if_not_exists": "create_if_not_exists",
+        "grpc_port": "grpc_port",
+        "prefer_grpc": "prefer_grpc",
+        "https": "https",
+    },
+    return_variable="qdrant_connection",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.qdrant_upsert",
+    category=NodeCategory.VECTORDB,
+    keyword="Qdrant Upsert",
+    library=LIB_SKULD_VECTORDB,
+    description="Insert documents into Qdrant",
+    config_mapping={
+        "documents": "documents",
+        "auto_embed": "auto_embed",
+        "batch_size": "batch_size",
+    },
+    return_variable="upsert_result",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.qdrant_query",
+    category=NodeCategory.VECTORDB,
+    keyword="Qdrant Query",
+    library=LIB_SKULD_VECTORDB,
+    description="Semantic search in Qdrant",
+    config_mapping={
+        "query": "query",
+        "top_k": "top_k",
+        "filter_metadata": "filter_metadata",
+        "min_score": "min_score",
+    },
+    return_variable="search_results",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.qdrant_delete",
+    category=NodeCategory.VECTORDB,
+    keyword="Qdrant Delete",
+    library=LIB_SKULD_VECTORDB,
+    description="Delete points from Qdrant",
+    config_mapping={
+        "ids": "ids",
+        "filter_metadata": "filter_metadata",
+    },
+    return_variable="delete_result",
+))
+
+# --- ChromaDB ---
+
+register_node(NodeMapping(
+    node_type="vectordb.chroma_connect",
+    category=NodeCategory.VECTORDB,
+    keyword="Connect To ChromaDB",
+    library=LIB_SKULD_VECTORDB,
+    description="Connect to ChromaDB (local/embedded)",
+    config_mapping={
+        "collection": "collection",
+        "persist_directory": "persist_directory",
+        "host": "host",
+        "port": "port",
+        "create_if_not_exists": "create_if_not_exists",
+    },
+    return_variable="chroma_connection",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.chroma_add",
+    category=NodeCategory.VECTORDB,
+    keyword="ChromaDB Add",
+    library=LIB_SKULD_VECTORDB,
+    description="Add documents to ChromaDB",
+    config_mapping={
+        "documents": "documents",
+        "auto_embed": "auto_embed",
+    },
+    return_variable="add_result",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.chroma_query",
+    category=NodeCategory.VECTORDB,
+    keyword="ChromaDB Query",
+    library=LIB_SKULD_VECTORDB,
+    description="Semantic search in ChromaDB",
+    config_mapping={
+        "query": "query",
+        "top_k": "top_k",
+        "filter_metadata": "filter_metadata",
+        "include_documents": "include_documents",
+        "include_embeddings": "include_embeddings",
+    },
+    return_variable="search_results",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.chroma_update",
+    category=NodeCategory.VECTORDB,
+    keyword="ChromaDB Update",
+    library=LIB_SKULD_VECTORDB,
+    description="Update documents in ChromaDB",
+    config_mapping={
+        "documents": "documents",
+        "auto_embed": "auto_embed",
+    },
+    return_variable="update_result",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.chroma_delete",
+    category=NodeCategory.VECTORDB,
+    keyword="ChromaDB Delete",
+    library=LIB_SKULD_VECTORDB,
+    description="Delete documents from ChromaDB",
+    config_mapping={
+        "ids": "ids",
+        "filter_metadata": "filter_metadata",
+    },
+    return_variable="delete_result",
+))
+
+# --- Supabase (pgvector as a service) ---
+
+register_node(NodeMapping(
+    node_type="vectordb.supabase_connect",
+    category=NodeCategory.VECTORDB,
+    keyword="Connect To Supabase",
+    library=LIB_SKULD_VECTORDB,
+    description="Connect to Supabase (pgvector as a service)",
+    config_mapping={
+        "url": "url",
+        "api_key": "api_key",
+        "table": "table",
+        "dimension": "dimension",
+        "create_table_if_not_exists": "create_table_if_not_exists",
+        "index_type": "index_type",
+    },
+    return_variable="supabase_connection",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.supabase_upsert",
+    category=NodeCategory.VECTORDB,
+    keyword="Supabase Upsert",
+    library=LIB_SKULD_VECTORDB,
+    description="Insert or update documents in Supabase",
+    config_mapping={
+        "documents": "documents",
+        "auto_embed": "auto_embed",
+    },
+    return_variable="upsert_result",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.supabase_query",
+    category=NodeCategory.VECTORDB,
+    keyword="Supabase Query",
+    library=LIB_SKULD_VECTORDB,
+    description="Semantic search in Supabase",
+    config_mapping={
+        "query": "query",
+        "top_k": "top_k",
+        "filter_metadata": "filter_metadata",
+        "min_score": "min_score",
+        "include_metadata": "include_metadata",
+        "include_content": "include_content",
+    },
+    return_variable="search_results",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.supabase_delete",
+    category=NodeCategory.VECTORDB,
+    keyword="Supabase Delete",
+    library=LIB_SKULD_VECTORDB,
+    description="Delete documents from Supabase",
+    config_mapping={
+        "ids": "ids",
+        "filter_metadata": "filter_metadata",
+        "delete_all": "delete_all",
+    },
+    return_variable="delete_result",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.supabase_stats",
+    category=NodeCategory.VECTORDB,
+    keyword="Supabase Get Stats",
+    library=LIB_SKULD_VECTORDB,
+    description="Get Supabase table statistics",
+    config_mapping={},
+    return_variable="supabase_stats",
+))
+
+# --- Vector Memory (for AI Agent RAG) ---
+
+register_node(NodeMapping(
+    node_type="vectordb.memory",
+    category=NodeCategory.VECTORDB,
+    keyword="Initialize Vector Memory",
+    library=LIB_SKULD_VECTORDB,
+    description="Initialize vector memory for AI Agent RAG",
+    config_mapping={
+        "provider": "provider",
+        "collection": "collection",
+        "memory_type": "memory_type",
+    },
+    return_variable="memory_info",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.store_memory",
+    category=NodeCategory.VECTORDB,
+    keyword="Store In Memory",
+    library=LIB_SKULD_VECTORDB,
+    description="Store content in vector memory",
+    config_mapping={
+        "content": "content",
+        "metadata": "metadata",
+        "doc_id": "doc_id",
+    },
+    return_variable="store_result",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.retrieve_memory",
+    category=NodeCategory.VECTORDB,
+    keyword="Retrieve From Memory",
+    library=LIB_SKULD_VECTORDB,
+    description="Retrieve relevant content from memory",
+    config_mapping={
+        "query": "query",
+        "top_k": "top_k",
+        "min_score": "min_score",
+        "filter_metadata": "filter_metadata",
+    },
+    return_variable="retrieved_docs",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.build_rag_context",
+    category=NodeCategory.VECTORDB,
+    keyword="Build RAG Context",
+    library=LIB_SKULD_VECTORDB,
+    description="Build RAG context for AI Agent prompt",
+    config_mapping={
+        "query": "query",
+        "top_k": "top_k",
+        "min_score": "min_score",
+        "max_context_length": "max_context_length",
+        "separator": "separator",
+    },
+    return_variable="rag_context",
+))
+
+# --- Document Loading ---
+
+register_node(NodeMapping(
+    node_type="vectordb.load_documents_text",
+    category=NodeCategory.VECTORDB,
+    keyword="Load Documents From Text",
+    library=LIB_SKULD_VECTORDB,
+    description="Split text into chunks for vectorization",
+    config_mapping={
+        "text": "text",
+        "chunk_size": "chunk_size",
+        "chunk_overlap": "chunk_overlap",
+        "metadata": "metadata",
+    },
+    return_variable="document_chunks",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.load_documents_file",
+    category=NodeCategory.VECTORDB,
+    keyword="Load Documents From File",
+    library=LIB_SKULD_VECTORDB,
+    description="Load and chunk a file for vectorization",
+    config_mapping={
+        "file_path": "file_path",
+        "chunk_size": "chunk_size",
+        "chunk_overlap": "chunk_overlap",
+    },
+    return_variable="document_chunks",
+))
+
+# --- Connection Management ---
+
+register_node(NodeMapping(
+    node_type="vectordb.close",
+    category=NodeCategory.VECTORDB,
+    keyword="Close Vector DB Connection",
+    library=LIB_SKULD_VECTORDB,
+    description="Close the vector database connection",
+    config_mapping={},
 ))
 
 

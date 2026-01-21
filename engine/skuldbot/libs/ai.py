@@ -39,7 +39,12 @@ class AIProvider(Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     AZURE_OPENAI = "azure_openai"
+    AZURE = "azure"  # Alias for Azure AI Foundry
     OLLAMA = "ollama"
+    GOOGLE = "google"  # Google Gemini
+    AWS = "aws"  # AWS Bedrock
+    GROQ = "groq"  # Groq (fast inference)
+    MISTRAL = "mistral"  # Mistral AI
     CUSTOM = "custom"
 
 
@@ -173,13 +178,13 @@ class SkuldAI:
                 logger.warn("anthropic package not installed. Install with: pip install anthropic")
                 self._client = None
 
-        elif provider == AIProvider.AZURE_OPENAI:
+        elif provider in (AIProvider.AZURE_OPENAI, AIProvider.AZURE):
             try:
                 from openai import AzureOpenAI
                 self._client = AzureOpenAI(
                     api_key=self._config.api_key,
                     azure_endpoint=self._config.base_url,
-                    api_version=self._config.extra_params.get("api_version", "2024-02-15-preview")
+                    api_version=self._config.extra_params.get("api_version", "2024-10-01-preview")
                 )
             except ImportError:
                 logger.warn("openai package not installed. Install with: pip install openai")
@@ -195,6 +200,54 @@ class SkuldAI:
                 )
             except ImportError:
                 logger.warn("openai package not installed for Ollama. Install with: pip install openai")
+                self._client = None
+
+        elif provider == AIProvider.GOOGLE:
+            # Google Gemini via google-generativeai
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=self._config.api_key)
+                self._client = genai.GenerativeModel(self._config.model)
+            except ImportError:
+                logger.warn("google-generativeai package not installed. Install with: pip install google-generativeai")
+                self._client = None
+
+        elif provider == AIProvider.AWS:
+            # AWS Bedrock via boto3
+            try:
+                import boto3
+                self._client = boto3.client(
+                    "bedrock-runtime",
+                    aws_access_key_id=self._config.extra_params.get("aws_access_key"),
+                    aws_secret_access_key=self._config.extra_params.get("aws_secret_key"),
+                    region_name=self._config.extra_params.get("region", "us-east-1"),
+                )
+            except ImportError:
+                logger.warn("boto3 package not installed. Install with: pip install boto3")
+                self._client = None
+
+        elif provider == AIProvider.GROQ:
+            # Groq via OpenAI-compatible API
+            try:
+                from openai import OpenAI
+                self._client = OpenAI(
+                    api_key=self._config.api_key,
+                    base_url="https://api.groq.com/openai/v1"
+                )
+            except ImportError:
+                logger.warn("openai package not installed for Groq. Install with: pip install openai")
+                self._client = None
+
+        elif provider == AIProvider.MISTRAL:
+            # Mistral via OpenAI-compatible API
+            try:
+                from openai import OpenAI
+                self._client = OpenAI(
+                    api_key=self._config.api_key,
+                    base_url="https://api.mistral.ai/v1"
+                )
+            except ImportError:
+                logger.warn("openai package not installed for Mistral. Install with: pip install openai")
                 self._client = None
 
     # =========================================================================
@@ -344,6 +397,403 @@ class SkuldAI:
         """
         self._conversation_history = []
         logger.info("AI Agent session cleared")
+
+    # =========================================================================
+    # AI AGENT WITH TOOLS (ReAct Pattern)
+    # =========================================================================
+
+    @keyword("Run Agent With Tools")
+    def run_agent_with_tools(
+        self,
+        goal: str,
+        tools: List[Dict[str, Any]],
+        system_prompt: Optional[str] = None,
+        max_iterations: int = 10,
+        agent_name: str = "Agent",
+        memory_config: Optional[Dict[str, Any]] = None,
+        embeddings_config: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Ejecuta un agente ReAct (Reason + Act) que puede usar herramientas y memoria vectorial.
+
+        El agente sigue un loop iterativo:
+        1. Observar el estado actual
+        2. Razonar sobre qué hacer
+        3. Decidir si usar una herramienta o dar respuesta final
+        4. Si usa herramienta: ejecutar y observar resultado
+        5. Repetir hasta completar o alcanzar max_iterations
+
+        Cuando memory_config está presente, el agente automáticamente:
+        - Recupera contexto relevante (RAG) antes de cada respuesta
+        - Almacena interacciones importantes en la memoria
+
+        Args:
+            goal: El objetivo/tarea que el agente debe cumplir
+            tools: Lista de herramientas disponibles, cada una con:
+                   - name: Nombre de la herramienta
+                   - description: Descripción para el LLM
+                   - node_id: ID del nodo a ejecutar
+                   - input_mapping: Mapeo de parámetros
+            system_prompt: Prompt de sistema personalizado
+            max_iterations: Máximo de iteraciones del loop
+            agent_name: Nombre del agente
+            memory_config: Configuración de memoria vectorial (opcional):
+                   - provider: Proveedor (chroma, pgvector, pinecone, qdrant, supabase)
+                   - collection: Nombre de la colección
+                   - memory_type: Tipo (retrieve, store, both)
+                   - top_k: Número de documentos a recuperar
+                   - min_score: Score mínimo para recuperación
+                   - connection_params: Parámetros de conexión del proveedor
+            embeddings_config: Configuración de embeddings conectada visualmente (opcional):
+                   - provider: Proveedor (openai, azure, ollama, cohere, huggingface, google, aws)
+                   - model: Modelo de embeddings
+                   - dimension: Dimensión del vector
+                   - api_key: API key del proveedor
+                   - base_url: URL base (para Azure, Ollama, HuggingFace)
+                   - Y otros parámetros específicos del proveedor
+
+        Returns:
+            Diccionario con:
+            - result: Respuesta final del agente
+            - tool_calls: Lista de herramientas llamadas
+            - iterations: Número de iteraciones
+            - reasoning_trace: Traza de razonamiento paso a paso
+            - status: "completed", "max_iterations_reached", "error"
+            - memory_retrievals: Contexto RAG recuperado (si memory_config presente)
+
+        Example:
+            | ${tools}= | Create List | ${tool1} | ${tool2} |
+            | ${result}= | Run Agent With Tools | Extract invoice data | ${tools} |
+            | # With memory: |
+            | ${memory}= | Create Dictionary | provider=chroma | collection=docs | memory_type=both |
+            | ${result}= | Run Agent With Tools | Answer questions | ${tools} | memory_config=${memory} |
+            | # With embeddings: |
+            | ${emb}= | Create Dictionary | provider=openai | model=text-embedding-3-small | api_key=${key} |
+            | ${result}= | Run Agent With Tools | Answer questions | ${tools} | memory_config=${memory} | embeddings_config=${emb} |
+        """
+        self._ensure_configured()
+
+        # Initialize memory if configured
+        rag_context = ""
+        memory_retrievals = []
+        vectordb = None
+
+        if memory_config:
+            try:
+                # Import and initialize vectordb
+                from skuldbot.libs.vectordb import SkuldVectorDB
+                vectordb = SkuldVectorDB()
+
+                # Configure embeddings provider if embeddings_config is provided
+                if embeddings_config:
+                    emb_provider = embeddings_config.get("provider", "openai")
+                    emb_model = embeddings_config.get("model", "text-embedding-3-small")
+                    emb_api_key = embeddings_config.get("api_key")
+                    emb_base_url = embeddings_config.get("base_url")
+                    emb_dimension = embeddings_config.get("dimension", 1536)
+
+                    vectordb.configure_embeddings_provider(
+                        provider=emb_provider,
+                        api_key=emb_api_key,
+                        model=emb_model,
+                        base_url=emb_base_url,
+                        dimension=emb_dimension,
+                    )
+                    logger.info(f"Embeddings configured: {emb_provider} / {emb_model}")
+
+                # Get connection params
+                provider = memory_config.get("provider", "chroma")
+                collection = memory_config.get("collection", "agent_memory")
+                connection_params = memory_config.get("connection_params", {})
+
+                # Initialize vector memory
+                vectordb.initialize_vector_memory(
+                    provider=provider,
+                    collection=collection,
+                    memory_type=memory_config.get("memory_type", "both"),
+                    **connection_params
+                )
+
+                # Retrieve relevant context for the goal (RAG)
+                top_k = memory_config.get("top_k", 5)
+                min_score = memory_config.get("min_score", 0.5)
+
+                rag_result = vectordb.build_rag_context(
+                    query=goal,
+                    top_k=top_k,
+                    min_score=min_score
+                )
+
+                rag_context = rag_result.get("context", "")
+                memory_retrievals = rag_result.get("sources", [])
+
+                if rag_context:
+                    logger.info(f"RAG context retrieved: {len(memory_retrievals)} sources")
+
+            except Exception as e:
+                logger.warn(f"Failed to initialize memory, continuing without RAG: {e}")
+                vectordb = None
+
+        # Build tool descriptions for the system prompt
+        tools_description = self._build_tools_description(tools)
+
+        # Build RAG context section if available
+        rag_section = ""
+        if rag_context:
+            rag_section = f"""
+RELEVANT CONTEXT (from knowledge base):
+{rag_context}
+
+Use this context to inform your responses when relevant. If the context doesn't contain useful information for the current task, you may ignore it.
+
+---
+
+"""
+
+        # Default system prompt if not provided
+        if not system_prompt:
+            system_prompt = f"""You are {agent_name}, an autonomous AI agent that can use tools to accomplish tasks.
+
+You follow the ReAct (Reason + Act) pattern:
+1. THINK: Analyze the current situation and what needs to be done
+2. ACT: Either use a tool or provide a final answer
+{rag_section}
+AVAILABLE TOOLS:
+{tools_description}
+
+RESPONSE FORMAT:
+You must respond with a JSON object in one of these formats:
+
+When you need to use a tool:
+{{
+  "thought": "Your reasoning about what to do next",
+  "action": "tool_name",
+  "action_input": {{ "param1": "value1", "param2": "value2" }}
+}}
+
+When you have the final answer:
+{{
+  "thought": "Your reasoning about why you're done",
+  "action": "final_answer",
+  "action_input": {{ "answer": "Your complete final answer here" }}
+}}
+
+IMPORTANT RULES:
+- Always respond with valid JSON only, no other text
+- Think step by step before acting
+- Use tools when you need external information or to perform actions
+- Only use final_answer when you have completed the task or have enough information
+- If a tool fails, reason about what to try next"""
+        else:
+            # If custom system prompt, prepend RAG context
+            if rag_context:
+                system_prompt = f"""{rag_section}
+{system_prompt}"""
+
+        # Initialize conversation
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Task: {goal}"}
+        ]
+
+        # Tracking variables
+        tool_calls = []
+        reasoning_trace = []
+        iteration = 0
+        status = "running"
+        final_result = None
+
+        logger.info(f"ReAct Agent '{agent_name}' starting with goal: {goal}")
+
+        while iteration < max_iterations and status == "running":
+            iteration += 1
+            logger.info(f"ReAct iteration {iteration}/{max_iterations}")
+
+            # Get LLM response
+            try:
+                response = self._call_llm(messages, json_mode=True)
+                action_data = self._parse_agent_response(response)
+            except Exception as e:
+                logger.error(f"Failed to get/parse agent response: {e}")
+                reasoning_trace.append({
+                    "iteration": iteration,
+                    "error": str(e),
+                    "raw_response": response if 'response' in dir() else None
+                })
+                status = "error"
+                final_result = f"Agent error: {str(e)}"
+                break
+
+            thought = action_data.get("thought", "")
+            action = action_data.get("action", "")
+            action_input = action_data.get("action_input", {})
+
+            # Record reasoning step
+            step = {
+                "iteration": iteration,
+                "thought": thought,
+                "action": action,
+                "action_input": action_input
+            }
+
+            if action == "final_answer":
+                # Agent is done
+                final_result = action_input.get("answer", str(action_input))
+                step["result"] = "TASK COMPLETED"
+                reasoning_trace.append(step)
+                status = "completed"
+                logger.info(f"ReAct Agent completed after {iteration} iterations")
+
+            elif action in [t["name"] for t in tools]:
+                # Execute the tool
+                tool = next(t for t in tools if t["name"] == action)
+                logger.info(f"Executing tool: {action}")
+
+                try:
+                    # The tool execution will be done by the calling code
+                    # We return a placeholder that signals tool execution needed
+                    tool_call = {
+                        "tool_name": action,
+                        "tool_node_id": tool.get("node_id"),
+                        "input": action_input,
+                        "iteration": iteration
+                    }
+                    tool_calls.append(tool_call)
+
+                    # For now, we simulate tool execution by adding observation
+                    # In production, this would be replaced by actual tool execution
+                    observation = f"[Tool '{action}' execution pending - integrate with bot runner]"
+                    step["observation"] = observation
+
+                    # Add tool result to conversation
+                    messages.append({
+                        "role": "assistant",
+                        "content": response
+                    })
+                    messages.append({
+                        "role": "user",
+                        "content": f"Tool result: {observation}"
+                    })
+
+                except Exception as e:
+                    error_msg = f"Tool execution failed: {str(e)}"
+                    logger.error(error_msg)
+                    step["error"] = error_msg
+                    messages.append({
+                        "role": "assistant",
+                        "content": response
+                    })
+                    messages.append({
+                        "role": "user",
+                        "content": f"Error: {error_msg}. Please try a different approach."
+                    })
+
+                reasoning_trace.append(step)
+
+            else:
+                # Unknown action
+                logger.warn(f"Unknown action: {action}")
+                step["error"] = f"Unknown action: {action}"
+                reasoning_trace.append(step)
+                messages.append({
+                    "role": "assistant",
+                    "content": response
+                })
+                messages.append({
+                    "role": "user",
+                    "content": f"Error: '{action}' is not a valid action. Available actions: {', '.join([t['name'] for t in tools] + ['final_answer'])}"
+                })
+
+        # Check if we hit max iterations
+        if iteration >= max_iterations and status == "running":
+            status = "max_iterations_reached"
+            final_result = f"Agent did not complete within {max_iterations} iterations. Last progress: {reasoning_trace[-1].get('thought', 'Unknown')}"
+            logger.warn(f"ReAct Agent hit max iterations ({max_iterations})")
+
+        # Store interaction in memory if configured (memory_type = "store" or "both")
+        memory_stored = False
+        if vectordb and memory_config and status == "completed":
+            memory_type = memory_config.get("memory_type", "both")
+            if memory_type in ["store", "both"]:
+                try:
+                    # Store the goal and result as a memory entry
+                    memory_entry = f"Task: {goal}\n\nResult: {final_result}"
+                    vectordb.store_in_memory(
+                        content=memory_entry,
+                        metadata={
+                            "type": "agent_interaction",
+                            "agent_name": agent_name,
+                            "status": status,
+                            "iterations": iteration,
+                        }
+                    )
+                    memory_stored = True
+                    logger.info("Agent interaction stored in memory")
+                except Exception as e:
+                    logger.warn(f"Failed to store interaction in memory: {e}")
+
+        result = {
+            "result": final_result,
+            "tool_calls": tool_calls,
+            "iterations": iteration,
+            "reasoning_trace": reasoning_trace,
+            "status": status,
+            "agent_name": agent_name,
+            "goal": goal,
+            "memory_retrievals": memory_retrievals,
+            "memory_stored": memory_stored,
+        }
+
+        logger.info(f"ReAct Agent finished with status: {status}")
+        return result
+
+    def _build_tools_description(self, tools: List[Dict[str, Any]]) -> str:
+        """Construye la descripción de herramientas para el prompt del agente."""
+        if not tools:
+            return "No tools available. You can only provide a final_answer."
+
+        descriptions = []
+        for tool in tools:
+            name = tool.get("name", "unnamed_tool")
+            desc = tool.get("description", "No description")
+            params = tool.get("input_mapping", {})
+
+            param_str = ""
+            if params:
+                param_list = [f"  - {k}: {v}" for k, v in params.items()]
+                param_str = "\n" + "\n".join(param_list)
+
+            descriptions.append(f"- {name}: {desc}{param_str}")
+
+        return "\n".join(descriptions)
+
+    def _parse_agent_response(self, response: str) -> Dict[str, Any]:
+        """Parsea la respuesta JSON del agente."""
+        response = response.strip()
+
+        # Clean up response if wrapped in markdown code blocks
+        if response.startswith("```"):
+            lines = response.split("\n")
+            # Remove first and last lines (```json and ```)
+            lines = [l for l in lines if not l.strip().startswith("```")]
+            response = "\n".join(lines)
+
+        try:
+            data = json.loads(response)
+            return {
+                "thought": data.get("thought", ""),
+                "action": data.get("action", ""),
+                "action_input": data.get("action_input", {})
+            }
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse agent response as JSON: {e}")
+            logger.debug(f"Raw response: {response}")
+            # Try to extract action from malformed response
+            return {
+                "thought": "Failed to parse response",
+                "action": "final_answer",
+                "action_input": {"answer": response, "parse_error": str(e)}
+            }
 
     # =========================================================================
     # EXTRACCIÓN DE DATOS
@@ -503,7 +953,7 @@ Text to summarize:
         categories: List[str],
         multi_label: bool = False,
         include_confidence: bool = False
-    ) -> Union[str, List[str], Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """
         Clasifica texto en categorías predefinidas.
 
@@ -514,54 +964,75 @@ Text to summarize:
             include_confidence: Si incluir scores de confianza
 
         Returns:
-            Categoría(s) asignada(s)
+            Dict con: category (str o list), confidence (float), all_scores (dict)
 
         Example:
             | ${cats}= | Create List | spam | not_spam |
             | ${result}= | Classify Text | ${email_body} | ${cats} |
-            | ${results}= | Classify Text | ${text} | ${categories} | multi_label=True |
+            | ${category}= | Get From Dictionary | ${result} | category |
         """
         categories_str = ", ".join(categories)
 
-        if include_confidence:
-            prompt = f"""Classify this text into one{"or more" if multi_label else ""} of these categories: {categories_str}
+        # Siempre pedimos confianza para tener datos completos
+        prompt = f"""Classify this text into {"one or more of" if multi_label else "exactly one of"} these categories: {categories_str}
 
-Return a JSON object with category names as keys and confidence scores (0-1) as values.
-{"You may assign multiple categories." if multi_label else "Choose only the best matching category."}
+Return a JSON object with this exact structure:
+{{
+  "category": {"[\"cat1\", \"cat2\"]" if multi_label else "\"category_name\""},
+  "confidence": 0.95,
+  "all_scores": {{"category1": 0.95, "category2": 0.05}}
+}}
 
-Text:
+{"You may assign multiple categories in the category array." if multi_label else "Choose only the best matching category."}
+The confidence should be between 0 and 1.
+The all_scores should have confidence for each category.
+
+Text to classify:
 {text}
 
 Return only the JSON object:"""
 
-            response = self.send_llm_prompt(prompt, json_mode=True)
-            try:
-                return json.loads(response.strip())
-            except json.JSONDecodeError:
-                return {"_raw": response}
-        else:
-            prompt = f"""Classify this text into {"one or more of" if multi_label else "exactly one of"} these categories: {categories_str}
+        response = self.send_llm_prompt(prompt, json_mode=True)
 
-{"Return categories as a JSON array." if multi_label else "Return only the category name, nothing else."}
-
-Text:
-{text}"""
-
-            response = self.send_llm_prompt(prompt)
-            response = response.strip()
-
-            if multi_label:
-                try:
-                    return json.loads(response)
-                except json.JSONDecodeError:
-                    # Intentar extraer categorías del texto
-                    return [cat for cat in categories if cat.lower() in response.lower()]
-            else:
-                # Buscar la categoría mencionada en la respuesta
+        try:
+            result = json.loads(response.strip())
+            # Asegurar estructura consistente
+            if "category" not in result:
+                # Buscar la categoría en la respuesta
                 for cat in categories:
-                    if cat.lower() in response.lower():
-                        return cat
-                return response
+                    if cat.lower() in str(result).lower():
+                        result = {"category": cat, "confidence": 0.8, "all_scores": {cat: 0.8}}
+                        break
+                else:
+                    result = {"category": categories[0] if categories else "", "confidence": 0.5, "all_scores": {}}
+
+            # Normalizar category: si es lista y multi_label=False, tomar el primero
+            if not multi_label and isinstance(result.get("category"), list):
+                result["category"] = result["category"][0] if result["category"] else ""
+
+            # Asegurar que confidence existe
+            if "confidence" not in result:
+                result["confidence"] = 0.8
+
+            # Asegurar que all_scores existe
+            if "all_scores" not in result:
+                result["all_scores"] = {result.get("category", ""): result.get("confidence", 0.8)}
+
+            return result
+
+        except json.JSONDecodeError:
+            # Fallback: buscar categoría en texto plano
+            response_lower = response.lower().strip()
+            for cat in categories:
+                if cat.lower() in response_lower:
+                    return {"category": cat, "confidence": 0.7, "all_scores": {cat: 0.7}}
+
+            # Si no encuentra, retornar la primera categoría con baja confianza
+            return {
+                "category": categories[0] if categories else response,
+                "confidence": 0.5,
+                "all_scores": {categories[0]: 0.5} if categories else {}
+            }
 
     # =========================================================================
     # TRADUCCIÓN
@@ -890,7 +1361,56 @@ Similarity score:"""
                 )
                 return response.content[0].text
 
-            else:  # OpenAI, Azure, Ollama
+            elif self._config.provider == AIProvider.GOOGLE:
+                # Google Gemini uses different API
+                # Convert messages to Gemini format
+                prompt_parts = []
+                for msg in messages:
+                    prefix = "System: " if msg["role"] == "system" else ("User: " if msg["role"] == "user" else "Assistant: ")
+                    prompt_parts.append(f"{prefix}{msg['content']}")
+
+                full_prompt = "\n\n".join(prompt_parts)
+                response = self._client.generate_content(
+                    full_prompt,
+                    generation_config={
+                        "temperature": temp,
+                        "max_output_tokens": tokens,
+                    }
+                )
+                return response.text
+
+            elif self._config.provider == AIProvider.AWS:
+                # AWS Bedrock - uses invoke_model
+                import json as json_lib
+                # Convert messages to prompt format for Claude on Bedrock
+                system = None
+                user_messages = []
+                for msg in messages:
+                    if msg["role"] == "system":
+                        system = msg["content"]
+                    else:
+                        user_messages.append(msg)
+
+                body = {
+                    "anthropic_version": "bedrock-2023-05-31",
+                    "max_tokens": tokens,
+                    "messages": user_messages,
+                }
+                if system:
+                    body["system"] = system
+                if temp is not None:
+                    body["temperature"] = temp
+
+                response = self._client.invoke_model(
+                    modelId=self._config.model,
+                    body=json_lib.dumps(body),
+                    contentType="application/json",
+                    accept="application/json",
+                )
+                result = json_lib.loads(response["body"].read())
+                return result["content"][0]["text"]
+
+            else:  # OpenAI, Azure, Ollama, Groq, Mistral (OpenAI-compatible)
                 kwargs = {
                     "model": self._config.model,
                     "messages": messages,

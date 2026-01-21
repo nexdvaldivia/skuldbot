@@ -1,5 +1,7 @@
 """
 Executor: Motor de ejecución con hooks y callbacks
+
+Incluye generación automática de Evidence Pack para compliance.
 """
 
 from skuldbot.executor.executor import (
@@ -8,6 +10,7 @@ from skuldbot.executor.executor import (
     ExecutionResult,
     ExecutionStatus,
     ExecutionCallbacks,
+    EvidenceConfig,
     StepInfo,
     LogEntry,
 )
@@ -18,6 +21,7 @@ __all__ = [
     "ExecutionResult",
     "ExecutionStatus",
     "ExecutionCallbacks",
+    "EvidenceConfig",
     "StepInfo",
     "LogEntry",
 ]

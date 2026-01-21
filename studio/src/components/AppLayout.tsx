@@ -18,6 +18,7 @@ import ProblemsPanel from "./ProblemsPanel";
 import DebugPanel from "./DebugPanel";
 import { AutoSaveManager } from "./AutoSaveManager";
 import { ToastContainer } from "./ui/ToastContainer";
+import { EngineSetupNotification } from "./EngineSetupNotification";
 import { AIPlannerPanel } from "./ai-planner";
 import { useDebugStore } from "../store/debugStore";
 import { Bot, Bug, ChevronDown, ChevronRight } from "lucide-react";
@@ -171,6 +172,7 @@ export default function AppLayout() {
       <>
         <WelcomeScreen />
         <ToastContainer />
+        <EngineSetupNotification />
       </>
     );
   }
@@ -181,6 +183,7 @@ export default function AppLayout() {
       <>
         <QuickStartWorkspace />
         <ToastContainer />
+        <EngineSetupNotification />
       </>
     );
   }
@@ -192,6 +195,7 @@ export default function AppLayout() {
         <ProjectWorkspace />
         <AIPlannerPanel />
         <ToastContainer />
+        <EngineSetupNotification />
       </>
     );
   }
@@ -201,6 +205,7 @@ export default function AppLayout() {
     <>
       <WelcomeScreen />
       <ToastContainer />
+      <EngineSetupNotification />
     </>
   );
 }

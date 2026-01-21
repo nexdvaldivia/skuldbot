@@ -1,0 +1,9 @@
+/Users/dubielvaldivia/Documents/khipus/skuldbot/runner-app/src-tauri/target/release/deps/signal_hook_registry-66106aa60df331e8.d: /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-registry-1.4.8/src/lib.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-registry-1.4.8/src/half_lock.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-registry-1.4.8/src/vec_map.rs
+
+/Users/dubielvaldivia/Documents/khipus/skuldbot/runner-app/src-tauri/target/release/deps/libsignal_hook_registry-66106aa60df331e8.rlib: /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-registry-1.4.8/src/lib.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-registry-1.4.8/src/half_lock.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-registry-1.4.8/src/vec_map.rs
+
+/Users/dubielvaldivia/Documents/khipus/skuldbot/runner-app/src-tauri/target/release/deps/libsignal_hook_registry-66106aa60df331e8.rmeta: /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-registry-1.4.8/src/lib.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-registry-1.4.8/src/half_lock.rs /Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-registry-1.4.8/src/vec_map.rs
+
+/Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-registry-1.4.8/src/lib.rs:
+/Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-registry-1.4.8/src/half_lock.rs:
+/Users/dubielvaldivia/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-registry-1.4.8/src/vec_map.rs:

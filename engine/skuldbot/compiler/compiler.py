@@ -13,6 +13,18 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from skuldbot.dsl import BotDefinition, DSLValidator
 
 
+def escape_for_robot(text: str) -> str:
+    """
+    Escape special characters for Robot Framework.
+    Converts newlines to literal \\n so they don't break the .robot file structure.
+    """
+    if not isinstance(text, str):
+        return str(text) if text is not None else ''
+    # Replace actual newlines with escaped \\n
+    # Robot Framework will interpret \\n as literal newline in strings
+    return text.replace('\r\n', '\\n').replace('\n', '\\n').replace('\r', '\\n')
+
+
 def transform_variable_syntax(text: str, node_id_map: dict = None) -> str:
     """
     Transform Studio variable syntax to Robot Framework syntax.
@@ -98,6 +110,11 @@ class BotPackage:
     manifest: Dict[str, Any]
     resources: Dict[str, str]  # filename -> content
     variables: Dict[str, str]  # filename -> content
+    warnings: list = None  # Compilation warnings (non-blocking)
+
+    def __post_init__(self):
+        if self.warnings is None:
+            self.warnings = []
 
 
 class Compiler:
@@ -115,9 +132,11 @@ class Compiler:
             trim_blocks=True,
             lstrip_blocks=True,
         )
-        # Register custom filter for variable syntax transformation
+        # Register custom filters for variable syntax transformation
         # Note: we wrap the filter to use the instance's node_id_map
-        self.jinja_env.filters['transform_vars'] = lambda text: transform_variable_syntax(text, self._node_id_map)
+        self.jinja_env.filters['transform_vars'] = lambda text: escape_for_robot(transform_variable_syntax(text, self._node_id_map))
+        # Filter to escape newlines without variable transformation
+        self.jinja_env.filters['escape_newlines'] = escape_for_robot
 
     def compile(self, dsl: Dict[str, Any]) -> BotPackage:
         """
@@ -135,6 +154,9 @@ class Compiler:
         # Validar DSL
         bot_def = self.validator.validate(dsl)
 
+        # Get warnings from validation
+        warnings = self.validator.get_warnings()
+
         # Generar componentes
         main_robot = self._generate_main_robot(bot_def)
         manifest = self._generate_manifest(bot_def)
@@ -148,6 +170,7 @@ class Compiler:
             manifest=manifest,
             resources=resources,
             variables=variables,
+            warnings=warnings,
         )
 
     def compile_to_disk(self, dsl: Dict[str, Any], output_dir: str) -> Path:
@@ -163,10 +186,24 @@ class Compiler:
         """
         package = self.compile(dsl)
         bot_dir = Path(output_dir) / package.bot_id
+
+        # Clean old files before writing new ones
+        if bot_dir.exists():
+            import shutil
+            # Remove old .robot and .skb files to avoid conflicts
+            for old_file in bot_dir.glob("*.robot"):
+                old_file.unlink()
+            for old_file in bot_dir.glob("*.skb"):
+                old_file.unlink()
+            # Clean resources directory
+            resources_dir = bot_dir / "resources"
+            if resources_dir.exists():
+                shutil.rmtree(resources_dir)
+
         bot_dir.mkdir(parents=True, exist_ok=True)
 
-        # Escribir main.robot
-        (bot_dir / "main.robot").write_text(package.main_robot, encoding="utf-8")
+        # Escribir main.skb (SkuldBot format - Robot Framework compatible)
+        (bot_dir / "main.skb").write_text(package.main_robot, encoding="utf-8")
 
         # Escribir manifest.json
         (bot_dir / "manifest.json").write_text(
@@ -221,7 +258,7 @@ class Compiler:
             "author": bot_def.bot.author,
             "tags": bot_def.bot.tags,
             "node_count": len(bot_def.nodes),
-            "entry_point": "main.robot",
+            "entry_point": "main.skb",
             "requires_credentials": self._has_credentials(bot_def),
             "nodes": node_configs,  # Agregar configs de nodos
         }
@@ -230,13 +267,13 @@ class Compiler:
         """Genera archivos de resources/"""
         resources = {}
 
-        # Generar keywords.robot con keywords helper
+        # Generar keywords.resource con keywords helper
         template = self.jinja_env.get_template("keywords.robot.j2")
-        resources["keywords.robot"] = template.render(bot=bot_def)
+        resources["keywords.resource"] = template.render(bot=bot_def)
 
-        # Generar error_handler.robot
+        # Generar error_handler.resource
         template = self.jinja_env.get_template("error_handler.robot.j2")
-        resources["error_handler.robot"] = template.render(bot=bot_def)
+        resources["error_handler.resource"] = template.render(bot=bot_def)
 
         return resources
 

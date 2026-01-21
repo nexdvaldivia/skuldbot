@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - SkuldBot Runner{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+            <p class="text-gray-500 mt-1">Runner status and metrics</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <button onclick="refreshStatus()" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Status card -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Status</p>
+                    <p id="stat-status" class="text-2xl font-bold text-gray-900 mt-1">-</p>
+                </div>
+                <div id="stat-status-icon" class="p-3 rounded-lg bg-gray-100">
+                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Uptime card -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Uptime</p>
+                    <p id="stat-uptime" class="text-2xl font-bold text-gray-900 mt-1">-</p>
+                </div>
+                <div class="p-3 rounded-lg bg-blue-100">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Jobs completed -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Jobs Completed</p>
+                    <p id="stat-completed" class="text-2xl font-bold text-green-600 mt-1">0</p>
+                </div>
+                <div class="p-3 rounded-lg bg-green-100">
+                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Jobs failed -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Jobs Failed</p>
+                    <p id="stat-failed" class="text-2xl font-bold text-red-600 mt-1">0</p>
+                </div>
+                <div class="p-3 rounded-lg bg-red-100">
+                    <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Runner info and current job -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Runner info -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-semibold text-gray-900">Runner Information</h2>
+            </div>
+            <div class="p-6">
+                <dl class="space-y-4">
+                    <div class="flex justify-between">
+                        <dt class="text-sm text-gray-500">Runner ID</dt>
+                        <dd id="info-runner-id" class="text-sm font-mono text-gray-900">-</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-sm text-gray-500">Runner Name</dt>
+                        <dd id="info-runner-name" class="text-sm text-gray-900">-</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-sm text-gray-500">Orchestrator</dt>
+                        <dd id="info-orchestrator" class="text-sm text-gray-900">-</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-sm text-gray-500">API Key</dt>
+                        <dd id="info-api-key" class="text-sm font-mono text-gray-900">
+                            <span class="text-gray-400">••••••••</span>
+                            <button onclick="toggleApiKey()" class="ml-2 text-primary-600 hover:text-primary-700 text-xs">Show</button>
+                        </dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+
+        <!-- Current job -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-semibold text-gray-900">Current Job</h2>
+            </div>
+            <div class="p-6">
+                <div id="current-job-none" class="text-center py-8">
+                    <svg class="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p class="text-gray-500">No job running</p>
+                    <p class="text-sm text-gray-400 mt-1">Waiting for jobs from Orchestrator</p>
+                </div>
+                <div id="current-job-info" class="hidden">
+                    <dl class="space-y-4">
+                        <div class="flex justify-between">
+                            <dt class="text-sm text-gray-500">Run ID</dt>
+                            <dd id="job-run-id" class="text-sm font-mono text-gray-900">-</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-sm text-gray-500">Bot</dt>
+                            <dd id="job-bot-name" class="text-sm text-gray-900">-</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-sm text-gray-500">Started</dt>
+                            <dd id="job-started" class="text-sm text-gray-900">-</dd>
+                        </div>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System info -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-900">System Information</h2>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div>
+                    <p class="text-sm text-gray-500">Hostname</p>
+                    <p id="sys-hostname" class="text-sm font-medium text-gray-900 mt-1">-</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">OS</p>
+                    <p id="sys-os" class="text-sm font-medium text-gray-900 mt-1">-</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">CPU Cores</p>
+                    <p id="sys-cpu" class="text-sm font-medium text-gray-900 mt-1">-</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Memory</p>
+                    <p id="sys-memory" class="text-sm font-medium text-gray-900 mt-1">-</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent logs preview -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-900">Recent Logs</h2>
+            <a href="/logs" class="text-sm text-primary-600 hover:text-primary-700">View all</a>
+        </div>
+        <div class="p-0">
+            <div id="logs-preview" class="max-h-64 overflow-y-auto font-mono text-sm bg-gray-900 text-gray-100 p-4">
+                <p class="text-gray-500">Loading logs...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let apiKeyVisible = false;
+
+    function formatUptime(seconds) {
+        if (seconds < 60) return `${Math.floor(seconds)}s`;
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+        if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+        return `${Math.floor(seconds / 86400)}d ${Math.floor((seconds % 86400) / 3600)}h`;
+    }
+
+    function formatMemory(mb) {
+        if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
+        return `${mb} MB`;
+    }
+
+    async function refreshStatus() {
+        try {
+            // Get status
+            const statusRes = await fetch('/api/status');
+            const status = await statusRes.json();
+
+            // Update stats
+            document.getElementById('stat-status').textContent = status.status === 'running' ? 'Online' : 'Offline';
+            document.getElementById('stat-uptime').textContent = formatUptime(status.uptime_seconds);
+            document.getElementById('stat-completed').textContent = status.jobs_completed || 0;
+            document.getElementById('stat-failed').textContent = status.jobs_failed || 0;
+
+            // Update status icon color
+            const statusIcon = document.getElementById('stat-status-icon');
+            if (status.status === 'running') {
+                statusIcon.className = 'p-3 rounded-lg bg-green-100';
+                statusIcon.querySelector('svg').className = 'w-6 h-6 text-green-600';
+            } else {
+                statusIcon.className = 'p-3 rounded-lg bg-red-100';
+                statusIcon.querySelector('svg').className = 'w-6 h-6 text-red-600';
+            }
+
+            // Update runner info
+            document.getElementById('info-runner-id').textContent = status.runner_id || '-';
+            document.getElementById('info-runner-name').textContent = status.runner_name || '-';
+            document.getElementById('info-orchestrator').textContent = status.orchestrator_url || '-';
+
+            // Update current job
+            if (status.current_job) {
+                document.getElementById('current-job-none').classList.add('hidden');
+                document.getElementById('current-job-info').classList.remove('hidden');
+                document.getElementById('job-run-id').textContent = status.current_job.id;
+                document.getElementById('job-bot-name').textContent = status.current_job.bot_name || '-';
+            } else {
+                document.getElementById('current-job-none').classList.remove('hidden');
+                document.getElementById('current-job-info').classList.add('hidden');
+            }
+
+            // Get system info
+            const sysRes = await fetch('/api/system');
+            const sys = await sysRes.json();
+
+            document.getElementById('sys-hostname').textContent = sys.hostname || '-';
+            document.getElementById('sys-os').textContent = `${sys.os || '-'} ${sys.os_version || ''}`;
+            document.getElementById('sys-cpu').textContent = sys.cpu_count || '-';
+            document.getElementById('sys-memory').textContent = formatMemory(sys.memory_total_mb || 0);
+
+            // Get logs
+            const logsRes = await fetch('/api/logs?limit=20');
+            const logs = await logsRes.json();
+
+            const logsPreview = document.getElementById('logs-preview');
+            if (logs.length === 0) {
+                logsPreview.innerHTML = '<p class="text-gray-500">No logs yet</p>';
+            } else {
+                logsPreview.innerHTML = logs.map(log => {
+                    const levelClass = `log-${log.level}`;
+                    const time = new Date(log.timestamp).toLocaleTimeString();
+                    return `<div class="py-0.5"><span class="text-gray-500">${time}</span> <span class="${levelClass}">[${log.level.toUpperCase()}]</span> ${log.message}</div>`;
+                }).join('');
+            }
+
+        } catch (e) {
+            console.error('Failed to refresh status:', e);
+        }
+    }
+
+    function toggleApiKey() {
+        const el = document.getElementById('info-api-key');
+        const btn = el.querySelector('button');
+
+        if (apiKeyVisible) {
+            el.querySelector('span').textContent = '••••••••';
+            btn.textContent = 'Show';
+            apiKeyVisible = false;
+        } else {
+            // In production, fetch from secure endpoint
+            el.querySelector('span').textContent = 'skr_...configured';
+            btn.textContent = 'Hide';
+            apiKeyVisible = true;
+        }
+    }
+
+    // Initial load and periodic refresh
+    refreshStatus();
+    setInterval(refreshStatus, 5000);
+</script>
+{% endblock %}

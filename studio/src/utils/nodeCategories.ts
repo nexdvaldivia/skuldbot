@@ -20,6 +20,9 @@ import {
   BarChart3,
   Key,
   Cog,
+  Phone,
+  FileWarning,
+  Cloud,
   LucideIcon,
 } from "lucide-react";
 
@@ -45,6 +48,9 @@ const CATEGORY_COLORS: Record<string, string> = {
   compliance: "#059669",  // Emerald (dark)
   dataquality: "#0891b2", // Cyan (dark)
   secrets: "#dc2626",     // Red (dark)
+  voice: "#7c3aed",       // Violet
+  insurance: "#0d9488",   // Teal (dark)
+  ms365: "#0078d4",       // Microsoft Blue
   default: "#6b7280",     // Gray
 };
 
@@ -70,6 +76,9 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   compliance: ShieldCheck,
   dataquality: BarChart3,
   secrets: Key,
+  voice: Phone,
+  insurance: FileWarning,
+  ms365: Cloud,
   default: Cog,
 };
 
@@ -95,6 +104,9 @@ const CATEGORY_LABELS: Record<string, string> = {
   compliance: "Compliance",
   dataquality: "Data Quality",
   secrets: "Secrets",
+  voice: "Voice & Telephony",
+  insurance: "Insurance",
+  ms365: "Microsoft 365",
 };
 
 // ============================================================

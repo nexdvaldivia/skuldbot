@@ -33,3 +33,11 @@ azure-identity>=1.12.0       # Azure Key Vault - Service Principal & Managed Ide
 azure-keyvault-secrets>=4.7.0  # Azure Key Vault - Secrets client
 hvac>=2.1.0                  # HashiCorp Vault
 
+# Voice & Telephony (Twilio)
+twilio>=8.10.0               # Twilio Voice SDK
+flask>=3.0.0                 # Webhook server for inbound calls
+
+# Microsoft 365 Integration (Graph API)
+msgraph-sdk>=1.2.0           # Microsoft Graph SDK
+# azure-identity already included above for Azure Key Vault
+

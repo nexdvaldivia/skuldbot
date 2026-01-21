@@ -158,6 +158,56 @@ function dslToFlowNodes(dsl: BotDSL): { nodes: FlowNode[]; edges: FlowEdge[] } {
         data: { edgeType: "error" },
       });
     }
+
+    // Restore special connections (model, tools, memory, embeddings)
+    if (dslNode.connections) {
+      if (dslNode.connections.model) {
+        edges.push({
+          id: `${dslNode.connections.model}-model-${dslNode.id}`,
+          source: dslNode.connections.model,
+          target: dslNode.id,
+          sourceHandle: "model-out",
+          targetHandle: "model",
+          type: "animated",
+          data: { edgeType: "model" },
+        });
+      }
+      if (dslNode.connections.tools) {
+        dslNode.connections.tools.forEach((toolId) => {
+          edges.push({
+            id: `${toolId}-tool-${dslNode.id}`,
+            source: toolId,
+            target: dslNode.id,
+            sourceHandle: "success",
+            targetHandle: "tools",
+            type: "animated",
+            data: { edgeType: "tool" },
+          });
+        });
+      }
+      if (dslNode.connections.memory) {
+        edges.push({
+          id: `${dslNode.connections.memory}-memory-${dslNode.id}`,
+          source: dslNode.connections.memory,
+          target: dslNode.id,
+          sourceHandle: "memory-out",
+          targetHandle: "memory",
+          type: "animated",
+          data: { edgeType: "memory" },
+        });
+      }
+      if (dslNode.connections.embeddings) {
+        edges.push({
+          id: `${dslNode.connections.embeddings}-embeddings-${dslNode.id}`,
+          source: dslNode.connections.embeddings,
+          target: dslNode.id,
+          sourceHandle: "embeddings-out",
+          targetHandle: "embeddings",
+          type: "animated",
+          data: { edgeType: "embeddings" },
+        });
+      }
+    }
   }
 
   // Process all top-level nodes
@@ -218,6 +268,53 @@ function flowNodesToDSL(
     // Add children for container nodes
     if (isContainer && children && children.length > 0) {
       dslNode.children = children.map(nodeToDSL);
+    }
+
+    // Save special connections (model, tools, memory, embeddings) for UI persistence
+    const modelEdge = edges.find(
+      (e) => e.target === node.id && e.targetHandle === "model" && e.data?.edgeType === "model"
+    );
+    const toolEdges = edges.filter(
+      (e) => e.target === node.id && e.targetHandle === "tools" && e.data?.edgeType === "tool"
+    );
+    const memoryEdge = edges.find(
+      (e) => e.target === node.id && e.targetHandle === "memory" && e.data?.edgeType === "memory"
+    );
+    const embeddingsEdge = edges.find(
+      (e) => e.target === node.id && e.targetHandle === "embeddings" && e.data?.edgeType === "embeddings"
+    );
+
+    // Debug: Log edges for this node
+    const nodeEdges = edges.filter(e => e.target === node.id || e.source === node.id);
+    if (nodeEdges.length > 0) {
+      console.log(`[DSL] Node ${node.id} edges:`, nodeEdges.map(e => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        sourceHandle: e.sourceHandle,
+        targetHandle: e.targetHandle,
+        edgeType: e.data?.edgeType
+      })));
+    }
+
+    if (modelEdge || toolEdges.length > 0 || memoryEdge || embeddingsEdge) {
+      dslNode.connections = {};
+      if (modelEdge) {
+        dslNode.connections.model = modelEdge.source;
+        console.log(`[DSL] Saving model connection for ${node.id}:`, modelEdge.source);
+      }
+      if (toolEdges.length > 0) {
+        dslNode.connections.tools = toolEdges.map(e => e.source);
+        console.log(`[DSL] Saving tool connections for ${node.id}:`, dslNode.connections.tools);
+      }
+      if (memoryEdge) {
+        dslNode.connections.memory = memoryEdge.source;
+        console.log(`[DSL] Saving memory connection for ${node.id}:`, memoryEdge.source);
+      }
+      if (embeddingsEdge) {
+        dslNode.connections.embeddings = embeddingsEdge.source;
+        console.log(`[DSL] Saving embeddings connection for ${node.id}:`, embeddingsEdge.source);
+      }
     }
 
     return dslNode;

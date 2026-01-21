@@ -12,6 +12,20 @@ import { Button } from "./ui/Button";
 import FormTriggerModal from "./FormTriggerModal";
 import { FlowNode, FlowEdge, BotDSL, DSLNode } from "../types/flow";
 
+// AI node types that can have a model connection
+const AI_NODES_WITH_MODEL = [
+  "ai.agent",
+  "ai.llm_prompt",
+  "ai.classify",
+  "ai.summarize",
+  "ai.translate",
+  "ai.sentiment",
+  "ai.extract",
+  "ai.vision",
+  "ai.generate_code",
+  "ai.explain_code"
+];
+
 // Helper to convert nodes/edges to DSL
 function generateDSL(
   botId: string,
@@ -28,7 +42,7 @@ function generateDSL(
       (e) => e.source === node.id && e.sourceHandle === "error"
     );
 
-    return {
+    const dslNode: DSLNode = {
       id: node.id,
       type: node.data.nodeType,
       config: node.data.config,
@@ -38,6 +52,44 @@ function generateDSL(
       },
       label: node.data.label,
     };
+
+    // Check for AI Model connections for AI nodes
+    if (AI_NODES_WITH_MODEL.includes(node.data.nodeType)) {
+      const modelEdge = edges.find(
+        (e) => e.target === node.id && e.targetHandle === "model" && e.data?.edgeType === "model"
+      );
+
+      if (modelEdge) {
+        const modelNode = nodes.find((n) => n.id === modelEdge.source);
+        if (modelNode && modelNode.data.nodeType === "ai.model") {
+          const modConfig = modelNode.data.config || {};
+          const model_config: Record<string, any> = {
+            provider: modConfig.provider || "openai",
+            model: modConfig.model || "gpt-4o",
+            temperature: modConfig.temperature ?? 0.7,
+          };
+
+          if (modConfig.max_tokens) {
+            model_config.max_tokens = modConfig.max_tokens;
+          }
+          if (modConfig.api_key) {
+            model_config.api_key = modConfig.api_key;
+          }
+          if (modConfig.base_url) {
+            model_config.base_url = modConfig.base_url;
+          }
+          if (modConfig.api_version) {
+            model_config.api_version = modConfig.api_version;
+          }
+
+          // Use model_config_ to match Jinja2 template expectations
+          dslNode.model_config_ = model_config as DSLNode["model_config_"];
+          console.log(`[ProjectToolbar] Added model_config_ for ${node.id}:`, model_config);
+        }
+      }
+    }
+
+    return dslNode;
   });
 
   const triggerNodes = nodes.filter((node) => node.data.category === "trigger");

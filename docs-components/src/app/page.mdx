@@ -1,0 +1,125 @@
+import { HeroPattern } from '@/components/HeroPattern'
+
+export const metadata = {
+  title: 'SkuldBot Components Documentation',
+  description:
+    'Complete documentation for all 222 RPA components available in SkuldBot Studio. Build powerful automations with drag-and-drop.',
+}
+
+export const sections = [
+  { title: 'Categories', id: 'categories' },
+  { title: 'Quick Links', id: 'quick-links' },
+]
+
+<HeroPattern />
+
+# SkuldBot Components
+
+Documentation for all **222 RPA components** available in SkuldBot Studio. Each component is a building block for your automation workflows. {{ className: 'lead' }}
+
+<div className="not-prose mt-6 mb-16 flex gap-3">
+  <Button href="/quickstart" arrow="right">
+    <>Quickstart</>
+  </Button>
+  <Button href="/components/trigger" variant="outline">
+    <>Browse Components</>
+  </Button>
+</div>
+
+## Getting started {{ anchor: false }}
+
+SkuldBot Studio uses a visual drag-and-drop interface where you connect components to create automation workflows. Each component has **inputs** (configuration), **outputs** (data produced), and **connections** (success/error paths). {{ className: 'lead' }}
+
+<div className="not-prose">
+  <Button href="/dsl" variant="text" arrow="right">
+    <>Learn about the DSL format</>
+  </Button>
+</div>
+
+## Categories {{ id: 'categories' }}
+
+<div className="not-prose mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+    <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">Triggers & Control</h3>
+    <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">34 components</p>
+    <p className="mt-2 text-xs text-zinc-500">Manual, Schedule, Webhook, Form triggers. Conditionals, loops, error handling.</p>
+  </div>
+  <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+    <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">Web & Desktop</h3>
+    <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">27 components</p>
+    <p className="mt-2 text-xs text-zinc-500">Browser automation, clicks, forms, scraping. Desktop apps, windows, keyboard.</p>
+  </div>
+  <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+    <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">Files & Data</h3>
+    <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">55 components</p>
+    <p className="mt-2 text-xs text-zinc-500">Excel read/write, file operations, email send/receive, PDF processing.</p>
+  </div>
+  <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+    <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">Integration</h3>
+    <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">27 components</p>
+    <p className="mt-2 text-xs text-zinc-500">REST APIs, databases (SQL, MongoDB), document parsing (OCR, extraction).</p>
+  </div>
+  <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+    <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">AI & Advanced</h3>
+    <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">54 components</p>
+    <p className="mt-2 text-xs text-zinc-500">LLM integration, Python scripts, voice synthesis/recognition, data transforms.</p>
+  </div>
+  <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+    <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">Enterprise</h3>
+    <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">25 components</p>
+    <p className="mt-2 text-xs text-zinc-500">Compliance, data quality, security, secrets management, human-in-the-loop.</p>
+  </div>
+</div>
+
+## Quick Links {{ id: 'quick-links' }}
+
+<div className="not-prose mt-4 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+  <div className="flex items-center gap-3">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10">
+      <svg className="h-4 w-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    </div>
+    <a href="/components/trigger" className="text-sm font-medium text-zinc-900 hover:text-emerald-500 dark:text-white">Triggers</a>
+  </div>
+  <div className="flex items-center gap-3">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10">
+      <svg className="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+      </svg>
+    </div>
+    <a href="/components/web" className="text-sm font-medium text-zinc-900 hover:text-emerald-500 dark:text-white">Web Automation</a>
+  </div>
+  <div className="flex items-center gap-3">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500/10">
+      <svg className="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+      </svg>
+    </div>
+    <a href="/components/excel" className="text-sm font-medium text-zinc-900 hover:text-emerald-500 dark:text-white">Excel</a>
+  </div>
+  <div className="flex items-center gap-3">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10">
+      <svg className="h-4 w-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+      </svg>
+    </div>
+    <a href="/components/ai" className="text-sm font-medium text-zinc-900 hover:text-emerald-500 dark:text-white">AI / LLM</a>
+  </div>
+  <div className="flex items-center gap-3">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/10">
+      <svg className="h-4 w-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+      </svg>
+    </div>
+    <a href="/components/database" className="text-sm font-medium text-zinc-900 hover:text-emerald-500 dark:text-white">Database</a>
+  </div>
+  <div className="flex items-center gap-3">
+    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10">
+      <svg className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+      </svg>
+    </div>
+    <a href="/components/security" className="text-sm font-medium text-zinc-900 hover:text-emerald-500 dark:text-white">Security</a>
+  </div>
+</div>

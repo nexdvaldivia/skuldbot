@@ -11,6 +11,7 @@ Librerías disponibles:
 - SkuldForms: Form Trigger (formularios web que inician workflows)
 - SkuldCompliance: HIPAA Safe Harbor, PII/PHI detection & de-identification
 - SkuldDataQuality: Data Quality validation powered by Great Expectations
+- SkuldVoice: Telefonía y voz (Twilio, Azure Speech STT/TTS)
 - ExcelLibrary: Operaciones Excel con funcionalidades extendidas
 - BrowserLibrary: Automatización web
 - ControlLibrary: Control de flujo y utilidades
@@ -46,6 +47,14 @@ from skuldbot.libs.compliance import SkuldCompliance
 # SkuldDataQuality - Data Quality (usa Great Expectations opcionalmente)
 from skuldbot.libs.data_quality import SkuldDataQuality
 
+# SkuldVoice - requiere twilio y azure-cognitiveservices-speech
+try:
+    from skuldbot.libs.voice import SkuldVoice
+    _VOICE_AVAILABLE = True
+except ImportError:
+    SkuldVoice = None  # type: ignore
+    _VOICE_AVAILABLE = False
+
 # RPA Libraries - requieren rpaframework instalado
 try:
     from skuldbot.libs.excel import ExcelLibrary
@@ -66,6 +75,7 @@ __all__ = [
     "SkuldHuman",
     "SkuldCompliance",
     "SkuldDataQuality",
+    "SkuldVoice",
     # RPA Libraries
     "ExcelLibrary",
     "BrowserLibrary",
@@ -74,4 +84,5 @@ __all__ = [
     "_AI_AVAILABLE",
     "_HUMAN_AVAILABLE",
     "_RPA_AVAILABLE",
+    "_VOICE_AVAILABLE",
 ]

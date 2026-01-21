@@ -27,6 +27,64 @@ export interface DSLNode {
   position?: { x: number; y: number };  // Visual position in editor
   // Container nodes: nested nodes that execute inside this container
   children?: DSLNode[];
+  // AI Agent: connected tools (node IDs that this agent can use)
+  tools?: AgentToolConnection[];
+  // AI Agent: LLM model configuration (from connected AI Model node)
+  // Note: uses model_config_ (with underscore) to match Jinja2 template expectations
+  model_config_?: ModelConfig;
+  // AI Agent: memory configuration (from connected Vector Memory node)
+  memory?: MemoryConfig;
+  // AI Agent/Memory: embeddings configuration (from connected Embeddings node)
+  embeddings?: EmbeddingsConfig;
+  // Special connections (model, tools, memory, embeddings) - persisted for UI reconstruction
+  connections?: {
+    model?: string;      // ID of connected AI Model node
+    tools?: string[];    // IDs of connected tool nodes
+    memory?: string;     // ID of connected Vector Memory node
+    embeddings?: string; // ID of connected Embeddings node
+  };
+}
+
+// AI Model Configuration - defines the LLM used by an agent
+export interface ModelConfig {
+  provider: "openai" | "anthropic" | "azure" | "ollama" | "google" | "aws" | "groq" | "mistral";
+  model: string;
+  temperature?: number;
+  max_tokens?: number;
+  api_key?: string;
+  base_url?: string;
+  api_version?: string;
+  aws_access_key?: string;
+  aws_secret_key?: string;
+  region?: string;
+}
+
+// Memory Configuration - defines vector store for agent memory
+export interface MemoryConfig {
+  provider: "chroma" | "pgvector" | "supabase" | "pinecone" | "qdrant";
+  collection: string;
+  memory_type: "retrieve" | "store" | "both";
+  top_k?: number;
+  min_score?: number;
+  connection_params?: Record<string, any>;
+}
+
+// Embeddings Configuration - defines embedding model
+export interface EmbeddingsConfig {
+  provider: "openai" | "azure" | "ollama" | "cohere" | "huggingface" | "google" | "aws";
+  model: string;
+  dimension?: number;
+  api_key?: string;
+  base_url?: string;
+  api_version?: string;
+}
+
+// AI Agent Tool Connection - defines a tool available to the agent
+export interface AgentToolConnection {
+  nodeId: string;           // ID of the connected node
+  name: string;             // Tool name for the LLM
+  description: string;      // What this tool does (for LLM)
+  inputMapping?: Record<string, string>;  // Map agent params to node config
 }
 
 export interface VariableDefinition {
@@ -47,6 +105,7 @@ export type NodeCategory =
   | "database"     // Database
   | "document"     // PDF / OCR / Documents
   | "ai"           // AI / Intelligent Automation
+  | "vectordb"     // Vector Databases / Memory (RAG)
   | "python"       // Python Project Execution
   | "control"      // Control Flow
   | "logging"      // Logging & Monitoring
@@ -55,7 +114,10 @@ export type NodeCategory =
   | "compliance"   // PII/PHI Protection & HIPAA Safe Harbor
   | "dataquality"  // Data Quality Gates (Great Expectations)
   | "data"         // Data Integration (Taps & Targets)
-  | "trigger";     // Scheduling & Triggers
+  | "voice"        // Voice & Telephony (Twilio + Azure Speech)
+  | "insurance"    // Insurance (FNOL, Policy, Claims)
+  | "trigger"      // Scheduling & Triggers
+  | "ms365";       // Microsoft 365 (Outlook, Calendar, OneDrive, Teams)
 
 // Output field definition - what data a node produces
 export interface OutputField {
@@ -84,7 +146,10 @@ export interface ConfigField {
   default?: any;
   options?: { value: string; label: string }[];
   placeholder?: string;
+  description?: string;  // Help text shown below the field
   supportsExpressions?: boolean;  // Allow ${node.field} syntax in this field
+  secret?: boolean;  // Mask the field value (for passwords, API keys)
+  visibleWhen?: { field: string; value: string | string[] };  // Conditional visibility based on another field's value
 }
 
 // Validation Builder Types (for dataquality.run_suite)
@@ -168,6 +233,8 @@ export interface FlowNodeData {
   icon?: string;
   // Container node specific - holds IDs of child nodes
   childNodes?: string[];
+  // AI Agent specific - tools connected to this agent
+  connectedTools?: AgentToolConnection[];
   // AI Planner fields
   description?: string;
   aiGenerated?: boolean;
@@ -176,7 +243,16 @@ export interface FlowNodeData {
 
 // React Flow Edge Data
 export interface FlowEdgeData {
-  edgeType: "success" | "error";
+  edgeType: "success" | "error" | "tool" | "memory" | "embeddings" | "model" | "connection";
+  // Color inherited from source node's category
+  sourceColor?: string;
+  // For tool edges: metadata about the tool connection
+  toolName?: string;         // Name shown to the LLM (e.g., "search_web")
+  toolDescription?: string;  // Description for the LLM (what this tool does)
+  // For memory edges: vector store connection metadata
+  memoryType?: "retrieve" | "store" | "both";  // How agent uses this memory
+  // For connection edges: service connection (MS365, databases, etc.)
+  connectionType?: string;   // Type of connection (e.g., "ms365", "database")
 }
 
 // React Flow Types - proper extension

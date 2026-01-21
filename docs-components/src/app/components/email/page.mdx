@@ -1,0 +1,1126 @@
+export const metadata = {
+  title: 'Email',
+  description: 'Components for sending and receiving emails via SMTP/IMAP. Support for attachments and HTML templates.',
+}
+
+export const sections = [
+  { title: 'Send Email', id: 'email-send' },
+  { title: 'Read Emails', id: 'email-read' },
+  { title: 'Reply to Email', id: 'email-reply' },
+  { title: 'Forward Email', id: 'email-forward' },
+  { title: 'Download Attachment', id: 'email-download_attachment' },
+  { title: 'Move Email', id: 'email-move' },
+  { title: 'Delete Email', id: 'email-delete' },
+  { title: 'Mark as Read', id: 'email-mark_read' },
+  { title: 'Search Emails', id: 'email-search' },
+  { title: 'Send via SMTP', id: 'email-send_smtp' },
+  { title: 'Send via Outlook', id: 'email-send_outlook' },
+  { title: 'Send via Gmail', id: 'email-send_gmail' },
+  { title: 'Read via IMAP', id: 'email-read_imap' },
+  { title: 'Create Draft', id: 'email-create_draft' },
+  { title: 'Get Folders', id: 'email-get_folders' },
+]
+
+# Email
+
+Components for sending and receiving emails via SMTP/IMAP. Support for attachments and HTML templates. {{ className: 'lead' }}
+
+<Note>
+  This category contains **15 components**. See also: [File Operations](/components/files) · [Logging](/components/logging) · [Triggers](/components/trigger)
+</Note>
+
+## Common Use Cases
+
+- Send notification emails
+- Process incoming emails
+- Extract email attachments
+- Send reports with HTML formatting
+
+---
+
+## Send Email {{ id: 'email-send' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-send"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z" />
+  <path d="m21.854 2.147-10.94 10.939" />
+</svg>
+`} label="Send Email" description="Send an email" bgColor="#fce7f3" textColor="#be185d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.send`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Send automated report emails with attachments
+- Notify stakeholders of process completion
+- Send alerts when exceptions occur
+- Distribute invoices to customers
+
+<Prerequisites>
+
+- SMTP server credentials
+- Network access to SMTP server (port 587 or 465)
+
+</Prerequisites>
+
+### Configuration
+
+<Properties>
+  <Property name="to" type="text" required>
+    To
+  </Property>
+  <Property name="subject" type="text" required>
+    Subject
+  </Property>
+  <Property name="body" type="textarea" required>
+    Body
+  </Property>
+  <Property name="html" type="boolean">
+    HTML Body Default: `false`
+  </Property>
+</Properties>
+
+### Setup Guide
+
+
+<Collapsible title="Configure Gmail SMTP">
+
+1. Enable 2FA on your Google account
+2. Generate an App Password: Google Account > Security > App Passwords
+3. SMTP Settings:
+   - Host: `smtp.gmail.com`
+   - Port: `587` (TLS) or `465` (SSL)
+   - Username: Your Gmail address
+   - Password: The App Password (not your regular password)
+
+</Collapsible>
+
+<Collapsible title="Configure Microsoft 365 SMTP">
+
+1. Enable SMTP AUTH for the mailbox in Microsoft 365 admin
+2. SMTP Settings:
+   - Host: `smtp.office365.com`
+   - Port: `587`
+   - Username: Full email address
+   - Password: Account password or App Password
+
+</Collapsible>
+
+<Collapsible title="Configure SendGrid">
+
+1. Create an API key in SendGrid dashboard
+2. SMTP Settings:
+   - Host: `smtp.sendgrid.net`
+   - Port: `587`
+   - Username: `apikey` (literal text)
+   - Password: Your SendGrid API key
+
+</Collapsible>
+
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "email.send",
+  "label": "Send Email",
+  "config": {
+    "to": "your-to",
+    "subject": "your-subject",
+    "body": "your-body",
+    "html": "false"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Read Emails {{ id: 'email-read' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-mail-open"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M21.2 8.4c.5.38.8.97.8 1.6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V10a2 2 0 0 1 .8-1.6l8-6a2 2 0 0 1 2.4 0l8 6Z" />
+  <path d="m22 10-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 10" />
+</svg>
+`} label="Read Emails" description="Read emails from mailbox" bgColor="#fce7f3" textColor="#be185d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.read`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Process incoming orders from vendor emails
+- Extract data from automated notifications
+- Monitor inbox for specific senders
+- Parse email content for processing
+
+<Prerequisites>
+
+- IMAP server credentials
+- Network access to IMAP server (port 993)
+
+</Prerequisites>
+
+### Configuration
+
+<Properties>
+  <Property name="folder" type="text">
+    Folder Default: `INBOX`
+  </Property>
+  <Property name="filter" type="text">
+    Subject Filter
+  </Property>
+  <Property name="unread_only" type="boolean">
+    Unread Only Default: `true`
+  </Property>
+  <Property name="limit" type="number">
+    Max Emails Default: `10`
+  </Property>
+</Properties>
+
+### Setup Guide
+
+
+<Collapsible title="Configure Gmail IMAP">
+
+1. Enable IMAP in Gmail settings
+2. Use App Password (not regular password)
+3. IMAP Settings:
+   - Host: `imap.gmail.com`
+   - Port: `993`
+   - SSL: Enabled
+
+</Collapsible>
+
+<Collapsible title="Configure Microsoft 365 IMAP">
+
+1. IMAP Settings:
+   - Host: `outlook.office365.com`
+   - Port: `993`
+   - SSL: Enabled
+   - For modern auth, use OAuth2 token
+
+</Collapsible>
+
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "email.read",
+  "label": "Read Emails",
+  "config": {
+    "folder": "INBOX",
+    "filter": "your-filter",
+    "unread_only": "true",
+    "limit": "10"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Reply to Email {{ id: 'email-reply' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-reply"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
+  <path d="m9 17-5-5 5-5" />
+</svg>
+`} label="Reply to Email" description="Reply to an email" bgColor="#fce7f3" textColor="#be185d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.reply`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Acknowledge receipt of requests
+- Send automated responses with status
+- Respond to customer inquiries
+- Confirm order processing
+
+### Configuration
+
+<Properties>
+  <Property name="message_id" type="text" required>
+    Original Message ID
+  </Property>
+  <Property name="body" type="textarea" required>
+    Reply Body
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "email.reply",
+  "label": "Reply to Email",
+  "config": {
+    "message_id": "your-message_id",
+    "body": "your-body"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Forward Email {{ id: 'email-forward' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-forward"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m15 17 5-5-5-5" />
+  <path d="M4 18v-2a4 4 0 0 1 4-4h12" />
+</svg>
+`} label="Forward Email" description="Forward an email" bgColor="#fce7f3" textColor="#be185d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.forward`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Route emails to appropriate teams
+- Escalate urgent messages
+- Distribute newsletters to groups
+- Forward exceptions for review
+
+### Configuration
+
+<Properties>
+  <Property name="message_id" type="text" required>
+    Original Message ID
+  </Property>
+  <Property name="to" type="text" required>
+    Forward To
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "email.forward",
+  "label": "Forward Email",
+  "config": {
+    "message_id": "your-message_id",
+    "to": "your-to"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Download Attachment {{ id: 'email-download_attachment' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-paperclip"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551" />
+</svg>
+`} label="Download Attachment" description="Save email attachment" bgColor="#fce7f3" textColor="#be185d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.download_attachment`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Save invoice PDFs from emails
+- Extract Excel reports for processing
+- Download images from notifications
+- Get documents for archival
+
+### Configuration
+
+<Properties>
+  <Property name="message_id" type="text" required>
+    Message ID
+  </Property>
+  <Property name="save_path" type="text" required>
+    Save Path
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "email.download_attachment",
+  "label": "Download Attachment",
+  "config": {
+    "message_id": "your-message_id",
+    "save_path": "your-save_path"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Move Email {{ id: 'email-move' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-folder-input"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1" />
+  <path d="M2 13h10" />
+  <path d="m9 16 3-3-3-3" />
+</svg>
+`} label="Move Email" description="Move email to folder" bgColor="#fce7f3" textColor="#be185d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.move`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Organize processed emails to folders
+- Archive completed requests
+- Sort emails by category
+- Clean up inbox after processing
+
+### Configuration
+
+<Properties>
+  <Property name="message_id" type="text" required>
+    Message ID
+  </Property>
+  <Property name="folder" type="text" required>
+    Target Folder
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "email.move",
+  "label": "Move Email",
+  "config": {
+    "message_id": "your-message_id",
+    "folder": "your-folder"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Delete Email {{ id: 'email-delete' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-trash-2"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M10 11v6" />
+  <path d="M14 11v6" />
+  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+  <path d="M3 6h18" />
+  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+</svg>
+`} label="Delete Email" description="Delete an email" bgColor="#fce7f3" textColor="#be185d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.delete`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Remove spam or irrelevant emails
+- Clean up processed notifications
+- Delete temporary emails
+- Manage mailbox size
+
+### Configuration
+
+<Properties>
+  <Property name="message_id" type="text" required>
+    Message ID
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "email.delete",
+  "label": "Delete Email",
+  "config": {
+    "message_id": "your-message_id"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Mark as Read {{ id: 'email-mark_read' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-circle-check-big"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M21.801 10A10 10 0 1 1 17 3.335" />
+  <path d="m9 11 3 3L22 4" />
+</svg>
+`} label="Mark as Read" description="Mark email as read/unread" bgColor="#fce7f3" textColor="#be185d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.mark_read`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Mark processed emails as read
+- Update email status after handling
+- Track which emails have been processed
+- Maintain clean inbox state
+
+### Configuration
+
+<Properties>
+  <Property name="message_id" type="text" required>
+    Message ID
+  </Property>
+  <Property name="read" type="boolean">
+    Mark as Read Default: `true`
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "email.mark_read",
+  "label": "Mark as Read",
+  "config": {
+    "message_id": "your-message_id",
+    "read": "true"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Search Emails {{ id: 'email-search' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-search"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m21 21-4.34-4.34" />
+  <circle cx="11" cy="11" r="8" />
+</svg>
+`} label="Search Emails" description="Search emails with criteria" bgColor="#fce7f3" textColor="#be185d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.search`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Find emails from specific senders
+- Search by subject or date range
+- Locate emails with attachments
+- Find unprocessed items
+
+### Configuration
+
+<Properties>
+  <Property name="query" type="text" required>
+    Search Query
+  </Property>
+  <Property name="folder" type="text">
+    Folder Default: `INBOX`
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "email.search",
+  "label": "Search Emails",
+  "config": {
+    "query": "your-query",
+    "folder": "INBOX"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Send via SMTP {{ id: 'email-send_smtp' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-server"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
+  <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
+  <line x1="6" x2="6.01" y1="6" y2="6" />
+  <line x1="6" x2="6.01" y1="18" y2="18" />
+</svg>
+`} label="Send via SMTP" description="Send email via SMTP server" bgColor="#fce7f3" textColor="#be185d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.send_smtp`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="smtp_host" type="text" required>
+    SMTP Host
+  </Property>
+  <Property name="port" type="number">
+    Port Default: `587`
+  </Property>
+  <Property name="username" type="text" required>
+    Username
+  </Property>
+  <Property name="password" type="password" required>
+    Password
+  </Property>
+  <Property name="tls" type="boolean">
+    Use TLS Default: `true`
+  </Property>
+  <Property name="to" type="text" required>
+    To
+  </Property>
+  <Property name="subject" type="text" required>
+    Subject
+  </Property>
+  <Property name="body" type="textarea" required>
+    Body
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "email.send_smtp",
+  "label": "Send via SMTP",
+  "config": {
+    "smtp_host": "your-smtp_host",
+    "port": "587",
+    "username": "your-username",
+    "password": "your-password"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Send via Outlook {{ id: 'email-send_outlook' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-mail"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7" />
+  <rect x="2" y="4" width="20" height="16" rx="2" />
+</svg>
+`} label="Send via Outlook" description="Send email via Outlook" bgColor="#fce7f3" textColor="#be185d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.send_outlook`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="to" type="text" required>
+    To
+  </Property>
+  <Property name="cc" type="text">
+    CC
+  </Property>
+  <Property name="bcc" type="text">
+    BCC
+  </Property>
+  <Property name="subject" type="text" required>
+    Subject
+  </Property>
+  <Property name="body" type="textarea" required>
+    Body
+  </Property>
+  <Property name="html" type="boolean">
+    HTML Body Default: `false`
+  </Property>
+  <Property name="attachments" type="textarea">
+    Attachments (paths)
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "email.send_outlook",
+  "label": "Send via Outlook",
+  "config": {
+    "to": "your-to",
+    "cc": "your-cc",
+    "bcc": "your-bcc",
+    "subject": "your-subject"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Send via Gmail {{ id: 'email-send_gmail' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-mail"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7" />
+  <rect x="2" y="4" width="20" height="16" rx="2" />
+</svg>
+`} label="Send via Gmail" description="Send email via Gmail API" bgColor="#fce7f3" textColor="#be185d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.send_gmail`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="to" type="text" required>
+    To
+  </Property>
+  <Property name="subject" type="text" required>
+    Subject
+  </Property>
+  <Property name="body" type="textarea" required>
+    Body
+  </Property>
+  <Property name="html" type="boolean">
+    HTML Body Default: `false`
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "email.send_gmail",
+  "label": "Send via Gmail",
+  "config": {
+    "to": "your-to",
+    "subject": "your-subject",
+    "body": "your-body",
+    "html": "false"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Read via IMAP {{ id: 'email-read_imap' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-inbox"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+  <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+</svg>
+`} label="Read via IMAP" description="Read emails via IMAP" bgColor="#fce7f3" textColor="#be185d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.read_imap`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="imap_host" type="text" required>
+    IMAP Host
+  </Property>
+  <Property name="port" type="number">
+    Port Default: `993`
+  </Property>
+  <Property name="username" type="text" required>
+    Username
+  </Property>
+  <Property name="password" type="password" required>
+    Password
+  </Property>
+  <Property name="ssl" type="boolean">
+    Use SSL Default: `true`
+  </Property>
+  <Property name="folder" type="text">
+    Folder Default: `INBOX`
+  </Property>
+  <Property name="limit" type="number">
+    Max Emails Default: `10`
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "email.read_imap",
+  "label": "Read via IMAP",
+  "config": {
+    "imap_host": "your-imap_host",
+    "port": "993",
+    "username": "your-username",
+    "password": "your-password"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Create Draft {{ id: 'email-create_draft' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-pen"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z" />
+</svg>
+`} label="Create Draft" description="Create email draft" bgColor="#fce7f3" textColor="#be185d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.create_draft`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="to" type="text">
+    To
+  </Property>
+  <Property name="subject" type="text">
+    Subject
+  </Property>
+  <Property name="body" type="textarea">
+    Body
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "email.create_draft",
+  "label": "Create Draft",
+  "config": {
+    "to": "your-to",
+    "subject": "your-subject",
+    "body": "your-body"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Get Folders {{ id: 'email-get_folders' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-folder-tree"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M20 10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2.5a1 1 0 0 1-.8-.4l-.9-1.2A1 1 0 0 0 15 3h-2a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z" />
+  <path d="M20 21a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1h-2.9a1 1 0 0 1-.88-.55l-.42-.85a1 1 0 0 0-.92-.6H13a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z" />
+  <path d="M3 5a2 2 0 0 0 2 2h3" />
+  <path d="M3 3v13a2 2 0 0 0 2 2h3" />
+</svg>
+`} label="Get Folders" description="List email folders" bgColor="#fce7f3" textColor="#be185d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.get_folders`
+  </Property>
+</Properties>
+
+### When to Use
+
+- List available mail folders
+- Find target folders for moving
+- Discover folder structure
+- Validate folder existence
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Get Folders.variableName}`.
+
+<Properties>
+  <Property name="folders" type="array">
+    List of folder names
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "email.get_folders",
+  "label": "Get Folders",
+  "config": {
+    // No configuration required
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+

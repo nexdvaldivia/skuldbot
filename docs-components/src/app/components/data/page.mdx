@@ -1,0 +1,2273 @@
+export const metadata = {
+  title: 'Data Transform',
+  description: 'Components for transforming, mapping, and manipulating data. JSON, XML, CSV parsing and generation.',
+}
+
+export const sections = [
+  { title: 'Extract SQL Server', id: 'data-tap-sqlserver' },
+  { title: 'Extract Oracle', id: 'data-tap-oracle' },
+  { title: 'Extract PostgreSQL', id: 'data-tap-postgres' },
+  { title: 'Extract MySQL', id: 'data-tap-mysql' },
+  { title: 'Extract DB2', id: 'data-tap-db2' },
+  { title: 'Extract Snowflake', id: 'data-tap-snowflake' },
+  { title: 'Read CSV', id: 'data-tap-csv' },
+  { title: 'Read Excel (Data)', id: 'data-tap-excel' },
+  { title: 'Read from S3', id: 'data-tap-s3' },
+  { title: 'Read from SFTP', id: 'data-tap-sftp' },
+  { title: 'Extract Salesforce', id: 'data-tap-salesforce' },
+  { title: 'Extract REST API', id: 'data-tap-rest_api' },
+  { title: 'Load to SQL Server', id: 'data-target-sqlserver' },
+  { title: 'Load to Oracle', id: 'data-target-oracle' },
+  { title: 'Load to PostgreSQL', id: 'data-target-postgres' },
+  { title: 'Load to MySQL', id: 'data-target-mysql' },
+  { title: 'Load to DB2', id: 'data-target-db2' },
+  { title: 'Load to Snowflake', id: 'data-target-snowflake' },
+  { title: 'Load to BigQuery', id: 'data-target-bigquery' },
+  { title: 'Write CSV', id: 'data-target-csv' },
+  { title: 'Write Excel (Data)', id: 'data-target-excel' },
+  { title: 'Write to S3', id: 'data-target-s3' },
+  { title: 'Write to SFTP', id: 'data-target-sftp' },
+]
+
+# Data Transform
+
+Components for transforming, mapping, and manipulating data. JSON, XML, CSV parsing and generation. {{ className: 'lead' }}
+
+<Note>
+  This category contains **23 components**. See also: [API / HTTP](/components/api) · [Database](/components/database) · [Excel](/components/excel)
+</Note>
+
+## Common Use Cases
+
+- Parse JSON and XML
+- Transform data structures
+- Filter and aggregate data
+- Format dates and numbers
+
+---
+
+## Extract SQL Server {{ id: 'data-tap-sqlserver' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-database"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <ellipse cx="12" cy="5" rx="9" ry="3" />
+  <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+  <path d="M3 12A9 3 0 0 0 21 12" />
+</svg>
+`} label="Extract SQL Server" description="Extract data from Microsoft SQL Server" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.sqlserver`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="text" required>
+    Host
+  </Property>
+  <Property name="port" type="number">
+    Port Default: `1433`
+  </Property>
+  <Property name="database" type="text" required>
+    Database
+  </Property>
+  <Property name="username" type="text" required>
+    Username
+  </Property>
+  <Property name="password" type="password" required>
+    Password
+  </Property>
+  <Property name="query" type="textarea">
+    SQL Query
+
+    Example: `SELECT * FROM customers WHERE active = 1`
+  </Property>
+  <Property name="table" type="text">
+    Table (if no query) (e.g., `customers`)
+  </Property>
+  <Property name="columns" type="text">
+    Columns (comma-separated) (e.g., `id, name, email`)
+  </Property>
+  <Property name="filter" type="text">
+    WHERE Filter (e.g., `status = 'active'`)
+  </Property>
+  <Property name="limit" type="number">
+    Row Limit
+  </Property>
+  <Property name="mode" type="select">
+    Mode Default: `memory`
+  </Property>
+  <Property name="batch_size" type="number">
+    Batch Size Default: `10000`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Extract SQL Server.variableName}`.
+
+<Properties>
+  <Property name="records" type="array">
+    Extracted records
+  </Property>
+  <Property name="columns" type="array">
+    Column names
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.tap.sqlserver",
+  "label": "Extract SQL Server",
+  "config": {
+    "host": "your-host",
+    "port": "1433",
+    "database": "your-database",
+    "username": "your-username"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Extract Oracle {{ id: 'data-tap-oracle' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-database"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <ellipse cx="12" cy="5" rx="9" ry="3" />
+  <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+  <path d="M3 12A9 3 0 0 0 21 12" />
+</svg>
+`} label="Extract Oracle" description="Extract data from Oracle Database" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.oracle`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="text" required>
+    Host
+  </Property>
+  <Property name="port" type="number">
+    Port Default: `1521`
+  </Property>
+  <Property name="database" type="text" required>
+    Service Name
+  </Property>
+  <Property name="username" type="text" required>
+    Username
+  </Property>
+  <Property name="password" type="password" required>
+    Password
+  </Property>
+  <Property name="query" type="textarea">
+    SQL Query
+
+    Example: `SELECT * FROM customers WHERE ROWNUM &lt;= 1000`
+  </Property>
+  <Property name="table" type="text">
+    Table (if no query)
+  </Property>
+  <Property name="columns" type="text">
+    Columns
+  </Property>
+  <Property name="filter" type="text">
+    WHERE Filter
+  </Property>
+  <Property name="limit" type="number">
+    Row Limit
+  </Property>
+  <Property name="mode" type="select">
+    Mode Default: `memory`
+  </Property>
+  <Property name="batch_size" type="number">
+    Batch Size Default: `10000`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Extract Oracle.variableName}`.
+
+<Properties>
+  <Property name="records" type="array">
+    Extracted records
+  </Property>
+  <Property name="columns" type="array">
+    Column names
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.tap.oracle",
+  "label": "Extract Oracle",
+  "config": {
+    "host": "your-host",
+    "port": "1521",
+    "database": "your-database",
+    "username": "your-username"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Extract PostgreSQL {{ id: 'data-tap-postgres' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-database"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <ellipse cx="12" cy="5" rx="9" ry="3" />
+  <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+  <path d="M3 12A9 3 0 0 0 21 12" />
+</svg>
+`} label="Extract PostgreSQL" description="Extract data from PostgreSQL" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.postgres`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="text" required>
+    Host
+  </Property>
+  <Property name="port" type="number">
+    Port Default: `5432`
+  </Property>
+  <Property name="database" type="text" required>
+    Database
+  </Property>
+  <Property name="username" type="text" required>
+    Username
+  </Property>
+  <Property name="password" type="password" required>
+    Password
+  </Property>
+  <Property name="query" type="textarea">
+    SQL Query (e.g., `SELECT * FROM users LIMIT 1000`)
+  </Property>
+  <Property name="table" type="text">
+    Table (if no query)
+  </Property>
+  <Property name="columns" type="text">
+    Columns
+  </Property>
+  <Property name="filter" type="text">
+    WHERE Filter
+  </Property>
+  <Property name="limit" type="number">
+    Row Limit
+  </Property>
+  <Property name="mode" type="select">
+    Mode Default: `memory`
+  </Property>
+  <Property name="batch_size" type="number">
+    Batch Size Default: `10000`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Extract PostgreSQL.variableName}`.
+
+<Properties>
+  <Property name="records" type="array">
+    Extracted records
+  </Property>
+  <Property name="columns" type="array">
+    Column names
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.tap.postgres",
+  "label": "Extract PostgreSQL",
+  "config": {
+    "host": "your-host",
+    "port": "5432",
+    "database": "your-database",
+    "username": "your-username"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Extract MySQL {{ id: 'data-tap-mysql' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-database"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <ellipse cx="12" cy="5" rx="9" ry="3" />
+  <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+  <path d="M3 12A9 3 0 0 0 21 12" />
+</svg>
+`} label="Extract MySQL" description="Extract data from MySQL/MariaDB" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.mysql`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="text" required>
+    Host
+  </Property>
+  <Property name="port" type="number">
+    Port Default: `3306`
+  </Property>
+  <Property name="database" type="text" required>
+    Database
+  </Property>
+  <Property name="username" type="text" required>
+    Username
+  </Property>
+  <Property name="password" type="password" required>
+    Password
+  </Property>
+  <Property name="query" type="textarea">
+    SQL Query
+  </Property>
+  <Property name="table" type="text">
+    Table (if no query)
+  </Property>
+  <Property name="columns" type="text">
+    Columns
+  </Property>
+  <Property name="filter" type="text">
+    WHERE Filter
+  </Property>
+  <Property name="limit" type="number">
+    Row Limit
+  </Property>
+  <Property name="mode" type="select">
+    Mode Default: `memory`
+  </Property>
+  <Property name="batch_size" type="number">
+    Batch Size Default: `10000`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Extract MySQL.variableName}`.
+
+<Properties>
+  <Property name="records" type="array">
+    Extracted records
+  </Property>
+  <Property name="columns" type="array">
+    Column names
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.tap.mysql",
+  "label": "Extract MySQL",
+  "config": {
+    "host": "your-host",
+    "port": "3306",
+    "database": "your-database",
+    "username": "your-username"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Extract DB2 {{ id: 'data-tap-db2' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-database"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <ellipse cx="12" cy="5" rx="9" ry="3" />
+  <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+  <path d="M3 12A9 3 0 0 0 21 12" />
+</svg>
+`} label="Extract DB2" description="Extract data from IBM DB2" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.db2`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="text" required>
+    Host
+  </Property>
+  <Property name="port" type="number">
+    Port Default: `50000`
+  </Property>
+  <Property name="database" type="text" required>
+    Database
+  </Property>
+  <Property name="username" type="text" required>
+    Username
+  </Property>
+  <Property name="password" type="password" required>
+    Password
+  </Property>
+  <Property name="query" type="textarea">
+    SQL Query
+  </Property>
+  <Property name="table" type="text">
+    Table (if no query)
+  </Property>
+  <Property name="columns" type="text">
+    Columns
+  </Property>
+  <Property name="filter" type="text">
+    WHERE Filter
+  </Property>
+  <Property name="limit" type="number">
+    Row Limit
+  </Property>
+  <Property name="mode" type="select">
+    Mode Default: `memory`
+  </Property>
+  <Property name="batch_size" type="number">
+    Batch Size Default: `10000`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Extract DB2.variableName}`.
+
+<Properties>
+  <Property name="records" type="array">
+    Extracted records
+  </Property>
+  <Property name="columns" type="array">
+    Column names
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.tap.db2",
+  "label": "Extract DB2",
+  "config": {
+    "host": "your-host",
+    "port": "50000",
+    "database": "your-database",
+    "username": "your-username"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Extract Snowflake {{ id: 'data-tap-snowflake' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-snowflake"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m10 20-1.25-2.5L6 18" />
+  <path d="M10 4 8.75 6.5 6 6" />
+  <path d="m14 20 1.25-2.5L18 18" />
+  <path d="m14 4 1.25 2.5L18 6" />
+  <path d="m17 21-3-6h-4" />
+  <path d="m17 3-3 6 1.5 3" />
+  <path d="M2 12h6.5L10 9" />
+  <path d="m20 10-1.5 2 1.5 2" />
+  <path d="M22 12h-6.5L14 15" />
+  <path d="m4 10 1.5 2L4 14" />
+  <path d="m7 21 3-6-1.5-3" />
+  <path d="m7 3 3 6h4" />
+</svg>
+`} label="Extract Snowflake" description="Extract data from Snowflake" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.snowflake`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="account" type="text" required>
+    Account Identifier
+  </Property>
+  <Property name="database" type="text" required>
+    Database
+  </Property>
+  <Property name="schema" type="text">
+    Schema Default: `PUBLIC`
+  </Property>
+  <Property name="warehouse" type="text">
+    Warehouse
+  </Property>
+  <Property name="username" type="text" required>
+    Username
+  </Property>
+  <Property name="password" type="password" required>
+    Password
+  </Property>
+  <Property name="query" type="textarea">
+    SQL Query
+  </Property>
+  <Property name="table" type="text">
+    Table (if no query)
+  </Property>
+  <Property name="columns" type="text">
+    Columns
+  </Property>
+  <Property name="filter" type="text">
+    WHERE Filter
+  </Property>
+  <Property name="limit" type="number">
+    Row Limit
+  </Property>
+  <Property name="mode" type="select">
+    Mode Default: `memory`
+  </Property>
+  <Property name="batch_size" type="number">
+    Batch Size Default: `10000`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Extract Snowflake.variableName}`.
+
+<Properties>
+  <Property name="records" type="array">
+    Extracted records
+  </Property>
+  <Property name="columns" type="array">
+    Column names
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.tap.snowflake",
+  "label": "Extract Snowflake",
+  "config": {
+    "account": "your-account",
+    "database": "your-database",
+    "schema": "PUBLIC",
+    "warehouse": "your-warehouse"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Read CSV {{ id: 'data-tap-csv' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-spreadsheet"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M8 13h2" />
+  <path d="M14 13h2" />
+  <path d="M8 17h2" />
+  <path d="M14 17h2" />
+</svg>
+`} label="Read CSV" description="Extract data from CSV file" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.csv`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    File Path
+  </Property>
+  <Property name="delimiter" type="text">
+    Delimiter Default: `,`
+  </Property>
+  <Property name="encoding" type="select">
+    Encoding Default: `utf-8`
+  </Property>
+  <Property name="header" type="boolean">
+    Has Header Row Default: `true`
+  </Property>
+  <Property name="columns" type="text">
+    Column Names (if no header)
+  </Property>
+  <Property name="limit" type="number">
+    Row Limit
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Read CSV.variableName}`.
+
+<Properties>
+  <Property name="records" type="array">
+    Extracted records
+  </Property>
+  <Property name="columns" type="array">
+    Column names
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.tap.csv",
+  "label": "Read CSV",
+  "config": {
+    "path": "your-path",
+    "delimiter": ",",
+    "encoding": "utf-8",
+    "header": "true"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Read Excel (Data) {{ id: 'data-tap-excel' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-spreadsheet"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M8 13h2" />
+  <path d="M14 13h2" />
+  <path d="M8 17h2" />
+  <path d="M14 17h2" />
+</svg>
+`} label="Read Excel (Data)" description="Extract data from Excel file for data integration" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.excel`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    File Path
+  </Property>
+  <Property name="sheet" type="text">
+    Sheet Name
+  </Property>
+  <Property name="header" type="boolean">
+    Has Header Row Default: `true`
+  </Property>
+  <Property name="columns" type="text">
+    Column Names (if no header)
+  </Property>
+  <Property name="limit" type="number">
+    Row Limit
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Read Excel (Data).variableName}`.
+
+<Properties>
+  <Property name="records" type="array">
+    Extracted records
+  </Property>
+  <Property name="columns" type="array">
+    Column names
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.tap.excel",
+  "label": "Read Excel (Data)",
+  "config": {
+    "path": "your-path",
+    "sheet": "your-sheet",
+    "header": "true",
+    "columns": "your-columns"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Read from S3 {{ id: 'data-tap-s3' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-cloud"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+</svg>
+`} label="Read from S3" description="Extract data from AWS S3" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.s3`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="bucket" type="text" required>
+    Bucket Name
+  </Property>
+  <Property name="key" type="text" required>
+    Object Key (path) (e.g., `data/customers.csv`)
+  </Property>
+  <Property name="aws_access_key" type="text" required>
+    AWS Access Key
+  </Property>
+  <Property name="aws_secret_key" type="password" required>
+    AWS Secret Key
+  </Property>
+  <Property name="region" type="text">
+    Region Default: `us-east-1`
+  </Property>
+  <Property name="file_type" type="select">
+    File Type Default: `csv`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Read from S3.variableName}`.
+
+<Properties>
+  <Property name="records" type="array">
+    Extracted records
+  </Property>
+  <Property name="columns" type="array">
+    Column names
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.tap.s3",
+  "label": "Read from S3",
+  "config": {
+    "bucket": "your-bucket",
+    "key": "data/customers.csv",
+    "aws_access_key": "your-aws_access_key",
+    "aws_secret_key": "your-aws_secret_key"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Read from SFTP {{ id: 'data-tap-sftp' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-server"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
+  <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
+  <line x1="6" x2="6.01" y1="6" y2="6" />
+  <line x1="6" x2="6.01" y1="18" y2="18" />
+</svg>
+`} label="Read from SFTP" description="Extract data from SFTP server" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.sftp`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="text" required>
+    Host
+  </Property>
+  <Property name="port" type="number">
+    Port Default: `22`
+  </Property>
+  <Property name="path" type="text" required>
+    File Path (e.g., `/data/file.csv`)
+  </Property>
+  <Property name="username" type="text" required>
+    Username
+  </Property>
+  <Property name="password" type="password">
+    Password
+  </Property>
+  <Property name="private_key" type="text">
+    Private Key Path
+  </Property>
+  <Property name="file_type" type="select">
+    File Type Default: `csv`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Read from SFTP.variableName}`.
+
+<Properties>
+  <Property name="records" type="array">
+    Extracted records
+  </Property>
+  <Property name="columns" type="array">
+    Column names
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.tap.sftp",
+  "label": "Read from SFTP",
+  "config": {
+    "host": "your-host",
+    "port": "22",
+    "path": "/data/file.csv",
+    "username": "your-username"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Extract Salesforce {{ id: 'data-tap-salesforce' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-cloud"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+</svg>
+`} label="Extract Salesforce" description="Extract data from Salesforce using SOQL" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.salesforce`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="username" type="text" required>
+    Username (e.g., `user@company.com`)
+  </Property>
+  <Property name="password" type="password" required>
+    Password
+  </Property>
+  <Property name="security_token" type="password" required>
+    Security Token
+  </Property>
+  <Property name="query" type="textarea" required>
+    SOQL Query
+
+    Example: `SELECT Id, Name, Email FROM Contact WHERE CreatedDate &gt; LAST_MONTH`
+  </Property>
+  <Property name="domain" type="select">
+    Domain Default: `login`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Extract Salesforce.variableName}`.
+
+<Properties>
+  <Property name="records" type="array">
+    Salesforce records
+  </Property>
+  <Property name="columns" type="array">
+    Field names
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.tap.salesforce",
+  "label": "Extract Salesforce",
+  "config": {
+    "username": "user@company.com",
+    "password": "your-password",
+    "security_token": "your-security_token",
+    "query": "SELECT Id, Name, Email FROM Contact WHERE CreatedDate > LAST_MONTH"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Extract REST API {{ id: 'data-tap-rest_api' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-globe"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <circle cx="12" cy="12" r="10" />
+  <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+  <path d="M2 12h20" />
+</svg>
+`} label="Extract REST API" description="Extract data from any REST API with pagination support" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.rest_api`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="url" type="text" required>
+    API URL
+  </Property>
+  <Property name="method" type="select">
+    HTTP Method Default: `GET`
+  </Property>
+  <Property name="headers" type="textarea">
+    Headers (JSON)
+  </Property>
+  <Property name="body" type="textarea">
+    Request Body (JSON)
+  </Property>
+  <Property name="auth_type" type="select">
+    Auth Type
+  </Property>
+  <Property name="auth_value" type="password">
+    Auth Value
+  </Property>
+  <Property name="pagination_type" type="select">
+    Pagination
+  </Property>
+  <Property name="pagination_param" type="text">
+    Pagination Param (e.g., `offset or page or cursor`)
+  </Property>
+  <Property name="data_path" type="text">
+    Data Path (JSONPath) (e.g., `$.data or $.results`)
+  </Property>
+  <Property name="limit" type="number">
+    Max Records
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Extract REST API.variableName}`.
+
+<Properties>
+  <Property name="records" type="array">
+    API response records
+  </Property>
+  <Property name="columns" type="array">
+    Field names
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.tap.rest_api",
+  "label": "Extract REST API",
+  "config": {
+    "url": "your-url",
+    "method": "GET",
+    "headers": "your-headers",
+    "body": "your-body"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Load to SQL Server {{ id: 'data-target-sqlserver' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-database-backup"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <ellipse cx="12" cy="5" rx="9" ry="3" />
+  <path d="M3 12a9 3 0 0 0 5 2.69" />
+  <path d="M21 9.3V5" />
+  <path d="M3 5v14a9 3 0 0 0 6.47 2.88" />
+  <path d="M12 12v4h4" />
+  <path d="M13 20a5 5 0 0 0 9-3 4.5 4.5 0 0 0-4.5-4.5c-1.33 0-2.54.54-3.41 1.41L12 16" />
+</svg>
+`} label="Load to SQL Server" description="Load data into Microsoft SQL Server" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.sqlserver`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="text" required>
+    Host
+  </Property>
+  <Property name="port" type="number">
+    Port Default: `1433`
+  </Property>
+  <Property name="database" type="text" required>
+    Database
+  </Property>
+  <Property name="username" type="text" required>
+    Username
+  </Property>
+  <Property name="password" type="password" required>
+    Password
+  </Property>
+  <Property name="table" type="text" required>
+    Target Table
+  </Property>
+  <Property name="records" type="text" required>
+    Records
+  </Property>
+  <Property name="mode" type="select">
+    Mode Default: `insert`
+  </Property>
+  <Property name="batch_size" type="number">
+    Batch Size Default: `5000`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Load to SQL Server.variableName}`.
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records inserted
+  </Property>
+  <Property name="updatedCount" type="number">
+    Records updated
+  </Property>
+  <Property name="errorCount" type="number">
+    Errors
+  </Property>
+  <Property name="errors" type="array">
+    Error details
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.target.sqlserver",
+  "label": "Load to SQL Server",
+  "config": {
+    "host": "your-host",
+    "port": "1433",
+    "database": "your-database",
+    "username": "your-username"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Load to Oracle {{ id: 'data-target-oracle' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-database-backup"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <ellipse cx="12" cy="5" rx="9" ry="3" />
+  <path d="M3 12a9 3 0 0 0 5 2.69" />
+  <path d="M21 9.3V5" />
+  <path d="M3 5v14a9 3 0 0 0 6.47 2.88" />
+  <path d="M12 12v4h4" />
+  <path d="M13 20a5 5 0 0 0 9-3 4.5 4.5 0 0 0-4.5-4.5c-1.33 0-2.54.54-3.41 1.41L12 16" />
+</svg>
+`} label="Load to Oracle" description="Load data into Oracle Database" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.oracle`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="text" required>
+    Host
+  </Property>
+  <Property name="port" type="number">
+    Port Default: `1521`
+  </Property>
+  <Property name="database" type="text" required>
+    Service Name
+  </Property>
+  <Property name="username" type="text" required>
+    Username
+  </Property>
+  <Property name="password" type="password" required>
+    Password
+  </Property>
+  <Property name="table" type="text" required>
+    Target Table
+  </Property>
+  <Property name="records" type="text" required>
+    Records
+  </Property>
+  <Property name="mode" type="select">
+    Mode Default: `insert`
+  </Property>
+  <Property name="batch_size" type="number">
+    Batch Size Default: `5000`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Load to Oracle.variableName}`.
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records inserted
+  </Property>
+  <Property name="updatedCount" type="number">
+    Records updated
+  </Property>
+  <Property name="errorCount" type="number">
+    Errors
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.target.oracle",
+  "label": "Load to Oracle",
+  "config": {
+    "host": "your-host",
+    "port": "1521",
+    "database": "your-database",
+    "username": "your-username"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Load to PostgreSQL {{ id: 'data-target-postgres' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-database-backup"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <ellipse cx="12" cy="5" rx="9" ry="3" />
+  <path d="M3 12a9 3 0 0 0 5 2.69" />
+  <path d="M21 9.3V5" />
+  <path d="M3 5v14a9 3 0 0 0 6.47 2.88" />
+  <path d="M12 12v4h4" />
+  <path d="M13 20a5 5 0 0 0 9-3 4.5 4.5 0 0 0-4.5-4.5c-1.33 0-2.54.54-3.41 1.41L12 16" />
+</svg>
+`} label="Load to PostgreSQL" description="Load data into PostgreSQL" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.postgres`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="text" required>
+    Host
+  </Property>
+  <Property name="port" type="number">
+    Port Default: `5432`
+  </Property>
+  <Property name="database" type="text" required>
+    Database
+  </Property>
+  <Property name="username" type="text" required>
+    Username
+  </Property>
+  <Property name="password" type="password" required>
+    Password
+  </Property>
+  <Property name="table" type="text" required>
+    Target Table
+  </Property>
+  <Property name="records" type="text" required>
+    Records
+  </Property>
+  <Property name="mode" type="select">
+    Mode Default: `insert`
+  </Property>
+  <Property name="batch_size" type="number">
+    Batch Size Default: `5000`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Load to PostgreSQL.variableName}`.
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records inserted
+  </Property>
+  <Property name="updatedCount" type="number">
+    Records updated
+  </Property>
+  <Property name="errorCount" type="number">
+    Errors
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.target.postgres",
+  "label": "Load to PostgreSQL",
+  "config": {
+    "host": "your-host",
+    "port": "5432",
+    "database": "your-database",
+    "username": "your-username"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Load to MySQL {{ id: 'data-target-mysql' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-database-backup"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <ellipse cx="12" cy="5" rx="9" ry="3" />
+  <path d="M3 12a9 3 0 0 0 5 2.69" />
+  <path d="M21 9.3V5" />
+  <path d="M3 5v14a9 3 0 0 0 6.47 2.88" />
+  <path d="M12 12v4h4" />
+  <path d="M13 20a5 5 0 0 0 9-3 4.5 4.5 0 0 0-4.5-4.5c-1.33 0-2.54.54-3.41 1.41L12 16" />
+</svg>
+`} label="Load to MySQL" description="Load data into MySQL/MariaDB" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.mysql`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="text" required>
+    Host
+  </Property>
+  <Property name="port" type="number">
+    Port Default: `3306`
+  </Property>
+  <Property name="database" type="text" required>
+    Database
+  </Property>
+  <Property name="username" type="text" required>
+    Username
+  </Property>
+  <Property name="password" type="password" required>
+    Password
+  </Property>
+  <Property name="table" type="text" required>
+    Target Table
+  </Property>
+  <Property name="records" type="text" required>
+    Records
+  </Property>
+  <Property name="mode" type="select">
+    Mode Default: `insert`
+  </Property>
+  <Property name="batch_size" type="number">
+    Batch Size Default: `5000`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Load to MySQL.variableName}`.
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records inserted
+  </Property>
+  <Property name="updatedCount" type="number">
+    Records updated
+  </Property>
+  <Property name="errorCount" type="number">
+    Errors
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.target.mysql",
+  "label": "Load to MySQL",
+  "config": {
+    "host": "your-host",
+    "port": "3306",
+    "database": "your-database",
+    "username": "your-username"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Load to DB2 {{ id: 'data-target-db2' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-database-backup"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <ellipse cx="12" cy="5" rx="9" ry="3" />
+  <path d="M3 12a9 3 0 0 0 5 2.69" />
+  <path d="M21 9.3V5" />
+  <path d="M3 5v14a9 3 0 0 0 6.47 2.88" />
+  <path d="M12 12v4h4" />
+  <path d="M13 20a5 5 0 0 0 9-3 4.5 4.5 0 0 0-4.5-4.5c-1.33 0-2.54.54-3.41 1.41L12 16" />
+</svg>
+`} label="Load to DB2" description="Load data into IBM DB2" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.db2`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="text" required>
+    Host
+  </Property>
+  <Property name="port" type="number">
+    Port Default: `50000`
+  </Property>
+  <Property name="database" type="text" required>
+    Database
+  </Property>
+  <Property name="username" type="text" required>
+    Username
+  </Property>
+  <Property name="password" type="password" required>
+    Password
+  </Property>
+  <Property name="table" type="text" required>
+    Target Table
+  </Property>
+  <Property name="records" type="text" required>
+    Records
+  </Property>
+  <Property name="mode" type="select">
+    Mode Default: `insert`
+  </Property>
+  <Property name="batch_size" type="number">
+    Batch Size Default: `5000`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Load to DB2.variableName}`.
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records inserted
+  </Property>
+  <Property name="errorCount" type="number">
+    Errors
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.target.db2",
+  "label": "Load to DB2",
+  "config": {
+    "host": "your-host",
+    "port": "50000",
+    "database": "your-database",
+    "username": "your-username"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Load to Snowflake {{ id: 'data-target-snowflake' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-snowflake"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m10 20-1.25-2.5L6 18" />
+  <path d="M10 4 8.75 6.5 6 6" />
+  <path d="m14 20 1.25-2.5L18 18" />
+  <path d="m14 4 1.25 2.5L18 6" />
+  <path d="m17 21-3-6h-4" />
+  <path d="m17 3-3 6 1.5 3" />
+  <path d="M2 12h6.5L10 9" />
+  <path d="m20 10-1.5 2 1.5 2" />
+  <path d="M22 12h-6.5L14 15" />
+  <path d="m4 10 1.5 2L4 14" />
+  <path d="m7 21 3-6-1.5-3" />
+  <path d="m7 3 3 6h4" />
+</svg>
+`} label="Load to Snowflake" description="Load data into Snowflake" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.snowflake`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="account" type="text" required>
+    Account Identifier
+  </Property>
+  <Property name="database" type="text" required>
+    Database
+  </Property>
+  <Property name="schema" type="text">
+    Schema Default: `PUBLIC`
+  </Property>
+  <Property name="warehouse" type="text">
+    Warehouse
+  </Property>
+  <Property name="username" type="text" required>
+    Username
+  </Property>
+  <Property name="password" type="password" required>
+    Password
+  </Property>
+  <Property name="table" type="text" required>
+    Target Table
+  </Property>
+  <Property name="records" type="text" required>
+    Records
+  </Property>
+  <Property name="mode" type="select">
+    Mode Default: `insert`
+  </Property>
+  <Property name="batch_size" type="number">
+    Batch Size Default: `5000`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Load to Snowflake.variableName}`.
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records inserted
+  </Property>
+  <Property name="updatedCount" type="number">
+    Records updated
+  </Property>
+  <Property name="errorCount" type="number">
+    Errors
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.target.snowflake",
+  "label": "Load to Snowflake",
+  "config": {
+    "account": "your-account",
+    "database": "your-database",
+    "schema": "PUBLIC",
+    "warehouse": "your-warehouse"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Load to BigQuery {{ id: 'data-target-bigquery' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-cloud"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+</svg>
+`} label="Load to BigQuery" description="Load data into Google BigQuery" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.bigquery`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="project" type="text" required>
+    GCP Project ID
+  </Property>
+  <Property name="dataset" type="text" required>
+    Dataset
+  </Property>
+  <Property name="table" type="text" required>
+    Table
+  </Property>
+  <Property name="credentials_json" type="text" required>
+    Credentials JSON Path
+  </Property>
+  <Property name="records" type="text" required>
+    Records
+  </Property>
+  <Property name="mode" type="select">
+    Mode Default: `append`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Load to BigQuery.variableName}`.
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records inserted
+  </Property>
+  <Property name="errorCount" type="number">
+    Errors
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.target.bigquery",
+  "label": "Load to BigQuery",
+  "config": {
+    "project": "your-project",
+    "dataset": "your-dataset",
+    "table": "your-table",
+    "credentials_json": "your-credentials_json"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Write CSV {{ id: 'data-target-csv' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-spreadsheet"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M8 13h2" />
+  <path d="M14 13h2" />
+  <path d="M8 17h2" />
+  <path d="M14 17h2" />
+</svg>
+`} label="Write CSV" description="Write data to CSV file" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.csv`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    File Path
+  </Property>
+  <Property name="records" type="text" required>
+    Records
+  </Property>
+  <Property name="delimiter" type="text">
+    Delimiter Default: `,`
+  </Property>
+  <Property name="encoding" type="select">
+    Encoding Default: `utf-8`
+  </Property>
+  <Property name="append" type="boolean">
+    Append to Existing Default: `false`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Write CSV.variableName}`.
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records written
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.target.csv",
+  "label": "Write CSV",
+  "config": {
+    "path": "your-path",
+    "records": "your-records",
+    "delimiter": ",",
+    "encoding": "utf-8"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Write Excel (Data) {{ id: 'data-target-excel' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-file-spreadsheet"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+  <path d="M8 13h2" />
+  <path d="M14 13h2" />
+  <path d="M8 17h2" />
+  <path d="M14 17h2" />
+</svg>
+`} label="Write Excel (Data)" description="Write data to Excel file" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.excel`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    File Path
+  </Property>
+  <Property name="records" type="text" required>
+    Records
+  </Property>
+  <Property name="sheet" type="text">
+    Sheet Name Default: `Sheet1`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Write Excel (Data).variableName}`.
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records written
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.target.excel",
+  "label": "Write Excel (Data)",
+  "config": {
+    "path": "your-path",
+    "records": "your-records",
+    "sheet": "Sheet1"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Write to S3 {{ id: 'data-target-s3' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-cloud-upload"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 13v8" />
+  <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
+  <path d="m8 17 4-4 4 4" />
+</svg>
+`} label="Write to S3" description="Upload data to AWS S3" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.s3`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="bucket" type="text" required>
+    Bucket Name
+  </Property>
+  <Property name="key" type="text" required>
+    Object Key (path)
+  </Property>
+  <Property name="records" type="text" required>
+    Records
+  </Property>
+  <Property name="aws_access_key" type="text" required>
+    AWS Access Key
+  </Property>
+  <Property name="aws_secret_key" type="password" required>
+    AWS Secret Key
+  </Property>
+  <Property name="region" type="text">
+    Region Default: `us-east-1`
+  </Property>
+  <Property name="file_type" type="select">
+    File Type Default: `csv`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Write to S3.variableName}`.
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records uploaded
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.target.s3",
+  "label": "Write to S3",
+  "config": {
+    "bucket": "your-bucket",
+    "key": "your-key",
+    "records": "your-records",
+    "aws_access_key": "your-aws_access_key"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## Write to SFTP {{ id: 'data-target-sftp' }}
+
+<NodeHeader icon={`
+<svg
+  class="lucide lucide-server-cog"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m10.852 14.772-.383.923" />
+  <path d="M13.148 14.772a3 3 0 1 0-2.296-5.544l-.383-.923" />
+  <path d="m13.148 9.228.383-.923" />
+  <path d="m13.53 15.696-.382-.924a3 3 0 1 1-2.296-5.544" />
+  <path d="m14.772 10.852.923-.383" />
+  <path d="m14.772 13.148.923.383" />
+  <path d="M4.5 10H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-.5" />
+  <path d="M4.5 14H4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2h-.5" />
+  <path d="M6 18h.01" />
+  <path d="M6 6h.01" />
+  <path d="m9.228 10.852-.923-.383" />
+  <path d="m9.228 13.148-.923.383" />
+</svg>
+`} label="Write to SFTP" description="Upload data to SFTP server" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.sftp`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="text" required>
+    Host
+  </Property>
+  <Property name="port" type="number">
+    Port Default: `22`
+  </Property>
+  <Property name="path" type="text" required>
+    Target Path
+  </Property>
+  <Property name="records" type="text" required>
+    Records
+  </Property>
+  <Property name="username" type="text" required>
+    Username
+  </Property>
+  <Property name="password" type="password">
+    Password
+  </Property>
+  <Property name="private_key" type="text">
+    Private Key Path
+  </Property>
+  <Property name="file_type" type="select">
+    File Type Default: `csv`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Write to SFTP.variableName}`.
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records uploaded
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "data.target.sftp",
+  "label": "Write to SFTP",
+  "config": {
+    "host": "your-host",
+    "port": "22",
+    "path": "your-path",
+    "records": "your-records"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+

@@ -25,7 +25,9 @@ interface VaultActions {
 
   // Secret operations
   listSecrets: () => Promise<VaultSecret[]>;
-  getSecret: (name: string) => Promise<string>;
+  // SECURITY: getSecret was removed - values must NEVER be returned to frontend
+  // Use verifySecret to check if a secret exists
+  verifySecret: (name: string) => Promise<boolean>;
   setSecret: (name: string, value: string, description?: string) => Promise<boolean>;
   deleteSecret: (name: string) => Promise<boolean>;
 
@@ -131,16 +133,18 @@ export const useVaultStore = create<VaultState & VaultActions>((set, get) => ({
     }
   },
 
-  getSecret: async (name) => {
+  // SECURITY: getSecret was removed - values must NEVER be returned to frontend
+  // Use verifySecret to check if a secret exists
+  verifySecret: async (name) => {
     try {
-      const value = await invoke<string>("vault_get_secret", {
+      const exists = await invoke<boolean>("vault_verify_secret", {
         name,
         path: get().vaultPath,
       });
-      return value;
+      return exists;
     } catch (error) {
       set({ error: error as string });
-      throw error;
+      return false;
     }
   },
 
