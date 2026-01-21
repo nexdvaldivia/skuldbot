@@ -812,6 +812,169 @@ además de variables globales para el último error.
      - Agrupa por nodo predecesor
      - Click para copiar expresión
 
+FILOSOFÍA DE NODOS (ESTILO N8N)
+
+SkuldBot Studio adopta la filosofía de diseño de n8n para la experiencia de desarrollo de flujos.
+Esta sección es OBLIGATORIA para cualquier desarrollo relacionado con nodos, paneles o debug.
+
+PRINCIPIOS FUNDAMENTALES
+
+1. Datos Reales, NUNCA Placeholders
+   - SIEMPRE mostrar datos reales de ejecución, nunca esquemas de ejemplo ni mock data
+   - Si no hay ejecución, mostrar estado vacío o el schema de variables disponibles
+   - Cada ejecución captura input/output completo de cada nodo
+   - El usuario debe ver EXACTAMENTE lo que el nodo recibió y produjo
+
+2. Modelo de Items/Arrays
+   - Todos los datos fluyen como arrays de objetos (items)
+   - Cada elemento es un "item" (equivalente a una fila/registro)
+   - Procesamiento por lotes natural
+   - Los nodos que procesan múltiples items deben mostrar la cantidad
+
+3. Transparencia Visual Total
+   - INPUT Panel: muestra exactamente qué datos recibe el nodo de sus predecesores
+   - OUTPUT Panel: muestra exactamente qué datos produce el nodo
+   - JSON tree expandible para inspección profunda
+   - Timeline de ejecución con tiempos por nodo
+
+4. Distinción Claro: Sin Ejecución vs Con Ejecución
+   - SIN EJECUCIÓN: Mostrar schema/estructura de variables disponibles
+   - CON EJECUCIÓN: Mostrar datos REALES con badge "LIVE"
+   - Nunca mezclar datos reales con placeholders
+
+PANELES DE NODO (NodeConfigPanel)
+
+El panel de configuración de nodo tiene 3 secciones obligatorias:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ INPUT (azul)      │ CONFIGURACIÓN     │ OUTPUT (verde)      │
+│ Variables de      │ Campos del nodo   │ Datos de salida     │
+│ nodos anteriores  │                   │ del nodo            │
+├───────────────────┼───────────────────┼─────────────────────┤
+│ Sin ejecución:    │ Siempre editable  │ Sin ejecución:      │
+│ - Schema vars     │                   │ - Schema de salida  │
+│                   │                   │                     │
+│ Con ejecución:    │                   │ Con ejecución:      │
+│ - Datos REALES    │                   │ - Datos REALES      │
+│ - Badge "LIVE"    │                   │ - Badge "LIVE"      │
+└───────────────────┴───────────────────┴─────────────────────┘
+```
+
+INPUT Panel (Panel Izquierdo - Azul):
+- Muestra variables disponibles de nodos predecesores
+- Click en variable = copiar expresión ${NodeLabel.field}
+- SIN ejecución: muestra schema de campos disponibles
+- CON ejecución: muestra datos REALES del nodo predecesor con badge "LIVE"
+
+OUTPUT Panel (Panel Derecho - Verde):
+- Muestra la salida del nodo seleccionado
+- SIN ejecución: muestra schema/estructura esperada
+- CON ejecución: muestra datos REALES de la última ejecución con badge "LIVE"
+- Incluye indicador de cantidad de items si aplica
+
+INDICADORES VISUALES EN NODOS
+
+Cada nodo en el canvas debe mostrar después de ejecutar:
+
+```
++------------------------+
+|  Read Excel            |
+|  147 items             | <- Cantidad de items procesados
+|  1.2s                  | <- Tiempo de ejecucion
++------------------------+
+```
+
+Estados visuales:
+- Pendiente (gris/azul suave)
+- Ejecutando (amarillo, animado)
+- Exito (verde)
+- Error (rojo)
+- Datos fijados (indicador de pin)
+
+DATA PINNING (Feature Planificado)
+
+Permite "fijar" la salida de un nodo para desarrollo iterativo:
+- Pin output → usar esos datos fijados en lugar de re-ejecutar
+- Editar datos fijados para probar casos edge
+- Indicador visual cuando un nodo tiene datos fijados
+- Ignorar datos fijados en ejecución de producción
+
+TIMELINE DE EJECUCIÓN (Feature Planificado)
+
+El DebugPanel debe mostrar timeline visual:
+
+```
+Timeline
++- Form Trigger    [0.5s] OK
++- Validate Data   [0.2s] OK
++- Excel Read      [1.2s] OK 147 items
++- Loop Row        [3.5s] OK 147 iterations
++- Send Email      [2.1s] OK
+Total: 7.5s
+```
+
+MANEJO DE ERRORES ESTRUCTURADO
+
+Cuando un nodo falla:
+- Nodo se marca en ROJO
+- Línea de error (naranja) se activa
+- OUTPUT panel muestra detalles del error:
+  - Mensaje de error
+  - Stack trace (si disponible)
+  - Sugerencias de solución
+  - Estado de variables al momento del fallo
+
+ARCHIVOS RELACIONADOS
+
+- studio/src/components/NodeConfigPanel.tsx
+  - Implementa INPUT, CONFIG y OUTPUT panels
+  - Debe detectar datos reales vs schema
+  - Badge "LIVE" cuando hay datos de ejecución
+
+- studio/src/components/CustomNode.tsx
+  - Renderiza nodos en el canvas
+  - Debe mostrar item count y tiempo después de ejecución
+  - Estados visuales (pending, running, success, error)
+
+- studio/src/store/debugStore.ts
+  - sessionState.nodeExecutions contiene datos reales por nodo
+  - Captura input/output/duration de cada nodo
+  - pinnedData (futuro) para data pinning
+
+- studio/src/components/DebugPanel.tsx
+  - Controles de debug (Play, Stop, Step)
+  - Timeline de ejecución (futuro)
+  - Logs en tiempo real
+
+IMPLEMENTACIÓN: DETECTAR DATOS REALES
+
+```tsx
+// En NodeConfigPanel.tsx
+const nodeExecution = sessionState?.nodeExecutions?.[selectedNode.id];
+const hasRealData = nodeExecution?.output !== undefined;
+
+{hasRealData ? (
+  // Mostrar datos REALES con badge LIVE
+  <div className="bg-green-50 border-green-200">
+    <span className="badge bg-green-100 text-green-600">LIVE</span>
+    <pre>{JSON.stringify(nodeExecution.output, null, 2)}</pre>
+  </div>
+) : (
+  // Mostrar schema/estructura de variables
+  <SchemaTree variables={availableVariables} />
+)}
+```
+
+REGLAS DE ORO
+
+1. NUNCA mostrar datos falsos o de ejemplo - si no hay ejecución, mostrar vacío o schema
+2. SIEMPRE distinguir visualmente entre schema y datos reales (badge LIVE)
+3. SIEMPRE capturar timing de ejecución por nodo
+4. SIEMPRE mostrar cantidad de items cuando aplique
+5. El usuario debe poder confiar en que lo que ve es REAL
+6. Click-to-copy debe funcionar tanto en schema como en datos reales
+
 SISTEMA DE DEBUG (MOTOR REAL)
 
 El Studio está conectado al motor real de Python via Tauri IPC.
@@ -975,32 +1138,32 @@ ESTRUCTURA DEL PROYECTO
 
 La plataforma se organiza en un monorepo con 4 componentes principales:
 
-📦 skuldbot/
-├── engine/              ✅ LISTO - Motor de ejecución compartido
-│   - Python + SkuldBot Runtime + rpaframework
-│   - DSL, Compiler, Executor
-│   - Usado por Studio (debug) y Runner (production)
-│
-├── studio/             🔜 TODO - Editor visual desktop
-│   - Tauri + React + Vite + React Flow
-│   - Editor drag & drop de flujos
-│   - Preview y debug local
-│   - Upload a Orchestrator
-│
-├── orchestrator/       🔜 TODO - Backend y UI web
-│   ├── api/           - NestJS + PostgreSQL
-│   │   - REST API para gestión
-│   │   - Compilación de DSL
-│   │   - Storage de artifacts
-│   └── ui/            - Next.js
-│       - Dashboards
-│       - Gestión de bots y usuarios
-│
-└── runner/            🔜 TODO - Agente de ejecución
+skuldbot/
++-- engine/              [LISTO] Motor de ejecucion compartido
+|   - Python + SkuldBot Runtime + rpaframework
+|   - DSL, Compiler, Executor
+|   - Usado por Studio (debug) y Runner (production)
+|
++-- studio/             [TODO] Editor visual desktop
+|   - Tauri + React + Vite + React Flow
+|   - Editor drag & drop de flujos
+|   - Preview y debug local
+|   - Upload a Orchestrator
+|
++-- orchestrator/       [TODO] Backend y UI web
+|   +-- api/           - NestJS + PostgreSQL
+|   |   - REST API para gestion
+|   |   - Compilacion de DSL
+|   |   - Storage de artifacts
+|   +-- ui/            - Next.js
+|       - Dashboards
+|       - Gestion de bots y usuarios
+|
++-- runner/            [TODO] Agente de ejecucion
     - Python standalone
     - Polling/webhook de Orchestrator
     - Ejecuta Bot Packages
-    - Envía logs en tiempo real
+    - Envia logs en tiempo real
 
 COMPONENTES COMPARTIDOS
 

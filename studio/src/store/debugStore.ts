@@ -45,6 +45,14 @@ interface ExecutionResult {
   logs?: string[];
 }
 
+// Pinned data for n8n-style data pinning
+interface PinnedDataEntry {
+  nodeId: string;
+  data: any;
+  pinnedAt: number;
+  label: string;
+}
+
 interface DebugStoreState {
   // Debug state
   state: DebugState;
@@ -58,6 +66,9 @@ interface DebugStoreState {
   // Variables watch
   watchVariables: Map<string, any>;
   globalVariables: Record<string, any>;
+
+  // Data Pinning (n8n-style)
+  pinnedData: Map<string, PinnedDataEntry>;
 
   // Settings
   slowMotion: boolean;
@@ -80,6 +91,7 @@ interface DebugStoreState {
   stepInto: () => void;
   stepOut: () => void;
   runToCursor: (nodeId: string) => void;
+  runSingleNode: (nodeId: string) => Promise<void>;
 
   // Execution tracking
   setCurrentNode: (nodeId: string | null) => void;
@@ -96,6 +108,13 @@ interface DebugStoreState {
   setSlowMotionDelay: (delay: number) => void;
   setUseInteractiveDebug: (enabled: boolean) => void;
 
+  // Data Pinning (n8n-style)
+  pinNodeData: (nodeId: string, data: any, label: string) => void;
+  unpinNodeData: (nodeId: string) => void;
+  clearAllPinnedData: () => void;
+  isPinned: (nodeId: string) => boolean;
+  getPinnedData: (nodeId: string) => PinnedDataEntry | undefined;
+
   // Internal
   _syncFromSession: (session: DebugSessionState) => void;
 }
@@ -108,6 +127,7 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
   sessionState: null,
   watchVariables: new Map(),
   globalVariables: {},
+  pinnedData: new Map(),
   slowMotion: false,
   slowMotionDelay: 500,
   useInteractiveDebug: true, // Default to new interactive debug mode
@@ -327,13 +347,28 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
               get().markNodeStatus(nodeId, "running");
             }
 
+            // Check for NODE_OUTPUT to capture node output data
+            const outputMatch = log.match(/NODE_OUTPUT:([^:]+):(.+)$/);
+            if (outputMatch) {
+              const nodeId = outputMatch[1];
+              const jsonData = outputMatch[2];
+              try {
+                const outputData = JSON.parse(jsonData);
+                get().markNodeStatus(nodeId, "success", outputData);
+              } catch {
+                // If JSON parse fails, use raw string
+                get().markNodeStatus(nodeId, "success", jsonData);
+              }
+            }
+
             if (log.includes("ERROR") || log.includes("FAIL")) {
               logs.error(log);
             } else if (log.includes("WARNING") || log.includes("WARN")) {
               logs.warning(log);
             } else if (log.includes("PASS") || log.includes("SUCCESS")) {
               logs.success(log);
-            } else {
+            } else if (!log.includes("NODE_OUTPUT:")) {
+              // Don't show NODE_OUTPUT lines in logs (already captured as data)
               logs.info(log);
             }
           });
@@ -410,8 +445,12 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     const logs = useLogsStore.getState();
 
     try {
-      await invoke<DebugCommandResult>("debug_stop");
-      logs.info("Debug session stopped");
+      // Stop both interactive debug session and any running bot process
+      await Promise.all([
+        invoke<DebugCommandResult>("debug_stop").catch(() => {}),
+        invoke<boolean>("stop_bot").catch(() => {}),
+      ]);
+      logs.info("Execution stopped");
     } catch (error) {
       // Ignore errors when stopping
     }
@@ -484,6 +523,147 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     // Run until reaching the specified node
     // TODO: Implement with backend support
     set({ state: "running" });
+  },
+
+  runSingleNode: async (nodeId: string) => {
+    const flowStore = useFlowStore.getState();
+    const projectStore = useProjectStore.getState();
+    const logs = useLogsStore.getState();
+    const toast = useToastStore.getState();
+
+    // Sync flowStore with projectStore data
+    const activeBot = projectStore.activeBotId ? projectStore.bots.get(projectStore.activeBotId) : null;
+    if (activeBot) {
+      flowStore.setNodes(activeBot.nodes);
+      flowStore.setEdges(activeBot.edges);
+    }
+
+    const currentFlowState = useFlowStore.getState();
+    const node = currentFlowState.nodes.find(n => n.id === nodeId);
+
+    if (!node) {
+      toast.error("Node not found", "Cannot execute node");
+      return;
+    }
+
+    // Mark node as running
+    get().markNodeStatus(nodeId, "running");
+    get().setCurrentNode(nodeId);
+    logs.info(`Executing node: ${node.data.label}`);
+    logs.openPanel();
+
+    try {
+      // Generate a mini DSL with just this node and its dependencies
+      // For now, we'll create a minimal DSL
+      const nodeDsl = {
+        version: "1.0",
+        bot: {
+          id: `test-${nodeId}`,
+          name: `Test: ${node.data.label}`,
+          description: "Single node test execution",
+        },
+        nodes: [
+          {
+            id: nodeId,
+            type: node.data.nodeType,
+            config: node.data.config || {},
+            outputs: {
+              success: nodeId,
+              error: nodeId,
+            },
+            label: node.data.label,
+          },
+        ],
+        triggers: [nodeId],
+        start_node: nodeId,
+        variables: {},
+      };
+
+      // Find any connected config nodes (AI Model, MS365 Connection, etc.)
+      const configEdges = currentFlowState.edges.filter(e =>
+        e.target === nodeId &&
+        (e.targetHandle === "model" || e.targetHandle === "connection" || e.targetHandle === "embeddings" || e.targetHandle === "memory")
+      );
+
+      for (const edge of configEdges) {
+        const configNode = currentFlowState.nodes.find(n => n.id === edge.source);
+        if (configNode) {
+          // Add config node to DSL
+          const configDslNode: any = {
+            id: configNode.id,
+            type: configNode.data.nodeType,
+            config: configNode.data.config || {},
+            label: configNode.data.label,
+          };
+
+          // Only add outputs for non-config nodes (AI config nodes don't have outputs)
+          // But ms365.connection DOES have outputs (it produces a connection)
+          const AI_CONFIG_NODES = ["ai.model", "ai.embeddings", "vectordb.memory"];
+          if (!AI_CONFIG_NODES.includes(configNode.data.nodeType)) {
+            configDslNode.outputs = { success: configNode.id, error: configNode.id };
+          }
+
+          nodeDsl.nodes.unshift(configDslNode);
+
+          // Add the config to the main node
+          const mainNodeIndex = nodeDsl.nodes.findIndex(n => n.id === nodeId);
+          if (mainNodeIndex >= 0) {
+            const handleName = edge.targetHandle || "model";
+
+            // For connection nodes (like ms365.connection), pass the actual config
+            // so the trigger can use it directly
+            if (configNode.data.nodeType === "ms365.connection") {
+              (nodeDsl.nodes[mainNodeIndex] as any).connection_config = configNode.data.config || {};
+            } else {
+              // For other config nodes, pass a reference
+              (nodeDsl.nodes[mainNodeIndex] as any)[`${handleName}_config_`] = {
+                nodeId: configNode.id,
+                handleId: edge.sourceHandle || "default",
+              };
+            }
+          }
+        }
+      }
+
+      const result = await invoke<ExecutionResult>("run_bot", {
+        dsl: JSON.stringify(nodeDsl),
+      });
+
+      if (result.success) {
+        // Use output if available, otherwise use message, otherwise use a default
+        const outputToShow = result.output || result.message || "Execution completed successfully";
+        get().markNodeStatus(nodeId, "success", outputToShow);
+        logs.success(`Node "${node.data.label}" executed successfully`);
+        toast.success("Node executed", result.message || "Success");
+      } else {
+        const errorToShow = result.message || "Unknown error";
+        get().markNodeStatus(nodeId, "error", undefined, errorToShow);
+        logs.error(`Node "${node.data.label}" failed: ${errorToShow}`);
+        toast.error("Node failed", errorToShow);
+      }
+
+      // Log output if available
+      if (result.logs && Array.isArray(result.logs)) {
+        result.logs.forEach((log: string) => {
+          if (log.includes("ERROR") || log.includes("FAIL")) {
+            logs.error(log);
+          } else if (log.includes("WARNING") || log.includes("WARN")) {
+            logs.warning(log);
+          } else if (log.includes("PASS") || log.includes("SUCCESS")) {
+            logs.success(log);
+          } else {
+            logs.info(log);
+          }
+        });
+      }
+    } catch (error) {
+      const errorMsg = String(error);
+      get().markNodeStatus(nodeId, "error", undefined, errorMsg);
+      logs.error(`Node execution error: ${errorMsg}`);
+      toast.error("Execution error", errorMsg.substring(0, 100));
+    }
+
+    get().setCurrentNode(null);
   },
 
   // Execution tracking
@@ -570,11 +750,45 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
   setUseInteractiveDebug: (enabled) => {
     set({ useInteractiveDebug: enabled });
   },
+
+  // Data Pinning (n8n-style)
+  pinNodeData: (nodeId, data, label) => {
+    set((state) => {
+      const newPinnedData = new Map(state.pinnedData);
+      newPinnedData.set(nodeId, {
+        nodeId,
+        data,
+        pinnedAt: Date.now(),
+        label,
+      });
+      return { pinnedData: newPinnedData };
+    });
+  },
+
+  unpinNodeData: (nodeId) => {
+    set((state) => {
+      const newPinnedData = new Map(state.pinnedData);
+      newPinnedData.delete(nodeId);
+      return { pinnedData: newPinnedData };
+    });
+  },
+
+  clearAllPinnedData: () => {
+    set({ pinnedData: new Map() });
+  },
+
+  isPinned: (nodeId) => {
+    return get().pinnedData.has(nodeId);
+  },
+
+  getPinnedData: (nodeId) => {
+    return get().pinnedData.get(nodeId);
+  },
 }));
 
 // Helper hook for getting node debug state
 export function useNodeDebugState(nodeId: string) {
-  const { currentNodeId, breakpoints, executionHistory, state, sessionState } = useDebugStore();
+  const { currentNodeId, breakpoints, executionHistory, state, sessionState, pinnedData } = useDebugStore();
 
   // Try to get from session state first (more accurate)
   const sessionExec = sessionState?.nodeExecutions[nodeId];
@@ -583,6 +797,8 @@ export function useNodeDebugState(nodeId: string) {
   const isCurrentNode = currentNodeId === nodeId;
   const hasBreakpoint = breakpoints.has(nodeId);
   const isDebugging = state !== "idle";
+  const isPinned = pinnedData.has(nodeId);
+  const pinnedDataEntry = pinnedData.get(nodeId);
 
   return {
     isCurrentNode,
@@ -592,5 +808,7 @@ export function useNodeDebugState(nodeId: string) {
     output: execution?.output,
     error: execution?.error,
     variables: execution?.variables,
+    isPinned,
+    pinnedData: pinnedDataEntry?.data,
   };
 }

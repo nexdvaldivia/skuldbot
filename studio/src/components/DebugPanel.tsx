@@ -1,4 +1,4 @@
-import { Play, Pause, Square, StepForward, SkipForward, Circle, Trash2, Eye, ChevronDown, ChevronRight, Settings2 } from "lucide-react";
+import { Play, Pause, Square, StepForward, SkipForward, Circle, Trash2, Eye, ChevronDown, ChevronRight, Settings2, CheckCircle2, XCircle, Loader2, Timer } from "lucide-react";
 import { useDebugStore, DebugState } from "../store/debugStore";
 import { cn } from "../lib/utils";
 import { useState } from "react";
@@ -376,47 +376,149 @@ export default function DebugPanel({ className }: DebugPanelProps) {
         </div>
       )}
 
-      {/* Execution History */}
-      {executionHistory.length > 0 && (
-        <div className="px-3 py-2 border-t">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-slate-600">
-              Execution History ({executionHistory.length})
-            </span>
-            <button
-              onClick={clearExecutionHistory}
-              className="text-xs text-slate-400 hover:text-red-500 transition-colors"
-              title="Clear history"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
-          </div>
+      {/* Execution Timeline (n8n-style) */}
+      {executionHistory.length > 0 && (() => {
+        // Calculate total execution time
+        const completedNodes = executionHistory.filter(
+          exec => exec.startTime && exec.endTime && (exec.status === "success" || exec.status === "error")
+        );
+        const totalTime = completedNodes.reduce((acc, exec) => {
+          return acc + ((exec.endTime || 0) - (exec.startTime || 0));
+        }, 0);
 
-          <div className="space-y-1 max-h-32 overflow-y-auto">
-            {executionHistory.map((exec, idx) => (
-              <div
-                key={`${exec.nodeId}-${idx}`}
-                className={cn(
-                  "flex items-center gap-2 text-xs py-0.5 px-1.5 rounded",
-                  exec.status === "success" && "bg-green-50 text-green-700",
-                  exec.status === "error" && "bg-red-50 text-red-700",
-                  exec.status === "running" && "bg-blue-50 text-blue-700",
-                  exec.status === "pending" && "bg-slate-50 text-slate-600",
-                  exec.status === "skipped" && "bg-slate-50 text-slate-400"
-                )}
-              >
-                <span className="w-4 text-center font-mono text-[10px]">
-                  {idx + 1}
+        // Get item counts from nodeExecutions
+        const getItemCount = (exec: typeof executionHistory[0]) => {
+          const output = sessionState?.nodeExecutions?.[exec.nodeId]?.output;
+          if (!output) return null;
+          if (Array.isArray(output)) return output.length;
+          if (typeof output === "object" && output !== null) {
+            if (Array.isArray(output.data)) return output.data.length;
+            if (Array.isArray(output.rows)) return output.rows.length;
+            if (Array.isArray(output.items)) return output.items.length;
+            if (Array.isArray(output.records)) return output.records.length;
+          }
+          return null;
+        };
+
+        return (
+          <div className="px-3 py-2 border-t">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Timer className="w-3.5 h-3.5 text-slate-500" />
+                <span className="text-xs font-medium text-slate-600">
+                  Timeline
                 </span>
-                <span className="truncate flex-1 font-mono">
-                  {exec.label || exec.nodeId}
-                </span>
-                <span className="capitalize text-[10px]">{exec.status}</span>
               </div>
-            ))}
+              <div className="flex items-center gap-2">
+                {totalTime > 0 && (
+                  <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                    Total: {(totalTime / 1000).toFixed(1)}s
+                  </span>
+                )}
+                <button
+                  onClick={clearExecutionHistory}
+                  className="text-xs text-slate-400 hover:text-red-500 transition-colors"
+                  title="Clear timeline"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-0.5 max-h-48 overflow-y-auto">
+              {executionHistory.map((exec, idx) => {
+                const duration = exec.startTime && exec.endTime
+                  ? ((exec.endTime - exec.startTime) / 1000).toFixed(1)
+                  : null;
+                const itemCount = getItemCount(exec);
+                const isLast = idx === executionHistory.length - 1;
+
+                return (
+                  <div
+                    key={`${exec.nodeId}-${idx}`}
+                    className="flex items-start gap-1.5"
+                  >
+                    {/* Timeline connector */}
+                    <div className="flex flex-col items-center pt-1">
+                      {/* Status icon */}
+                      {exec.status === "success" ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                      ) : exec.status === "error" ? (
+                        <XCircle className="w-3.5 h-3.5 text-red-500" />
+                      ) : exec.status === "running" ? (
+                        <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin" />
+                      ) : exec.status === "skipped" ? (
+                        <Circle className="w-3.5 h-3.5 text-slate-300" />
+                      ) : (
+                        <Circle className="w-3.5 h-3.5 text-slate-400" />
+                      )}
+                      {/* Vertical line */}
+                      {!isLast && (
+                        <div className={cn(
+                          "w-0.5 h-full min-h-[16px] mt-0.5",
+                          exec.status === "success" ? "bg-green-200" :
+                          exec.status === "error" ? "bg-red-200" :
+                          "bg-slate-200"
+                        )} />
+                      )}
+                    </div>
+
+                    {/* Node info */}
+                    <div className={cn(
+                      "flex-1 rounded px-2 py-1 text-xs",
+                      exec.status === "success" && "bg-green-50",
+                      exec.status === "error" && "bg-red-50",
+                      exec.status === "running" && "bg-blue-50",
+                      exec.status === "pending" && "bg-slate-50",
+                      exec.status === "skipped" && "bg-slate-50/50"
+                    )}>
+                      <div className="flex items-center justify-between">
+                        <span className={cn(
+                          "font-medium truncate",
+                          exec.status === "success" && "text-green-700",
+                          exec.status === "error" && "text-red-700",
+                          exec.status === "running" && "text-blue-700",
+                          exec.status === "skipped" && "text-slate-400",
+                          exec.status === "pending" && "text-slate-600"
+                        )}>
+                          {exec.label || exec.nodeId}
+                        </span>
+                        <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                          {duration && (
+                            <span className={cn(
+                              "text-[10px] px-1 py-0.5 rounded",
+                              exec.status === "success" ? "text-green-600 bg-green-100" :
+                              exec.status === "error" ? "text-red-600 bg-red-100" :
+                              "text-slate-500 bg-slate-100"
+                            )}>
+                              {duration}s
+                            </span>
+                          )}
+                          {itemCount !== null && (
+                            <span className={cn(
+                              "text-[10px] px-1 py-0.5 rounded",
+                              exec.status === "success" ? "text-green-500 bg-green-100/50" :
+                              exec.status === "error" ? "text-red-500 bg-red-100/50" :
+                              "text-slate-400 bg-slate-100/50"
+                            )}>
+                              {itemCount} {itemCount === 1 ? "item" : "items"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {exec.error && (
+                        <div className="text-[10px] text-red-600 mt-0.5 truncate" title={exec.error}>
+                          {exec.error}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Paused at breakpoint indicator */}
       {sessionState?.pausedAtBreakpoint && (

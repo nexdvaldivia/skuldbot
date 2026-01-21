@@ -1,11 +1,12 @@
-import { memo } from "react";
+import { memo, useState, useRef, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
 import { FlowNodeData, NodeCategory } from "../types/flow";
 import { getNodeTemplate } from "../data/nodeTemplates";
 import { useValidationStore } from "../store/validationStore";
 import { useDebugStore, useNodeDebugState } from "../store/debugStore";
 import { Icon } from "./ui/Icon";
-import { AlertCircle, AlertTriangle, Circle, Trash2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, Circle, Trash2, CheckCircle2, Play, Loader2, X, Pin } from "lucide-react";
 
 // Category color mapping - Light theme
 const categoryStyles: Record<NodeCategory, { bg: string; border: string; icon: string; accent: string }> = {
@@ -175,6 +176,8 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
   const isMS365Trigger = data.nodeType === "trigger.ms365_email";
   // Config nodes that only have connection output (no success/error)
   const isConnectionConfigNode = isMS365Connection;
+  // Check if connection has been tested successfully
+  const isConnectionTested = isConnectionConfigNode && data.config?.connectionTested === true;
 
   // Get validation issues for this node
   const { getNodeIssues } = useValidationStore();
@@ -183,8 +186,36 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
   const hasWarnings = nodeIssues.some((i) => i.severity === "warning") && !hasErrors;
 
   // Get debug state for this node
-  const { toggleBreakpoint } = useDebugStore();
-  const { isCurrentNode, hasBreakpoint, isDebugging, status } = useNodeDebugState(id);
+  const { toggleBreakpoint, runSingleNode, sessionState } = useDebugStore();
+  const { isCurrentNode, hasBreakpoint, isDebugging, status, output, error, isPinned } = useNodeDebugState(id);
+
+  // Get execution timing and item count for n8n-style display
+  const nodeExecution = sessionState?.nodeExecutions?.[id];
+  const executionDuration = nodeExecution?.startTime && nodeExecution?.endTime
+    ? ((nodeExecution.endTime - nodeExecution.startTime) / 1000).toFixed(1)
+    : null;
+
+  // Calculate item count from output data
+  const itemCount = useMemo(() => {
+    if (!output) return null;
+    if (Array.isArray(output)) return output.length;
+    if (typeof output === 'object' && output !== null) {
+      // Check for common data properties that might be arrays
+      if (Array.isArray(output.data)) return output.data.length;
+      if (Array.isArray(output.rows)) return output.rows.length;
+      if (Array.isArray(output.items)) return output.items.length;
+      if (Array.isArray(output.records)) return output.records.length;
+      // Count object keys as "fields"
+      return Object.keys(output).length;
+    }
+    return null;
+  }, [output]);
+
+  // Local state for running single node
+  const [isRunningNode, setIsRunningNode] = useState(false);
+  const [showOutput, setShowOutput] = useState(false);
+  const [outputPosition, setOutputPosition] = useState<{ top: number; left: number } | null>(null);
+  const nodeRef = useRef<HTMLDivElement>(null);
 
   // React Flow instance for deletion
   const { deleteElements } = useReactFlow();
@@ -201,8 +232,45 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
     deleteElements({ nodes: [{ id }] });
   };
 
-  return (
+  // Handle run single node
+  const handleRunNode = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isRunningNode || isDebugging) return;
+
+    setIsRunningNode(true);
+    setShowOutput(false);
+    try {
+      await runSingleNode(id);
+      setShowOutput(true);
+    } finally {
+      setIsRunningNode(false);
+    }
+  };
+
+  // Toggle output display
+  const handleToggleOutput = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowOutput(!showOutput);
+  };
+
+  // Check if node has output to show
+  const hasOutput = output !== undefined || error !== undefined;
+
+  // Update output panel position when showing output
+  useEffect(() => {
+    if (showOutput && hasOutput && nodeRef.current) {
+      const rect = nodeRef.current.getBoundingClientRect();
+      const toolbarOffset = isAIAgent || isAITaskNode || isMS365Trigger ? 54 : 36;
+      setOutputPosition({
+        top: rect.bottom + toolbarOffset,
+        left: rect.left,
+      });
+    }
+  }, [showOutput, hasOutput, isAIAgent, isAITaskNode, isMS365Trigger]);
+
+  const nodeContent = (
     <div
+      ref={nodeRef}
       className={`
         relative
         bg-white
@@ -211,10 +279,11 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
         shadow-sm
         transition-all duration-200
         ${isTrigger ? "ring-2 ring-emerald-300" : ""}
+        ${isConnectionTested ? "ring-2 ring-emerald-400 border-emerald-400" : ""}
         ${hasErrors ? "ring-2 ring-red-400 border-red-400" : ""}
-        ${hasWarnings ? "ring-2 ring-yellow-400 border-yellow-400" : ""}
+        ${hasWarnings && !isConnectionTested ? "ring-2 ring-yellow-400 border-yellow-400" : ""}
         ${isCurrentNode && isDebugging ? "ring-2 ring-blue-500 border-blue-500" : ""}
-        ${status === "running" ? "animate-pulse ring-2 ring-blue-400" : ""}
+        ${status === "running" ? "ring-2 ring-blue-400 border-blue-400" : ""}
         ${status === "success" ? "ring-2 ring-green-400 border-green-400" : ""}
         ${status === "error" ? "ring-2 ring-red-500 border-red-500" : ""}
         ${selected
@@ -241,19 +310,6 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
         />
       </button>
 
-      {/* Delete button - shown when selected */}
-      {selected && (
-        <button
-          type="button"
-          className="absolute -top-3 -right-3 w-7 h-7 rounded-full cursor-pointer flex items-center justify-center bg-orange-500 border-2 border-white shadow-lg hover:bg-orange-600 transition-colors"
-          style={{ zIndex: 9999 }}
-          onClick={handleDeleteClick}
-          onMouseDown={(e) => e.stopPropagation()}
-          title="Delete node"
-        >
-          <Trash2 className="w-4 h-4 text-white" />
-        </button>
-      )}
 
       {/* START Badge for Triggers */}
       {isTrigger && (
@@ -269,13 +325,31 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
         </div>
       )}
 
+      {/* Pinned Data indicator (n8n-style) - top right corner */}
+      {isPinned && (
+        <div
+          className="absolute -top-2 right-6 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm flex items-center gap-0.5 z-10"
+          title="Output data is pinned - using frozen data instead of re-executing"
+        >
+          <Pin className="w-2.5 h-2.5" />
+          <span>PIN</span>
+        </div>
+      )}
+
+      {/* Connection Verified Badge - shown for connection nodes that have been tested */}
+      {isConnectionTested && !hasErrors && !selected && (
+        <div className="absolute -top-2 -right-2 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm z-10" title="Connection verified">
+          <CheckCircle2 className="w-3 h-3 text-white" />
+        </div>
+      )}
+
       {/* Validation Error/Warning Badge - shown when NOT selected (delete button takes priority) */}
       {hasErrors && !isDebugging && !selected && (
         <div className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-sm z-10" title={nodeIssues.filter(i => i.severity === "error").map(i => i.message).join("\n")}>
           <AlertCircle className="w-3 h-3 text-white" />
         </div>
       )}
-      {hasWarnings && !isDebugging && !selected && (
+      {hasWarnings && !isConnectionTested && !isDebugging && !selected && (
         <div className="absolute -top-2 -right-2 w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center shadow-sm z-10" title={nodeIssues.filter(i => i.severity === "warning").map(i => i.message).join("\n")}>
           <AlertTriangle className="w-3 h-3 text-white" />
         </div>
@@ -445,6 +519,25 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
         </div>
       </div>
 
+      {/* n8n-style execution info badge - shows after execution */}
+      {(status === "success" || status === "error") && (itemCount !== null || executionDuration !== null) && (
+        <div className={`flex items-center gap-2 px-3 py-1.5 text-[10px] border-t ${
+          status === "success" ? "bg-green-50/80 border-green-100" : "bg-red-50/80 border-red-100"
+        }`}>
+          {itemCount !== null && (
+            <span className={`flex items-center gap-1 ${status === "success" ? "text-green-600" : "text-red-600"}`}>
+              <span className="font-medium">{itemCount}</span>
+              <span className="opacity-70">{itemCount === 1 ? "item" : "items"}</span>
+            </span>
+          )}
+          {executionDuration !== null && (
+            <span className={`flex items-center gap-1 ml-auto ${status === "success" ? "text-green-500" : "text-red-500"}`}>
+              <span className="font-medium">{executionDuration}s</span>
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Output Handles - NOT shown for config nodes (AI Model, Embeddings, MS365 Connection) */}
       {!isAIConfigNode && !isConnectionConfigNode && (
         <div className="absolute right-0 top-0 bottom-0 flex flex-col justify-center gap-5">
@@ -544,7 +637,130 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
           </div>
         </div>
       )}
+
+      {/* Node Toolbar - appears below the node when selected or has run status */}
+      {/* Extra margin for nodes with bottom handles (AI Agent, AI Task nodes, MS365 Trigger) */}
+      {(selected || status === "success" || status === "error") && !isAIConfigNode && !isConnectionConfigNode && (
+        <div
+          className={`absolute left-0 right-0 top-full flex justify-end gap-1 z-20 ${
+            isAIAgent || isAITaskNode || isMS365Trigger ? "mt-6" : "mt-1"
+          }`}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          {/* Run/Rerun Button - always available to run the node */}
+          <button
+            type="button"
+            className={`w-6 h-6 rounded cursor-pointer flex items-center justify-center shadow-sm transition-all ${
+              isRunningNode
+                ? "bg-blue-500 animate-pulse"
+                : "bg-slate-100 hover:bg-green-500 hover:text-white text-slate-600"
+            }`}
+            onClick={handleRunNode}
+            disabled={isRunningNode || isDebugging}
+            title={isRunningNode ? "Running..." : "Run this node"}
+          >
+            {isRunningNode ? (
+              <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
+            ) : (
+              <Play className="w-3.5 h-3.5" />
+            )}
+          </button>
+
+          {/* View Output Button - only when there's output */}
+          {(status === "success" || status === "error") && (
+            <button
+              type="button"
+              className={`w-6 h-6 rounded cursor-pointer flex items-center justify-center shadow-sm transition-all ${
+                status === "success"
+                  ? "bg-emerald-500 hover:bg-emerald-600"
+                  : "bg-red-500 hover:bg-red-600"
+              }`}
+              onClick={handleToggleOutput}
+              title="View output"
+            >
+              {status === "success" ? (
+                <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+              ) : (
+                <AlertCircle className="w-3.5 h-3.5 text-white" />
+              )}
+            </button>
+          )}
+
+          {/* Delete Button - only when selected */}
+          {selected && (
+            <button
+              type="button"
+              className="w-6 h-6 rounded cursor-pointer flex items-center justify-center bg-slate-100 hover:bg-orange-500 hover:text-white text-slate-600 shadow-sm transition-all"
+              onClick={handleDeleteClick}
+              title="Delete node"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
+  );
+
+  // Output Panel - rendered as a portal to appear above React Flow edges
+  const outputPanel = showOutput && hasOutput && outputPosition && createPortal(
+    <div
+      className="fixed bg-white border rounded-lg shadow-2xl overflow-hidden"
+      style={{
+        top: outputPosition.top,
+        left: outputPosition.left,
+        minWidth: 250,
+        maxWidth: 400,
+        zIndex: 10000,
+      }}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      {/* Header */}
+      <div className={`flex items-center justify-between px-3 py-1.5 ${
+        status === "success" ? "bg-emerald-50 border-b border-emerald-100" : "bg-red-50 border-b border-red-100"
+      }`}>
+        <span className={`text-xs font-semibold ${
+          status === "success" ? "text-emerald-700" : "text-red-700"
+        }`}>
+          {status === "success" ? "Output" : "Error"}
+        </span>
+        <button
+          onClick={handleToggleOutput}
+          className="p-0.5 hover:bg-white/50 rounded"
+        >
+          <X className="w-3 h-3 text-slate-500" />
+        </button>
+      </div>
+      {/* Content */}
+      <div className="p-3 max-h-48 overflow-auto">
+        {error ? (
+          <pre className="text-xs text-red-600 whitespace-pre-wrap font-mono">{error}</pre>
+        ) : output ? (
+          <pre className="text-xs text-slate-700 whitespace-pre-wrap font-mono">
+            {typeof output === "object"
+              ? JSON.stringify(output, (key, value) => {
+                  // Redact sensitive fields
+                  const sensitiveKeys = ['password', 'secret', 'api_key', 'apiKey', 'token', 'client_secret', 'clientSecret', 'access_token', 'accessToken', 'private_key', 'privateKey'];
+                  if (sensitiveKeys.some(k => key.toLowerCase().includes(k.toLowerCase()))) {
+                    return '••••••••';
+                  }
+                  return value;
+                }, 2)
+              : String(output)}
+          </pre>
+        ) : (
+          <span className="text-xs text-slate-400 italic">No output</span>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+
+  return (
+    <>
+      {nodeContent}
+      {outputPanel}
+    </>
   );
 }
 
