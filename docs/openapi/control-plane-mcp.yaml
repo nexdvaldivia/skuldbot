@@ -1,0 +1,448 @@
+openapi: 3.0.3
+info:
+  title: SkuldBot MCP - Control Plane API
+  version: 1.0.0
+  description: |
+    Model Context Protocol (MCP) API for SkuldBot Control Plane.
+    
+    Provides centralized services:
+    - **Licensing**: Feature validation, entitlements, seat management
+    - **Marketplace**: Bot catalog, subscriptions, downloads
+    - **Metering**: Usage tracking, "whichever is greater" billing
+    - **Billing**: Invoice generation, payment methods
+    
+    ## Authentication
+    All endpoints require:
+    - `x-api-key`: Control Plane API key
+    - `x-tenant-id`: Tenant identifier
+    
+  contact:
+    name: Skuld, LLC
+    email: api@skuld.ai
+    url: https://skuld.ai
+  license:
+    name: Proprietary
+    url: https://skuld.ai/terms
+
+servers:
+  - url: https://control-plane.skuld.ai
+    description: Production
+  - url: https://staging-control-plane.skuld.ai
+    description: Staging
+  - url: http://localhost:3000
+    description: Local Development
+
+tags:
+  - name: tools
+    description: MCP tool execution
+  - name: resources
+    description: MCP resource reading
+  - name: capabilities
+    description: Server capabilities
+  - name: health
+    description: Health and monitoring
+  - name: metrics
+    description: Prometheus metrics
+
+paths:
+  /api/v1/mcp/tools:
+    get:
+      tags: [tools]
+      summary: List all available tools
+      description: Returns all tools from Licensing, Marketplace, Metering, and Billing servers
+      security:
+        - ApiKeyAuth: []
+        - TenantAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tools:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tool'
+                  total:
+                    type: integer
+                    example: 24
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/mcp/tools/call:
+    post:
+      tags: [tools]
+      summary: Execute a tool
+      description: Call a specific MCP tool with arguments
+      security:
+        - ApiKeyAuth: []
+        - TenantAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToolCall'
+            examples:
+              validate_license:
+                summary: Validate License Feature
+                value:
+                  name: validate_license_feature
+                  arguments:
+                    tenantId: acme-insurance
+                    feature: ai_planner_v2
+              report_execution:
+                summary: Report Bot Execution
+                value:
+                  name: report_bot_execution
+                  arguments:
+                    tenantId: acme-insurance
+                    botId: fnol-bot-v1
+                    executionId: exec-123
+                    startTime: "2026-01-27T10:00:00Z"
+                    endTime: "2026-01-27T10:05:00Z"
+                    status: success
+                    metrics:
+                      claimsCompleted: 1
+                      apiCalls: 15
+      responses:
+        '200':
+          description: Tool executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/mcp/resources:
+    get:
+      tags: [resources]
+      summary: List all available resources
+      security:
+        - ApiKeyAuth: []
+        - TenantAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resources:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resource'
+                  total:
+                    type: integer
+
+  /api/v1/mcp/resources/{uri}:
+    get:
+      tags: [resources]
+      summary: Read a resource
+      description: Read a specific MCP resource by URI
+      security:
+        - ApiKeyAuth: []
+        - TenantAuth: []
+      parameters:
+        - name: uri
+          in: path
+          required: true
+          schema:
+            type: string
+          example: licenses://tenant/acme-insurance/current
+      responses:
+        '200':
+          description: Resource content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceContent'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/mcp/capabilities:
+    get:
+      tags: [capabilities]
+      summary: Get server capabilities
+      description: Returns full MCP capabilities including tools, resources, and metadata
+      security:
+        - ApiKeyAuth: []
+        - TenantAuth: []
+      responses:
+        '200':
+          description: Server capabilities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MCPCapabilities'
+
+  /api/v1/mcp/health:
+    get:
+      tags: [health]
+      summary: Health check (readiness probe)
+      description: Checks if all MCP servers are healthy and ready to accept traffic
+      responses:
+        '200':
+          description: Health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, degraded]
+                  servers:
+                    type: object
+                    additionalProperties:
+                      type: string
+                      enum: [healthy, unhealthy]
+                  timestamp:
+                    type: string
+                    format: date-time
+                  uptime:
+                    type: number
+                  memory:
+                    type: object
+                    properties:
+                      used:
+                        type: integer
+                      total:
+                        type: integer
+                      unit:
+                        type: string
+
+  /api/v1/mcp/health/live:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      description: Check if the process is alive
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [alive]
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /api/v1/mcp/health/ready:
+    get:
+      tags: [health]
+      summary: Startup probe
+      description: Check if the server is ready to accept traffic
+      responses:
+        '200':
+          description: Server is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ready, not_ready]
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /metrics:
+    get:
+      tags: [metrics]
+      summary: Prometheus metrics
+      description: Exports Prometheus metrics for monitoring
+      responses:
+        '200':
+          description: Prometheus metrics in text format
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP mcp_tool_calls_total Total number of MCP tool calls
+                # TYPE mcp_tool_calls_total counter
+                mcp_tool_calls_total{server="control-plane",tool_name="validate_license_feature",status="success"} 1234
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: Control Plane API key
+    TenantAuth:
+      type: apiKey
+      in: header
+      name: x-tenant-id
+      description: Tenant identifier
+
+  schemas:
+    Tool:
+      type: object
+      required: [name, description, inputSchema, requiresApproval, tags]
+      properties:
+        name:
+          type: string
+          example: validate_license_feature
+        description:
+          type: string
+          example: Validate if a license feature is enabled
+        inputSchema:
+          type: object
+          description: JSON Schema for tool input
+        requiresApproval:
+          type: boolean
+          example: false
+        tags:
+          type: array
+          items:
+            type: string
+          example: [licensing, validation]
+
+    Resource:
+      type: object
+      required: [uri, name, description, mimeType, tags]
+      properties:
+        uri:
+          type: string
+          example: licenses://tenant/{tenantId}/current
+        name:
+          type: string
+          example: Current License
+        description:
+          type: string
+          example: Current license information for tenant
+        mimeType:
+          type: string
+          example: application/json
+        tags:
+          type: array
+          items:
+            type: string
+
+    ToolCall:
+      type: object
+      required: [name, arguments]
+      properties:
+        name:
+          type: string
+          example: validate_license_feature
+        arguments:
+          type: object
+          additionalProperties: true
+          example:
+            tenantId: acme-insurance
+            feature: ai_planner_v2
+        id:
+          type: string
+          example: call-123
+
+    ToolResult:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+        result:
+          type: object
+          additionalProperties: true
+        error:
+          type: string
+      example:
+        success: true
+        result:
+          allowed: true
+          feature: ai_planner_v2
+          expiresAt: "2026-12-31T23:59:59Z"
+
+    ResourceContent:
+      type: object
+      required: [uri, content, mimeType]
+      properties:
+        uri:
+          type: string
+        content:
+          type: string
+          description: Resource content (usually JSON stringified)
+        mimeType:
+          type: string
+
+    MCPCapabilities:
+      type: object
+      required: [tools, resources, metadata]
+      properties:
+        tools:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tool'
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/Resource'
+        metadata:
+          type: object
+          properties:
+            name:
+              type: string
+            version:
+              type: string
+            description:
+              type: string
+            vendor:
+              type: string
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              statusCode:
+                type: integer
+                example: 401
+              message:
+                type: string
+                example: Unauthorized
+    
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              statusCode:
+                type: integer
+                example: 400
+              message:
+                type: string
+              error:
+                type: string
+    
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              statusCode:
+                type: integer
+                example: 404
+              message:
+                type: string
+

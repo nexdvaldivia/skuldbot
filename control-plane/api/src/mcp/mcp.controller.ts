@@ -177,15 +177,78 @@ export class MCPController {
   }
 
   /**
-   * Health check
+   * Health check (readiness probe)
    */
   @Get('health')
   async health() {
+    const checks = {
+      licensing: await this.checkServerHealth(this.licensingServer),
+      marketplace: await this.checkServerHealth(this.marketplaceServer),
+      metering: await this.checkServerHealth(this.meteringServer),
+      billing: await this.checkServerHealth(this.billingServer),
+    };
+
+    const allHealthy = Object.values(checks).every((c) => c === 'healthy');
+
     return {
-      status: 'healthy',
-      servers: ['licensing', 'marketplace', 'metering', 'billing'],
+      status: allHealthy ? 'healthy' : 'degraded',
+      servers: checks,
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      memory: {
+        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+        unit: 'MB',
+      },
+    };
+  }
+
+  /**
+   * Liveness probe (is the process alive?)
+   */
+  @Get('health/live')
+  async healthLive() {
+    return {
+      status: 'alive',
       timestamp: new Date().toISOString(),
     };
+  }
+
+  /**
+   * Startup probe (is the server ready to accept traffic?)
+   */
+  @Get('health/ready')
+  async healthReady() {
+    // Check if all servers can respond
+    try {
+      await Promise.all([
+        this.licensingServer.getTools(),
+        this.marketplaceServer.getTools(),
+        this.meteringServer.getTools(),
+        this.billingServer.getTools(),
+      ]);
+
+      return {
+        status: 'ready',
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      return {
+        status: 'not_ready',
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  private async checkServerHealth(server: any): Promise<string> {
+    try {
+      // Simple health check: can the server respond?
+      const tools = server.getTools();
+      return tools.length > 0 ? 'healthy' : 'unhealthy';
+    } catch {
+      return 'unhealthy';
+    }
   }
 }
 
