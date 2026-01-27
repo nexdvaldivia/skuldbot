@@ -4,7 +4,7 @@
  */
 
 import { useState } from "react";
-import { Play, CheckCircle, AlertCircle, ChevronRight, Code2, Eye, Download } from "lucide-react";
+import { Play, CheckCircle, AlertCircle, ChevronRight, Eye, Download } from "lucide-react";
 import { Card, CardContent } from "../../ui/card";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";

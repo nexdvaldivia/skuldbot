@@ -55,54 +55,167 @@ impl MCPClient {
     }
     
     /// List all available tools from all servers
-    /// 
-    /// NOTE: This would make HTTP calls to each server's /tools endpoint
-    /// For now, returns empty vec (implement when Orchestrator is ready)
     pub async fn list_tools(&self) -> Result<Vec<Tool>, MCPError> {
-        // TODO: Implement when Orchestrator MCP server is ready
-        // for server in &self.servers {
-        //     let response = self.client
-        //         .get(&format!("{}/mcp/tools", server.url))
-        //         .send()
-        //         .await?;
-        //     tools.extend(response.json::<Vec<Tool>>().await?);
-        // }
+        let mut tools = Vec::new();
         
-        Ok(Vec::new())
+        for server in &self.servers {
+            match self.fetch_tools_from_server(server).await {
+                Ok(server_tools) => tools.extend(server_tools),
+                Err(e) => {
+                    eprintln!("Failed to fetch tools from {}: {:?}", server.name, e);
+                    // Continue to next server instead of failing
+                }
+            }
+        }
+        
+        Ok(tools)
+    }
+    
+    async fn fetch_tools_from_server(&self, server: &MCPServerConfig) -> Result<Vec<Tool>, MCPError> {
+        let url = format!("{}/api/v1/mcp/tools", server.url);
+        let mut request = self.client.get(&url);
+        
+        if let Some(api_key) = &server.api_key {
+            request = request.header("x-api-key", api_key);
+        }
+        
+        let response = request
+            .send()
+            .await
+            .map_err(|e| MCPError::InternalError(format!("HTTP request failed: {}", e)))?;
+            
+        if !response.status().is_success() {
+            return Err(MCPError::InternalError(
+                format!("Server returned error: {}", response.status())
+            ));
+        }
+        
+        #[derive(Deserialize)]
+        struct ToolsResponse {
+            tools: Vec<Tool>,
+        }
+        
+        let response_data: ToolsResponse = response
+            .json()
+            .await
+            .map_err(|e| MCPError::InternalError(format!("JSON parse failed: {}", e)))?;
+            
+        Ok(response_data.tools)
     }
     
     /// List all available resources from all servers
     pub async fn list_resources(&self) -> Result<Vec<Resource>, MCPError> {
-        // TODO: Implement when Orchestrator MCP server is ready
-        Ok(Vec::new())
+        let mut resources = Vec::new();
+        
+        for server in &self.servers {
+            match self.fetch_resources_from_server(server).await {
+                Ok(server_resources) => resources.extend(server_resources),
+                Err(e) => {
+                    eprintln!("Failed to fetch resources from {}: {:?}", server.name, e);
+                }
+            }
+        }
+        
+        Ok(resources)
+    }
+    
+    async fn fetch_resources_from_server(&self, server: &MCPServerConfig) -> Result<Vec<Resource>, MCPError> {
+        let url = format!("{}/api/v1/mcp/resources", server.url);
+        let mut request = self.client.get(&url);
+        
+        if let Some(api_key) = &server.api_key {
+            request = request.header("x-api-key", api_key);
+        }
+        
+        let response = request
+            .send()
+            .await
+            .map_err(|e| MCPError::InternalError(format!("HTTP request failed: {}", e)))?;
+            
+        if !response.status().is_success() {
+            return Err(MCPError::InternalError(
+                format!("Server returned error: {}", response.status())
+            ));
+        }
+        
+        #[derive(Deserialize)]
+        struct ResourcesResponse {
+            resources: Vec<Resource>,
+        }
+        
+        let response_data: ResourcesResponse = response
+            .json()
+            .await
+            .map_err(|e| MCPError::InternalError(format!("JSON parse failed: {}", e)))?;
+            
+        Ok(response_data.resources)
     }
     
     /// Call a tool on a specific server
-    pub async fn call_tool(&self, server_name: &str, _call: ToolCall) -> Result<ToolResult, MCPError> {
-        let _server = self.servers
+    pub async fn call_tool(&self, server_name: &str, call: ToolCall) -> Result<ToolResult, MCPError> {
+        let server = self.servers
             .iter()
             .find(|s| s.name == server_name)
             .ok_or_else(|| MCPError::ServerNotFound(server_name.to_string()))?;
         
-        // TODO: Implement HTTP call to server
-        // let response = self.client
-        //     .post(&format!("{}/mcp/tools/call", server.url))
-        //     .json(&call)
-        //     .send()
-        //     .await?;
+        let url = format!("{}/api/v1/mcp/tools/call", server.url);
+        let mut request = self.client.post(&url).json(&call);
         
-        Err(MCPError::NotImplemented("MCP client not yet connected to Orchestrator".to_string()))
+        if let Some(api_key) = &server.api_key {
+            request = request.header("x-api-key", api_key);
+        }
+        
+        let response = request
+            .send()
+            .await
+            .map_err(|e| MCPError::InternalError(format!("HTTP request failed: {}", e)))?;
+            
+        if !response.status().is_success() {
+            return Err(MCPError::InternalError(
+                format!("Server returned error: {}", response.status())
+            ));
+        }
+        
+        let result: ToolResult = response
+            .json()
+            .await
+            .map_err(|e| MCPError::InternalError(format!("JSON parse failed: {}", e)))?;
+            
+        Ok(result)
     }
     
     /// Read a resource from a specific server
-    pub async fn read_resource(&self, server_name: &str, _uri: &str) -> Result<ResourceContent, MCPError> {
-        let _server = self.servers
+    pub async fn read_resource(&self, server_name: &str, uri: &str) -> Result<ResourceContent, MCPError> {
+        let server = self.servers
             .iter()
             .find(|s| s.name == server_name)
             .ok_or_else(|| MCPError::ServerNotFound(server_name.to_string()))?;
         
-        // TODO: Implement HTTP call to server
-        Err(MCPError::NotImplemented("MCP client not yet connected to Orchestrator".to_string()))
+        let encoded_uri = urlencoding::encode(uri);
+        let url = format!("{}/api/v1/mcp/resources/{}", server.url, encoded_uri);
+        let mut request = self.client.get(&url);
+        
+        if let Some(api_key) = &server.api_key {
+            request = request.header("x-api-key", api_key);
+        }
+        
+        let response = request
+            .send()
+            .await
+            .map_err(|e| MCPError::InternalError(format!("HTTP request failed: {}", e)))?;
+            
+        if !response.status().is_success() {
+            return Err(MCPError::InternalError(
+                format!("Server returned error: {}", response.status())
+            ));
+        }
+        
+        let content: ResourceContent = response
+            .json()
+            .await
+            .map_err(|e| MCPError::InternalError(format!("JSON parse failed: {}", e)))?;
+            
+        Ok(content)
     }
     
     /// Format tools for inclusion in LLM prompt

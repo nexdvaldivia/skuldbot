@@ -23,7 +23,7 @@ interface AIPlannerV2PanelProps {
 export function AIPlannerV2Panel({ isOpen, onClose }: AIPlannerV2PanelProps) {
   const canUseAI = useCanUseAIPlanner();
   const isStudioActivated = useLicenseStore((state) => state.isStudioActivated);
-  const { currentPlan, reset } = useAIPlannerV2Store();
+  const { reset } = useAIPlannerV2Store();
   const [showLLMConfig, setShowLLMConfig] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "preview" | "validation">("chat");
 

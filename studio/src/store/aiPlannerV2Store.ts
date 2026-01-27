@@ -92,6 +92,7 @@ function tasksToFlowNodes(plan: ExecutablePlan): { nodes: FlowNode[]; edges: Flo
       data: {
         label: task.label,
         nodeType: task.nodeType,
+        category: task.nodeType.split('.')[0] || 'control',
         config: task.config as Record<string, any>,
         description: task.description,
       },
@@ -312,7 +313,7 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
       // ============================================================
 
       refineWithFeedback: async (feedback: string) => {
-        const { currentPlan, llmConfig, addMessage } = get();
+        const { currentPlan, addMessage } = get();
         const toast = useToastStore.getState();
 
         if (!currentPlan) {

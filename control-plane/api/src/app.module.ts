@@ -25,6 +25,7 @@ import { UsersModule } from './users/users.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { BillingModule } from './billing/billing.module';
 import { SchemasModule } from './schemas/schemas.module';
+import { MCPModule } from './mcp/mcp.module';
 
 @Module({
   imports: [
@@ -63,6 +64,9 @@ import { SchemasModule } from './schemas/schemas.module';
     MarketplaceModule,
     BillingModule,
     SchemasModule,
+    
+    // MCP Module (Model Context Protocol)
+    MCPModule,
   ],
 })
 export class AppModule {}

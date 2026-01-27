@@ -29,6 +29,7 @@ sha2 = "0.10"
 async-trait = "0.1"
 regex = "1.10"
 thiserror = "1.0"
+urlencoding = "2.1"
 
 # Desktop editor dependencies (simplified)
 rusqlite = { version = "0.31", features = ["bundled"] }  # Local project storage

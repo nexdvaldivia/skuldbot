@@ -26,6 +26,7 @@ import { ControlPlaneModule } from './control-plane/control-plane.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { UsageModule } from './usage/usage.module';
 import { SchemasModule } from './schemas/schemas.module';
+import { MCPModule } from './mcp/mcp.module';
 
 @Module({
   imports: [
@@ -109,6 +110,9 @@ import { SchemasModule } from './schemas/schemas.module';
 
     // Schema Discovery
     SchemasModule,
+
+    // MCP Module (Model Context Protocol)
+    MCPModule,
   ],
   controllers: [],
   providers: [],
