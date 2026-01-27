@@ -264,6 +264,9 @@ pub enum MCPError {
     
     #[error("IO error: {0}")]
     IoError(String),
+    
+    #[error("Not implemented: {0}")]
+    NotImplemented(String),
 }
 
 // Implement From for common error types

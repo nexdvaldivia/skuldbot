@@ -3,7 +3,6 @@
 
 mod protection;
 mod mcp;
-mod enterprise;
 
 use std::process::Command;
 use std::path::PathBuf;
@@ -4059,15 +4058,20 @@ If confidence < 0.7, populate unknowns array with blocking questions."#,
         }
     };
     
-    // Initialize MCP Client for enhanced context
+    // Initialize MCP Client for enhanced context (optional)
     let mcp_client = mcp::client::MCPClient::new();
-    let mcp_context = mcp_client.get_context_for_planner();
+    let mcp_context = mcp_client.get_context_for_planner().await;
     
     // Combine system prompt with MCP context
     let enhanced_system_prompt = if !mcp_context.is_empty() {
+        let tools_result = mcp_client.list_tools().await;
+        let resources_result = mcp_client.list_resources().await;
+        let tools_count = tools_result.as_ref().map(|t| t.len()).unwrap_or(0);
+        let resources_count = resources_result.as_ref().map(|r| r.len()).unwrap_or(0);
+        
         println!("✅ MCP Context added ({} tools, {} resources)", 
-            mcp_client.list_tools().len(),
-            mcp_client.list_resources().len()
+            tools_count,
+            resources_count
         );
         format!("{}\n\n{}\n\n{}", 
             system_prompt,
@@ -4075,7 +4079,7 @@ If confidence < 0.7, populate unknowns array with blocking questions."#,
             mcp_context
         )
     } else {
-        println!("⚠️  No MCP servers available, using base prompt");
+        println!("⚠️  No MCP servers configured (Studio running standalone)");
         system_prompt
     };
 

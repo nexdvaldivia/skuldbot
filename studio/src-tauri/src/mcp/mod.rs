@@ -12,4 +12,3 @@ pub mod types;
 // Re-exports for convenience
 pub use client::MCPClient;
 pub use types::{Tool, ToolCall, Resource, MCPError};
-
