@@ -1,22 +1,15 @@
-//! MCP (Model Context Protocol) Module
+//! MCP (Model Context Protocol) Client Module
 //! 
-//! This module implements the MCP layer for SkuldBot, enabling the AI Planner
-//! to work with tools and resources in a standardized way.
+//! This module provides an MCP CLIENT for SkuldBot Studio.
+//! Studio can connect to external MCP servers (like Orchestrator's compliance server)
+//! to enhance AI Planner with context-aware tools and resources.
 //! 
-//! MCP converts SkuldBot into a "cognitive operating layer" for regulated industries,
-//! providing:
-//! - Dynamic tool discovery and execution
-//! - Context-aware resource access
-//! - Compliance-first architecture
-//! - Auditable operations
+//! Studio does NOT implement MCP servers - it only consumes them.
 
 pub mod client;
-pub mod server;
 pub mod types;
-pub mod servers;
 
 // Re-exports for convenience
 pub use client::MCPClient;
-pub use server::{MCPServer, MCPServerTrait};
-pub use types::{Tool, ToolCall, Resource, Prompt, MCPCapabilities, MCPError};
+pub use types::{Tool, ToolCall, Resource, MCPError};
 
