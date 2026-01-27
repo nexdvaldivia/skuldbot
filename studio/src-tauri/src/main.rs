@@ -3,6 +3,7 @@
 
 mod protection;
 mod mcp;
+mod enterprise;
 
 use std::process::Command;
 use std::path::PathBuf;

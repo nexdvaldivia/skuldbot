@@ -1,0 +1,137 @@
+# SkuldBot Enterprise Configuration
+# Production-ready configuration for regulated industries
+
+server:
+  name: "skuldbot-studio"
+  version: "1.0.0"
+  environment: "production"  # dev | staging | production
+  api_version: "v1"
+  shutdown_timeout_secs: 30
+
+mcp:
+  enabled: true
+  request_timeout_secs: 300
+  max_concurrent_requests: 100
+  servers:
+    - name: "compliance"
+      server_type: "compliance"
+      enabled: true
+      config:
+        strict_mode: true
+        auto_classify: true
+    
+    # - name: "document_intake"
+    #   server_type: "document_intake"
+    #   enabled: true
+    #   config:
+    #     ocr_provider: "tesseract"
+    
+    # - name: "industry_core"
+    #   server_type: "industry_core"
+    #   enabled: true
+    #   config:
+    #     industries: ["healthcare", "insurance", "finance"]
+
+database:
+  db_type: "sqlite"  # sqlite | postgres
+  url: "sqlite://data/skuldbot.db"
+  # For PostgreSQL:
+  # url: "postgresql://user:password@localhost:5432/skuldbot"
+  pool_size: 10
+  connection_timeout_secs: 30
+  auto_migrate: true
+
+observability:
+  logging:
+    level: "info"  # trace | debug | info | warn | error
+    format: "json"  # json | pretty | compact
+    file:
+      path: "logs/skuldbot.log"
+      max_size_mb: 100
+      max_backups: 10
+  
+  metrics:
+    enabled: true
+    endpoint: "/metrics"
+    port: 9090
+  
+  tracing:
+    enabled: false
+    # endpoint: "http://localhost:4317"  # OpenTelemetry Collector
+    sampling_rate: 0.1
+
+security:
+  secrets_backend: "env"  # env | vault | aws_secrets | azure_keyvault
+  encryption_at_rest: true
+  # encryption_key_id: "arn:aws:kms:us-east-1:123456789012:key/..."
+  
+  # vault:
+  #   address: "http://vault.example.com:8200"
+  #   namespace: "skuldbot"
+  #   mount_path: "secret"
+  
+  # tls:
+  #   enabled: true
+  #   cert_path: "/etc/skuldbot/tls/cert.pem"
+  #   key_path: "/etc/skuldbot/tls/key.pem"
+  #   ca_path: "/etc/skuldbot/tls/ca.pem"
+
+# Multi-tenant configurations
+tenants:
+  - id: "default"
+    name: "Default Tenant"
+    enabled: true
+    compliance_policy:
+      # PHI routing (HIPAA)
+      phi_provider: "azure_openai"
+      phi_model: "gpt-4o"
+      phi_base_url: null  # Set to Azure OpenAI endpoint
+      
+      # PII routing (GDPR)
+      pii_provider: "azure_openai"
+      pii_model: "gpt-4o"
+      pii_base_url: null
+      
+      # PCI routing (PCI-DSS)
+      pci_provider: "local"
+      pci_model: "llama3.1:70b"
+      pci_base_url: "http://localhost:11434"
+      
+      # Default (non-sensitive)
+      default_provider: "openai"
+      default_model: "gpt-4o"
+      default_base_url: null
+      
+      # Retention (7 years for compliance)
+      audit_retention_days: 2555
+    
+    llm_routing:
+      fallback: "error"  # error | default
+      custom_rules: []
+  
+  # Example: Hospital tenant with stricter policies
+  # - id: "hospital-abc"
+  #   name: "Hospital ABC"
+  #   enabled: true
+  #   compliance_policy:
+  #     phi_provider: "azure_openai"
+  #     phi_model: "gpt-4o"
+  #     phi_base_url: "https://hospital-abc.openai.azure.com/"
+  #     pii_provider: "azure_openai"
+  #     pii_model: "gpt-4o"
+  #     pii_base_url: "https://hospital-abc.openai.azure.com/"
+  #     pci_provider: "local"
+  #     pci_model: "llama3.1:70b"
+  #     pci_base_url: "http://localhost:11434"
+  #     default_provider: "azure_openai"
+  #     default_model: "gpt-4o"
+  #     default_base_url: "https://hospital-abc.openai.azure.com/"
+  #     audit_retention_days: 2555
+  #   llm_routing:
+  #     fallback: "error"
+  #     custom_rules:
+  #       - name: "patient_data"
+  #         condition: "contains:patient"
+  #         provider: "azure_openai"
+  #         model: "gpt-4o"
+

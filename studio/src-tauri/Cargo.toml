@@ -30,6 +30,22 @@ async-trait = "0.1"
 regex = "1.10"
 thiserror = "1.0"
 
+# Enterprise-grade dependencies
+config = { version = "0.14", features = ["yaml", "toml", "json"] }
+serde_yaml = "0.9"
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "postgres", "chrono", "uuid", "json"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+tracing-appender = "0.2"
+metrics = "0.21"
+metrics-exporter-prometheus = "0.13"
+tower = { version = "0.4", features = ["timeout", "retry", "buffer", "limit"] }
+governor = "0.6"  # Rate limiting
+dashmap = "5.5"  # Concurrent HashMap for multi-tenant
+parking_lot = "0.12"  # Better Mutex/RwLock
+anyhow = "1.0"
+notify = "6.1"  # File watching for config hot-reload
+
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem
 # DO NOT REMOVE!!
