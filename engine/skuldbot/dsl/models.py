@@ -82,7 +82,7 @@ class NodeDefinition(BaseModel):
     id: str = Field(..., description="Identificador único del nodo")
     type: str = Field(..., description="Tipo de nodo (ej: browser.open, excel.read)")
     config: Dict[str, Any] = Field(default_factory=dict, description="Configuración del nodo")
-    outputs: NodeOutput = Field(..., description="Salidas del nodo")
+    outputs: Optional[NodeOutput] = Field(None, description="Salidas del nodo (opcional para config nodes)")
     label: Optional[str] = Field(None, description="Etiqueta visible para el usuario")
     description: Optional[str] = Field(None, description="Descripción del nodo")
     # AI Agent specific fields (connected visually in n8n style)
@@ -90,6 +90,8 @@ class NodeDefinition(BaseModel):
     model_config_: Optional[ModelConnection] = Field(None, alias="model_config", description="Configuración de LLM conectada visualmente")
     memory: Optional[MemoryConnection] = Field(None, description="Memoria vectorial conectada (solo para ai.agent)")
     embeddings: Optional[EmbeddingsConnection] = Field(None, description="Configuración de embeddings conectada visualmente")
+    # Service connection (MS365, etc.) - visual connection from config nodes
+    connection_config: Optional[Dict[str, Any]] = Field(None, description="Configuración de conexión de servicio (MS365, etc.)")
 
     class Config:
         populate_by_name = True

@@ -1,0 +1,391 @@
+export const metadata = {
+  title: 'Code',
+  description: 'Execute custom JavaScript and Python code inline. Transform data, filter arrays, and implement custom logic like n8n.',
+}
+
+export const sections = [
+  { title: 'Code (JavaScript)', id: 'code-javascript' },
+  { title: 'Code (Python)', id: 'code-python' },
+]
+
+Execute custom JavaScript and Python code inline. Transform data, filter arrays, and implement custom logic—just like n8n's Code node. {{ className: 'lead' }}
+
+<Note>
+  These nodes are perfect for **data transformation** between nodes. For running external scripts or projects, see the [Python](/components/python) category.
+</Note>
+
+<NodeHeader id="code-javascript" icon="Braces" label="Code (JavaScript)" description="Execute custom JavaScript code with reusable functions" bgColor="#f3f4f6" textColor="#374151" />
+
+<Properties>
+  <Property name="type" type="string">
+    `code.javascript`
+  </Property>
+</Properties>
+
+### How It Works
+
+Write JavaScript code directly in the node editor. Your code runs in Node.js, giving you access to the full JavaScript ecosystem.
+
+<Diagram 
+  groups={[
+    {
+      id: "functions",
+      label: "Functions (optional)",
+      direction: "column",
+      nodes: [
+        { id: "f1", label: "validateEmail()", type: "default" },
+        { id: "f2", label: "formatCurrency()", type: "default" }
+      ]
+    },
+    {
+      id: "main",
+      label: "Main Code",
+      nodes: [{ id: "main", label: "code.javascript", sublabel: "$input.all() → return", type: "primary" }]
+    },
+    {
+      id: "config",
+      label: "Config",
+      nodes: [{ id: "timeout", label: "Timeout: 30s", type: "warning" }]
+    }
+  ]}
+/>
+
+### Data Flow
+
+<FlowDiagram items={[
+  { label: "Previous Node", sublabel: "output: [{id: 1}, ...]", type: "default" },
+  { label: "code.javascript", sublabel: "$input.all() → return", type: "primary" },
+  { label: "Next Node", sublabel: "receives return value", type: "success" }
+]} />
+
+### Built-in Variables
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `$input.all()` | Array | Get all items from previous node |
+| `$input.first()` | Object | Get first item only |
+| `return` | any | Return data to pass to next node |
+
+### Configuration
+
+<Properties>
+  <Property name="functions" type="textarea">
+    **Functions (optional)** — Define helper functions. Available in main code.
+  </Property>
+  <Property name="code" type="textarea" required>
+    **Main Code** — Your processing logic. Use `return` to pass data to next node.
+  </Property>
+  <Property name="mode" type="select">
+    **Execution Mode** — `runOnceForAll` (default) or `runOnceForEach`.
+  </Property>
+  <Property name="timeout" type="number">
+    **Timeout** — Maximum execution time in seconds. Default: 30.
+  </Property>
+</Properties>
+
+### Example: Filter and Transform Data
+
+**Functions area:**
+```javascript
+function validateEmail(email) {
+  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return regex.test(email || '');
+}
+
+function formatName(name) {
+  return (name || '')
+    .trim()
+    .split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function calculateDiscount(amount, tier) {
+  const discounts = { bronze: 0.05, silver: 0.10, gold: 0.15 };
+  return amount * (discounts[tier] || 0);
+}
+```
+
+**Main Code area:**
+```javascript
+const items = $input.all();
+
+// Filter valid customers and transform
+const results = items
+  .filter(item => validateEmail(item.email))
+  .map(item => ({
+    id: item.id,
+    name: formatName(item.name),
+    email: item.email.toLowerCase(),
+    total: item.amount,
+    discount: calculateDiscount(item.amount, item.tier),
+    finalAmount: item.amount - calculateDiscount(item.amount, item.tier),
+    processedAt: new Date().toISOString()
+  }));
+
+return results;
+```
+
+### Output
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "name": "John Smith",
+      "email": "john@example.com",
+      "total": 100,
+      "discount": 15,
+      "finalAmount": 85,
+      "processedAt": "2024-01-15T10:30:00.000Z"
+    }
+  ],
+  "itemCount": 1,
+  "executionTime": 12
+}
+```
+
+### Common Patterns
+
+**Filter array:**
+```javascript
+const items = $input.all();
+return items.filter(item => item.status === 'active');
+```
+
+**Map/Transform:**
+```javascript
+const items = $input.all();
+return items.map(item => ({
+  ...item,
+  fullName: `${item.firstName} ${item.lastName}`
+}));
+```
+
+**Reduce/Aggregate:**
+```javascript
+const items = $input.all();
+const total = items.reduce((sum, item) => sum + item.amount, 0);
+return { total, count: items.length, average: total / items.length };
+```
+
+**Group by:**
+```javascript
+const items = $input.all();
+return items.reduce((groups, item) => {
+  const key = item.category;
+  groups[key] = groups[key] || [];
+  groups[key].push(item);
+  return groups;
+}, {});
+```
+
+**Sort:**
+```javascript
+const items = $input.all();
+return items.sort((a, b) => new Date(b.date) - new Date(a.date));
+```
+
+<NodeHeader id="code-python" icon="FileCode2" label="Code (Python)" description="Execute custom Python code with reusable functions" bgColor="#fef9c3" textColor="#a16207" />
+
+<Properties>
+  <Property name="type" type="string">
+    `code.python`
+  </Property>
+</Properties>
+
+### How It Works
+
+Write Python code directly in the node editor. Perfect for data transformations, especially when you need pandas, numpy, or other Python libraries.
+
+<Diagram 
+  groups={[
+    {
+      id: "functions",
+      label: "Functions (optional)",
+      direction: "column",
+      nodes: [
+        { id: "f1", label: "validate_email()", type: "default" },
+        { id: "f2", label: "clean_phone()", type: "default" }
+      ]
+    },
+    {
+      id: "main",
+      label: "Main Code",
+      nodes: [{ id: "main", label: "code.python", sublabel: "input_data → result", type: "primary" }]
+    },
+    {
+      id: "config",
+      label: "Config",
+      nodes: [{ id: "timeout", label: "Timeout: 30s", type: "warning" }]
+    }
+  ]}
+/>
+
+### Built-in Variables
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `input_data` | dict | Contains `items` list from previous node |
+| `result` | any | Set this variable to return data |
+
+### Configuration
+
+<Properties>
+  <Property name="functions" type="textarea">
+    **Functions (optional)** — Define helper functions. Available in main code.
+  </Property>
+  <Property name="code" type="textarea" required>
+    **Main Code** — Your processing logic. Set `result` to pass data to next node.
+  </Property>
+  <Property name="mode" type="select">
+    **Execution Mode** — `runOnceForAll` (default) or `runOnceForEach`.
+  </Property>
+  <Property name="timeout" type="number">
+    **Timeout** — Maximum execution time in seconds. Default: 30.
+  </Property>
+</Properties>
+
+### Example: Data Cleaning with Pandas
+
+**Functions area:**
+```python
+def clean_phone(phone):
+    """Extract digits only from phone number"""
+    import re
+    digits = re.sub(r'\D', '', str(phone or ''))
+    return digits if len(digits) >= 10 else None
+
+def validate_email(email):
+    """Basic email validation"""
+    import re
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, str(email or '')))
+
+def calculate_age(birth_date):
+    """Calculate age from ISO date string"""
+    from datetime import datetime
+    try:
+        birth = datetime.fromisoformat(birth_date.replace('Z', '+00:00'))
+        today = datetime.now(birth.tzinfo) if birth.tzinfo else datetime.now()
+        return today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
+    except:
+        return None
+```
+
+**Main Code area:**
+```python
+import pandas as pd
+from datetime import datetime
+
+# Convert to DataFrame
+items = input_data.get('items', [])
+df = pd.DataFrame(items)
+
+# Clean and validate
+df['phone_clean'] = df['phone'].apply(clean_phone)
+df['email_valid'] = df['email'].apply(validate_email)
+df['age'] = df['birth_date'].apply(calculate_age)
+
+# Filter valid records
+df_valid = df[df['email_valid'] & df['phone_clean'].notna()]
+
+# Add metadata
+df_valid['processed_at'] = datetime.now().isoformat()
+
+# Convert back to records
+result = df_valid.to_dict('records')
+```
+
+### Output
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "name": "John Smith",
+      "email": "john@example.com",
+      "phone": "555-123-4567",
+      "phone_clean": "5551234567",
+      "email_valid": true,
+      "age": 32,
+      "processed_at": "2024-01-15T10:30:00"
+    }
+  ],
+  "itemCount": 1,
+  "executionTime": 85
+}
+```
+
+### Common Patterns
+
+**Filter with list comprehension:**
+```python
+items = input_data.get('items', [])
+result = [i for i in items if i.get('status') == 'active']
+```
+
+**Transform with pandas:**
+```python
+import pandas as pd
+df = pd.DataFrame(input_data.get('items', []))
+df['total'] = df['price'] * df['quantity']
+result = df.to_dict('records')
+```
+
+**Aggregate/Group:**
+```python
+from collections import defaultdict
+items = input_data.get('items', [])
+groups = defaultdict(list)
+for item in items:
+    groups[item['category']].append(item)
+result = dict(groups)
+```
+
+**Statistical analysis:**
+```python
+import pandas as pd
+import numpy as np
+
+df = pd.DataFrame(input_data.get('items', []))
+result = {
+    'mean': float(df['amount'].mean()),
+    'median': float(df['amount'].median()),
+    'std': float(df['amount'].std()),
+    'min': float(df['amount'].min()),
+    'max': float(df['amount'].max()),
+    'count': len(df)
+}
+```
+
+### Tips
+
+<Note>
+  **Tip:** Python's `input_data['items']` is equivalent to JavaScript's `$input.all()`.
+</Note>
+
+<Note>
+  **Tip:** You can import any installed Python library. Use `python.pip_install` node first if needed.
+</Note>
+
+---
+
+## JavaScript vs Python: When to Use Which?
+
+| Use Case | Recommended | Why |
+|----------|-------------|-----|
+| Simple JSON manipulation | **JavaScript** | Native JSON support, cleaner syntax |
+| Array filter/map/reduce | **JavaScript** | Built-in array methods |
+| Data science/analytics | **Python** | Pandas, NumPy, SciPy |
+| String regex operations | **Either** | Both are good |
+| Date manipulation | **JavaScript** | Date object is simpler |
+| Statistical analysis | **Python** | Better libraries |
+| ML model inference | **Python** | scikit-learn, TensorFlow |
+| API response parsing | **JavaScript** | JSON is native |
+
+---
+
+

@@ -13,8 +13,10 @@ from enum import Enum
 class NodeCategory(str, Enum):
     """Categorias de nodos"""
     TRIGGER = "trigger"
+    BOT = "bot"  # Bot Subprocess (Call other bots)
     WEB = "web"
     DESKTOP = "desktop"
+    STORAGE = "storage"  # Multi-provider storage (S3, Azure, GCS, SharePoint, etc.)
     FILES = "files"
     EXCEL = "excel"
     EMAIL = "email"
@@ -22,6 +24,7 @@ class NodeCategory(str, Enum):
     DATABASE = "database"
     DOCUMENT = "document"
     AI = "ai"
+    CODE = "code"
     PYTHON = "python"
     CONTROL = "control"
     LOGGING = "logging"
@@ -32,6 +35,8 @@ class NodeCategory(str, Enum):
     VOICE = "voice"
     INSURANCE = "insurance"
     VECTORDB = "vectordb"
+    MS365 = "ms365"
+    DATA = "data"
 
 
 @dataclass
@@ -609,6 +614,130 @@ register_node(NodeMapping(
     library=LIB_DESKTOP,
     description="Copy to clipboard",
     config_mapping={"text": "text"},
+))
+
+
+# =============================================================================
+# STORAGE NODES - Multi-Provider Storage (S3, Azure, GCS, SharePoint, etc.)
+# =============================================================================
+
+LIB_STORAGE = LibraryImport("skuldbot.libs.storage", alias="SkuldStorage")
+
+register_node(NodeMapping(
+    node_type="storage.provider",
+    category=NodeCategory.STORAGE,
+    keyword="Configure Storage Provider",
+    library=LIB_STORAGE,
+    description="Configure multi-provider storage backend",
+    config_mapping={
+        "provider": "provider",
+        "name": "name",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="storage.transfer",
+    category=NodeCategory.STORAGE,
+    keyword="Transfer Between Providers",
+    library=LIB_STORAGE,
+    description="Transfer files between storage providers",
+    config_mapping={
+        "source_provider": "source_provider",
+        "source_path": "source_path",
+        "dest_provider": "dest_provider",
+        "dest_path": "dest_path",
+        "verify_checksum": "verify_checksum",
+    },
+    return_variable="transfer_result",
+))
+
+register_node(NodeMapping(
+    node_type="storage.sync",
+    category=NodeCategory.STORAGE,
+    keyword="Sync Directories Between Providers",
+    library=LIB_STORAGE,
+    description="Synchronize directories between storage providers",
+    config_mapping={
+        "source_provider": "source_provider",
+        "source_path": "source_path",
+        "dest_provider": "dest_provider",
+        "dest_path": "dest_path",
+        "delete_extra": "delete_extra",
+    },
+    return_variable="sync_result",
+))
+
+
+# =============================================================================
+# BOT SUBPROCESS NODES (Enterprise)
+# =============================================================================
+
+# Library for subprocess execution
+LIB_SUBPROCESS = LibraryImport("SkuldSubprocess")
+
+register_node(NodeMapping(
+    node_type="bot.call",
+    category=NodeCategory.BOT,
+    keyword="Call Bot",
+    library=LIB_SUBPROCESS,
+    description="Invoke another bot as a subprocess with parameters",
+    config_mapping={
+        "bot_id": "bot_id",
+        "parameters": "parameters",
+        "wait_for_completion": "wait",
+        "timeout_seconds": "timeout",
+        "retry_count": "retries",
+        "retry_delay_seconds": "retry_delay",
+        "fail_on_error": "fail_on_error",
+        "run_id_prefix": "run_id_prefix",
+        "inherit_context": "inherit_context",
+    },
+    return_variable="subbot_result",
+))
+
+register_node(NodeMapping(
+    node_type="bot.input",
+    category=NodeCategory.BOT,
+    keyword="Bot Input Parameters",
+    library=LIB_SUBPROCESS,
+    description="Define input parameters for this bot when called as subprocess",
+    config_mapping={
+        "parameters": "parameter_schema",
+        "validate_inputs": "validate",
+        "fail_on_invalid": "fail_on_invalid",
+    },
+    return_variable="input_params",
+))
+
+register_node(NodeMapping(
+    node_type="bot.output",
+    category=NodeCategory.BOT,
+    keyword="Bot Output Return",
+    library=LIB_SUBPROCESS,
+    description="Define return value for this bot when called as subprocess",
+    config_mapping={
+        "return_value": "return_value",
+        "status": "status",
+        "message": "message",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="bot.queue",
+    category=NodeCategory.BOT,
+    keyword="Queue Bot Calls",
+    library=LIB_SUBPROCESS,
+    description="Queue multiple bot calls for parallel/batch execution",
+    config_mapping={
+        "bot_id": "bot_id",
+        "items": "items",
+        "parameter_mapping": "parameter_mapping",
+        "concurrency": "concurrency",
+        "fail_fast": "fail_fast",
+        "collect_results": "collect_results",
+        "timeout_per_item": "timeout_per_item",
+    },
+    return_variable="queue_results",
 ))
 
 
@@ -1536,6 +1665,37 @@ register_node(NodeMapping(
 
 
 # =============================================================================
+# CODE NODES (Custom Code Execution - like n8n)
+# =============================================================================
+
+register_node(NodeMapping(
+    node_type="code.javascript",
+    category=NodeCategory.CODE,
+    keyword="Execute JavaScript",
+    library=LIB_BUILTIN,
+    description="Execute custom JavaScript code. Access input via $input, return transformed data.",
+    config_mapping={
+        "code": "code",
+        "mode": "mode",
+    },
+    return_variable="js_result",
+))
+
+register_node(NodeMapping(
+    node_type="code.python",
+    category=NodeCategory.CODE,
+    keyword="Execute Python Code",
+    library=LIB_BUILTIN,
+    description="Execute custom Python code. Access input via input_data, set result variable.",
+    config_mapping={
+        "code": "code",
+        "mode": "mode",
+    },
+    return_variable="py_result",
+))
+
+
+# =============================================================================
 # PYTHON NODES
 # =============================================================================
 
@@ -1577,11 +1737,29 @@ register_node(NodeMapping(
 register_node(NodeMapping(
     node_type="python.virtualenv",
     category=NodeCategory.PYTHON,
-    keyword="Run Process",
+    keyword="Create Virtualenv",
     library=LIB_PROCESS,
-    description="Create virtualenv",
-    config_mapping={"path": "args"},
-    pre_keywords=["${cmd}=    Set Variable    python -m venv"],
+    description="Create Python virtual environment with optional package installation",
+    config_mapping={
+        "path": "path",
+        "python_executable": "python_executable",
+        "install_packages": "packages",
+        "requirements_file": "requirements",
+    },
+    return_variable="venv_info",
+))
+
+register_node(NodeMapping(
+    node_type="python.activate_venv",
+    category=NodeCategory.PYTHON,
+    keyword="Activate Virtualenv",
+    library=LIB_BUILTIN,
+    description="Set virtual environment to use for subsequent Python nodes",
+    config_mapping={
+        "venv_path": "venv_path",
+        "verify": "verify",
+    },
+    return_variable="venv_status",
 ))
 
 register_node(NodeMapping(
@@ -2417,13 +2595,15 @@ def generate_ai_planner_catalog() -> str:
         "files": "FILES & FOLDERS",
         "excel": "EXCEL & CSV",
         "email": "EMAIL",
+        "ms365": "MICROSOFT 365 (Email, Calendar via Entra ID)",
         "api": "API & HTTP",
         "database": "DATABASE",
         "document": "DOCUMENTS (PDF, OCR)",
         "ai": "AI & LLM (requires SkuldAI license)",
         "vectordb": "VECTOR DATABASE (RAG, pgvector, Pinecone, Qdrant, ChromaDB, Supabase)",
-        "python": "PYTHON EXECUTION",
-        "control": "CONTROL FLOW",
+        "code": "CODE (JavaScript & Python - like n8n)",
+        "python": "PYTHON PROJECT EXECUTION",
+        "control": "CONTROL FLOW (Map, Filter, Reduce, Loops)",
         "logging": "LOGGING & MONITORING",
         "security": "SECURITY & SECRETS",
         "human": "HUMAN-IN-THE-LOOP",
@@ -2431,7 +2611,7 @@ def generate_ai_planner_catalog() -> str:
         "dataquality": "DATA QUALITY (requires SkuldDataQuality license)",
         "voice": "VOICE/TELEPHONY (requires SkuldVoice - Twilio + Azure Speech)",
         "insurance": "INSURANCE (FNOL & Claims)",
-        "data": "DATA INTEGRATION",
+        "data": "DATA INTEGRATION (Singer Taps & Targets)",
     }
 
     # Agrupar nodos por categoría
@@ -2449,8 +2629,8 @@ def generate_ai_planner_catalog() -> str:
 
     # Orden específico de categorías (las más usadas primero)
     category_order = [
-        "trigger", "web", "email", "files", "excel", "api", "database",
-        "document", "control", "logging", "data", "ai", "vectordb", "voice",
+        "trigger", "web", "email", "ms365", "files", "excel", "api", "database",
+        "document", "data", "code", "control", "logging", "ai", "vectordb", "voice",
         "compliance", "dataquality", "insurance", "human", "security",
         "python", "desktop"
     ]
@@ -3402,6 +3582,545 @@ register_node(NodeMapping(
     library=LIB_SKULD_VECTORDB,
     description="Close the vector database connection",
     config_mapping={},
+))
+
+
+# =============================================================================
+# MS365 NODES (Microsoft 365 Integration)
+# =============================================================================
+
+LIB_SKULD_MS365 = LibraryImport("skuldbot.libs.ms365.SkuldMS365", alias="MS365")
+
+register_node(NodeMapping(
+    node_type="ms365.connection",
+    category=NodeCategory.MS365,
+    keyword="Configure MS365",
+    library=LIB_SKULD_MS365,
+    description="Configure Microsoft 365 connection (Entra ID credentials)",
+    config_mapping={
+        "tenant_id": "tenant_id",
+        "client_id": "client_id",
+        "client_secret": "client_secret",
+        "user_email": "user_email",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="trigger.ms365_email",
+    category=NodeCategory.TRIGGER,
+    keyword="Listen For MS365 Email",
+    library=LIB_SKULD_MS365,
+    description="Trigger when new email arrives in Microsoft 365",
+    config_mapping={
+        "folder": "folder",
+        "filter_sender": "filter_sender",
+        "filter_subject": "filter_subject",
+    },
+    return_variable="trigger_email",
+))
+
+register_node(NodeMapping(
+    node_type="ms365.email_list",
+    category=NodeCategory.MS365,
+    keyword="List MS365 Emails",
+    library=LIB_SKULD_MS365,
+    description="List emails from a Microsoft 365 folder",
+    config_mapping={
+        "folder": "folder",
+        "filter": "filter",
+        "top": "top",
+        "unread_only": "unread_only",
+    },
+    return_variable="emails",
+))
+
+register_node(NodeMapping(
+    node_type="ms365.email_read",
+    category=NodeCategory.MS365,
+    keyword="Read MS365 Email",
+    library=LIB_SKULD_MS365,
+    description="Read a specific Microsoft 365 email by ID",
+    config_mapping={
+        "email_id": "email_id",
+    },
+    return_variable="email",
+))
+
+register_node(NodeMapping(
+    node_type="ms365.email_send",
+    category=NodeCategory.MS365,
+    keyword="Send MS365 Email",
+    library=LIB_SKULD_MS365,
+    description="Send an email via Microsoft 365",
+    config_mapping={
+        "to": "to",
+        "subject": "subject",
+        "body": "body",
+        "cc": "cc",
+        "bcc": "bcc",
+        "attachments": "attachments",
+    },
+    return_variable="send_result",
+))
+
+register_node(NodeMapping(
+    node_type="ms365.email_reply",
+    category=NodeCategory.MS365,
+    keyword="Reply MS365 Email",
+    library=LIB_SKULD_MS365,
+    description="Reply to a Microsoft 365 email",
+    config_mapping={
+        "email_id": "email_id",
+        "body": "body",
+        "reply_all": "reply_all",
+    },
+    return_variable="reply_result",
+))
+
+register_node(NodeMapping(
+    node_type="ms365.email_forward",
+    category=NodeCategory.MS365,
+    keyword="Forward MS365 Email",
+    library=LIB_SKULD_MS365,
+    description="Forward a Microsoft 365 email",
+    config_mapping={
+        "email_id": "email_id",
+        "to": "to",
+        "comment": "comment",
+    },
+    return_variable="forward_result",
+))
+
+register_node(NodeMapping(
+    node_type="ms365.email_move",
+    category=NodeCategory.MS365,
+    keyword="Move MS365 Email",
+    library=LIB_SKULD_MS365,
+    description="Move a Microsoft 365 email to another folder",
+    config_mapping={
+        "email_id": "email_id",
+        "folder": "destination_folder",
+    },
+    return_variable="move_result",
+))
+
+register_node(NodeMapping(
+    node_type="ms365.email_delete",
+    category=NodeCategory.MS365,
+    keyword="Delete MS365 Email",
+    library=LIB_SKULD_MS365,
+    description="Delete a Microsoft 365 email",
+    config_mapping={
+        "email_id": "email_id",
+    },
+    return_variable="delete_result",
+))
+
+register_node(NodeMapping(
+    node_type="ms365.email_download_attachment",
+    category=NodeCategory.MS365,
+    keyword="Download MS365 Attachment",
+    library=LIB_SKULD_MS365,
+    description="Download an attachment from a Microsoft 365 email",
+    config_mapping={
+        "email_id": "email_id",
+        "attachment_id": "attachment_id",
+        "save_path": "save_path",
+    },
+    return_variable="attachment_path",
+))
+
+register_node(NodeMapping(
+    node_type="ms365.calendar_list_events",
+    category=NodeCategory.MS365,
+    keyword="List MS365 Calendar Events",
+    library=LIB_SKULD_MS365,
+    description="List calendar events from Microsoft 365",
+    config_mapping={
+        "start_date": "start_date",
+        "end_date": "end_date",
+        "calendar": "calendar",
+    },
+    return_variable="events",
+))
+
+register_node(NodeMapping(
+    node_type="ms365.calendar_create_event",
+    category=NodeCategory.MS365,
+    keyword="Create MS365 Calendar Event",
+    library=LIB_SKULD_MS365,
+    description="Create a calendar event in Microsoft 365",
+    config_mapping={
+        "subject": "subject",
+        "start": "start",
+        "end": "end",
+        "body": "body",
+        "attendees": "attendees",
+        "location": "location",
+    },
+    return_variable="event",
+))
+
+
+# =============================================================================
+# DATA INTEGRATION NODES (Singer Taps & Targets)
+# =============================================================================
+
+LIB_SKULD_DATA = LibraryImport("skuldbot.libs.data.DataLibrary", alias="DataLib")
+
+# --- Data Taps (Extraction) ---
+
+register_node(NodeMapping(
+    node_type="data.tap.sqlserver",
+    category=NodeCategory.DATA,
+    keyword="Extract From SQL Server",
+    library=LIB_SKULD_DATA,
+    description="Extract data from SQL Server database",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "username": "username",
+        "password": "password",
+        "tables": "tables",
+        "query": "query",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.postgres",
+    category=NodeCategory.DATA,
+    keyword="Extract From PostgreSQL",
+    library=LIB_SKULD_DATA,
+    description="Extract data from PostgreSQL database",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "username": "username",
+        "password": "password",
+        "tables": "tables",
+        "query": "query",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.mysql",
+    category=NodeCategory.DATA,
+    keyword="Extract From MySQL",
+    library=LIB_SKULD_DATA,
+    description="Extract data from MySQL database",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "username": "username",
+        "password": "password",
+        "tables": "tables",
+        "query": "query",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.oracle",
+    category=NodeCategory.DATA,
+    keyword="Extract From Oracle",
+    library=LIB_SKULD_DATA,
+    description="Extract data from Oracle database",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "service_name": "service_name",
+        "username": "username",
+        "password": "password",
+        "tables": "tables",
+        "query": "query",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.snowflake",
+    category=NodeCategory.DATA,
+    keyword="Extract From Snowflake",
+    library=LIB_SKULD_DATA,
+    description="Extract data from Snowflake data warehouse",
+    config_mapping={
+        "account": "account",
+        "warehouse": "warehouse",
+        "database": "database",
+        "schema": "schema",
+        "username": "username",
+        "password": "password",
+        "tables": "tables",
+        "query": "query",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.csv",
+    category=NodeCategory.DATA,
+    keyword="Extract From CSV",
+    library=LIB_SKULD_DATA,
+    description="Extract data from CSV file(s)",
+    config_mapping={
+        "path": "path",
+        "delimiter": "delimiter",
+        "encoding": "encoding",
+        "header": "header",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.excel",
+    category=NodeCategory.DATA,
+    keyword="Extract From Excel",
+    library=LIB_SKULD_DATA,
+    description="Extract data from Excel file(s)",
+    config_mapping={
+        "path": "path",
+        "sheet": "sheet",
+        "range": "range",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.sftp",
+    category=NodeCategory.DATA,
+    keyword="Extract From SFTP",
+    library=LIB_SKULD_DATA,
+    description="Extract files from SFTP server",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "username": "username",
+        "password": "password",
+        "path": "path",
+        "pattern": "pattern",
+    },
+    return_variable="extracted_files",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.s3",
+    category=NodeCategory.DATA,
+    keyword="Extract From S3",
+    library=LIB_SKULD_DATA,
+    description="Extract files from AWS S3 bucket",
+    config_mapping={
+        "bucket": "bucket",
+        "prefix": "prefix",
+        "aws_access_key": "aws_access_key",
+        "aws_secret_key": "aws_secret_key",
+        "region": "region",
+    },
+    return_variable="extracted_files",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.salesforce",
+    category=NodeCategory.DATA,
+    keyword="Extract From Salesforce",
+    library=LIB_SKULD_DATA,
+    description="Extract data from Salesforce CRM",
+    config_mapping={
+        "client_id": "client_id",
+        "client_secret": "client_secret",
+        "refresh_token": "refresh_token",
+        "objects": "objects",
+        "soql": "soql",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.rest_api",
+    category=NodeCategory.DATA,
+    keyword="Extract From REST API",
+    library=LIB_SKULD_DATA,
+    description="Extract data from REST API endpoint",
+    config_mapping={
+        "url": "url",
+        "method": "method",
+        "headers": "headers",
+        "auth_type": "auth_type",
+        "pagination": "pagination",
+    },
+    return_variable="extracted_data",
+))
+
+# --- Data Targets (Loading) ---
+
+register_node(NodeMapping(
+    node_type="data.target.sqlserver",
+    category=NodeCategory.DATA,
+    keyword="Load To SQL Server",
+    library=LIB_SKULD_DATA,
+    description="Load data to SQL Server database",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "username": "username",
+        "password": "password",
+        "table": "table",
+        "mode": "mode",
+    },
+    return_variable="load_result",
+))
+
+register_node(NodeMapping(
+    node_type="data.target.postgres",
+    category=NodeCategory.DATA,
+    keyword="Load To PostgreSQL",
+    library=LIB_SKULD_DATA,
+    description="Load data to PostgreSQL database",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "username": "username",
+        "password": "password",
+        "table": "table",
+        "mode": "mode",
+    },
+    return_variable="load_result",
+))
+
+register_node(NodeMapping(
+    node_type="data.target.mysql",
+    category=NodeCategory.DATA,
+    keyword="Load To MySQL",
+    library=LIB_SKULD_DATA,
+    description="Load data to MySQL database",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "username": "username",
+        "password": "password",
+        "table": "table",
+        "mode": "mode",
+    },
+    return_variable="load_result",
+))
+
+register_node(NodeMapping(
+    node_type="data.target.oracle",
+    category=NodeCategory.DATA,
+    keyword="Load To Oracle",
+    library=LIB_SKULD_DATA,
+    description="Load data to Oracle database",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "service_name": "service_name",
+        "username": "username",
+        "password": "password",
+        "table": "table",
+        "mode": "mode",
+    },
+    return_variable="load_result",
+))
+
+register_node(NodeMapping(
+    node_type="data.target.snowflake",
+    category=NodeCategory.DATA,
+    keyword="Load To Snowflake",
+    library=LIB_SKULD_DATA,
+    description="Load data to Snowflake data warehouse",
+    config_mapping={
+        "account": "account",
+        "warehouse": "warehouse",
+        "database": "database",
+        "schema": "schema",
+        "username": "username",
+        "password": "password",
+        "table": "table",
+        "mode": "mode",
+    },
+    return_variable="load_result",
+))
+
+register_node(NodeMapping(
+    node_type="data.target.bigquery",
+    category=NodeCategory.DATA,
+    keyword="Load To BigQuery",
+    library=LIB_SKULD_DATA,
+    description="Load data to Google BigQuery",
+    config_mapping={
+        "project": "project",
+        "dataset": "dataset",
+        "table": "table",
+        "credentials_path": "credentials_path",
+        "mode": "mode",
+    },
+    return_variable="load_result",
+))
+
+register_node(NodeMapping(
+    node_type="data.target.csv",
+    category=NodeCategory.DATA,
+    keyword="Load To CSV",
+    library=LIB_SKULD_DATA,
+    description="Load data to CSV file",
+    config_mapping={
+        "path": "path",
+        "delimiter": "delimiter",
+        "encoding": "encoding",
+    },
+    return_variable="load_result",
+))
+
+register_node(NodeMapping(
+    node_type="data.target.excel",
+    category=NodeCategory.DATA,
+    keyword="Load To Excel",
+    library=LIB_SKULD_DATA,
+    description="Load data to Excel file",
+    config_mapping={
+        "path": "path",
+        "sheet": "sheet",
+    },
+    return_variable="load_result",
+))
+
+register_node(NodeMapping(
+    node_type="data.target.sftp",
+    category=NodeCategory.DATA,
+    keyword="Load To SFTP",
+    library=LIB_SKULD_DATA,
+    description="Upload files to SFTP server",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "username": "username",
+        "password": "password",
+        "remote_path": "remote_path",
+    },
+    return_variable="upload_result",
+))
+
+register_node(NodeMapping(
+    node_type="data.target.s3",
+    category=NodeCategory.DATA,
+    keyword="Load To S3",
+    library=LIB_SKULD_DATA,
+    description="Upload files to AWS S3 bucket",
+    config_mapping={
+        "bucket": "bucket",
+        "prefix": "prefix",
+        "aws_access_key": "aws_access_key",
+        "aws_secret_key": "aws_secret_key",
+        "region": "region",
+    },
+    return_variable="upload_result",
 ))
 
 

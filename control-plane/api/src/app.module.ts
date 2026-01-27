@@ -13,6 +13,7 @@ import { UsageRecord, UsageBatch } from './billing/entities/usage-record.entity'
 import { RevenueShareRecord, PartnerPayout } from './billing/entities/revenue-share.entity';
 import { TenantSubscription, PaymentHistory } from './billing/entities/subscription.entity';
 import { PaymentConfig } from './billing/entities/payment-config.entity';
+import { DiscoveredSchema } from './schemas/entities/discovered-schema.entity';
 
 // Modules
 import { IntegrationsModule } from './integrations/integrations.module';
@@ -23,6 +24,7 @@ import { LicensesModule } from './licenses/licenses.module';
 import { UsersModule } from './users/users.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { BillingModule } from './billing/billing.module';
+import { SchemasModule } from './schemas/schemas.module';
 
 @Module({
   imports: [
@@ -42,7 +44,7 @@ import { BillingModule } from './billing/billing.module';
         username: configService.get<string>('DB_USERNAME', 'skuld'),
         password: configService.get<string>('DB_PASSWORD', 'skuld'),
         database: configService.get<string>('DB_DATABASE', 'skuld_controlplane'),
-        entities: [Client, Tenant, License, User, MarketplaceBot, BotVersion, Partner, UsageRecord, UsageBatch, RevenueShareRecord, PartnerPayout, TenantSubscription, PaymentHistory, PaymentConfig],
+        entities: [Client, Tenant, License, User, MarketplaceBot, BotVersion, Partner, UsageRecord, UsageBatch, RevenueShareRecord, PartnerPayout, TenantSubscription, PaymentHistory, PaymentConfig, DiscoveredSchema],
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
         logging: configService.get<string>('NODE_ENV') === 'development',
       }),
@@ -60,6 +62,7 @@ import { BillingModule } from './billing/billing.module';
     UsersModule,
     MarketplaceModule,
     BillingModule,
+    SchemasModule,
   ],
 })
 export class AppModule {}

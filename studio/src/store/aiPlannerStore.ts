@@ -63,6 +63,49 @@ function generateMessageId(): string {
   return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
+const AI_NODES_WITH_MODEL = new Set([
+  "ai.agent",
+  "ai.extract_data",
+  "ai.summarize",
+  "ai.classify",
+  "ai.translate",
+  "ai.sentiment",
+  "ai.vision",
+  "ai.repair_data",
+  "ai.suggest_repairs",
+]);
+
+function ensureModelNode(steps: PlanStep[], llmConfig: LLMConfig): PlanStep[] {
+  const hasModel = steps.some((step) => step.nodeType === "ai.model");
+  const needsModel = steps.some((step) => AI_NODES_WITH_MODEL.has(step.nodeType));
+
+  if (!needsModel || hasModel) {
+    return steps;
+  }
+
+  const modelStep: PlanStep = {
+    id: generateStepId(),
+    nodeType: "ai.model",
+    label: "AI Model",
+    description: "Configure the LLM provider used by AI steps",
+    config: {
+      provider: llmConfig.provider,
+      model: llmConfig.model,
+      temperature: llmConfig.temperature,
+      ...(llmConfig.baseUrl ? { base_url: llmConfig.baseUrl } : {}),
+    },
+    reasoning: "AI steps require an AI Model node to provide provider and model settings.",
+  };
+
+  const triggerIndex = steps.findIndex((step) => step.nodeType.startsWith("trigger."));
+  if (triggerIndex >= 0) {
+    const insertAt = triggerIndex + 1;
+    return [...steps.slice(0, insertAt), modelStep, ...steps.slice(insertAt)];
+  }
+
+  return [modelStep, ...steps];
+}
+
 // ============================================================
 // Default LLM Config
 // ============================================================
@@ -169,6 +212,7 @@ export const useAIPlannerStore = create<AIPlannerStoreState>()(
         ...step,
         id: step.id || generateStepId(),
       }));
+      const finalSteps = ensureModelNode(stepsWithIds, llmConfig);
 
       // Initialize conversation with the description
       const initialMessage: ConversationMessage = {
@@ -186,13 +230,13 @@ export const useAIPlannerStore = create<AIPlannerStoreState>()(
       };
 
       set({
-        planSteps: stepsWithIds,
+        planSteps: finalSteps,
         isGenerating: false,
         currentPhase: "plan",
         conversation: [initialMessage, assistantMessage],
       });
 
-      toast.success("Plan Generated", `Created ${stepsWithIds.length} automation steps`);
+      toast.success("Plan Generated", `Created ${finalSteps.length} automation steps`);
     } catch (error) {
       console.error("Failed to generate plan:", error);
       set({
@@ -318,6 +362,7 @@ export const useAIPlannerStore = create<AIPlannerStoreState>()(
         ...step,
         id: step.id || generateStepId(),
       }));
+      const finalSteps = ensureModelNode(refinedSteps, llmConfig);
 
       // Add assistant response
       const assistantMessage: ConversationMessage = {
@@ -328,7 +373,7 @@ export const useAIPlannerStore = create<AIPlannerStoreState>()(
       };
 
       set({
-        planSteps: refinedSteps,
+        planSteps: finalSteps,
         isGenerating: false,
         currentPhase: "plan",
         conversation: [...get().conversation, assistantMessage],

@@ -1,121 +1,164 @@
 export const metadata = {
   title: 'Python',
-  description: 'Components for running Python scripts and projects within your automation. Full access to Python ecosystem.',
+  description: 'Complete Python integration for your automations. Execute scripts, run projects, manage virtual environments, and integrate Jupyter notebooks.',
 }
 
 export const sections = [
-  { title: 'Execute Python', id: 'python-execute' },
+  { title: 'Code (Python)', id: 'code-python' },
   { title: 'Run Python Project', id: 'python-project' },
-  { title: 'Pip Install', id: 'python-pip_install' },
+  { title: 'Run Notebook', id: 'python-notebook' },
   { title: 'Create Virtualenv', id: 'python-virtualenv' },
+  { title: 'Use Virtualenv', id: 'python-activate_venv' },
+  { title: 'Pip Install', id: 'python-pip_install' },
+  { title: 'Execute Python (Legacy)', id: 'python-execute' },
   { title: 'Python Function', id: 'python-function' },
   { title: 'Import Module', id: 'python-import_module' },
-  { title: 'Run Notebook', id: 'python-notebook' },
   { title: 'Python Eval', id: 'python-eval' },
 ]
 
-# Python
-
-Components for running Python scripts and projects within your automation. Full access to Python ecosystem. {{ className: 'lead' }}
+Complete Python integration for your automations. Execute inline code, run external projects, manage virtual environments, and integrate Jupyter notebooks. {{ className: 'lead' }}
 
 <Note>
-  This category contains **8 components**. See also: [Data Transform](/components/data) · [AI / LLM](/components/ai) · [API / HTTP](/components/api)
+  This category contains **10 components**. SkuldBot's Python integration is more powerful than ElectroNeek, supporting inline code, Jupyter notebooks, and automatic virtual environment management.
 </Note>
 
-## Common Use Cases
-
-- Run custom Python scripts
-- Use specialized Python libraries
-- Complex data transformations
-- Machine learning operations
-
----
-
-## Execute Python {{ id: 'python-execute' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-code-xml"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="m18 16 4-4-4-4" />
-  <path d="m6 8-4 4 4 4" />
-  <path d="m14.5 4-5 16" />
-</svg>
-`} label="Execute Python" description="Run Python code" bgColor="#fef9c3" textColor="#a16207" />
+<NodeHeader id="code-python" icon="FileCode2" label="Code (Python)" description="Execute custom Python code with reusable functions" bgColor="#fef9c3" textColor="#a16207" />
 
 <Properties>
   <Property name="type" type="string">
-    `python.execute`
+    `code.python`
   </Property>
 </Properties>
 
-### When to Use
+### How It Works
 
-- Run custom data transformations
-- Execute specialized algorithms
-- Perform complex calculations
-- Use Python-specific libraries
+The Code (Python) node allows you to write Python code directly in the editor, similar to n8n's Code node. It features **two separate areas**: one for defining reusable functions and another for your main processing logic.
+
+<Diagram 
+  groups={[
+    {
+      id: "functions",
+      label: "Functions (optional)",
+      direction: "column",
+      nodes: [
+        { id: "f1", label: "validate_email()", type: "default" },
+        { id: "f2", label: "format_name()", type: "default" }
+      ]
+    },
+    {
+      id: "main",
+      label: "Main Code",
+      nodes: [{ id: "main", label: "code.python", sublabel: "Process items → result", type: "primary" }]
+    },
+    {
+      id: "config",
+      label: "Config",
+      nodes: [{ id: "timeout", label: "Timeout: 30s", type: "warning" }]
+    }
+  ]}
+/>
+
+### Data Flow
+
+<FlowDiagram items={[
+  { label: "Previous Node", sublabel: "output: {items: [...]}", type: "default" },
+  { label: "code.python", sublabel: "input_data → result", type: "primary" },
+  { label: "Next Node", sublabel: "receives result data", type: "success" }
+]} />
 
 ### Configuration
 
 <Properties>
-  <Property name="code" type="textarea" required>
-    Python Code
+  <Property name="functions" type="textarea">
+    **Functions (optional)** — Define helper functions that will be available in your main code. Great for validation, formatting, and reusable logic.
   </Property>
-  <Property name="variables" type="textarea">
-    Input Variables (JSON)
+  <Property name="code" type="textarea" required>
+    **Main Code** — Your processing logic. Access input via `input_data` dict. Set `result` variable to return data.
+  </Property>
+  <Property name="mode" type="select">
+    **Execution Mode** — `runOnceForAll` (default) processes all items together. `runOnceForEach` runs for each item individually.
+  </Property>
+  <Property name="timeout" type="number">
+    **Timeout** — Maximum execution time in seconds. Default: 30.
   </Property>
 </Properties>
 
-### Example
+### Built-in Variables
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `input_data` | dict | Contains `items` array from previous node |
+| `result` | any | Set this to return data to next node |
+
+### Example: Email Validation Pipeline
+
+**Functions area:**
+```python
+def validate_email(email):
+    """Check if email has valid format"""
+    import re
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, str(email or '')))
+
+def normalize_name(name):
+    """Clean and format name"""
+    return ' '.join(str(name or '').strip().split()).title()
+
+def calculate_age(birth_date):
+    """Calculate age from birth date string"""
+    from datetime import datetime
+    try:
+        birth = datetime.strptime(birth_date, '%Y-%m-%d')
+        today = datetime.now()
+        return today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
+    except:
+        return None
+```
+
+**Main Code area:**
+```python
+# Get items from previous node
+items = input_data.get('items', [])
+
+# Process each item
+result = []
+for item in items:
+    processed = {
+        'id': item.get('id'),
+        'name': normalize_name(item.get('name')),
+        'email': item.get('email'),
+        'email_valid': validate_email(item.get('email')),
+        'age': calculate_age(item.get('birth_date')),
+        'processed_at': __import__('datetime').datetime.now().isoformat()
+    }
+    
+    # Only include valid emails
+    if processed['email_valid']:
+        result.append(processed)
+
+# result is automatically passed to next node
+```
+
+### Output
 
 ```json
 {
-  "id": "node-1",
-  "type": "python.execute",
-  "label": "Execute Python",
-  "config": {
-    "code": "your-code",
-    "variables": "your-variables"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
+  "data": [
+    {
+      "id": 1,
+      "name": "John Smith",
+      "email": "john@example.com",
+      "email_valid": true,
+      "age": 32,
+      "processed_at": "2024-01-15T10:30:00"
+    }
+  ],
+  "itemCount": 1,
+  "executionTime": 45
 }
 ```
 
----
-
-## Run Python Project {{ id: 'python-project' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-folder-code"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M10 10.5 8 13l2 2.5" />
-  <path d="m14 10.5 2 2.5-2 2.5" />
-  <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z" />
-</svg>
-`} label="Run Python Project" description="Execute Python project" bgColor="#fef9c3" textColor="#a16207" />
+<NodeHeader id="python-project" icon="FolderCode" label="Run Python Project" description="Execute external Python project with venv support" bgColor="#fef9c3" textColor="#a16207" />
 
 <Properties>
   <Property name="type" type="string">
@@ -123,331 +166,175 @@ Components for running Python scripts and projects within your automation. Full 
   </Property>
 </Properties>
 
-### When to Use
+### How It Works
 
-- Run existing Python projects/scripts
-- Execute ML model inference
-- Run data science pipelines
-- Integrate legacy Python code
+This node executes an **external Python project** - perfect for running ML models, data science scripts, or existing Python codebases. It supports virtual environments, multiple input methods, and JSON output parsing.
+
+<Diagram 
+  groups={[
+    {
+      id: "structure",
+      label: "Your Project",
+      direction: "column",
+      nodes: [
+        { id: "venv", label: ".venv/", type: "default" },
+        { id: "main", label: "main.py", type: "primary" },
+        { id: "req", label: "requirements.txt", type: "default" }
+      ]
+    },
+    {
+      id: "execution",
+      label: "SkuldBot Runs",
+      direction: "column",
+      nodes: [
+        { id: "cd", label: "cd my_project", type: "default" },
+        { id: "run", label: ".venv/bin/python main.py", type: "success" },
+        { id: "env", label: "SKULD_INPUT={...}", type: "warning" }
+      ]
+    }
+  ]}
+/>
+
+### Data Flow: Three Input Methods
+
+**Method 1: Environment Variable (default, up to 32KB)**
+<FlowDiagram items={[
+  { label: "Prev Node", sublabel: "output: {}", type: "default" },
+  { label: "python.project", sublabel: "SKULD_INPUT=<json>", type: "primary" }
+]} />
+
+**Method 2: Temporary File (for large data)**
+
+<FlowDiagram items={[
+  { label: "Prev Node", sublabel: "output: {}", type: "default" },
+  { label: "python.project", sublabel: "SKULD_INPUT_FILE=/tmp/...", type: "primary" }
+]} />
+
+**Method 3: Command Line Arguments**
+
+<FlowDiagram items={[
+  { label: "Prev Node", sublabel: "output: {}", type: "default" },
+  { label: "python.project", sublabel: "--input '{...}'", type: "primary" }
+]} />
 
 ### Configuration
 
 <Properties>
   <Property name="project_path" type="text" required>
-    Project Path
+    **Project Path** — Absolute path to your Python project folder.
   </Property>
   <Property name="entrypoint" type="text" required>
-    Entrypoint (e.g., `main.py`)
+    **Entrypoint Script** — Python file to execute (e.g., `main.py`).
+  </Property>
+  <Property name="venv_path" type="text">
+    **Virtual Environment** — Path to venv folder relative to project (e.g., `.venv`) or absolute path.
   </Property>
   <Property name="args" type="text">
-    Arguments
+    **Script Arguments** — Command line arguments (e.g., `--verbose --config settings.json`).
+  </Property>
+  <Property name="input_method" type="select">
+    **Input Data Method** — How to pass data from previous node: `env` (environment variable), `file` (temp file), or `args` (command line).
+  </Property>
+  <Property name="pass_input" type="boolean">
+    **Pass Input Data** — Whether to pass previous node's output to the script. Default: true.
+  </Property>
+  <Property name="parse_json_output" type="boolean">
+    **Parse JSON Output** — Attempt to parse stdout as JSON. Default: true.
+  </Property>
+  <Property name="timeout" type="number">
+    **Timeout** — Maximum execution time in seconds. Default: 300.
   </Property>
 </Properties>
 
-### Example
+### Example: ML Model Inference
 
+**Your project structure:**
+```
+ml_classifier/
+├── .venv/
+│   └── bin/python
+├── main.py
+├── model.pkl
+└── requirements.txt
+```
+
+**Your `main.py`:**
+```python
+#!/usr/bin/env python3
+import os
+import json
+import pickle
+
+def main():
+    # Get input from SkuldBot
+    input_json = os.environ.get('SKULD_INPUT', '{}')
+    input_data = json.loads(input_json)
+    
+    # Load your model
+    with open('model.pkl', 'rb') as f:
+        model = pickle.load(f)
+    
+    # Process items
+    items = input_data.get('items', [])
+    results = []
+    
+    for item in items:
+        features = [item.get('feature1'), item.get('feature2')]
+        prediction = model.predict([features])[0]
+        confidence = model.predict_proba([features])[0].max()
+        
+        results.append({
+            'id': item.get('id'),
+            'prediction': int(prediction),
+            'confidence': float(confidence),
+            'label': 'approved' if prediction == 1 else 'rejected'
+        })
+    
+    # Output JSON to stdout (SkuldBot captures this)
+    print(json.dumps({
+        'predictions': results,
+        'model_version': '1.2.0',
+        'total_processed': len(results)
+    }))
+
+if __name__ == '__main__':
+    main()
+```
+
+**Node Configuration:**
 ```json
 {
-  "id": "node-1",
-  "type": "python.project",
-  "label": "Run Python Project",
-  "config": {
-    "project_path": "your-project_path",
-    "entrypoint": "main.py",
-    "args": "your-args"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
+  "project_path": "/Users/me/projects/ml_classifier",
+  "entrypoint": "main.py",
+  "venv_path": ".venv",
+  "input_method": "env",
+  "pass_input": true,
+  "parse_json_output": true,
+  "timeout": 60
 }
 ```
 
----
-
-## Pip Install {{ id: 'python-pip_install' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-package"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z" />
-  <path d="M12 22V12" />
-  <polyline points="3.29 7 12 12 20.71 7" />
-  <path d="m7.5 4.27 9 5.15" />
-</svg>
-`} label="Pip Install" description="Install Python packages" bgColor="#fef9c3" textColor="#a16207" />
-
-<Properties>
-  <Property name="type" type="string">
-    `python.pip_install`
-  </Property>
-</Properties>
-
-### When to Use
-
-- Install required Python packages
-- Update dependencies
-- Install custom packages from git
-- Manage package versions
-
-### Configuration
-
-<Properties>
-  <Property name="packages" type="text" required>
-    Packages (e.g., `pandas numpy`)
-  </Property>
-  <Property name="requirements" type="text">
-    Requirements File
-  </Property>
-</Properties>
-
-### Example
+### Output
 
 ```json
 {
-  "id": "node-1",
-  "type": "python.pip_install",
-  "label": "Pip Install",
-  "config": {
-    "packages": "pandas numpy",
-    "requirements": "your-requirements"
+  "output": {
+    "predictions": [
+      {"id": 1, "prediction": 1, "confidence": 0.92, "label": "approved"},
+      {"id": 2, "prediction": 0, "confidence": 0.87, "label": "rejected"}
+    ],
+    "model_version": "1.2.0",
+    "total_processed": 2
   },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
+  "stdout": "{\"predictions\": [...]}",
+  "stderr": "",
+  "returncode": 0,
+  "success": true,
+  "duration_ms": 1250
 }
 ```
 
----
-
-## Create Virtualenv {{ id: 'python-virtualenv' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-box"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-  <path d="m3.3 7 8.7 5 8.7-5" />
-  <path d="M12 22V12" />
-</svg>
-`} label="Create Virtualenv" description="Create Python environment" bgColor="#fef9c3" textColor="#a16207" />
-
-<Properties>
-  <Property name="type" type="string">
-    `python.virtualenv`
-  </Property>
-</Properties>
-
-### When to Use
-
-- Create isolated Python environments
-- Manage dependency conflicts
-- Set up project-specific dependencies
-- Ensure reproducible environments
-
-### Configuration
-
-<Properties>
-  <Property name="path" type="text" required>
-    Environment Path
-  </Property>
-  <Property name="python_version" type="text">
-    Python Version Default: `3.10`
-  </Property>
-</Properties>
-
-### Example
-
-```json
-{
-  "id": "node-1",
-  "type": "python.virtualenv",
-  "label": "Create Virtualenv",
-  "config": {
-    "path": "your-path",
-    "python_version": "3.10"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
-}
-```
-
----
-
-## Python Function {{ id: 'python-function' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-braces"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" />
-  <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" />
-</svg>
-`} label="Python Function" description="Define reusable function" bgColor="#fef9c3" textColor="#a16207" />
-
-<Properties>
-  <Property name="type" type="string">
-    `python.function`
-  </Property>
-</Properties>
-
-### When to Use
-
-- Define reusable Python functions
-- Create custom transformations
-- Build helper utilities
-- Implement complex logic
-
-### Configuration
-
-<Properties>
-  <Property name="name" type="text" required>
-    Function Name
-  </Property>
-  <Property name="code" type="textarea" required>
-    Function Code
-  </Property>
-  <Property name="params" type="text">
-    Parameters
-  </Property>
-</Properties>
-
-### Example
-
-```json
-{
-  "id": "node-1",
-  "type": "python.function",
-  "label": "Python Function",
-  "config": {
-    "name": "your-name",
-    "code": "your-code",
-    "params": "your-params"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
-}
-```
-
----
-
-## Import Module {{ id: 'python-import_module' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-import"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M12 3v12" />
-  <path d="m8 11 4 4 4-4" />
-  <path d="M8 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4" />
-</svg>
-`} label="Import Module" description="Import Python module" bgColor="#fef9c3" textColor="#a16207" />
-
-<Properties>
-  <Property name="type" type="string">
-    `python.import_module`
-  </Property>
-</Properties>
-
-### When to Use
-
-- Import standard library modules
-- Load custom Python libraries
-- Access specialized packages
-- Use third-party integrations
-
-### Configuration
-
-<Properties>
-  <Property name="module" type="text" required>
-    Module Name
-  </Property>
-  <Property name="alias" type="text">
-    Alias
-  </Property>
-</Properties>
-
-### Example
-
-```json
-{
-  "id": "node-1",
-  "type": "python.import_module",
-  "label": "Import Module",
-  "config": {
-    "module": "your-module",
-    "alias": "your-alias"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
-}
-```
-
----
-
-## Run Notebook {{ id: 'python-notebook' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-book-open"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M12 7v14" />
-  <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
-</svg>
-`} label="Run Notebook" description="Execute Jupyter notebook" bgColor="#fef9c3" textColor="#a16207" />
+<NodeHeader id="python-notebook" icon="BookOpen" label="Run Notebook" description="Execute Jupyter notebook with papermill" bgColor="#fef9c3" textColor="#a16207" />
 
 <Properties>
   <Property name="type" type="string">
@@ -455,21 +342,332 @@ Components for running Python scripts and projects within your automation. Full 
   </Property>
 </Properties>
 
-### When to Use
+### How It Works
 
-- Run Jupyter notebooks for analysis
-- Execute data science workflows
-- Generate notebook-based reports
-- Run ML experiments
+This node executes Jupyter notebooks using **papermill**, allowing you to inject parameters and capture outputs. Perfect for data science workflows, report generation, and ML experiments.
+
+### Step-by-Step Flow
+
+**Step 1: Preparation**
+<FlowDiagram items={[
+  { label: "Previous Node", sublabel: "output: {...}", type: "default" },
+  { label: "python.notebook", sublabel: "receives data", type: "primary" }
+]} />
+
+The node receives output from the previous node (e.g., a list of records, API response).
+
+**Step 2: Parameter Injection**
+
+<Diagram 
+  groups={[
+    {
+      id: "input",
+      label: "From Previous Node",
+      nodes: [{ id: "skuld", label: "skuld_input", sublabel: "[{email: ...}, ...]", type: "primary" }]
+    },
+    {
+      id: "params",
+      label: "Custom Parameters",
+      direction: "column",
+      nodes: [
+        { id: "threshold", label: "threshold = 0.85", type: "default" },
+        { id: "mode", label: "mode = 'production'", type: "default" }
+      ]
+    }
+  ]}
+/>
+
+**Step 3: Notebook Execution**
+
+<Diagram 
+  groups={[
+    {
+      id: "notebook",
+      label: "analysis.ipynb",
+      direction: "column",
+      nodes: [
+        { id: "cell1", label: "Cell 1", sublabel: "[parameters] tag", type: "warning" },
+        { id: "cell2", label: "Cell 2", sublabel: "Processing logic", type: "default" },
+        { id: "cell3", label: "Cell 3", sublabel: "[skuld_output] tag", type: "success" }
+      ]
+    }
+  ]}
+/>
+│       "count": len(df_filtered),                            │
+│       "records": df_filtered.to_dict('records')             │
+│   }))                                                       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Step 4: Output Capture**
+<FlowDiagram items={[
+  { label: "python.notebook", sublabel: "cellOutputs: {count, records}", type: "primary" },
+  { label: "Next Node", sublabel: "receives cellOutputs", type: "success" }
+]} />
 
 ### Configuration
 
 <Properties>
   <Property name="path" type="text" required>
-    Notebook Path
+    **Notebook Path** — Path to the `.ipynb` notebook file.
   </Property>
   <Property name="output_path" type="text">
-    Output Path
+    **Output Path** — Where to save the executed notebook. Auto-generated if empty.
+  </Property>
+  <Property name="parameters" type="textarea">
+    **Parameters (JSON)** — JSON object with parameters to inject into the notebook's parameters cell.
+  </Property>
+  <Property name="pass_input" type="boolean">
+    **Pass Input Data** — Automatically inject previous node output as `skuld_input` parameter. Default: true.
+  </Property>
+  <Property name="venv_path" type="text">
+    **Virtual Environment** — Use papermill from this venv (optional).
+  </Property>
+  <Property name="kernel_name" type="text">
+    **Kernel Name** — Jupyter kernel to use (e.g., `python3`, `myenv`).
+  </Property>
+  <Property name="timeout" type="number">
+    **Cell Timeout** — Maximum execution time per cell in seconds. Default: 600.
+  </Property>
+  <Property name="capture_outputs" type="boolean">
+    **Capture Cell Outputs** — Extract outputs from cells tagged with `skuld_output`. Default: true.
+  </Property>
+</Properties>
+
+### How to Tag Cells for Output
+
+**In Jupyter Notebook:**
+1. Select the cell you want to capture
+2. View → Cell Toolbar → Tags
+3. Type `skuld_output` and press Enter
+
+**In JupyterLab:**
+1. Select the cell
+2. Open the right sidebar (property panel)
+3. Add tag: `skuld_output`
+
+### Complete Example: Customer Analysis
+
+**Your notebook `customer_analysis.ipynb`:**
+
+**Cell 1** (tag: `parameters`):
+```python
+# Parameters - Papermill will replace these values
+skuld_input = []
+threshold = 0.5
+output_format = "summary"
+```
+
+**Cell 2** (processing):
+```python
+import pandas as pd
+import numpy as np
+
+# Create DataFrame from SkuldBot input
+df = pd.DataFrame(skuld_input)
+
+# Validate emails
+df['valid_email'] = df['email'].str.contains('@', na=False)
+
+# Calculate metrics
+valid_count = df['valid_email'].sum()
+invalid_count = len(df) - valid_count
+validation_rate = (valid_count / len(df) * 100) if len(df) > 0 else 0
+```
+
+**Cell 3** (tag: `skuld_output`):
+```python
+import json
+
+# This output will be captured by SkuldBot
+output = {
+    "total_records": len(df),
+    "valid_emails": int(valid_count),
+    "invalid_emails": int(invalid_count),
+    "validation_rate": round(validation_rate, 2),
+    "invalid_records": df[~df['valid_email']].to_dict('records')
+}
+
+print(json.dumps(output))
+```
+
+**Node Configuration:**
+```json
+{
+  "path": "./notebooks/customer_analysis.ipynb",
+  "output_path": "./notebooks/customer_analysis_executed.ipynb",
+  "parameters": "{\"threshold\": 0.8, \"output_format\": \"detailed\"}",
+  "pass_input": true,
+  "timeout": 600,
+  "capture_outputs": true
+}
+```
+
+### Output
+
+```json
+{
+  "success": true,
+  "inputPath": "./notebooks/customer_analysis.ipynb",
+  "outputPath": "./notebooks/customer_analysis_executed.ipynb",
+  "executionTime": 3500,
+  "cellOutputs": {
+    "total_records": 1000,
+    "valid_emails": 892,
+    "invalid_emails": 108,
+    "validation_rate": 89.2,
+    "invalid_records": [
+      {"id": 45, "email": "invalid-email", "valid_email": false}
+    ]
+  }
+}
+```
+
+<NodeHeader id="python-virtualenv" icon="Container" label="Create Virtualenv" description="Create Python virtual environment with packages" bgColor="#fef9c3" textColor="#a16207" />
+
+<Properties>
+  <Property name="type" type="string">
+    `python.virtualenv`
+  </Property>
+</Properties>
+
+### How It Works
+
+Creates an isolated Python virtual environment and optionally installs packages. The environment can then be used by subsequent Python nodes.
+
+<Diagram 
+  groups={[
+    {
+      id: "step1",
+      label: "1. Create",
+      nodes: [{ id: "create", label: "python3 -m venv", sublabel: "/path/.venv", type: "default" }]
+    },
+    {
+      id: "step2",
+      label: "2. Install",
+      direction: "column",
+      nodes: [
+        { id: "list", label: "pip install", sublabel: "pandas numpy", type: "primary" },
+        { id: "file", label: "pip install -r", sublabel: "requirements.txt", type: "primary" }
+      ]
+    },
+    {
+      id: "step3",
+      label: "3. Output",
+      direction: "column",
+      nodes: [
+        { id: "python", label: "python_path", sublabel: ".venv/bin/python", type: "success" },
+        { id: "pip", label: "pip_path", sublabel: ".venv/bin/pip", type: "success" }
+      ]
+    }
+  ]}
+/>
+```
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    **Environment Path** — Where to create the venv (e.g., `.venv` or `/opt/myproject/venv`).
+  </Property>
+  <Property name="python_executable" type="text">
+    **Python Executable** — Specific Python to use (e.g., `python3.11`). Leave empty for default.
+  </Property>
+  <Property name="install_packages" type="text">
+    **Install Packages** — Space-separated packages to install (e.g., `pandas numpy requests`).
+  </Property>
+  <Property name="requirements_file" type="text">
+    **Requirements File** — Path to `requirements.txt` to install from.
+  </Property>
+</Properties>
+
+### Example: Set Up ML Environment
+
+```json
+{
+  "path": "./ml_venv",
+  "python_executable": "python3.11",
+  "requirements_file": "./requirements.txt"
+}
+```
+
+### Output
+
+```json
+{
+  "path": "/Users/me/project/ml_venv",
+  "python_path": "/Users/me/project/ml_venv/bin/python",
+  "pip_path": "/Users/me/project/ml_venv/bin/pip",
+  "created": true,
+  "packages_installed": true
+}
+```
+
+---
+
+<NodeHeader id="python-activate_venv" icon="ToggleRight" label="Use Virtualenv" description="Activate virtualenv for subsequent Python nodes" bgColor="#fef9c3" textColor="#a16207" />
+
+<Properties>
+  <Property name="type" type="string">
+    `python.activate_venv`
+  </Property>
+</Properties>
+
+### How It Works
+
+Activates a virtual environment so that all subsequent Python nodes in the workflow use it.
+
+<FlowDiagram items={[
+  { label: "activate_venv", sublabel: ".venv", type: "default" },
+  { label: "code.python", sublabel: "Uses .venv/python", type: "primary" },
+  { label: "python.project", sublabel: "Uses .venv/python", type: "success" }
+]} />
+
+### Configuration
+
+<Properties>
+  <Property name="venv_path" type="text" required>
+    **Virtual Environment Path** — Path to the venv folder.
+  </Property>
+  <Property name="verify" type="boolean">
+    **Verify Exists** — Fail if the venv doesn't exist. Default: true.
+  </Property>
+</Properties>
+
+### Output
+
+```json
+{
+  "path": "/Users/me/project/.venv",
+  "python_path": "/Users/me/project/.venv/bin/python",
+  "pip_path": "/Users/me/project/.venv/bin/pip",
+  "site_packages": "/Users/me/project/.venv/lib/python3.11/site-packages",
+  "active": true
+}
+```
+
+---
+
+<NodeHeader id="python-pip_install" icon="Package" label="Pip Install" description="Install Python packages dynamically" bgColor="#fef9c3" textColor="#a16207" />
+
+<Properties>
+  <Property name="type" type="string">
+    `python.pip_install`
+  </Property>
+</Properties>
+
+### How It Works
+
+Installs Python packages during workflow execution. Useful for ensuring dependencies are available.
+
+### Configuration
+
+<Properties>
+  <Property name="packages" type="text" required>
+    **Packages** — Space-separated package names (e.g., `pandas==2.0.0 numpy requests`).
+  </Property>
+  <Property name="requirements" type="text">
+    **Requirements File** — Path to requirements.txt file.
   </Property>
 </Properties>
 
@@ -477,49 +675,38 @@ Components for running Python scripts and projects within your automation. Full 
 
 ```json
 {
-  "id": "node-1",
-  "type": "python.notebook",
-  "label": "Run Notebook",
-  "config": {
-    "path": "your-path",
-    "output_path": "your-output_path"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
+  "packages": "pandas numpy scikit-learn",
+  "requirements": ""
 }
 ```
 
 ---
 
-## Python Eval {{ id: 'python-eval' }}
+<NodeHeader id="python-execute" icon="Code2" label="Execute Python" description="Run Python code (legacy)" bgColor="#fef9c3" textColor="#a16207" />
 
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-calculator"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <rect width="16" height="20" x="4" y="2" rx="2" />
-  <line x1="8" x2="16" y1="6" y2="6" />
-  <line x1="16" x2="16" y1="14" y2="18" />
-  <path d="M16 10h.01" />
-  <path d="M12 10h.01" />
-  <path d="M8 10h.01" />
-  <path d="M12 14h.01" />
-  <path d="M8 14h.01" />
-  <path d="M12 18h.01" />
-  <path d="M8 18h.01" />
-</svg>
-`} label="Python Eval" description="Evaluate expression" bgColor="#fef9c3" textColor="#a16207" />
+<Properties>
+  <Property name="type" type="string">
+    `python.execute`
+  </Property>
+</Properties>
+
+<NodeHeader id="python-function" icon="Braces" label="Python Function" description="Define reusable function for the workflow" bgColor="#fef9c3" textColor="#a16207" />
+
+<Properties>
+  <Property name="type" type="string">
+    `python.function`
+  </Property>
+</Properties>
+
+<NodeHeader id="python-import_module" icon="Import" label="Import Module" description="Import Python module for the workflow" bgColor="#fef9c3" textColor="#a16207" />
+
+<Properties>
+  <Property name="type" type="string">
+    `python.import_module`
+  </Property>
+</Properties>
+
+<NodeHeader id="python-eval" icon="Calculator" label="Python Eval" description="Evaluate a Python expression" bgColor="#fef9c3" textColor="#a16207" />
 
 <Properties>
   <Property name="type" type="string">
@@ -527,35 +714,40 @@ Components for running Python scripts and projects within your automation. Full 
   </Property>
 </Properties>
 
-### When to Use
+### How It Works
 
-- Evaluate Python expressions
-- Calculate dynamic values
-- Perform inline computations
-- Quick string/math operations
+Evaluates a single Python expression and returns the result. Great for quick calculations and transformations.
 
 ### Configuration
 
 <Properties>
   <Property name="expression" type="text" required>
-    Expression
+    **Expression** — Python expression to evaluate (e.g., `len(data) * 2`).
   </Property>
 </Properties>
 
-### Example
+### Examples
+
+```python
+# Math
+"sum([1, 2, 3, 4, 5])"  # Returns: 15
+
+# String manipulation
+"'hello world'.title()"  # Returns: "Hello World"
+
+# Date
+"__import__('datetime').date.today().isoformat()"  # Returns: "2024-01-15"
+
+# Using previous output
+"len(${prev.items}) > 10"  # Returns: True/False
+```
+
+### Output
 
 ```json
 {
-  "id": "node-1",
-  "type": "python.eval",
-  "label": "Python Eval",
-  "config": {
-    "expression": "your-expression"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
+  "result": 15,
+  "expression": "sum([1, 2, 3, 4, 5])"
 }
 ```
 

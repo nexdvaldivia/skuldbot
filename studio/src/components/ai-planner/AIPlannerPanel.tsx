@@ -12,8 +12,6 @@ import { PlannerInput } from "./PlannerInput";
 import { PlanStepList } from "./PlanStepList";
 import { RefinementInput } from "./RefinementInput";
 import { LLMConfigDialog } from "./LLMConfigDialog";
-import { generateFlowFromPlan } from "../../lib/ai-planner-generator";
-import { useProjectStore } from "../../store/projectStore";
 import { useState } from "react";
 
 export function AIPlannerPanel() {
@@ -25,63 +23,17 @@ export function AIPlannerPanel() {
     isGenerating,
     generatePlan,
     reset,
+    applyToCanvas,
   } = useAIPlannerStore();
 
   const canUseAI = useCanUseAIPlanner();
   const isStudioActivated = useLicenseStore((state) => state.isStudioActivated);
   const [showLLMConfig, setShowLLMConfig] = useState(false);
 
-  const { getActiveBot, updateActiveBotNodes, updateActiveBotEdges } = useProjectStore();
-
   // Handle apply to canvas
   const handleApplyToCanvas = useCallback(() => {
-    if (planSteps.length === 0) return;
-
-    const activeBot = getActiveBot();
-    if (!activeBot) {
-      // TODO: Show toast - no active bot
-      return;
-    }
-
-    // Generate flow nodes from plan
-    const { nodes, edges, warnings } = generateFlowFromPlan(planSteps, {
-      layout: "vertical",
-      startPosition: { x: 250, y: 100 },
-    });
-
-    // Log warnings if any
-    if (warnings.length > 0) {
-      console.warn("Flow generation warnings:", warnings);
-    }
-
-    // Update the active bot with new nodes
-    // This will merge with existing nodes if needed
-    const existingNodes = activeBot.nodes || [];
-    const existingEdges = activeBot.edges || [];
-
-    // Calculate offset if there are existing nodes
-    let offsetY = 0;
-    if (existingNodes.length > 0) {
-      const maxY = Math.max(...existingNodes.map((n) => n.position.y));
-      offsetY = maxY + 150;
-    }
-
-    // Offset new nodes
-    const offsetNodes = nodes.map((node) => ({
-      ...node,
-      position: {
-        x: node.position.x,
-        y: node.position.y + offsetY,
-      },
-    }));
-
-    // Update store
-    updateActiveBotNodes([...existingNodes, ...offsetNodes]);
-    updateActiveBotEdges([...existingEdges, ...edges]);
-
-    // Close panel
-    closePanel();
-  }, [planSteps, getActiveBot, updateActiveBotNodes, updateActiveBotEdges, closePanel]);
+    applyToCanvas();
+  }, [applyToCanvas]);
 
   // Handle keyboard shortcuts
   useEffect(() => {

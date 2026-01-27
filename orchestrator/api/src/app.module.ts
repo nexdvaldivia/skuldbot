@@ -25,6 +25,7 @@ import { AuditorModule } from './auditor/auditor.module';
 import { ControlPlaneModule } from './control-plane/control-plane.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { UsageModule } from './usage/usage.module';
+import { SchemasModule } from './schemas/schemas.module';
 
 @Module({
   imports: [
@@ -105,6 +106,9 @@ import { UsageModule } from './usage/usage.module';
 
     // Usage Tracking
     UsageModule,
+
+    // Schema Discovery
+    SchemasModule,
   ],
   controllers: [],
   providers: [],

@@ -186,7 +186,7 @@ export interface RecentProject {
 
 export interface Tab {
   id: string;
-  type: "bot" | "settings" | "env" | "assets";
+  type: "bot" | "settings" | "env" | "assets" | "secrets";
   botId?: string;
   title: string;
   icon?: string;

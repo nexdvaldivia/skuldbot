@@ -1,19 +1,31 @@
 import clsx from 'clsx'
 import Link from 'next/link'
+import * as LucideIcons from 'lucide-react'
 
 import { Feedback } from '@/components/Feedback'
 import { Heading } from '@/components/Heading'
 import { Prose } from '@/components/Prose'
 
+// Get Lucide icon by name
+function getLucideIcon(name: string): React.ComponentType<{ className?: string; size?: number }> | null {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const icons = LucideIcons as any
+  const Icon = icons[name]
+  // Lucide icons are forwardRef components (typeof 'object'), not plain functions
+  return Icon ? Icon : null
+}
+
 export const a = Link
 export { Button } from '@/components/Button'
 export { Code as code, CodeGroup, Pre as pre } from '@/components/Code'
+export { Mermaid } from '@/components/Mermaid'
+export { Diagram, FlowDiagram } from '@/components/Diagram'
 
 export function wrapper({ children }: { children: React.ReactNode }) {
   return (
     <article className="flex h-full flex-col pt-16 pb-10">
       <Prose className="flex-auto">{children}</Prose>
-      <footer className="mx-auto mt-16 w-full max-w-2xl lg:max-w-5xl">
+      <footer className="mx-auto mt-16 w-full">
         <Feedback />
       </footer>
     </article>
@@ -271,40 +283,50 @@ export function Tip({ children }: { children: React.ReactNode }) {
 
 // Node header with icon - for component documentation
 export function NodeHeader({
+  id,
   icon,
   label,
   description,
   bgColor,
   textColor,
 }: {
+  id?: string
   icon: string
   label: string
   description: string
   bgColor?: string
   textColor?: string
 }) {
-  // Convert JSX-style SVG attributes to HTML-style (camelCase to kebab-case)
-  const normalizedIcon = icon
+  // Check if icon is a Lucide icon name (not an SVG string)
+  const isLucideIconName = !icon.trim().startsWith('<')
+  const LucideIcon = isLucideIconName ? getLucideIcon(icon) : null
+
+  // Fallback: Convert JSX-style SVG attributes to HTML-style (camelCase to kebab-case)
+  const normalizedIcon = !isLucideIconName ? icon
     .replace(/strokeWidth=/g, 'stroke-width=')
     .replace(/strokeLinecap=/g, 'stroke-linecap=')
     .replace(/strokeLinejoin=/g, 'stroke-linejoin=')
     .replace(/fillRule=/g, 'fill-rule=')
     .replace(/clipRule=/g, 'clip-rule=')
-    .replace(/viewBox=/g, 'viewBox=') // Keep viewBox as is
+    .replace(/viewBox=/g, 'viewBox=') : ''
 
   return (
-    <div className="not-prose flex items-start gap-4 mb-6">
+    <div id={id} className="not-prose flex items-start gap-4 mb-6 scroll-mt-24">
       <div
-        className="flex h-12 w-12 flex-none items-center justify-center rounded-xl [&_svg]:h-6 [&_svg]:w-6"
+        className="flex h-12 w-12 flex-none items-center justify-center rounded-xl"
         style={{
           backgroundColor: bgColor || '#d1fae5',
           color: textColor || '#047857'
         }}
       >
-        <span dangerouslySetInnerHTML={{ __html: normalizedIcon }} />
+        {LucideIcon ? (
+          <LucideIcon className="h-6 w-6" />
+        ) : (
+          <span className="[&_svg]:h-6 [&_svg]:w-6" dangerouslySetInnerHTML={{ __html: normalizedIcon }} />
+        )}
       </div>
       <div className="pt-1">
-        <h3 className="text-xl font-semibold text-zinc-900 dark:text-white m-0">{label}</h3>
+        <h2 className="text-xl font-semibold text-zinc-900 dark:text-white m-0">{label}</h2>
         <p className="text-sm text-zinc-600 dark:text-zinc-400 m-0 mt-1">{description}</p>
       </div>
     </div>

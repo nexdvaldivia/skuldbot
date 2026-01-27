@@ -1,6 +1,6 @@
 export const metadata = {
   title: 'Compliance',
-  description: 'Components for ensuring regulatory compliance (HIPAA, SOC2, GDPR, etc.).',
+  description: 'PII/PHI protection and HIPAA Safe Harbor. Protect sensitive data in your automations.',
 }
 
 export const sections = [
@@ -9,42 +9,15 @@ export const sections = [
   { title: 'Compliance Audit Log', id: 'compliance-audit_log' },
 ]
 
-# Compliance
-
-Components for ensuring regulatory compliance (HIPAA, SOC2, GDPR, etc.). {{ className: 'lead' }}
+PII/PHI protection and HIPAA Safe Harbor. Protect sensitive data in your automations. {{ className: 'lead' }}
 
 <Note>
-  This category contains **3 components**. See also: [Security & Secrets](/components/security) · [Data Quality](/components/dataquality) · [Logging](/components/logging)
+  Essential for healthcare (HIPAA), finance (PCI-DSS), and privacy regulations (GDPR, CCPA).
 </Note>
-
-## Common Use Cases
-
-- Audit data access
-- Mask sensitive information
-- Validate compliance rules
-- Generate compliance reports
 
 ---
 
-## Protect PII {{ id: 'compliance-protect_pii' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-shield-check"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
-  <path d="m9 12 2 2 4-4" />
-</svg>
-`} label="Protect PII" description="Configure field-by-field PII protection with visual builder" bgColor="#ffe4e6" textColor="#be123c" />
+<NodeHeader id="compliance-protect_pii" icon="ShieldCheck" label="Protect PII" description="Configure field-by-field PII protection with visual builder" bgColor="#fef9c3" textColor="#854d0e" />
 
 <Properties>
   <Property name="type" type="string">
@@ -52,72 +25,34 @@ Components for ensuring regulatory compliance (HIPAA, SOC2, GDPR, etc.). {{ clas
   </Property>
 </Properties>
 
-### Configuration
+**Configuration:**
+- **data** (`textarea`, required) — Data to process. Supports expressions like `${previous_node.records}`
+- **rules** (`protection-builder`) — Protection rules for each field
 
-<Properties>
-  <Property name="data" type="textarea" required>
-    Data to Process
-  </Property>
-  <Property name="rules" type="protection-builder">
-    Protection Rules
-  </Property>
-</Properties>
+**Output:**
+- **protected_data** (`object`) — Data with protected PII fields
+- **fields_processed** (`number`) — Number of fields processed
+- **audit_log** (`array`) — Audit log of all protection operations
 
-### Output Variables
-
-Access these variables in subsequent nodes using `${Protect PII.variableName}`.
-
-<Properties>
-  <Property name="protected_data" type="object">
-    Data with protected PII fields
-  </Property>
-  <Property name="fields_processed" type="number">
-    Number of fields processed
-  </Property>
-  <Property name="audit_log" type="array">
-    Audit log of all protection operations
-  </Property>
-</Properties>
-
-### Example
+**Usage Example:**
 
 ```json
 {
-  "id": "node-1",
   "type": "compliance.protect_pii",
-  "label": "Protect PII",
   "config": {
-    "data": "your-data",
-    "rules": "your-rules"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
+    "data": "${database.customer_records}",
+    "rules": [
+      {"field": "email", "action": "mask", "pattern": "partial"},
+      {"field": "phone", "action": "mask", "pattern": "last4"},
+      {"field": "ssn", "action": "redact"}
+    ]
   }
 }
 ```
 
 ---
 
-## Protect PHI (HIPAA) {{ id: 'compliance-protect_phi' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-heart-pulse"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5" />
-  <path d="M3.22 13H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27" />
-</svg>
-`} label="Protect PHI (HIPAA)" description="Configure field-by-field PHI protection for HIPAA compliance" bgColor="#ffe4e6" textColor="#be123c" />
+<NodeHeader id="compliance-protect_phi" icon="HeartPulse" label="Protect PHI (HIPAA)" description="Configure field-by-field PHI protection for HIPAA compliance" bgColor="#fef3c3" textColor="#854d0e" />
 
 <Properties>
   <Property name="type" type="string">
@@ -125,85 +60,63 @@ Access these variables in subsequent nodes using `${Protect PII.variableName}`.
   </Property>
 </Properties>
 
-### Configuration
+**Configuration:**
+- **data** (`textarea`, required) — Data to process. Supports expressions like `${previous_node.records}`
+- **rules** (`protection-builder`) — Protection rules for HIPAA identifiers
+- **strict_hipaa** (`boolean`, default: `true`) — Enable strict HIPAA mode
 
-<Properties>
-  <Property name="data" type="textarea" required>
-    Data to Process
-  </Property>
-  <Property name="rules" type="protection-builder">
-    Protection Rules
-  </Property>
-  <Property name="strict_hipaa" type="boolean">
-    Strict HIPAA Mode Default: `true`
-  </Property>
-</Properties>
+**Output:**
+- **protected_data** (`object`) — Data with protected PHI fields
+- **hipaa_compliant** (`boolean`) — Whether result is HIPAA compliant
+- **fields_processed** (`number`) — Number of fields processed
+- **hipaa_identifiers_protected** (`array`) — List of HIPAA 18 identifiers that were protected
+- **audit_log** (`array`) — Audit log of all protection operations
 
-### Output Variables
+**HIPAA 18 Identifiers:**
 
-Access these variables in subsequent nodes using `${Protect PHI (HIPAA).variableName}`.
+| Identifier | Description |
+|------------|-------------|
+| Names | Full or partial patient names |
+| Geographic data | Smaller than state (address, zip code) |
+| Dates | Related to individual (DOB, admission, discharge, death) |
+| Phone numbers | All telephone numbers |
+| Fax numbers | All fax numbers |
+| Email addresses | All email addresses |
+| Social Security numbers | SSN |
+| Medical record numbers | MRN, patient IDs |
+| Health plan numbers | Insurance IDs |
+| Account numbers | Financial account numbers |
+| Certificate/license numbers | Driver's license, professional licenses |
+| Vehicle identifiers | VIN, license plates |
+| Device identifiers | Serial numbers, implant IDs |
+| Web URLs | Patient-related URLs |
+| IP addresses | Network addresses |
+| Biometric identifiers | Fingerprints, voice prints |
+| Full-face photos | Images identifying individuals |
+| Other unique numbers | Any unique identifying number |
 
-<Properties>
-  <Property name="protected_data" type="object">
-    Data with protected PHI fields
-  </Property>
-  <Property name="hipaa_compliant" type="boolean">
-    Whether result is HIPAA compliant
-  </Property>
-  <Property name="fields_processed" type="number">
-    Number of fields processed
-  </Property>
-  <Property name="hipaa_identifiers_protected" type="array">
-    List of HIPAA 18 identifiers that were protected
-  </Property>
-  <Property name="audit_log" type="array">
-    Audit log of all protection operations
-  </Property>
-</Properties>
-
-### Example
+**Usage Example:**
 
 ```json
 {
-  "id": "node-1",
   "type": "compliance.protect_phi",
-  "label": "Protect PHI (HIPAA)",
   "config": {
-    "data": "your-data",
-    "rules": "your-rules",
-    "strict_hipaa": "true"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
+    "data": "${ehr.patient_records}",
+    "rules": [
+      {"field": "patient_name", "action": "hash"},
+      {"field": "date_of_birth", "action": "generalize", "level": "year"},
+      {"field": "mrn", "action": "pseudonymize"},
+      {"field": "ssn", "action": "redact"},
+      {"field": "address", "action": "generalize", "level": "state"}
+    ],
+    "strict_hipaa": true
   }
 }
 ```
 
 ---
 
-## Compliance Audit Log {{ id: 'compliance-audit_log' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-file-text"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
-  <path d="M14 2v5a1 1 0 0 0 1 1h5" />
-  <path d="M10 9H8" />
-  <path d="M16 13H8" />
-  <path d="M16 17H8" />
-</svg>
-`} label="Compliance Audit Log" description="Create compliance audit log entry (cannot be disabled)" bgColor="#ffe4e6" textColor="#be123c" />
+<NodeHeader id="compliance-audit_log" icon="ClipboardList" label="Compliance Audit Log" description="Create compliance audit log entry (cannot be disabled)" bgColor="#fef9c3" textColor="#854d0e" />
 
 <Properties>
   <Property name="type" type="string">
@@ -211,60 +124,48 @@ Access these variables in subsequent nodes using `${Protect PHI (HIPAA).variable
   </Property>
 </Properties>
 
-### When to Use
+**Configuration:**
+- **action** (`select`, required) — Action performed:
+  - `access` — Access
+  - `modify` — Modify
+  - `delete` — Delete
+  - `export` — Export
+  - `share` — Share
+- **data_type** (`select`, default: `PHI`) — Type of data:
+  - `PHI` — PHI (Protected Health Info)
+  - `PII` — PII (Personal Info)
+- **user** (`text`, default: `${CURRENT_USER}`) — User who performed the action. Supports expressions.
+- **details** (`textarea`) — Additional details. Supports expressions.
 
-- Log data access events
-- Record compliance actions
-- Track data handling
-- Create audit trails
+**Output:**
+- **audit_entry** (`object`) — Created audit log entry
+- **timestamp** (`string`) — Entry timestamp
 
-### Configuration
-
-<Properties>
-  <Property name="action" type="select" required>
-    Action
-  </Property>
-  <Property name="data_type" type="select">
-    Data Type Default: `PHI`
-  </Property>
-  <Property name="user" type="text">
-    User
-  </Property>
-  <Property name="details" type="textarea">
-    Details
-  </Property>
-</Properties>
-
-### Output Variables
-
-Access these variables in subsequent nodes using `${Compliance Audit Log.variableName}`.
-
-<Properties>
-  <Property name="audit_entry" type="object">
-    Created audit log entry
-  </Property>
-  <Property name="timestamp" type="string">
-    Entry timestamp
-  </Property>
-</Properties>
-
-### Example
+**Usage Example:**
 
 ```json
 {
-  "id": "node-1",
   "type": "compliance.audit_log",
-  "label": "Compliance Audit Log",
   "config": {
-    "action": "option",
+    "action": "access",
     "data_type": "PHI",
-    "user": "your-user",
-    "details": "your-details"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
+    "user": "${CURRENT_USER}",
+    "details": "Accessed patient record ${patient.mrn} for claim processing"
   }
+}
+```
+
+**Audit Entry Format:**
+
+```json
+{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "bot_id": "bot_abc123",
+  "execution_id": "exec_xyz789",
+  "action": "access",
+  "data_type": "PHI",
+  "user": "system_bot",
+  "details": "Accessed patient record MRN-12345 for claim processing"
 }
 ```
 

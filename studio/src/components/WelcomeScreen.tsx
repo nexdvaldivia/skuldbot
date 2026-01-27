@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Bot,
   Zap,
+  AlertCircle,
 } from "lucide-react";
 
 interface CreateProjectDialogProps {
@@ -141,10 +142,23 @@ export default function WelcomeScreen() {
     useProjectStore();
   const { setView } = useNavigationStore();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showPermissionsNotice, setShowPermissionsNotice] = useState(true);
 
   useEffect(() => {
     loadRecentProjects();
   }, [loadRecentProjects]);
+
+  useEffect(() => {
+    const dismissed = localStorage.getItem("skuldbot.permissions_notice_dismissed");
+    if (dismissed === "true") {
+      setShowPermissionsNotice(false);
+    }
+  }, []);
+
+  const dismissPermissionsNotice = () => {
+    localStorage.setItem("skuldbot.permissions_notice_dismissed", "true");
+    setShowPermissionsNotice(false);
+  };
 
   const handleOpenProject = async () => {
     const selected = await open({
@@ -254,6 +268,30 @@ export default function WelcomeScreen() {
       {/* Right Panel - Actions */}
       <div className="flex-1 p-8 overflow-auto flex items-center">
         <div className="max-w-2xl mx-auto w-full">
+          {showPermissionsNotice && (
+            <div className="mb-6 border border-amber-200 bg-amber-50 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600">
+                  <AlertCircle className="w-4 h-4" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-medium text-amber-900">Permisos de archivos</h4>
+                  <p className="text-sm text-amber-800 mt-1">
+                    En macOS, Skuldbot Studio necesita acceso a carpetas para abrir proyectos y bots.
+                    Si ves errores de permiso, habilita Full Disk Access para la app o abre el proyecto
+                    desde el selector de archivos.
+                  </p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={dismissPermissionsNotice}>
+                  Entendido
+                </Button>
+              </div>
+              <div className="text-xs text-amber-700 mt-3">
+                System Settings → Privacy & Security → Full Disk Access → “+” → Skuldbot Studio.app
+              </div>
+            </div>
+          )}
+
           {/* Quick Start - Highlighted */}
           <div className="mb-6">
             <button

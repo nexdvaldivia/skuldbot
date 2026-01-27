@@ -36,12 +36,15 @@ export interface DSLNode {
   memory?: MemoryConfig;
   // AI Agent/Memory: embeddings configuration (from connected Embeddings node)
   embeddings?: EmbeddingsConfig;
-  // Special connections (model, tools, memory, embeddings) - persisted for UI reconstruction
+  // Service connection config (from connected MS365 Connection, etc.)
+  connection_config?: Record<string, any>;
+  // Special connections (model, tools, memory, embeddings, connection) - persisted for UI reconstruction
   connections?: {
     model?: string;      // ID of connected AI Model node
     tools?: string[];    // IDs of connected tool nodes
     memory?: string;     // ID of connected Vector Memory node
     embeddings?: string; // ID of connected Embeddings node
+    connection?: string; // ID of connected service node (MS365 Connection, etc.)
   };
 }
 
@@ -98,7 +101,8 @@ export interface VariableDefinition {
 export type NodeCategory =
   | "web"          // Web Automation
   | "desktop"      // Desktop Automation (Windows)
-  | "files"        // Files & Folders
+  | "storage"      // Multi-Provider Storage (S3, Azure, GCS, SharePoint, etc.)
+  | "files"        // Files & Folders (uses Storage Provider)
   | "excel"        // Excel / CSV / Data
   | "email"        // Email
   | "api"          // API & Integration
@@ -106,14 +110,16 @@ export type NodeCategory =
   | "document"     // PDF / OCR / Documents
   | "ai"           // AI / Intelligent Automation
   | "vectordb"     // Vector Databases / Memory (RAG)
+  | "code"         // Custom Code (JavaScript & Python - like n8n)
   | "python"       // Python Project Execution
-  | "control"      // Control Flow
+  | "control"      // Control Flow (Map, Filter, Reduce)
   | "logging"      // Logging & Monitoring
   | "security"     // Security & Secrets
   | "human"        // Human-in-the-loop
   | "compliance"   // PII/PHI Protection & HIPAA Safe Harbor
   | "dataquality"  // Data Quality Gates (Great Expectations)
   | "data"         // Data Integration (Taps & Targets)
+  | "bot"          // Bot Subprocess (Call other bots)
   | "voice"        // Voice & Telephony (Twilio + Azure Speech)
   | "insurance"    // Insurance (FNOL, Policy, Claims)
   | "trigger"      // Scheduling & Triggers
@@ -125,6 +131,10 @@ export interface OutputField {
   type: "string" | "number" | "boolean" | "object" | "array" | "any";
   description?: string;
   example?: string;
+  items?: {
+    type: "string" | "number" | "boolean" | "object" | "any";
+    fields?: OutputField[];
+  };
 }
 
 export interface NodeTemplate {
@@ -141,7 +151,7 @@ export interface NodeTemplate {
 export interface ConfigField {
   name: string;
   label: string;
-  type: "text" | "number" | "boolean" | "select" | "textarea" | "password" | "form-builder" | "expression" | "validation-builder" | "protection-builder";
+  type: "text" | "number" | "boolean" | "select" | "textarea" | "password" | "form-builder" | "expression" | "validation-builder" | "protection-builder" | "node-select" | "bot-select";
   required?: boolean;
   default?: any;
   options?: { value: string; label: string }[];
@@ -150,6 +160,7 @@ export interface ConfigField {
   supportsExpressions?: boolean;  // Allow ${node.field} syntax in this field
   secret?: boolean;  // Mask the field value (for passwords, API keys)
   visibleWhen?: { field: string; value: string | string[] };  // Conditional visibility based on another field's value
+  nodeType?: string;  // For "node-select" type: the node type to filter by (e.g., "storage.provider")
 }
 
 // Validation Builder Types (for dataquality.run_suite)
@@ -297,4 +308,5 @@ export interface FlowState {
   requiresFormInput: () => boolean;
   getFormTriggerConfig: () => FormTriggerConfig | null;
 }
+
 

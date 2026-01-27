@@ -22,6 +22,12 @@ const categoryStyles: Record<NodeCategory, { bg: string; border: string; icon: s
     icon: "text-indigo-600",
     accent: "bg-indigo-500",
   },
+  storage: {
+    bg: "bg-amber-50",
+    border: "border-amber-200",
+    icon: "text-amber-600",
+    accent: "bg-gradient-to-r from-amber-500 to-orange-500",
+  },
   files: {
     bg: "bg-orange-50",
     border: "border-orange-200",
@@ -69,6 +75,12 @@ const categoryStyles: Record<NodeCategory, { bg: string; border: string; icon: s
     border: "border-purple-200",
     icon: "text-purple-600",
     accent: "bg-gradient-to-r from-purple-500 to-indigo-500",
+  },
+  code: {
+    bg: "bg-slate-100",
+    border: "border-slate-300",
+    icon: "text-slate-700",
+    accent: "bg-gradient-to-r from-orange-500 to-slate-600",
   },
   python: {
     bg: "bg-yellow-50",
@@ -142,6 +154,12 @@ const categoryStyles: Record<NodeCategory, { bg: string; border: string; icon: s
     icon: "text-sky-600",
     accent: "bg-[#0078d4]",
   },
+  bot: {
+    bg: "bg-rose-50",
+    border: "border-rose-200",
+    icon: "text-rose-600",
+    accent: "bg-rose-500",
+  },
 };
 
 function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
@@ -173,9 +191,21 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
 
   // MS365 connection nodes
   const isMS365Connection = data.nodeType === "ms365.connection";
-  const isMS365Trigger = data.nodeType === "trigger.ms365_email";
+  // HACK: Treat all MS365 nodes as triggers to force the connection handle to appear
+  // This bypasses any issues with the new 'needsMS365Connection' variable not being picked up
+  const isMS365Trigger = (data.nodeType === "trigger.ms365_email" || data.category === "ms365") && !isMS365Connection;
+
+  // Keep this for compatibility but it's now redundant with the hack above
+  const needsMS365Connection = isMS365Trigger;
+
+  // Storage Provider connection nodes
+  const isStorageProvider = data.nodeType === "storage.provider";
+  const needsStorageProvider = data.nodeType.startsWith("files.") || 
+    data.nodeType === "storage.transfer" || 
+    data.nodeType === "storage.sync";
+
   // Config nodes that only have connection output (no success/error)
-  const isConnectionConfigNode = isMS365Connection;
+  const isConnectionConfigNode = isMS365Connection || isStorageProvider;
   // Check if connection has been tested successfully
   const isConnectionTested = isConnectionConfigNode && data.config?.connectionTested === true;
 
@@ -260,13 +290,13 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
   useEffect(() => {
     if (showOutput && hasOutput && nodeRef.current) {
       const rect = nodeRef.current.getBoundingClientRect();
-      const toolbarOffset = isAIAgent || isAITaskNode || isMS365Trigger ? 54 : 36;
+      const toolbarOffset = isAIAgent || isAITaskNode || needsMS365Connection ? 54 : 36;
       setOutputPosition({
         top: rect.bottom + toolbarOffset,
         left: rect.left,
       });
     }
-  }, [showOutput, hasOutput, isAIAgent, isAITaskNode, isMS365Trigger]);
+  }, [showOutput, hasOutput, isAIAgent, isAITaskNode, needsMS365Connection]);
 
   const nodeContent = (
     <div
@@ -293,6 +323,19 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
       `}
       style={{ minWidth: 180 }}
     >
+      {(status === "running" || status === "success") && (
+        <div className="absolute top-2 right-2 z-20">
+          {status === "running" ? (
+            <div className="w-5 h-5 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center shadow-sm">
+              <Loader2 className="w-3 h-3 text-blue-500 animate-spin" />
+            </div>
+          ) : (
+            <div className="w-5 h-5 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center shadow-sm">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+            </div>
+          )}
+        </div>
+      )}
       {/* Breakpoint indicator - top left, outside the node */}
       <button
         type="button"
@@ -302,13 +345,24 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
         title={hasBreakpoint ? "Remove breakpoint" : "Add breakpoint"}
       >
         <Circle
-          className={`w-3 h-3 ${
-            hasBreakpoint
-              ? "fill-red-500 text-red-500"
-              : "text-slate-400"
-          }`}
+          className={`w-3 h-3 ${hasBreakpoint
+            ? "fill-red-500 text-red-500"
+            : "text-slate-400"
+            }`}
         />
       </button>
+
+      {(selected && (isAIConfigNode || isConnectionConfigNode)) && (
+        <button
+          type="button"
+          className="absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full cursor-pointer flex items-center justify-center bg-white border border-slate-200 shadow-sm hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-colors"
+          onClick={handleDeleteClick}
+          onMouseDown={(e) => e.stopPropagation()}
+          title="Delete node"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      )}
 
 
       {/* START Badge for Triggers */}
@@ -449,8 +503,8 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
         </div>
       )}
 
-      {/* MS365 Connection Input Handle - Shown for MS365 trigger (on BOTTOM border) */}
-      {isMS365Trigger && (
+      {/* MS365 Connection Input Handle - Shown for MS365 trigger and actions (on BOTTOM border) */}
+      {needsMS365Connection && (
         <div className="absolute bottom-0 left-0 right-0 flex justify-center">
           <div className="relative">
             <Handle
@@ -462,6 +516,42 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
             />
             <span className="absolute top-2 left-1/2 -translate-x-1/2 text-[8px] font-medium text-[#0078d4] whitespace-nowrap">
               MS365 Connection
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Storage Provider Connection Output Handle - Only shown for storage.provider node (on TOP) */}
+      {isStorageProvider && (
+        <div className="absolute top-0 left-0 right-0 flex justify-center">
+          <div className="relative">
+            <Handle
+              type="source"
+              position={Position.Top}
+              id="connection-out"
+              className="!w-4 !h-4 !-top-[8px] !bg-amber-500 !border-[3px] !border-white !shadow-sm hover:!bg-amber-600 !transition-all !rounded-full"
+              title="Connect to Files nodes"
+            />
+            <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[8px] font-medium text-amber-600 whitespace-nowrap">
+              To Files
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Storage Provider Connection Input Handle - Shown for Files nodes (on BOTTOM border) */}
+      {needsStorageProvider && (
+        <div className="absolute bottom-0 left-0 right-0 flex justify-center">
+          <div className="relative">
+            <Handle
+              type="target"
+              position={Position.Bottom}
+              id="connection"
+              className="!w-4 !h-4 !-bottom-[8px] !bg-amber-500 !border-[3px] !border-white !shadow-sm hover:!bg-amber-600 !transition-all !rounded-full"
+              title="Connect Storage Provider"
+            />
+            <span className="absolute top-2 left-1/2 -translate-x-1/2 text-[8px] font-medium text-amber-600 whitespace-nowrap">
+              Storage
             </span>
           </div>
         </div>
@@ -521,17 +611,19 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
 
       {/* n8n-style execution info badge - shows after execution */}
       {(status === "success" || status === "error") && (itemCount !== null || executionDuration !== null) && (
-        <div className={`flex items-center gap-2 px-3 py-1.5 text-[10px] border-t ${
-          status === "success" ? "bg-green-50/80 border-green-100" : "bg-red-50/80 border-red-100"
-        }`}>
+        <div className={`flex items-center gap-2 px-3 py-1.5 text-[10px] border-t rounded-b-xl ${
+          status === "success" 
+            ? "bg-green-50/80 border-green-200" 
+            : "bg-red-50/80 border-red-200"
+          }`}>
           {itemCount !== null && (
-            <span className={`flex items-center gap-1 ${status === "success" ? "text-green-600" : "text-red-600"}`}>
-              <span className="font-medium">{itemCount}</span>
-              <span className="opacity-70">{itemCount === 1 ? "item" : "items"}</span>
+            <span className={`flex items-center gap-1 ${status === "success" ? "text-green-700" : "text-red-700"}`}>
+              <span className="font-semibold">{itemCount}</span>
+              <span className="opacity-80">{itemCount === 1 ? "item" : "items"}</span>
             </span>
           )}
           {executionDuration !== null && (
-            <span className={`flex items-center gap-1 ml-auto ${status === "success" ? "text-green-500" : "text-red-500"}`}>
+            <span className={`flex items-center gap-1 ml-auto ${status === "success" ? "text-green-600" : "text-red-600"}`}>
               <span className="font-medium">{executionDuration}s</span>
             </span>
           )}
@@ -642,19 +734,17 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
       {/* Extra margin for nodes with bottom handles (AI Agent, AI Task nodes, MS365 Trigger) */}
       {(selected || status === "success" || status === "error") && !isAIConfigNode && !isConnectionConfigNode && (
         <div
-          className={`absolute left-0 right-0 top-full flex justify-end gap-1 z-20 ${
-            isAIAgent || isAITaskNode || isMS365Trigger ? "mt-6" : "mt-1"
-          }`}
+          className={`absolute left-0 right-0 top-full flex justify-end gap-1 z-20 ${isAIAgent || isAITaskNode || isMS365Trigger ? "mt-6" : "mt-1"
+            }`}
           onMouseDown={(e) => e.stopPropagation()}
         >
           {/* Run/Rerun Button - always available to run the node */}
           <button
             type="button"
-            className={`w-6 h-6 rounded cursor-pointer flex items-center justify-center shadow-sm transition-all ${
-              isRunningNode
-                ? "bg-blue-500 animate-pulse"
-                : "bg-slate-100 hover:bg-green-500 hover:text-white text-slate-600"
-            }`}
+            className={`w-6 h-6 rounded cursor-pointer flex items-center justify-center shadow-sm transition-all ${isRunningNode
+              ? "bg-blue-500 animate-pulse"
+              : "bg-slate-100 hover:bg-green-500 hover:text-white text-slate-600"
+              }`}
             onClick={handleRunNode}
             disabled={isRunningNode || isDebugging}
             title={isRunningNode ? "Running..." : "Run this node"}
@@ -670,11 +760,10 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
           {(status === "success" || status === "error") && (
             <button
               type="button"
-              className={`w-6 h-6 rounded cursor-pointer flex items-center justify-center shadow-sm transition-all ${
-                status === "success"
-                  ? "bg-emerald-500 hover:bg-emerald-600"
-                  : "bg-red-500 hover:bg-red-600"
-              }`}
+              className={`w-6 h-6 rounded cursor-pointer flex items-center justify-center shadow-sm transition-all ${status === "success"
+                ? "bg-emerald-500 hover:bg-emerald-600"
+                : "bg-red-500 hover:bg-red-600"
+                }`}
               onClick={handleToggleOutput}
               title="View output"
             >
@@ -716,12 +805,10 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
       onMouseDown={(e) => e.stopPropagation()}
     >
       {/* Header */}
-      <div className={`flex items-center justify-between px-3 py-1.5 ${
-        status === "success" ? "bg-emerald-50 border-b border-emerald-100" : "bg-red-50 border-b border-red-100"
-      }`}>
-        <span className={`text-xs font-semibold ${
-          status === "success" ? "text-emerald-700" : "text-red-700"
+      <div className={`flex items-center justify-between px-3 py-1.5 ${status === "success" ? "bg-emerald-50 border-b border-emerald-100" : "bg-red-50 border-b border-red-100"
         }`}>
+        <span className={`text-xs font-semibold ${status === "success" ? "text-emerald-700" : "text-red-700"
+          }`}>
           {status === "success" ? "Output" : "Error"}
         </span>
         <button
@@ -739,13 +826,13 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
           <pre className="text-xs text-slate-700 whitespace-pre-wrap font-mono">
             {typeof output === "object"
               ? JSON.stringify(output, (key, value) => {
-                  // Redact sensitive fields
-                  const sensitiveKeys = ['password', 'secret', 'api_key', 'apiKey', 'token', 'client_secret', 'clientSecret', 'access_token', 'accessToken', 'private_key', 'privateKey'];
-                  if (sensitiveKeys.some(k => key.toLowerCase().includes(k.toLowerCase()))) {
-                    return '••••••••';
-                  }
-                  return value;
-                }, 2)
+                // Redact sensitive fields
+                const sensitiveKeys = ['password', 'secret', 'api_key', 'apiKey', 'token', 'client_secret', 'clientSecret', 'access_token', 'accessToken', 'private_key', 'privateKey'];
+                if (sensitiveKeys.some(k => key.toLowerCase().includes(k.toLowerCase()))) {
+                  return '••••••••';
+                }
+                return value;
+              }, 2)
               : String(output)}
           </pre>
         ) : (

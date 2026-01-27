@@ -266,3 +266,5 @@ logs.openPanel(); // Abrir manualmente
 **Líneas de código**: ~500
 
 
+
+

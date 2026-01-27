@@ -10,7 +10,7 @@ export const nodeTemplates: NodeTemplate[] = [
     category: "trigger",
     label: "File Watch",
     description: "Trigger when file changes",
-    icon: "Eye",
+    icon: "FolderSearch",
     defaultConfig: { path: "", events: ["created", "modified"] },
     configSchema: [
       { name: "path", label: "Watch Path", type: "text", required: true, placeholder: "/path/to/folder" },
@@ -86,7 +86,7 @@ export const nodeTemplates: NodeTemplate[] = [
     category: "trigger",
     label: "Form Trigger",
     description: "Start workflow when form is submitted",
-    icon: "FileText",
+    icon: "ClipboardList",
     defaultConfig: {
       formTitle: "My Form",
       formDescription: "",
@@ -252,9 +252,16 @@ export const nodeTemplates: NodeTemplate[] = [
     label: "Click Element",
     description: "Click on an element",
     icon: "MousePointer2",
-    defaultConfig: {},
+    defaultConfig: { selectorType: "css" },
     configSchema: [
-      { name: "selector", label: "CSS Selector", type: "text", required: true, placeholder: "#button-id" },
+      { name: "selectorType", label: "Selector Type", type: "select", default: "css", options: [
+        { value: "css", label: "CSS Selector" },
+        { value: "xpath", label: "XPath" },
+        { value: "id", label: "ID" },
+        { value: "name", label: "Name" },
+        { value: "class", label: "Class" },
+      ]},
+      { name: "selector", label: "Selector", type: "text", required: true, placeholder: "#button-id or //button[@id='submit']", supportsExpressions: true },
       { name: "timeout", label: "Timeout (ms)", type: "number", default: 30000 },
     ],
     outputSchema: [
@@ -267,10 +274,17 @@ export const nodeTemplates: NodeTemplate[] = [
     label: "Type Text",
     description: "Type text into field",
     icon: "Type",
-    defaultConfig: {},
+    defaultConfig: { selectorType: "css" },
     configSchema: [
-      { name: "selector", label: "CSS Selector", type: "text", required: true },
-      { name: "text", label: "Text to Type", type: "text", required: true },
+      { name: "selectorType", label: "Selector Type", type: "select", default: "css", options: [
+        { value: "css", label: "CSS Selector" },
+        { value: "xpath", label: "XPath" },
+        { value: "id", label: "ID" },
+        { value: "name", label: "Name" },
+        { value: "class", label: "Class" },
+      ]},
+      { name: "selector", label: "Selector", type: "text", required: true, supportsExpressions: true },
+      { name: "text", label: "Text to Type", type: "text", required: true, supportsExpressions: true },
       { name: "clear", label: "Clear Field First", type: "boolean", default: true },
     ],
     outputSchema: [
@@ -283,10 +297,17 @@ export const nodeTemplates: NodeTemplate[] = [
     label: "Select Option",
     description: "Select dropdown option",
     icon: "ChevronDown",
-    defaultConfig: {},
+    defaultConfig: { selectorType: "css" },
     configSchema: [
-      { name: "selector", label: "CSS Selector", type: "text", required: true },
-      { name: "value", label: "Value", type: "text", required: true },
+      { name: "selectorType", label: "Selector Type", type: "select", default: "css", options: [
+        { value: "css", label: "CSS Selector" },
+        { value: "xpath", label: "XPath" },
+        { value: "id", label: "ID" },
+        { value: "name", label: "Name" },
+        { value: "class", label: "Class" },
+      ]},
+      { name: "selector", label: "Selector", type: "text", required: true, supportsExpressions: true },
+      { name: "value", label: "Value", type: "text", required: true, supportsExpressions: true },
     ],
   },
   {
@@ -295,9 +316,16 @@ export const nodeTemplates: NodeTemplate[] = [
     label: "Get Text",
     description: "Extract text from element",
     icon: "TextCursor",
-    defaultConfig: {},
+    defaultConfig: { selectorType: "css" },
     configSchema: [
-      { name: "selector", label: "CSS Selector", type: "text", required: true, supportsExpressions: true },
+      { name: "selectorType", label: "Selector Type", type: "select", default: "css", options: [
+        { value: "css", label: "CSS Selector" },
+        { value: "xpath", label: "XPath" },
+        { value: "id", label: "ID" },
+        { value: "name", label: "Name" },
+        { value: "class", label: "Class" },
+      ]},
+      { name: "selector", label: "Selector", type: "text", required: true, supportsExpressions: true },
     ],
     outputSchema: [
       { name: "text", type: "string", description: "Extracted text content" },
@@ -309,9 +337,16 @@ export const nodeTemplates: NodeTemplate[] = [
     label: "Get Attribute",
     description: "Get element attribute",
     icon: "Tag",
-    defaultConfig: {},
+    defaultConfig: { selectorType: "css" },
     configSchema: [
-      { name: "selector", label: "CSS Selector", type: "text", required: true, supportsExpressions: true },
+      { name: "selectorType", label: "Selector Type", type: "select", default: "css", options: [
+        { value: "css", label: "CSS Selector" },
+        { value: "xpath", label: "XPath" },
+        { value: "id", label: "ID" },
+        { value: "name", label: "Name" },
+        { value: "class", label: "Class" },
+      ]},
+      { name: "selector", label: "Selector", type: "text", required: true, supportsExpressions: true },
       { name: "attribute", label: "Attribute Name", type: "text", required: true, placeholder: "href" },
     ],
     outputSchema: [
@@ -341,9 +376,16 @@ export const nodeTemplates: NodeTemplate[] = [
     label: "Wait for Element",
     description: "Wait for element to appear",
     icon: "Clock",
-    defaultConfig: { timeout: 30000 },
+    defaultConfig: { timeout: 30000, selectorType: "css" },
     configSchema: [
-      { name: "selector", label: "CSS Selector", type: "text", required: true },
+      { name: "selectorType", label: "Selector Type", type: "select", default: "css", options: [
+        { value: "css", label: "CSS Selector" },
+        { value: "xpath", label: "XPath" },
+        { value: "id", label: "ID" },
+        { value: "name", label: "Name" },
+        { value: "class", label: "Class" },
+      ]},
+      { name: "selector", label: "Selector", type: "text", required: true, supportsExpressions: true },
       { name: "state", label: "Wait For", type: "select", default: "visible", options: [{ value: "visible", label: "Visible" }, { value: "hidden", label: "Hidden" }, { value: "attached", label: "Attached" }] },
       { name: "timeout", label: "Timeout (ms)", type: "number", default: 30000 },
     ],
@@ -368,10 +410,17 @@ export const nodeTemplates: NodeTemplate[] = [
     label: "Scroll Page",
     description: "Scroll the page",
     icon: "ArrowDown",
-    defaultConfig: {},
+    defaultConfig: { selectorType: "css" },
     configSchema: [
       { name: "direction", label: "Direction", type: "select", default: "down", options: [{ value: "down", label: "Down" }, { value: "up", label: "Up" }, { value: "to_element", label: "To Element" }] },
-      { name: "selector", label: "Element (if To Element)", type: "text" },
+      { name: "selectorType", label: "Selector Type", type: "select", default: "css", options: [
+        { value: "css", label: "CSS Selector" },
+        { value: "xpath", label: "XPath" },
+        { value: "id", label: "ID" },
+        { value: "name", label: "Name" },
+        { value: "class", label: "Class" },
+      ]},
+      { name: "selector", label: "Element (if To Element)", type: "text", supportsExpressions: true },
     ],
   },
   {
@@ -557,68 +606,242 @@ export const nodeTemplates: NodeTemplate[] = [
   },
 
   // ============================================
+  // STORAGE - Multi-Provider Storage Configuration
+  // ============================================
+  // --- Storage Provider Config Node ---
+  {
+    type: "storage.provider",
+    category: "storage",
+    label: "Storage Provider",
+    description: "Configure storage backend (Local, S3, Azure, GCS, SFTP, SharePoint, OneDrive, Google Drive)",
+    icon: "Database",
+    defaultConfig: { provider: "local" },
+    configSchema: [
+      // Provider selection
+      { name: "provider", label: "Storage Provider", type: "select", required: true, default: "local", options: [
+        { value: "local", label: "Local Filesystem" },
+        { value: "s3", label: "AWS S3" },
+        { value: "minio", label: "MinIO (S3-compatible)" },
+        { value: "azure_blob", label: "Azure Blob Storage" },
+        { value: "gcs", label: "Google Cloud Storage" },
+        { value: "sharepoint", label: "Microsoft SharePoint" },
+        { value: "onedrive", label: "Microsoft OneDrive" },
+        { value: "google_drive", label: "Google Drive" },
+        { value: "sftp", label: "SFTP" },
+        { value: "ftp", label: "FTP" },
+        { value: "webdav", label: "WebDAV" },
+      ]},
+      
+      // --- Local Filesystem ---
+      { name: "local_path", label: "Path", type: "text", required: true, visibleWhen: { field: "provider", value: "local" }, placeholder: "/data/files or C:\\Data\\Files", description: "Root directory for file operations" },
+      
+      // --- AWS S3 / MinIO ---
+      { name: "bucket", label: "Bucket Name", type: "text", required: true, visibleWhen: { field: "provider", value: ["s3", "minio"] }, placeholder: "my-bucket" },
+      { name: "region", label: "AWS Region", type: "select", default: "us-east-1", visibleWhen: { field: "provider", value: "s3" }, options: [
+        { value: "us-east-1", label: "US East (N. Virginia)" },
+        { value: "us-east-2", label: "US East (Ohio)" },
+        { value: "us-west-1", label: "US West (N. California)" },
+        { value: "us-west-2", label: "US West (Oregon)" },
+        { value: "eu-west-1", label: "EU (Ireland)" },
+        { value: "eu-west-2", label: "EU (London)" },
+        { value: "eu-central-1", label: "EU (Frankfurt)" },
+        { value: "ap-northeast-1", label: "Asia Pacific (Tokyo)" },
+        { value: "ap-southeast-1", label: "Asia Pacific (Singapore)" },
+        { value: "ap-southeast-2", label: "Asia Pacific (Sydney)" },
+        { value: "sa-east-1", label: "South America (São Paulo)" },
+      ]},
+      { name: "endpoint_url", label: "Custom Endpoint", type: "text", visibleWhen: { field: "provider", value: ["s3", "minio"] }, placeholder: "https://minio.company.com:9000", description: "For S3-compatible services" },
+      { name: "access_key", label: "Access Key ID", type: "text", visibleWhen: { field: "provider", value: ["s3", "minio"] }, placeholder: "${vault.aws_access_key}", supportsExpressions: true },
+      { name: "secret_key", label: "Secret Access Key", type: "password", visibleWhen: { field: "provider", value: ["s3", "minio"] }, placeholder: "${vault.aws_secret_key}", supportsExpressions: true },
+      { name: "encryption", label: "Server-Side Encryption", type: "select", visibleWhen: { field: "provider", value: "s3" }, options: [
+        { value: "none", label: "None" },
+        { value: "SSE-S3", label: "SSE-S3 (AES-256)" },
+        { value: "SSE-KMS", label: "SSE-KMS (AWS KMS)" },
+      ]},
+      { name: "kms_key_id", label: "KMS Key ID", type: "text", visibleWhen: { field: "encryption", value: "SSE-KMS" }, placeholder: "arn:aws:kms:..." },
+      
+      // --- Azure Blob Storage ---
+      { name: "container", label: "Container Name", type: "text", required: true, visibleWhen: { field: "provider", value: "azure_blob" }, placeholder: "my-container" },
+      { name: "connection_string", label: "Connection String", type: "password", visibleWhen: { field: "provider", value: "azure_blob" }, placeholder: "${vault.azure_connection_string}", supportsExpressions: true, description: "Full Azure Storage connection string" },
+      { name: "account_name", label: "Storage Account", type: "text", visibleWhen: { field: "provider", value: "azure_blob" }, placeholder: "mystorageaccount", description: "If not using connection string" },
+      { name: "account_key", label: "Account Key", type: "password", visibleWhen: { field: "provider", value: "azure_blob" }, placeholder: "${vault.azure_account_key}", supportsExpressions: true },
+      { name: "sas_token", label: "SAS Token", type: "password", visibleWhen: { field: "provider", value: "azure_blob" }, placeholder: "?sv=2021-06-08&ss=...", description: "Alternative to account key" },
+      
+      // --- Google Cloud Storage ---
+      { name: "gcs_bucket", label: "Bucket Name", type: "text", required: true, visibleWhen: { field: "provider", value: "gcs" }, placeholder: "my-gcs-bucket" },
+      { name: "gcs_project", label: "Project ID", type: "text", visibleWhen: { field: "provider", value: "gcs" }, placeholder: "my-project-id" },
+      { name: "gcs_credentials_json", label: "Service Account JSON", type: "textarea", visibleWhen: { field: "provider", value: "gcs" }, placeholder: '{"type": "service_account", ...}', description: "Paste service account key JSON" },
+      
+      // --- Microsoft SharePoint ---
+      { name: "sp_site_url", label: "Site URL", type: "text", required: true, visibleWhen: { field: "provider", value: "sharepoint" }, placeholder: "https://company.sharepoint.com/sites/MySite" },
+      { name: "sp_tenant_id", label: "Tenant ID", type: "text", visibleWhen: { field: "provider", value: "sharepoint" }, placeholder: "${vault.sp_tenant_id}", supportsExpressions: true },
+      { name: "sp_client_id", label: "App (Client) ID", type: "text", visibleWhen: { field: "provider", value: "sharepoint" }, placeholder: "${vault.sp_client_id}", supportsExpressions: true },
+      { name: "sp_client_secret", label: "Client Secret", type: "password", visibleWhen: { field: "provider", value: "sharepoint" }, placeholder: "${vault.sp_client_secret}", supportsExpressions: true },
+      { name: "sp_library", label: "Document Library", type: "text", visibleWhen: { field: "provider", value: "sharepoint" }, default: "Documents", placeholder: "Documents" },
+      
+      // --- Microsoft OneDrive ---
+      { name: "od_tenant_id", label: "Tenant ID", type: "text", visibleWhen: { field: "provider", value: "onedrive" }, placeholder: "${vault.od_tenant_id}", supportsExpressions: true },
+      { name: "od_client_id", label: "App (Client) ID", type: "text", visibleWhen: { field: "provider", value: "onedrive" }, placeholder: "${vault.od_client_id}", supportsExpressions: true },
+      { name: "od_client_secret", label: "Client Secret", type: "password", visibleWhen: { field: "provider", value: "onedrive" }, placeholder: "${vault.od_client_secret}", supportsExpressions: true },
+      { name: "od_user_email", label: "User Email", type: "text", visibleWhen: { field: "provider", value: "onedrive" }, placeholder: "user@company.com", description: "For delegated access" },
+      
+      // --- Google Drive ---
+      { name: "gd_credentials_json", label: "Service Account JSON", type: "textarea", visibleWhen: { field: "provider", value: "google_drive" }, placeholder: '{"type": "service_account", ...}' },
+      { name: "gd_folder_id", label: "Root Folder ID", type: "text", visibleWhen: { field: "provider", value: "google_drive" }, placeholder: "1ABC...xyz", description: "Optional: limit to specific folder" },
+      
+      // --- SFTP ---
+      { name: "sftp_host", label: "Host", type: "text", required: true, visibleWhen: { field: "provider", value: "sftp" }, placeholder: "sftp.company.com" },
+      { name: "sftp_port", label: "Port", type: "number", default: 22, visibleWhen: { field: "provider", value: "sftp" } },
+      { name: "sftp_username", label: "Username", type: "text", visibleWhen: { field: "provider", value: "sftp" }, placeholder: "${vault.sftp_user}", supportsExpressions: true },
+      { name: "sftp_password", label: "Password", type: "password", visibleWhen: { field: "provider", value: "sftp" }, placeholder: "${vault.sftp_pass}", supportsExpressions: true, description: "Or use private key below" },
+      { name: "sftp_private_key", label: "Private Key Path", type: "text", visibleWhen: { field: "provider", value: "sftp" }, placeholder: "/path/to/id_rsa" },
+      { name: "sftp_passphrase", label: "Key Passphrase", type: "password", visibleWhen: { field: "provider", value: "sftp" }, placeholder: "${vault.sftp_passphrase}", supportsExpressions: true },
+      
+      // --- FTP ---
+      { name: "ftp_host", label: "Host", type: "text", required: true, visibleWhen: { field: "provider", value: "ftp" }, placeholder: "ftp.company.com" },
+      { name: "ftp_port", label: "Port", type: "number", default: 21, visibleWhen: { field: "provider", value: "ftp" } },
+      { name: "ftp_username", label: "Username", type: "text", visibleWhen: { field: "provider", value: "ftp" }, placeholder: "${vault.ftp_user}", supportsExpressions: true },
+      { name: "ftp_password", label: "Password", type: "password", visibleWhen: { field: "provider", value: "ftp" }, placeholder: "${vault.ftp_pass}", supportsExpressions: true },
+      { name: "ftp_secure", label: "Use FTPS", type: "boolean", default: true, visibleWhen: { field: "provider", value: "ftp" } },
+      
+      // --- WebDAV ---
+      { name: "webdav_url", label: "WebDAV URL", type: "text", required: true, visibleWhen: { field: "provider", value: "webdav" }, placeholder: "https://dav.company.com/files/" },
+      { name: "webdav_username", label: "Username", type: "text", visibleWhen: { field: "provider", value: "webdav" }, placeholder: "${vault.webdav_user}", supportsExpressions: true },
+      { name: "webdav_password", label: "Password", type: "password", visibleWhen: { field: "provider", value: "webdav" }, placeholder: "${vault.webdav_pass}", supportsExpressions: true },
+      
+      // --- Common Advanced Options ---
+      { name: "prefix", label: "Path Prefix", type: "text", visibleWhen: { field: "provider", value: ["s3", "minio", "azure_blob", "gcs", "sharepoint", "onedrive", "google_drive", "sftp", "ftp", "webdav"] }, placeholder: "folder/subfolder", description: "Subdirectory within the bucket/container (optional)" },
+      { name: "enable_audit", label: "Enable Audit Logging", type: "boolean", default: true, description: "Log all file operations for compliance" },
+      { name: "enable_checksums", label: "Verify Checksums", type: "boolean", default: true, description: "SHA-256 integrity verification" },
+      { name: "chunk_size_mb", label: "Chunk Size (MB)", type: "number", default: 8, description: "For streaming large files" },
+    ],
+    outputSchema: [
+      { name: "provider", type: "string", description: "Configured provider type" },
+      { name: "connected", type: "boolean", description: "Connection status" },
+      { name: "endpoint", type: "string", description: "Storage endpoint/path" },
+    ],
+  },
+  
+  // --- Cross-Provider Transfer ---
+  {
+    type: "storage.transfer",
+    category: "storage",
+    label: "Transfer Files",
+    description: "Transfer files between different storage providers",
+    icon: "ArrowLeftRight",
+    defaultConfig: { verify_checksum: true },
+    configSchema: [
+      { name: "source_provider", label: "Source Provider", type: "text", required: true, description: "Name of configured source provider" },
+      { name: "source_path", label: "Source Path", type: "text", required: true, supportsExpressions: true },
+      { name: "dest_provider", label: "Destination Provider", type: "text", required: true, description: "Name of configured destination provider" },
+      { name: "dest_path", label: "Destination Path", type: "text", required: true, supportsExpressions: true },
+      { name: "verify_checksum", label: "Verify Checksum", type: "boolean", default: true },
+    ],
+    outputSchema: [
+      { name: "transferred", type: "boolean", description: "Transfer successful" },
+      { name: "size", type: "number", description: "Bytes transferred" },
+      { name: "checksum", type: "string", description: "SHA-256 checksum" },
+    ],
+  },
+  
+  // --- Directory Sync ---
+  {
+    type: "storage.sync",
+    category: "storage",
+    label: "Sync Directories",
+    description: "Synchronize directories between storage providers",
+    icon: "RefreshCw",
+    defaultConfig: { delete_extra: false },
+    configSchema: [
+      { name: "source_provider", label: "Source Provider", type: "text", required: true },
+      { name: "source_path", label: "Source Path", type: "text", required: true, supportsExpressions: true },
+      { name: "dest_provider", label: "Destination Provider", type: "text", required: true },
+      { name: "dest_path", label: "Destination Path", type: "text", required: true, supportsExpressions: true },
+      { name: "delete_extra", label: "Delete Extra Files", type: "boolean", default: false, description: "Remove files in destination not in source" },
+    ],
+    outputSchema: [
+      { name: "transferred", type: "number", description: "Files transferred" },
+      { name: "skipped", type: "number", description: "Files skipped (unchanged)" },
+      { name: "deleted", type: "number", description: "Files deleted" },
+      { name: "errors", type: "array", description: "Transfer errors" },
+    ],
+  },
+
+  // ============================================
   // FILES - Files & Folders
   // ============================================
+  // Note: Connect a "Storage Provider" node to use cloud storage instead of local filesystem
   {
     type: "files.read",
     category: "files",
     label: "Read File",
-    description: "Read file contents",
+    description: "Read file contents from local or cloud storage",
     icon: "FileInput",
     defaultConfig: { encoding: "utf-8" },
     configSchema: [
-      { name: "path", label: "File Path", type: "text", required: true },
-      { name: "encoding", label: "Encoding", type: "select", default: "utf-8", options: [{ value: "utf-8", label: "UTF-8" }, { value: "ascii", label: "ASCII" }, { value: "latin1", label: "Latin-1" }] },
+      { name: "path", label: "File Path", type: "text", required: true, supportsExpressions: true, description: "Connect a Storage Provider for cloud storage" },
+      { name: "encoding", label: "Encoding", type: "select", default: "utf-8", options: [
+        { value: "utf-8", label: "UTF-8" }, 
+        { value: "ascii", label: "ASCII" }, 
+        { value: "latin1", label: "Latin-1" },
+        { value: "binary", label: "Binary (no encoding)" },
+      ]},
     ],
     outputSchema: [
       { name: "content", type: "string", description: "File contents" },
       { name: "size", type: "number", description: "File size in bytes" },
       { name: "path", type: "string", description: "Full file path" },
+      { name: "provider", type: "string", description: "Storage provider used" },
     ],
   },
   {
     type: "files.write",
     category: "files",
     label: "Write File",
-    description: "Write to file",
+    description: "Write to local or cloud storage",
     icon: "FileOutput",
     defaultConfig: { append: false },
     configSchema: [
-      { name: "path", label: "File Path", type: "text", required: true },
-      { name: "content", label: "Content", type: "textarea", required: true },
+      { name: "path", label: "File Path", type: "text", required: true, supportsExpressions: true, description: "Connect a Storage Provider for cloud storage" },
+      { name: "content", label: "Content", type: "textarea", required: true, supportsExpressions: true },
+      { name: "content_type", label: "Content Type", type: "text", placeholder: "text/plain", description: "MIME type (for cloud storage)" },
       { name: "append", label: "Append Mode", type: "boolean", default: false },
     ],
     outputSchema: [
       { name: "path", type: "string", description: "Written file path" },
-      { name: "bytesWritten", type: "number", description: "Bytes written" },
+      { name: "size", type: "number", description: "Bytes written" },
+      { name: "provider", type: "string", description: "Storage provider used" },
     ],
   },
   {
     type: "files.copy",
     category: "files",
     label: "Copy File",
-    description: "Copy file or folder",
+    description: "Copy file or folder within storage provider",
     icon: "Copy",
-    defaultConfig: {},
+    defaultConfig: { overwrite: true },
     configSchema: [
-      { name: "source", label: "Source Path", type: "text", required: true },
-      { name: "destination", label: "Destination", type: "text", required: true },
+      { name: "source", label: "Source Path", type: "text", required: true, supportsExpressions: true },
+      { name: "destination", label: "Destination", type: "text", required: true, supportsExpressions: true },
+      { name: "overwrite", label: "Overwrite Existing", type: "boolean", default: true },
     ],
     outputSchema: [
       { name: "destination", type: "string", description: "Destination path" },
       { name: "copied", type: "boolean", description: "Copy successful" },
+      { name: "size", type: "number", description: "File size in bytes" },
     ],
   },
   {
     type: "files.move",
     category: "files",
     label: "Move File",
-    description: "Move or rename file",
+    description: "Move or rename file within storage provider",
     icon: "FolderInput",
-    defaultConfig: {},
+    defaultConfig: { overwrite: true },
     configSchema: [
-      { name: "source", label: "Source Path", type: "text", required: true },
-      { name: "destination", label: "Destination", type: "text", required: true },
+      { name: "source", label: "Source Path", type: "text", required: true, supportsExpressions: true },
+      { name: "destination", label: "Destination", type: "text", required: true, supportsExpressions: true },
+      { name: "overwrite", label: "Overwrite Existing", type: "boolean", default: true },
     ],
     outputSchema: [
       { name: "destination", type: "string", description: "New file path" },
@@ -629,11 +852,11 @@ export const nodeTemplates: NodeTemplate[] = [
     type: "files.delete",
     category: "files",
     label: "Delete File",
-    description: "Delete file or folder",
+    description: "Delete file or folder from storage",
     icon: "Trash2",
-    defaultConfig: {},
+    defaultConfig: { recursive: false },
     configSchema: [
-      { name: "path", label: "Path", type: "text", required: true },
+      { name: "path", label: "Path", type: "text", required: true, supportsExpressions: true },
       { name: "recursive", label: "Recursive (folders)", type: "boolean", default: false },
     ],
     outputSchema: [
@@ -645,11 +868,11 @@ export const nodeTemplates: NodeTemplate[] = [
     type: "files.create_folder",
     category: "files",
     label: "Create Folder",
-    description: "Create new folder",
+    description: "Create folder in storage",
     icon: "FolderPlus",
     defaultConfig: {},
     configSchema: [
-      { name: "path", label: "Folder Path", type: "text", required: true },
+      { name: "path", label: "Folder Path", type: "text", required: true, supportsExpressions: true },
     ],
     outputSchema: [
       { name: "path", type: "string", description: "Created folder path" },
@@ -660,28 +883,30 @@ export const nodeTemplates: NodeTemplate[] = [
     type: "files.list",
     category: "files",
     label: "List Files",
-    description: "List files in folder",
+    description: "List files in storage location",
     icon: "FolderOpen",
-    defaultConfig: {},
+    defaultConfig: { recursive: false, max_items: 1000 },
     configSchema: [
-      { name: "path", label: "Folder Path", type: "text", required: true },
-      { name: "pattern", label: "Pattern", type: "text", placeholder: "*.csv" },
+      { name: "path", label: "Folder Path", type: "text", required: true, supportsExpressions: true, description: "Connect a Storage Provider for cloud storage" },
+      { name: "pattern", label: "Pattern", type: "text", placeholder: "*.csv", description: "Glob pattern to filter files" },
       { name: "recursive", label: "Recursive", type: "boolean", default: false },
+      { name: "max_items", label: "Max Items", type: "number", default: 1000, description: "Limit results (for large directories)" },
     ],
     outputSchema: [
-      { name: "files", type: "array", description: "List of file paths" },
+      { name: "files", type: "array", description: "List of file metadata objects" },
       { name: "count", type: "number", description: "Number of files found" },
+      { name: "is_truncated", type: "boolean", description: "Results were limited" },
     ],
   },
   {
     type: "files.exists",
     category: "files",
     label: "File Exists",
-    description: "Check if file exists",
+    description: "Check if file exists in storage",
     icon: "FileSearch",
     defaultConfig: {},
     configSchema: [
-      { name: "path", label: "File Path", type: "text", required: true },
+      { name: "path", label: "File Path", type: "text", required: true, supportsExpressions: true },
     ],
     outputSchema: [
       { name: "exists", type: "boolean", description: "Whether file exists" },
@@ -690,15 +915,42 @@ export const nodeTemplates: NodeTemplate[] = [
     ],
   },
   {
+    type: "files.get_info",
+    category: "files",
+    label: "Get File Info",
+    description: "Get file metadata from storage",
+    icon: "FileText",
+    defaultConfig: {},
+    configSchema: [
+      { name: "path", label: "File Path", type: "text", required: true, supportsExpressions: true },
+    ],
+    outputSchema: [
+      { name: "name", type: "string", description: "File name" },
+      { name: "path", type: "string", description: "Full file path" },
+      { name: "size", type: "number", description: "File size in bytes" },
+      { name: "content_type", type: "string", description: "MIME type" },
+      { name: "extension", type: "string", description: "File extension" },
+      { name: "created", type: "string", description: "Creation timestamp" },
+      { name: "modified", type: "string", description: "Last modified timestamp" },
+      { name: "etag", type: "string", description: "Entity tag (cloud storage)" },
+      { name: "checksum_md5", type: "string", description: "MD5 checksum if available" },
+    ],
+  },
+  {
     type: "files.zip",
     category: "files",
     label: "Create ZIP",
-    description: "Compress files to ZIP",
+    description: "Compress files to ZIP archive",
     icon: "Archive",
     defaultConfig: {},
     configSchema: [
-      { name: "source", label: "Source Path", type: "text", required: true },
-      { name: "destination", label: "ZIP Path", type: "text", required: true },
+      { name: "source", label: "Source Path", type: "text", required: true, supportsExpressions: true },
+      { name: "destination", label: "ZIP Path", type: "text", required: true, supportsExpressions: true },
+      { name: "compression_level", label: "Compression Level", type: "select", default: "default", options: [
+        { value: "store", label: "Store (no compression)" },
+        { value: "default", label: "Default" },
+        { value: "best", label: "Best (smallest size)" },
+      ]},
     ],
     outputSchema: [
       { name: "path", type: "string", description: "Created ZIP path" },
@@ -714,8 +966,9 @@ export const nodeTemplates: NodeTemplate[] = [
     icon: "FolderArchive",
     defaultConfig: {},
     configSchema: [
-      { name: "source", label: "ZIP Path", type: "text", required: true },
-      { name: "destination", label: "Extract To", type: "text", required: true },
+      { name: "source", label: "ZIP Path", type: "text", required: true, supportsExpressions: true },
+      { name: "destination", label: "Extract To", type: "text", required: true, supportsExpressions: true },
+      { name: "password", label: "Password", type: "password", placeholder: "For encrypted ZIPs", supportsExpressions: true },
     ],
     outputSchema: [
       { name: "path", type: "string", description: "Extraction folder path" },
@@ -724,28 +977,10 @@ export const nodeTemplates: NodeTemplate[] = [
     ],
   },
   {
-    type: "files.get_info",
-    category: "files",
-    label: "Get File Info",
-    description: "Get file metadata",
-    icon: "FileText",
-    defaultConfig: {},
-    configSchema: [
-      { name: "path", label: "File Path", type: "text", required: true },
-    ],
-    outputSchema: [
-      { name: "name", type: "string", description: "File name" },
-      { name: "size", type: "number", description: "File size in bytes" },
-      { name: "extension", type: "string", description: "File extension" },
-      { name: "created", type: "string", description: "Creation timestamp" },
-      { name: "modified", type: "string", description: "Last modified timestamp" },
-    ],
-  },
-  {
     type: "files.watch",
     category: "files",
     label: "Watch Folder",
-    description: "Monitor folder for changes",
+    description: "Monitor folder for changes (local filesystem only)",
     icon: "Eye",
     defaultConfig: {},
     configSchema: [
@@ -756,6 +991,26 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "changedFile", type: "string", description: "Path of changed file" },
       { name: "event", type: "string", description: "Event type: created, modified, deleted" },
       { name: "timestamp", type: "string", description: "When change occurred" },
+    ],
+  },
+  {
+    type: "files.presigned_url",
+    category: "files",
+    label: "Generate Presigned URL",
+    description: "Generate temporary access URL (S3/Azure/GCS only)",
+    icon: "Link",
+    defaultConfig: { expiration: 3600 },
+    configSchema: [
+      { name: "path", label: "File Path", type: "text", required: true, supportsExpressions: true, description: "Requires a cloud Storage Provider connection" },
+      { name: "expiration", label: "Expiration (seconds)", type: "number", default: 3600 },
+      { name: "operation", label: "Operation", type: "select", default: "download", options: [
+        { value: "download", label: "Download (GET)" },
+        { value: "upload", label: "Upload (PUT)" },
+      ]},
+    ],
+    outputSchema: [
+      { name: "url", type: "string", description: "Presigned URL" },
+      { name: "expires_at", type: "string", description: "URL expiration timestamp" },
     ],
   },
 
@@ -1716,7 +1971,7 @@ export const nodeTemplates: NodeTemplate[] = [
     category: "ai",
     label: "AI Agent",
     description: "Autonomous ReAct agent with tool execution. Connect an AI Model node to configure the LLM.",
-    icon: "Bot",
+    icon: "BrainCircuit",
     defaultConfig: { max_iterations: 10 },
     configSchema: [
       { name: "name", label: "Agent Name", type: "text", placeholder: "My Agent" },
@@ -1740,7 +1995,7 @@ export const nodeTemplates: NodeTemplate[] = [
     category: "ai",
     label: "AI Extract Data",
     description: "Extract structured data from text. Connect AI Model node to configure LLM.",
-    icon: "FileSearch",
+    icon: "ScanText",
     defaultConfig: {},
     configSchema: [
       { name: "input", label: "Input Text", type: "textarea", required: true, supportsExpressions: true },
@@ -1757,7 +2012,7 @@ export const nodeTemplates: NodeTemplate[] = [
     category: "ai",
     label: "AI Summarize",
     description: "Summarize text content. Connect AI Model node to configure LLM.",
-    icon: "AlignLeft",
+    icon: "FileText",
     defaultConfig: { style: "concise" },
     configSchema: [
       { name: "input", label: "Input Text", type: "textarea", required: true, supportsExpressions: true },
@@ -1780,7 +2035,7 @@ export const nodeTemplates: NodeTemplate[] = [
     category: "ai",
     label: "AI Classify",
     description: "Classify text into categories. Connect AI Model node to configure LLM.",
-    icon: "Tags",
+    icon: "ListTree",
     defaultConfig: { multi_label: false },
     configSchema: [
       { name: "input", label: "Input Text", type: "textarea", required: true, supportsExpressions: true },
@@ -1836,7 +2091,7 @@ export const nodeTemplates: NodeTemplate[] = [
     category: "ai",
     label: "AI Vision",
     description: "Analyze images with AI. Connect AI Model node (must support vision).",
-    icon: "Eye",
+    icon: "ScanEye",
     defaultConfig: {},
     configSchema: [
       { name: "image_path", label: "Image Path", type: "text", required: true, supportsExpressions: true },
@@ -2719,7 +2974,7 @@ export const nodeTemplates: NodeTemplate[] = [
     category: "ai",
     label: "Embeddings",
     description: "Configure embeddings model. Connect to Vector Memory or AI Agent.",
-    icon: "Sparkles",
+    icon: "Waypoints",
     defaultConfig: { provider: "openai", model: "text-embedding-3-small", dimension: 1536 },
     configSchema: [
       // Provider selection
@@ -2803,7 +3058,7 @@ export const nodeTemplates: NodeTemplate[] = [
     category: "ai",
     label: "AI Model",
     description: "Configure AI/LLM model. Connect to AI Agent.",
-    icon: "Cpu",
+    icon: "Brain",
     defaultConfig: { provider: "openai", model: "gpt-4o", temperature: 0.7 },
     configSchema: [
       // Provider selection
@@ -2826,6 +3081,7 @@ export const nodeTemplates: NodeTemplate[] = [
         { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" },
         { value: "o1-preview", label: "o1-preview (reasoning)" },
         { value: "o1-mini", label: "o1-mini (reasoning, fast)" },
+        { value: "custom", label: "Custom..." },
       ]},
       { name: "api_key", label: "OpenAI API Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "openai" }, placeholder: "${OPENAI_API_KEY}" },
       // Anthropic models
@@ -2835,6 +3091,7 @@ export const nodeTemplates: NodeTemplate[] = [
         { value: "claude-3-opus-20240229", label: "Claude 3 Opus (most capable)" },
         { value: "claude-3-sonnet-20240229", label: "Claude 3 Sonnet" },
         { value: "claude-3-haiku-20240307", label: "Claude 3 Haiku" },
+        { value: "custom", label: "Custom..." },
       ]},
       { name: "api_key", label: "Anthropic API Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "anthropic" }, placeholder: "${ANTHROPIC_API_KEY}" },
       // Azure AI Foundry
@@ -2851,6 +3108,7 @@ export const nodeTemplates: NodeTemplate[] = [
         { value: "codellama", label: "Code Llama" },
         { value: "phi3", label: "Phi-3" },
         { value: "qwen2.5", label: "Qwen 2.5" },
+        { value: "custom", label: "Custom..." },
       ]},
       { name: "base_url", label: "Ollama URL", type: "text", default: "http://localhost:11434", visibleWhen: { field: "provider", value: "ollama" } },
       // Google Gemini
@@ -2858,6 +3116,7 @@ export const nodeTemplates: NodeTemplate[] = [
         { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
         { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash (fast)" },
         { value: "gemini-2.0-flash-exp", label: "Gemini 2.0 Flash (experimental)" },
+        { value: "custom", label: "Custom..." },
       ]},
       { name: "api_key", label: "Google API Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "google" } },
       // AWS Bedrock
@@ -2867,6 +3126,7 @@ export const nodeTemplates: NodeTemplate[] = [
         { value: "amazon.titan-text-premier-v1:0", label: "Titan Text Premier" },
         { value: "meta.llama3-2-90b-instruct-v1:0", label: "Llama 3.2 90B" },
         { value: "mistral.mistral-large-2407-v1:0", label: "Mistral Large" },
+        { value: "custom", label: "Custom..." },
       ]},
       { name: "aws_access_key", label: "AWS Access Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "aws" } },
       { name: "aws_secret_key", label: "AWS Secret Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "aws" } },
@@ -2877,6 +3137,7 @@ export const nodeTemplates: NodeTemplate[] = [
         { value: "llama-3.1-70b-versatile", label: "Llama 3.1 70B" },
         { value: "mixtral-8x7b-32768", label: "Mixtral 8x7B" },
         { value: "gemma2-9b-it", label: "Gemma 2 9B" },
+        { value: "custom", label: "Custom..." },
       ]},
       { name: "api_key", label: "Groq API Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "groq" } },
       // Mistral AI
@@ -2885,8 +3146,10 @@ export const nodeTemplates: NodeTemplate[] = [
         { value: "mistral-medium-latest", label: "Mistral Medium" },
         { value: "mistral-small-latest", label: "Mistral Small" },
         { value: "codestral-latest", label: "Codestral (code)" },
+        { value: "custom", label: "Custom..." },
       ]},
       { name: "api_key", label: "Mistral API Key", type: "text", secret: true, visibleWhen: { field: "provider", value: "mistral" } },
+      { name: "custom_model", label: "Custom Model", type: "text", visibleWhen: { field: "model", value: "custom" }, placeholder: "Enter model name" },
       // Common settings
       { name: "temperature", label: "Temperature", type: "number", default: 0.7 },
       { name: "max_tokens", label: "Max Tokens (optional)", type: "number" },
@@ -2895,6 +3158,168 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "provider", type: "string", description: "LLM provider name" },
       { name: "model", type: "string", description: "Model being used" },
       { name: "ready", type: "boolean", description: "Model configured and ready" },
+    ],
+  },
+
+  // ============================================
+  // CODE - Custom Code Execution (like n8n)
+  // ============================================
+  {
+    type: "code.javascript",
+    category: "code",
+    label: "Code (JavaScript)",
+    description: "Execute custom JavaScript code with reusable functions. Access input data via $input, return result.",
+    icon: "Braces",
+    defaultConfig: { mode: "runOnceForAll", functions: "", code: "" },
+    configSchema: [
+      { 
+        name: "functions", 
+        label: "Functions (optional)", 
+        type: "textarea",
+        description: "Define helper functions here. They will be available in the main code below.",
+        placeholder: `// Define reusable functions here
+function validateEmail(email) {
+  return email && email.includes('@');
+}
+
+function formatName(name) {
+  return (name || '').trim().split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function calculateTotal(items, field = 'amount') {
+  return items.reduce((sum, item) => sum + (item[field] || 0), 0);
+}`
+      },
+      { 
+        name: "code", 
+        label: "Main Code", 
+        type: "textarea", 
+        required: true,
+        description: "Main processing logic. Return the data to pass to next node.",
+        placeholder: `// Access input items via $input.all()
+// Use functions defined above
+// Return data to pass to next node
+
+const items = $input.all();
+
+// Transform each item using your functions
+const results = items.map(item => ({
+  name: formatName(item.name),
+  email: item.email,
+  validEmail: validateEmail(item.email),
+  processed: true
+}));
+
+return results;
+
+// Or return a summary
+// return {
+//   total: calculateTotal(items, 'amount'),
+//   count: items.length
+// };`
+      },
+      { 
+        name: "mode", 
+        label: "Execution Mode", 
+        type: "select", 
+        default: "runOnceForAll",
+        options: [
+          { value: "runOnceForAll", label: "Run once for all items" },
+          { value: "runOnceForEach", label: "Run once for each item" },
+        ],
+        description: "How to process multiple input items"
+      },
+      {
+        name: "timeout",
+        label: "Timeout (seconds)",
+        type: "number",
+        default: 30,
+        description: "Maximum execution time before timeout"
+      },
+    ],
+    outputSchema: [
+      { name: "data", type: "any", description: "Output data returned from the code" },
+      { name: "itemCount", type: "number", description: "Number of items returned" },
+      { name: "executionTime", type: "number", description: "Execution time in milliseconds" },
+    ],
+  },
+  {
+    type: "code.python",
+    category: "code",
+    label: "Code (Python)",
+    description: "Execute custom Python code with reusable functions. Access input data via input_data, return via result.",
+    icon: "FileCode2",
+    defaultConfig: { mode: "runOnceForAll", functions: "", code: "" },
+    configSchema: [
+      { 
+        name: "functions", 
+        label: "Functions (optional)", 
+        type: "textarea",
+        description: "Define helper functions here. They will be available in the main code below.",
+        placeholder: `# Define reusable functions here
+def validate_email(email):
+    """Check if email contains @"""
+    return '@' in str(email)
+
+def format_name(name):
+    """Clean and capitalize name"""
+    return str(name).strip().title()
+
+def calculate_total(items, field='amount'):
+    """Sum a field across items"""
+    return sum(item.get(field, 0) for item in items)`
+      },
+      { 
+        name: "code", 
+        label: "Main Code", 
+        type: "textarea", 
+        required: true,
+        description: "Main processing logic. Set 'result' variable to return data.",
+        placeholder: `# Access input items via input_data['items']
+# Use functions defined above
+# Set 'result' to return transformed data
+
+items = input_data.get('items', [])
+
+# Transform each item using your functions
+result = [{
+    'name': format_name(item.get('name', '')),
+    'email': item.get('email', ''),
+    'valid_email': validate_email(item.get('email', '')),
+    'processed': True
+} for item in items]
+
+# Or return a summary
+# result = {
+#     'total': calculate_total(items, 'amount'),
+#     'count': len(items)
+# }`
+      },
+      { 
+        name: "mode", 
+        label: "Execution Mode", 
+        type: "select", 
+        default: "runOnceForAll",
+        options: [
+          { value: "runOnceForAll", label: "Run once for all items" },
+          { value: "runOnceForEach", label: "Run once for each item" },
+        ],
+        description: "How to process multiple input items"
+      },
+      {
+        name: "timeout",
+        label: "Timeout (seconds)",
+        type: "number",
+        default: 30,
+        description: "Maximum execution time before timeout"
+      },
+    ],
+    outputSchema: [
+      { name: "data", type: "any", description: "Output data returned from the code (result variable)" },
+      { name: "itemCount", type: "number", description: "Number of items returned" },
+      { name: "executionTime", type: "number", description: "Execution time in milliseconds" },
     ],
   },
 
@@ -2917,13 +3342,31 @@ export const nodeTemplates: NodeTemplate[] = [
     type: "python.project",
     category: "python",
     label: "Run Python Project",
-    description: "Execute Python project",
+    description: "Execute external Python project (like ElectroNeek). Supports venv, JSON input via file or env, captures stdout as output.",
     icon: "FolderCode",
-    defaultConfig: {},
+    defaultConfig: { pass_input: true, parse_json_output: true, input_method: "env" },
     configSchema: [
-      { name: "project_path", label: "Project Path", type: "text", required: true },
-      { name: "entrypoint", label: "Entrypoint", type: "text", required: true, placeholder: "main.py" },
-      { name: "args", label: "Arguments", type: "text" },
+      { name: "project_path", label: "Project Path", type: "text", required: true, placeholder: "/path/to/project", description: "Absolute path to the Python project folder" },
+      { name: "entrypoint", label: "Entrypoint Script", type: "text", required: true, placeholder: "main.py", description: "Python file to execute (relative to project path)" },
+      { name: "venv_path", label: "Virtual Environment Path", type: "text", placeholder: ".venv or /path/to/venv", description: "Path to venv folder (relative or absolute). Leave empty for system Python." },
+      { name: "args", label: "Script Arguments", type: "text", placeholder: "--verbose --config settings.json", description: "Command line arguments (access via sys.argv)" },
+      { name: "input_method", label: "Input Data Method", type: "select", default: "env", options: [
+        { value: "env", label: "Environment Variable (SKULD_INPUT) - up to 32KB" },
+        { value: "file", label: "Temporary JSON File (SKULD_INPUT_FILE) - unlimited" },
+        { value: "args", label: "As Script Arguments (sys.argv)" },
+        { value: "none", label: "Don't pass input" },
+      ]},
+      { name: "pass_input", label: "Pass Input Data", type: "boolean", default: true },
+      { name: "parse_json_output", label: "Parse JSON Output", type: "boolean", default: true, description: "Parse stdout as JSON. If false, returns raw string." },
+      { name: "timeout", label: "Timeout (seconds)", type: "number", default: 300, description: "Maximum execution time (0 = no limit)" },
+    ],
+    outputSchema: [
+      { name: "output", type: "any", description: "Parsed JSON from stdout, or raw string if not JSON" },
+      { name: "stdout", type: "string", description: "Raw stdout from the process" },
+      { name: "stderr", type: "string", description: "Raw stderr from the process" },
+      { name: "returncode", type: "number", description: "Exit code (0 = success)" },
+      { name: "success", type: "boolean", description: "True if returncode == 0" },
+      { name: "duration_ms", type: "number", description: "Execution time in milliseconds" },
     ],
   },
   {
@@ -2942,12 +3385,39 @@ export const nodeTemplates: NodeTemplate[] = [
     type: "python.virtualenv",
     category: "python",
     label: "Create Virtualenv",
-    description: "Create Python environment",
-    icon: "Box",
+    description: "Create a new Python virtual environment with specified packages",
+    icon: "Container",
+    defaultConfig: { install_packages: "" },
+    configSchema: [
+      { name: "path", label: "Environment Path", type: "text", required: true, placeholder: ".venv or /path/to/venv" },
+      { name: "python_executable", label: "Python Executable", type: "text", placeholder: "python3 or /usr/bin/python3.11", description: "Leave empty for default python3" },
+      { name: "install_packages", label: "Install Packages", type: "text", placeholder: "pandas numpy requests", description: "Space-separated packages to install after creation" },
+      { name: "requirements_file", label: "Requirements File", type: "text", placeholder: "requirements.txt", description: "Install from requirements file" },
+    ],
+    outputSchema: [
+      { name: "path", type: "string", description: "Path to the created venv" },
+      { name: "python_path", type: "string", description: "Path to Python executable in venv" },
+      { name: "pip_path", type: "string", description: "Path to pip in venv" },
+      { name: "created", type: "boolean", description: "True if venv was created successfully" },
+      { name: "packages_installed", type: "boolean", description: "True if packages were installed" },
+    ],
+  },
+  {
+    type: "python.activate_venv",
+    category: "python",
+    label: "Use Virtualenv",
+    description: "Set a virtual environment to use for subsequent Python nodes",
+    icon: "ToggleRight",
     defaultConfig: {},
     configSchema: [
-      { name: "path", label: "Environment Path", type: "text", required: true },
-      { name: "python_version", label: "Python Version", type: "text", default: "3.10" },
+      { name: "venv_path", label: "Virtualenv Path", type: "text", required: true, placeholder: ".venv or /path/to/venv" },
+      { name: "verify", label: "Verify Venv Exists", type: "boolean", default: true },
+    ],
+    outputSchema: [
+      { name: "python_path", type: "string", description: "Path to Python executable" },
+      { name: "pip_path", type: "string", description: "Path to pip" },
+      { name: "site_packages", type: "string", description: "Path to site-packages" },
+      { name: "active", type: "boolean", description: "True if venv was activated" },
     ],
   },
   {
@@ -2979,12 +3449,79 @@ export const nodeTemplates: NodeTemplate[] = [
     type: "python.notebook",
     category: "python",
     label: "Run Notebook",
-    description: "Execute Jupyter notebook",
+    description: "Execute Jupyter notebook with papermill. Pass parameters, capture outputs, use custom kernels.",
     icon: "BookOpen",
-    defaultConfig: {},
+    defaultConfig: { timeout: 600, pass_input: true, capture_outputs: true },
     configSchema: [
-      { name: "path", label: "Notebook Path", type: "text", required: true },
-      { name: "output_path", label: "Output Path", type: "text" },
+      { 
+        name: "path", 
+        label: "Notebook Path", 
+        type: "text", 
+        required: true, 
+        placeholder: "./notebooks/analysis.ipynb",
+        description: "Path to the .ipynb notebook file"
+      },
+      { 
+        name: "output_path", 
+        label: "Output Path", 
+        type: "text",
+        placeholder: "./notebooks/analysis_output.ipynb",
+        description: "Where to save the executed notebook. Leave empty for auto-generated name."
+      },
+      { 
+        name: "parameters", 
+        label: "Parameters (JSON)", 
+        type: "textarea",
+        placeholder: `{
+  "input_file": "\${prev.output_path}",
+  "threshold": 0.85,
+  "mode": "production"
+}`,
+        description: "JSON object with parameters to inject into the notebook's 'parameters' cell"
+      },
+      { 
+        name: "pass_input", 
+        label: "Pass Input Data", 
+        type: "boolean", 
+        default: true,
+        description: "Automatically pass previous node output as 'skuld_input' parameter"
+      },
+      { 
+        name: "venv_path", 
+        label: "Virtual Environment", 
+        type: "text",
+        placeholder: ".venv or /path/to/venv",
+        description: "Use papermill from this venv (optional)"
+      },
+      { 
+        name: "kernel_name", 
+        label: "Kernel Name", 
+        type: "text",
+        placeholder: "python3",
+        description: "Jupyter kernel to use (e.g., python3, myenv)"
+      },
+      { 
+        name: "timeout", 
+        label: "Cell Timeout (seconds)", 
+        type: "number", 
+        default: 600,
+        description: "Maximum execution time per cell (0 = no timeout)"
+      },
+      { 
+        name: "capture_outputs", 
+        label: "Capture Cell Outputs", 
+        type: "boolean", 
+        default: true,
+        description: "Extract outputs from cells tagged with 'skuld_output'"
+      },
+    ],
+    outputSchema: [
+      { name: "success", type: "boolean", description: "True if notebook executed without errors" },
+      { name: "inputPath", type: "string", description: "Path to the input notebook" },
+      { name: "outputPath", type: "string", description: "Path to the executed output notebook" },
+      { name: "executionTime", type: "number", description: "Total execution time in milliseconds" },
+      { name: "cellOutputs", type: "object", description: "Outputs from cells tagged with 'skuld_output'" },
+      { name: "error", type: "string", description: "Error message if execution failed" },
     ],
   },
   {
@@ -3022,7 +3559,7 @@ export const nodeTemplates: NodeTemplate[] = [
     category: "control",
     label: "Switch",
     description: "Multi-way branch",
-    icon: "GitFork",
+    icon: "Route",
     defaultConfig: {},
     configSchema: [
       { name: "expression", label: "Expression", type: "text", required: true, supportsExpressions: true },
@@ -3224,6 +3761,154 @@ export const nodeTemplates: NodeTemplate[] = [
   },
 
   // ============================================
+  // BOT SUBPROCESS - Call other bots (Enterprise)
+  // ============================================
+  
+  // --- Call Bot (Invoke Subworkflow) ---
+  {
+    type: "bot.call",
+    category: "bot",
+    label: "Call Bot",
+    description: "Invoke another bot as a subprocess, passing parameters and receiving results. Enables modular, reusable automation design.",
+    icon: "Package",
+    defaultConfig: { 
+      wait_for_completion: true, 
+      timeout_seconds: 300,
+      retry_count: 0,
+      retry_delay_seconds: 5,
+      fail_on_error: true,
+    },
+    configSchema: [
+      // Bot selection
+      { name: "bot_id", label: "Bot to Call", type: "bot-select", required: true, description: "Select a bot from this project" },
+      
+      // Input parameters (dynamic key-value)
+      { name: "parameters", label: "Input Parameters", type: "textarea", placeholder: '{\n  "email": "${data.email}",\n  "amount": "${invoice.total}"\n}', supportsExpressions: true, description: "JSON object with parameters to pass to the subbot" },
+      
+      // Execution mode
+      { name: "wait_for_completion", label: "Wait for Completion", type: "boolean", default: true, description: "Wait for subbot to finish (sync) or continue immediately (async/fire-and-forget)" },
+      
+      // Timeout & Retry (Enterprise)
+      { name: "timeout_seconds", label: "Timeout (seconds)", type: "number", default: 300, description: "Max time to wait for subbot completion (0 = no timeout)" },
+      { name: "retry_count", label: "Retry on Failure", type: "number", default: 0, description: "Number of retry attempts if subbot fails" },
+      { name: "retry_delay_seconds", label: "Retry Delay (seconds)", type: "number", default: 5, visibleWhen: { field: "retry_count", value: ["1", "2", "3", "4", "5"] }, description: "Seconds between retry attempts (exponential backoff applied)" },
+      
+      // Error handling
+      { name: "fail_on_error", label: "Fail Parent on Error", type: "boolean", default: true, description: "Stop parent bot if subbot fails" },
+      
+      // Advanced
+      { name: "run_id_prefix", label: "Run ID Prefix", type: "text", placeholder: "validation-", description: "Prefix for subbot execution ID (for tracking)" },
+      { name: "inherit_context", label: "Inherit Parent Context", type: "boolean", default: false, description: "Pass parent's vault/env to subbot" },
+    ],
+    outputSchema: [
+      { name: "result", type: "object", description: "Return value from subbot (from bot.output node)" },
+      { name: "success", type: "boolean", description: "Whether subbot completed successfully" },
+      { name: "error", type: "string", description: "Error message if subbot failed" },
+      { name: "execution_id", type: "string", description: "Unique ID for this subbot execution" },
+      { name: "duration_ms", type: "number", description: "Execution time in milliseconds" },
+      { name: "retry_attempts", type: "number", description: "Number of retry attempts made" },
+    ],
+  },
+  
+  // --- Bot Input (Define Subbot Parameters) ---
+  {
+    type: "bot.input",
+    category: "bot",
+    label: "Bot Input",
+    description: "Define input parameters for this bot when called as a subprocess. Use this instead of a trigger when the bot is meant to be called by other bots.",
+    icon: "LogIn",
+    defaultConfig: { validate_inputs: true },
+    configSchema: [
+      // Parameter definitions
+      { name: "parameters", label: "Input Parameters", type: "textarea", required: true, placeholder: '[\n  { "name": "email", "type": "string", "required": true, "description": "Email to validate" },\n  { "name": "items", "type": "array", "required": false, "default": [] }\n]', description: "JSON array defining expected parameters: name, type, required, default, description" },
+      
+      // Validation
+      { name: "validate_inputs", label: "Validate Inputs", type: "boolean", default: true, description: "Validate parameter types and required fields" },
+      { name: "fail_on_invalid", label: "Fail on Invalid Input", type: "boolean", default: true, description: "Stop execution if validation fails" },
+    ],
+    outputSchema: [
+      { name: "params", type: "object", description: "All received parameters as an object" },
+      { name: "caller_bot_id", type: "string", description: "ID of the bot that called this subbot" },
+      { name: "caller_execution_id", type: "string", description: "Execution ID of the parent bot" },
+      { name: "validation_passed", type: "boolean", description: "Whether all validations passed" },
+      { name: "validation_errors", type: "array", description: "List of validation errors (if any)" },
+    ],
+  },
+  
+  // --- Bot Output (Return from Subbot) ---
+  {
+    type: "bot.output",
+    category: "bot",
+    label: "Bot Output",
+    description: "Define what this bot returns when called as a subprocess. The return value is available in the calling bot's bot.call output.",
+    icon: "LogOut",
+    defaultConfig: { status: "success" },
+    configSchema: [
+      // Return value
+      { name: "return_value", label: "Return Value", type: "textarea", required: true, placeholder: '{\n  "valid": ${validation.passed},\n  "errors": ${validation.errors},\n  "processed_count": ${loop.count}\n}', supportsExpressions: true, description: "JSON object to return to the calling bot" },
+      
+      // Status
+      { name: "status", label: "Exit Status", type: "select", default: "success", options: [
+        { value: "success", label: "Success - Bot completed normally" },
+        { value: "error", label: "Error - Bot failed (triggers retry in caller)" },
+        { value: "warning", label: "Warning - Completed with issues" },
+      ]},
+      
+      // Optional message
+      { name: "message", label: "Status Message", type: "text", placeholder: "Processed ${count} items successfully", supportsExpressions: true, description: "Human-readable status message" },
+    ],
+    outputSchema: [
+      { name: "returned", type: "boolean", description: "Always true (confirms return executed)" },
+      { name: "return_value", type: "object", description: "The value being returned" },
+      { name: "status", type: "string", description: "Exit status (success/error/warning)" },
+    ],
+  },
+  
+  // --- Bot Queue (Async Batch Processing) ---
+  {
+    type: "bot.queue",
+    category: "bot",
+    label: "Queue Bot Calls",
+    description: "Queue multiple bot calls for async/parallel execution. Process items in batches with concurrency control.",
+    icon: "ListTodo",
+    defaultConfig: { 
+      concurrency: 3, 
+      fail_fast: false,
+      collect_results: true,
+    },
+    configSchema: [
+      // Bot to call
+      { name: "bot_id", label: "Bot to Call", type: "bot-select", required: true },
+      
+      // Items to process
+      { name: "items", label: "Items Array", type: "text", required: true, placeholder: "${data.invoices}", supportsExpressions: true, description: "Array of items - each will be passed to a bot instance" },
+      
+      // Parameter mapping
+      { name: "parameter_mapping", label: "Parameter Mapping", type: "textarea", required: true, placeholder: '{\n  "invoice_id": "${item.id}",\n  "amount": "${item.total}"\n}', supportsExpressions: true, description: "Map item fields to bot parameters (use ${item} for current item)" },
+      
+      // Concurrency
+      { name: "concurrency", label: "Concurrency", type: "number", default: 3, description: "Max parallel bot executions (1-10)" },
+      
+      // Error handling
+      { name: "fail_fast", label: "Fail Fast", type: "boolean", default: false, description: "Stop all on first failure (vs. continue and collect errors)" },
+      
+      // Results
+      { name: "collect_results", label: "Collect Results", type: "boolean", default: true, description: "Gather all results into output array" },
+      
+      // Timeout per item
+      { name: "timeout_per_item", label: "Timeout per Item (seconds)", type: "number", default: 60 },
+    ],
+    outputSchema: [
+      { name: "results", type: "array", description: "Array of results from each bot execution" },
+      { name: "total", type: "number", description: "Total items processed" },
+      { name: "succeeded", type: "number", description: "Number of successful executions" },
+      { name: "failed", type: "number", description: "Number of failed executions" },
+      { name: "errors", type: "array", description: "Array of errors (item index + error message)" },
+      { name: "duration_ms", type: "number", description: "Total execution time" },
+    ],
+  },
+
+  // ============================================
   // LOGGING - Logging & Monitoring
   // ============================================
   {
@@ -3231,7 +3916,7 @@ export const nodeTemplates: NodeTemplate[] = [
     category: "logging",
     label: "Log Message",
     description: "Write log message",
-    icon: "FileText",
+    icon: "ScrollText",
     defaultConfig: { level: "INFO" },
     configSchema: [
       { name: "message", label: "Message", type: "textarea", required: true },
@@ -3259,7 +3944,7 @@ export const nodeTemplates: NodeTemplate[] = [
     category: "logging",
     label: "Log Metric",
     description: "Record numeric metric",
-    icon: "BarChart3",
+    icon: "Variable",
     defaultConfig: {},
     configSchema: [
       { name: "name", label: "Metric Name", type: "text", required: true },
@@ -3524,7 +4209,7 @@ export const nodeTemplates: NodeTemplate[] = [
     category: "human",
     label: "Data Review",
     description: "Present data for review",
-    icon: "ClipboardCheck",
+    icon: "Eye",
     defaultConfig: {},
     configSchema: [
       { name: "title", label: "Review Title", type: "text", required: true },
@@ -3607,7 +4292,7 @@ export const nodeTemplates: NodeTemplate[] = [
     category: "compliance",
     label: "Compliance Audit Log",
     description: "Create compliance audit log entry (cannot be disabled)",
-    icon: "FileText",
+    icon: "ClipboardList",
     defaultConfig: { data_type: "PHI" },
     configSchema: [
       { name: "action", label: "Action", type: "select", required: true, options: [
@@ -4022,13 +4707,13 @@ export const nodeTemplates: NodeTemplate[] = [
       { name: "headers", label: "Headers (JSON)", type: "textarea", placeholder: '{"Authorization": "Bearer ${token}"}' },
       { name: "body", label: "Request Body (JSON)", type: "textarea" },
       { name: "auth_type", label: "Auth Type", type: "select", options: [
-        { value: "", label: "None" },
+        { value: "none", label: "None" },
         { value: "bearer", label: "Bearer Token" },
         { value: "api_key", label: "API Key" },
       ]},
       { name: "auth_value", label: "Auth Value", type: "password", supportsExpressions: true },
       { name: "pagination_type", label: "Pagination", type: "select", options: [
-        { value: "", label: "None" },
+        { value: "none", label: "None" },
         { value: "offset", label: "Offset" },
         { value: "page", label: "Page Number" },
         { value: "cursor", label: "Cursor" },
@@ -4737,7 +5422,7 @@ export const nodeTemplates: NodeTemplate[] = [
     category: "ms365",
     label: "MS365 Connection",
     description: "Configure Microsoft 365 authentication",
-    icon: "KeyRound",
+    icon: "Plug",
     defaultConfig: { auth_type: "client_credentials" },
     configSchema: [
       { name: "tenant_id", label: "Tenant ID", type: "text", required: true, placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" },
@@ -4760,13 +5445,14 @@ export const nodeTemplates: NodeTemplate[] = [
     icon: "Mail",
     defaultConfig: { folder: "inbox", check_interval: 60 },
     configSchema: [
+      // Connection comes from MS365 Connection node (via visual connection)
       { name: "folder", label: "Mail Folder", type: "select", default: "inbox", options: [
         { value: "inbox", label: "Inbox" },
         { value: "sentitems", label: "Sent Items" },
         { value: "drafts", label: "Drafts" },
         { value: "archive", label: "Archive" },
         { value: "junkemail", label: "Junk" },
-      ]},
+      ] },
       { name: "filter_from", label: "From (Email)", type: "text", placeholder: "sender@example.com" },
       { name: "filter_subject", label: "Subject Contains", type: "text", placeholder: "Invoice" },
       { name: "filter_has_attachment", label: "Has Attachment", type: "boolean" },
@@ -4815,7 +5501,21 @@ export const nodeTemplates: NodeTemplate[] = [
       ]},
     ],
     outputSchema: [
-      { name: "emails", type: "array", description: "List of email objects" },
+      { name: "emails", type: "array", description: "List of email objects", items: {
+        type: "object",
+        fields: [
+          { name: "id", type: "string", description: "Email ID" },
+          { name: "subject", type: "string", description: "Email subject" },
+          { name: "from", type: "string", description: "Sender email address" },
+          { name: "to", type: "array", description: "Recipients" },
+          { name: "body", type: "string", description: "Email body content" },
+          { name: "bodyPreview", type: "string", description: "Preview of email body" },
+          { name: "receivedDateTime", type: "string", description: "Date/time received" },
+          { name: "isRead", type: "boolean", description: "Read status" },
+          { name: "hasAttachments", type: "boolean", description: "Has attachments" },
+          { name: "importance", type: "string", description: "Email importance level" },
+        ],
+      }},
       { name: "count", type: "number", description: "Number of emails returned" },
     ],
   },

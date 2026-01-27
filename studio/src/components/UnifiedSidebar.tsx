@@ -19,7 +19,8 @@ import {
   FolderOpen,
   Copy,
   Wand2,
-  Key,
+  Shield,
+  KeyRound,
 } from "lucide-react";
 import { open } from "@tauri-apps/api/shell";
 import { nodeTemplates } from "../data/nodeTemplates";
@@ -429,10 +430,17 @@ function ExplorerContent() {
                 <span className="text-sm">Environment Variables</span>
               </button>
               <button
+                onClick={() => openTab({ id: "secrets", type: "secrets", title: "Secrets", isDirty: false })}
+                className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left hover:bg-accent text-foreground transition-colors"
+              >
+                <KeyRound className="w-4 h-4" />
+                <span className="text-sm">Secrets Vault</span>
+              </button>
+              <button
                 onClick={() => setShowLicenseDialog(true)}
                 className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left hover:bg-accent text-foreground transition-colors"
               >
-                <Key className="w-4 h-4" />
+                <Shield className="w-4 h-4" />
                 <span className="text-sm flex-1">Licenses</span>
                 {isActivated ? (
                   <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full">
@@ -574,6 +582,7 @@ function NodesContent() {
   }, {} as Record<NodeCategory, number>);
 
   const totalNodes = nodeTemplates.length;
+
 
   return (
     <>

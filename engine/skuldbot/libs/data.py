@@ -93,6 +93,8 @@ class DataLibrary:
         batch_size: int = 10000,
         mode: str = "memory",
         port: Optional[int] = None,
+        schema: Optional[str] = None,
+        warehouse: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Extrae datos de una base de datos.
@@ -120,7 +122,7 @@ class DataLibrary:
             | ${data}= | Set Variable | ${result}[records] |
         """
         # Build connection string based on db_type
-        conn = self._get_connection(db_type, host, database, username, password, port)
+        conn = self._get_connection(db_type, host, database, username, password, port, schema, warehouse)
 
         # Build query if not provided
         if not query:
@@ -150,9 +152,11 @@ class DataLibrary:
         username: str,
         password: str,
         port: Optional[int] = None,
+        schema: Optional[str] = None,
+        warehouse: Optional[str] = None,
     ) -> Any:
         """Get or create database connection"""
-        cache_key = f"{db_type}:{host}:{database}:{username}"
+        cache_key = f"{db_type}:{host}:{database}:{username}:{schema or ''}:{warehouse or ''}"
 
         if cache_key in self._connections:
             return self._connections[cache_key]
@@ -199,6 +203,8 @@ class DataLibrary:
                 password=password,
                 account=host,  # For Snowflake, host is the account identifier
                 database=database,
+                schema=schema,
+                warehouse=warehouse,
             )
         else:
             raise ValueError(f"Tipo de base de datos no soportado: {db_type}")
@@ -290,6 +296,8 @@ class DataLibrary:
         mode: str = "insert",
         batch_size: int = 5000,
         port: Optional[int] = None,
+        schema: Optional[str] = None,
+        warehouse: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Carga datos en una base de datos.
@@ -315,7 +323,7 @@ class DataLibrary:
         if not records:
             return LoadResult(0, 0, 0, []).to_dict()
 
-        conn = self._get_connection(db_type, host, database, username, password, port)
+        conn = self._get_connection(db_type, host, database, username, password, port, schema, warehouse)
         cursor = conn.cursor()
 
         inserted = 0

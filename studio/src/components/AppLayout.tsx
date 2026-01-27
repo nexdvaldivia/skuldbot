@@ -14,6 +14,7 @@ import ProjectToolbar from "./ProjectToolbar";
 import Toolbar from "./Toolbar";
 import SettingsPanel from "./SettingsPanel";
 import EnvPanel from "./EnvPanel";
+import VaultManager from "./VaultManager";
 import ProblemsPanel from "./ProblemsPanel";
 import DebugPanel from "./DebugPanel";
 import { AutoSaveManager } from "./AutoSaveManager";
@@ -137,6 +138,8 @@ function ProjectWorkspace() {
               <SettingsPanel />
             ) : activeTab?.type === "env" ? (
               <EnvPanel />
+            ) : activeTab?.type === "secrets" ? (
+              <VaultManager />
             ) : (
               <EmptyWorkspace />
             )}

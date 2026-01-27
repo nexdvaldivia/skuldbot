@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/tauri";
+import { useToastStore } from "./toastStore";
 
 export interface VaultSecret {
   name: string;
@@ -9,15 +10,20 @@ export interface VaultSecret {
 }
 
 interface VaultState {
+  vaultExists: boolean;
   isUnlocked: boolean;
   isLoading: boolean;
   vaultPath: string;
   secrets: VaultSecret[];
   error: string | null;
+  autoUnlockNoticeShown: boolean;
 }
 
 interface VaultActions {
-  // Vault lifecycle
+  // Vault lifecycle - auto mode (Studio generates and manages password)
+  initializeVault: () => Promise<boolean>;
+
+  // Manual vault operations (for edge cases)
   createVault: (password: string, path?: string) => Promise<boolean>;
   unlockVault: (password: string, path?: string) => Promise<boolean>;
   lockVault: () => Promise<void>;
@@ -25,8 +31,6 @@ interface VaultActions {
 
   // Secret operations
   listSecrets: () => Promise<VaultSecret[]>;
-  // SECURITY: getSecret was removed - values must NEVER be returned to frontend
-  // Use verifySecret to check if a secret exists
   verifySecret: (name: string) => Promise<boolean>;
   setSecret: (name: string, value: string, description?: string) => Promise<boolean>;
   deleteSecret: (name: string) => Promise<boolean>;
@@ -39,27 +43,130 @@ interface VaultActions {
 
 export const useVaultStore = create<VaultState & VaultActions>((set, get) => ({
   // Initial state
+  vaultExists: false,
   isUnlocked: false,
   isLoading: false,
   vaultPath: ".skuldbot",
   secrets: [],
   error: null,
+  autoUnlockNoticeShown: false,
 
   setError: (error) => set({ error }),
   setVaultPath: (path) => set({ vaultPath: path }),
 
   checkVaultStatus: async () => {
     try {
-      const exists = await invoke<boolean>("vault_exists", { path: get().vaultPath });
+      const toast = useToastStore.getState();
+      const vaultPath = get().vaultPath;
+      const exists = await invoke<boolean>("vault_exists", { path: vaultPath });
+      set({ vaultExists: exists });
+
       if (exists) {
-        const unlocked = await invoke<boolean>("vault_is_unlocked", { path: get().vaultPath });
-        set({ isUnlocked: unlocked });
+        // Check if already unlocked in session
+        const unlocked = await invoke<boolean>("vault_is_unlocked", { path: vaultPath });
         if (unlocked) {
+          set({ isUnlocked: true, autoUnlockNoticeShown: false });
           await get().listSecrets();
+        } else {
+          // Try auto-unlock with saved key
+          const autoUnlocked = await invoke<boolean>("vault_auto_unlock", { path: vaultPath });
+          if (autoUnlocked) {
+            set({ isUnlocked: true, autoUnlockNoticeShown: false, error: null });
+            await get().listSecrets();
+          } else {
+            // Auto-unlock failed - vault is orphaned (key lost)
+            // Recreate the vault automatically
+            console.log("Vault orphaned (key lost). Recreating vault...");
+            try {
+              await invoke("vault_delete", { path: vaultPath });
+              await invoke("vault_create_auto", { path: vaultPath });
+              set({
+                vaultExists: true,
+                isUnlocked: true,
+                secrets: [],
+                autoUnlockNoticeShown: false,
+                error: null,
+              });
+              toast.success("Vault recreated", "A new secure vault has been created.");
+            } catch (recreateError) {
+              console.error("Failed to recreate vault:", recreateError);
+              set({
+                isUnlocked: false,
+                secrets: [],
+                autoUnlockNoticeShown: true,
+                error: "Failed to recreate vault.",
+              });
+            }
+          }
         }
+      } else {
+        set({ isUnlocked: false, secrets: [], autoUnlockNoticeShown: false, error: null });
       }
     } catch (error) {
       console.error("Error checking vault status:", error);
+    }
+  },
+
+  // Initialize vault automatically - creates and auto-unlocks
+  initializeVault: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const toast = useToastStore.getState();
+      const vaultPath = get().vaultPath;
+
+      // Check if vault already exists
+      const exists = await invoke<boolean>("vault_exists", { path: vaultPath });
+      if (exists) {
+        // Try auto-unlock
+        const unlocked = await invoke<boolean>("vault_auto_unlock", { path: vaultPath });
+        if (unlocked) {
+          set({ vaultExists: true, isUnlocked: true, autoUnlockNoticeShown: false, error: null });
+          await get().listSecrets();
+          return true;
+        }
+        
+        // Auto-unlock failed - vault exists but key is lost (orphaned vault)
+        // Delete and recreate the vault automatically
+        console.log("Vault orphaned (key lost). Recreating vault...");
+        try {
+          await invoke("vault_delete", { path: vaultPath });
+          await invoke("vault_create_auto", { path: vaultPath });
+          set({
+            vaultExists: true,
+            isUnlocked: true,
+            secrets: [],
+            autoUnlockNoticeShown: false,
+            error: null,
+          });
+          toast.success("Vault recreated", "A new secure vault has been created.");
+          return true;
+        } catch (recreateError) {
+          console.error("Failed to recreate vault:", recreateError);
+          set({
+            vaultExists: true,
+            isUnlocked: false,
+            autoUnlockNoticeShown: true,
+            error: "Failed to recreate vault. Please delete .skuldbot folder and restart.",
+          });
+          return false;
+        }
+      }
+
+      // Create vault automatically with generated password
+      await invoke("vault_create_auto", { path: vaultPath });
+      set({
+        vaultExists: true,
+        isUnlocked: true,
+        secrets: [],
+        autoUnlockNoticeShown: false,
+        error: null,
+      });
+      return true;
+    } catch (error) {
+      set({ error: error as string });
+      return false;
+    } finally {
+      set({ isLoading: false });
     }
   },
 
@@ -68,7 +175,7 @@ export const useVaultStore = create<VaultState & VaultActions>((set, get) => ({
     try {
       const vaultPath = path || get().vaultPath;
       await invoke("vault_create", { password, path: vaultPath });
-      set({ isUnlocked: true, vaultPath, secrets: [] });
+      set({ vaultExists: true, isUnlocked: true, vaultPath, secrets: [] });
       return true;
     } catch (error) {
       set({ error: error as string });
@@ -133,8 +240,6 @@ export const useVaultStore = create<VaultState & VaultActions>((set, get) => ({
     }
   },
 
-  // SECURITY: getSecret was removed - values must NEVER be returned to frontend
-  // Use verifySecret to check if a secret exists
   verifySecret: async (name) => {
     try {
       const exists = await invoke<boolean>("vault_verify_secret", {

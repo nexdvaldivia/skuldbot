@@ -1,3 +1,21 @@
+{# ============================================ #}
+{# Macro to build locator based on selectorType #}
+{# ============================================ #}
+{% macro build_locator(node) -%}
+{% set selector_type = node.config.get('selectorType', 'css') -%}
+{% set selector = node.config.get('selector', '') | transform_vars -%}
+{% if selector_type == 'xpath' -%}
+xpath:{{ selector }}
+{%- elif selector_type == 'id' -%}
+id:{{ selector }}
+{%- elif selector_type == 'name' -%}
+name:{{ selector }}
+{%- elif selector_type == 'class' -%}
+class:{{ selector }}
+{%- else -%}
+css:{{ selector }}
+{%- endif -%}
+{%- endmacro %}
 *** Settings ***
 Documentation     {{ bot.bot.name }}
 ...               {{ bot.bot.description or '' }}
@@ -130,6 +148,8 @@ Execute Node By ID
             Log    Bot triggered manually    console=yes
             ${triggered_at}=    Evaluate    __import__('datetime').datetime.now().isoformat()
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${triggered_at}    triggeredAt=${triggered_at}    triggeredBy=manual
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $triggered_at}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
 
 {% elif node.type == 'trigger.form' %}
             # Form Trigger - bot started via form submission
@@ -139,6 +159,8 @@ Execute Node By ID
             ${submission_id}=    Evaluate    __import__('uuid').uuid4().hex[:8]
             ${submitted_at}=    Evaluate    __import__('datetime').datetime.now().isoformat()
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${form_data}    formData=${form_data}    submissionId=${submission_id}    submittedAt=${submitted_at}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $form_data}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Set Global Variable    ${formData}    ${form_data}
 
 {% elif node.type == 'trigger.webhook' %}
@@ -150,6 +172,8 @@ Execute Node By ID
             ${headers}=    Evaluate    $webhook_data.get('headers', {})
             ${query}=    Evaluate    $webhook_data.get('query', {})
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${body}    body=${body}    headers=${headers}    query=${query}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $body}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
 
 {% elif node.type == 'trigger.file_watch' %}
             # File Watch Trigger - bot started when file changes
@@ -161,6 +185,8 @@ Execute Node By ID
             ${event_type}=    Evaluate    $file_event.get('event', 'manual')
             ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${file_path}    filePath=${file_path}    fileName=${file_name}    event=${event_type}    timestamp=${timestamp}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $file_path}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
 
 {% elif node.type == 'trigger.email_received' %}
             # Email Trigger - bot started when email received
@@ -172,6 +198,8 @@ Execute Node By ID
             ${body}=    Evaluate    $email_event.get('body', '')
             ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${email_event}    subject=${subject}    sender=${sender}    body=${body}    timestamp=${timestamp}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $email_event}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
 
 {% elif node.type == 'trigger.queue' %}
             # Queue Trigger - bot started from message queue
@@ -182,6 +210,8 @@ Execute Node By ID
             ${message_id}=    Evaluate    $queue_msg.get('messageId', __import__('uuid').uuid4().hex[:8])
             ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${message}    message=${message}    messageId=${message_id}    timestamp=${timestamp}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $message}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
 
 {% elif node.type == 'trigger.api_polling' %}
             # API Polling Trigger - bot started after polling API
@@ -194,6 +224,8 @@ Execute Node By ID
             ${status_code}=    Set Variable    ${response.status_code}
             ${resp_headers}=    Evaluate    dict($response.headers)
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${response_data}    response=${response_data}    statusCode=${status_code}    headers=${resp_headers}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $response_data}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
 
 {% elif node.type == 'trigger.database_change' %}
             # Database Change Trigger - bot started on DB change
@@ -205,6 +237,8 @@ Execute Node By ID
             ${table}=    Evaluate    $db_event.get('table', '{{ node.config.get('table', '') | transform_vars }}')
             ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${record}    record=${record}    event=${event_type}    table=${table}    timestamp=${timestamp}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $record}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
 
 {% elif node.type == 'trigger.storage_event' %}
             # Storage Event Trigger - bot started on S3/MinIO event
@@ -217,6 +251,8 @@ Execute Node By ID
             ${size}=    Evaluate    $storage_event.get('size', 0)
             ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${storage_event}    bucket=${bucket}    key=${key}    event=${event_type}    size=${size}    timestamp=${timestamp}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $storage_event}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
 
 {% elif node.type == 'trigger.message_bus' %}
             # Message Bus Trigger - bot started from Kafka/RabbitMQ/Redis
@@ -228,6 +264,8 @@ Execute Node By ID
             ${topic}=    Evaluate    $bus_event.get('topic', '{{ node.config.get('topic', '') | transform_vars }}')
             ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${message}    message=${message}    messageId=${message_id}    topic=${topic}    timestamp=${timestamp}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $message}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
 
 {% elif node.type == 'trigger.chat' %}
             # Chat Trigger - bot started from Slack/Teams/Telegram/Discord
@@ -240,6 +278,8 @@ Execute Node By ID
             ${platform}=    Evaluate    $chat_event.get('platform', '{{ node.config.get('platform', 'slack') }}')
             ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${chat_event}    message=${message}    sender=${sender}    channel=${channel}    platform=${platform}    timestamp=${timestamp}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $chat_event}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
 
 {# ===== LOGGING ===== #}
 {% elif node.type == 'control.log' or node.type == 'logging.log' %}
@@ -250,9 +290,12 @@ Execute Node By ID
 
 {# ===== CONTROL FLOW ===== #}
 {% elif node.type == 'control.wait' %}
-            Sleep    {{ node.config.get('seconds', 1) }}s
-            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output={{ node.config.get('seconds', 1) }}    waited={{ node.config.get('seconds', 1) }}
-            Log    Waited {{ node.config.get('seconds', 1) }}s    console=yes
+            ${_wait_seconds}=    Set Variable    {{ node.config.get('seconds', 1) }}
+            Sleep    ${_wait_seconds}s
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${_wait_seconds}    waited=${_wait_seconds}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': ${_wait_seconds}}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
+            Log    Waited ${_wait_seconds}s    console=yes
 
 {% elif node.type == 'control.set_variable' %}
             ${var_value}=    Set Variable    {{ node.config.get('value', '') | transform_vars }}
@@ -262,11 +305,16 @@ Execute Node By ID
             Set Local Variable    ${{ '{' }}{{ node.config.get('name', 'VAR') }}{{ '}' }}    ${var_value}
             {% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${var_value}    variableName={{ node.config.get('name', 'VAR') | escape_newlines }}    value=${var_value}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $var_value}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Variable {{ node.config.get('name', 'VAR') | escape_newlines }} set    console=yes
 
 {% elif node.type == 'control.stop' %}
-            Log    Bot stopping with status: {{ node.config.get('status', 'success') | escape_newlines }}    console=yes
-            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output={{ node.config.get('status', 'success') | escape_newlines }}    status={{ node.config.get('status', 'success') | escape_newlines }}
+            ${_stop_status}=    Set Variable    {{ node.config.get('status', 'success') | escape_newlines }}
+            Log    Bot stopping with status: ${_stop_status}    console=yes
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${_stop_status}    status=${_stop_status}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': '${_stop_status}'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             RETURN    END
 
 {% elif node.type == 'control.if' %}
@@ -274,6 +322,8 @@ Execute Node By ID
             ${condition_str}=    Set Variable    {{ node.config.get('condition', 'True') | transform_vars }}
             ${result}=    Evaluate    bool(${condition_str})
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    result=${result}    condition=${condition_str}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    If condition evaluated: ${result}    console=yes
 
 {% elif node.type == 'control.switch' %}
@@ -289,6 +339,8 @@ Execute Node By ID
                 END
             END
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${matched_case}    matched_case=${matched_case}    expression=${expression}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $matched_case}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Switch matched case: ${matched_case}    console=yes
 
 {% elif node.type == 'control.loop' %}
@@ -305,6 +357,8 @@ Execute Node By ID
                 ${index}=    Evaluate    ${index} + 1
             END
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${items}    count=${count}    index=${index}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $items}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Loop completed: ${count} iterations    console=yes
 
 {% elif node.type == 'control.while' %}
@@ -322,6 +376,8 @@ Execute Node By ID
                 Set Global Variable    ${LOOP_ITERATION}    ${iteration}
             END
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${iteration}    iteration=${iteration}    maxIterations=${max_iterations}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $iteration}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    While loop completed after ${iteration} iterations    console=yes
 
 {% elif node.type == 'control.try_catch' %}
@@ -344,12 +400,16 @@ Execute Node By ID
                 END
             END
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${success}    success=${success}    error_message=${error_message}    attempts=${attempts}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $success}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Try/Catch: success=${success}, attempts=${attempts}    console=yes
 
 {% elif node.type == 'control.goto' %}
             # Jump to target node
             ${target}=    Set Variable    {{ node.config.get('target_node', '') | transform_vars }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${target}    targetNode=${target}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $target}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    GoTo: jumping to ${target}    console=yes
             # Note: GoTo is handled at the compiler level to modify flow
 
@@ -357,6 +417,8 @@ Execute Node By ID
             # Parallel execution (placeholder - requires special handling)
             ${branches}=    Set Variable    {{ node.config.get('branches', 2) }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${branches}    branches=${branches}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $branches}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Parallel execution with ${branches} branches    console=yes
 
 {% elif node.type == 'control.map' %}
@@ -373,6 +435,8 @@ Execute Node By ID
             END
             ${count}=    Get Length    ${results}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${results}    results=${results}    count=${count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $results}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Map transformed ${count} items    console=yes
 
 {% elif node.type == 'control.filter' %}
@@ -392,6 +456,8 @@ Execute Node By ID
             ${count}=    Get Length    ${results}
             ${original_count}=    Get Length    ${items}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${results}    results=${results}    count=${count}    filtered=${original_count} - ${count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $results}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Filter: ${count}/${original_count} items passed    console=yes
 
 {% elif node.type == 'control.reduce' %}
@@ -409,6 +475,8 @@ Execute Node By ID
             END
             ${count}=    Get Length    ${items}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${acc}    result=${acc}    itemsProcessed=${count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $acc}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Reduce result: ${acc} (processed ${count} items)    console=yes
 
 {% elif node.type == 'control.append' %}
@@ -420,33 +488,47 @@ Execute Node By ID
             Set Global Variable    ${{ '{' }}${list_name}{{ '}' }}    ${current_list}
             ${length}=    Get Length    ${current_list}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${length}    length=${length}    list=${current_list}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $length}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Appended to ${list_name}, new length: ${length}    console=yes
 
 {# ===== WEB AUTOMATION ===== #}
 {% elif node.type == 'web.open_browser' or node.type == 'browser.open' %}
-            Open Available Browser    {{ node.config.get('url', 'about:blank') | transform_vars }}    browser={{ node.config.get('browser', 'chromium') }}    headless=${{ '{TRUE}' if node.config.get('headless', False) else '{FALSE}' }}
+            ${_url}=    Set Variable    {{ node.config.get('url', 'about:blank') | transform_vars }}
+            Open Available Browser    ${_url}    browser={{ node.config.get('browser', 'chromium') }}    headless=${{ '{TRUE}' if node.config.get('headless', False) else '{FALSE}' }}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    url=${_url}    browser={{ node.config.get('browser', 'chromium') }}    status=opened
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': {'url': r'''${_url}''', 'browser': '{{ node.config.get('browser', 'chromium') }}', 'status': 'opened'}}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
 {% elif node.type == 'web.navigate' %}
-            Go To    {{ node.config.get('url', '') | transform_vars }}
+            ${_url}=    Set Variable    {{ node.config.get('url', '') | transform_vars }}
+            Go To    ${_url}
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    url=${_url}    status=navigated
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': {'url': r'''${_url}''', 'status': 'navigated'}}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
 {% elif node.type == 'web.click' or node.type == 'browser.click' %}
-            Click Element    {{ node.config.get('selector', '') | transform_vars }}
+            Click Element    {{ build_locator(node) }}
 {% elif node.type == 'web.type' or node.type == 'browser.fill' %}
             {% if node.config.get('clear', True) %}
-            Clear Element Text    {{ node.config.get('selector', '') | transform_vars }}
+            Clear Element Text    {{ build_locator(node) }}
             {% endif %}
-            Input Text    {{ node.config.get('selector', '') | transform_vars }}    {{ node.config.get('text', node.config.get('value', '')) | transform_vars }}
+            Input Text    {{ build_locator(node) }}    {{ node.config.get('text', node.config.get('value', '')) | transform_vars }}
 {% elif node.type == 'web.select_option' %}
-            Select From List By Value    {{ node.config.get('selector', '') | transform_vars }}    {{ node.config.get('value', '') | transform_vars }}
+            Select From List By Value    {{ build_locator(node) }}    {{ node.config.get('value', '') | transform_vars }}
 {% elif node.type == 'web.get_text' %}
-            ${text}=    Get Text    {{ node.config.get('selector', '') | transform_vars }}
+            ${text}=    Get Text    {{ build_locator(node) }}
             Set Global Variable    ${LAST_TEXT}    ${text}
             # Store in node-specific variable
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${text}    text=${text}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $text}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Got text: ${text}    console=yes
 {% elif node.type == 'web.get_attribute' %}
-            ${value}=    Get Element Attribute    {{ node.config.get('selector', '') | transform_vars }}    {{ node.config.get('attribute', '') | escape_newlines }}
+            ${value}=    Get Element Attribute    {{ build_locator(node) }}    {{ node.config.get('attribute', '') | escape_newlines }}
             Set Global Variable    ${LAST_ATTRIBUTE}    ${value}
             # Store in node-specific variable
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${value}    attribute=${value}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $value}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Got attribute: ${value}    console=yes
 {% elif node.type == 'web.screenshot' %}
             {% if node.config.get('full_page', False) %}
@@ -455,15 +537,20 @@ Execute Node By ID
             Capture Page Screenshot    {{ node.config.get('path', 'screenshot.png') | transform_vars }}
             {% endif %}
 {% elif node.type == 'web.wait_element' %}
-            Wait Until Element Is Visible    {{ node.config.get('selector', '') | transform_vars }}    timeout={{ node.config.get('timeout', 30000) // 1000 }}s
+            Wait Until Element Is Visible    {{ build_locator(node) }}    timeout={{ node.config.get('timeout', 30000) // 1000 }}s
 {% elif node.type == 'web.execute_js' %}
-            ${result}=    Execute Javascript    {{ node.config.get('script', '') | transform_vars }}
+            # Store JavaScript in variable to handle special characters
+            ${_js_script}=    Set Variable    {{ node.config.get('script', '') | transform_vars }}
+            Log    Executing JavaScript: ${_js_script}    console=yes
+            ${result}=    Execute Javascript    ${_js_script}
             Set Global Variable    ${JS_RESULT}    ${result}
-            # Store in node-specific variable
-            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    jsResult=${result}
+            # Store in node-specific variable - include both result and output for compatibility
+            Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    result=${result}    output=${result}    jsResult=${result}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
 {% elif node.type == 'web.scroll' %}
             {% if node.config.get('direction') == 'to_element' %}
-            Scroll Element Into View    {{ node.config.get('selector', '') | transform_vars }}
+            Scroll Element Into View    {{ build_locator(node) }}
             {% else %}
             Execute Javascript    window.scrollBy(0, {{ '500' if node.config.get('direction') == 'down' else '-500' }})
             {% endif %}
@@ -475,6 +562,8 @@ Execute Node By ID
             ${alert_text}=    Handle Alert    action=DISMISS
             {% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${alert_text}    alertText=${alert_text}    action={{ node.config.get('action', 'accept') | escape_newlines }}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $alert_text}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Alert handled ({{ node.config.get('action', 'accept') | escape_newlines }}): ${alert_text}    console=yes
 {% elif node.type == 'web.switch_tab' %}
             # Switch to browser tab by index
@@ -485,10 +574,14 @@ Execute Node By ID
                 Switch Browser    ${browser_ids}[${tab_index}]
                 ${current_url}=    Get Location
                 Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${current_url}    tabIndex=${tab_index}    url=${current_url}
+                ${_output_json}=    Evaluate    __import__('json').dumps({'result': $current_url}, default=str)
+                Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
                 Log    Switched to tab ${tab_index}: ${current_url}    console=yes
             ELSE
                 Log    Tab index ${tab_index} out of range (${browser_count} tabs available)    level=WARN    console=yes
                 Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${EMPTY}    tabIndex=${tab_index}    error=Tab index out of range
+                ${_output_json}=    Evaluate    __import__('json').dumps({'result': $EMPTY}, default=str)
+                Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             END
 {% elif node.type == 'web.download_file' %}
             # Download file from URL to specified path
@@ -500,9 +593,13 @@ Execute Node By ID
                 Evaluate    open('${save_path}', 'wb').write($response.content)
                 ${file_size}=    Evaluate    len($response.content)
                 Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${save_path}    path=${save_path}    url=${url}    size=${file_size}    status=success
+                ${_output_json}=    Evaluate    __import__('json').dumps({'result': $save_path}, default=str)
+                Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
                 Log    Downloaded ${file_size} bytes to ${save_path}    console=yes
             ELSE
                 Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${EMPTY}    path=${save_path}    url=${url}    status=failed    statusCode=${status}
+                ${_output_json}=    Evaluate    __import__('json').dumps({'result': $EMPTY}, default=str)
+                Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
                 Fail    Download failed with status code: ${status}
             END
 {% elif node.type == 'web.close_browser' or node.type == 'browser.close' %}
@@ -520,6 +617,8 @@ Execute Node By ID
             {% endif %}
             Sleep    1s    # Wait for application to initialize
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${pid}    pid=${pid}    path=${app_path}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $pid}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Opened application: ${app_path} (PID: ${pid})    console=yes
 
 {% elif node.type == 'desktop.click' %}
@@ -527,12 +626,16 @@ Execute Node By ID
             {% if node.config.get('locator') %}
             Click    {{ node.config.get('locator', '') | transform_vars }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=clicked    locator={{ node.config.get('locator', '') | transform_vars }}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'clicked'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Clicked element: {{ node.config.get('locator', '') | transform_vars }}    console=yes
             {% else %}
             ${x}=    Set Variable    {{ node.config.get('x', 0) }}
             ${y}=    Set Variable    {{ node.config.get('y', 0) }}
             Click    coordinates:${x},${y}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=clicked    x=${x}    y=${y}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'clicked'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Clicked at coordinates: ${x}, ${y}    console=yes
             {% endif %}
 
@@ -545,6 +648,8 @@ Execute Node By ID
             Type Text    ${text}
             {% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${text}    text=${text}    length=${{ '{' }}$text.__len__(){{ '}' }}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $text}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Typed ${text.__len__()} characters    console=yes
 
 {% elif node.type == 'desktop.hotkey' %}
@@ -552,6 +657,8 @@ Execute Node By ID
             ${keys}=    Set Variable    {{ node.config.get('keys', '') | transform_vars }}
             Press Keys    ${keys}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${keys}    keys=${keys}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $keys}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Pressed hotkey: ${keys}    console=yes
 
 {% elif node.type == 'desktop.get_window' %}
@@ -566,6 +673,8 @@ Execute Node By ID
                     Windows Focus    ${win}[handle]
                     ${found}=    Set Variable    ${TRUE}
                     Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${win}[title]    title=${win}[title]    handle=${win}[handle]
+                    ${_output_json}=    Evaluate    __import__('json').dumps({'result': $win}, default=str)
+                    Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
                     Log    Found and focused window: ${win}[title]    console=yes
                     BREAK
                 END
@@ -576,6 +685,8 @@ Execute Node By ID
             {% else %}
             Windows Focus    name:${title}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${title}    title=${title}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $title}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Focused window: ${title}    console=yes
             {% endif %}
 
@@ -584,6 +695,8 @@ Execute Node By ID
             Press Keys    win    down
             Sleep    0.3s
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=minimized    action=minimize
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'minimized'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Window minimized    console=yes
 
 {% elif node.type == 'desktop.maximize' %}
@@ -591,6 +704,8 @@ Execute Node By ID
             Press Keys    win    up
             Sleep    0.3s
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=maximized    action=maximize
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'maximized'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Window maximized    console=yes
 
 {% elif node.type == 'desktop.close_window' %}
@@ -598,6 +713,8 @@ Execute Node By ID
             Press Keys    alt    F4
             Sleep    0.5s
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=closed    action=close
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'closed'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Window closed    console=yes
 
 {% elif node.type == 'desktop.screenshot' %}
@@ -612,9 +729,13 @@ Execute Node By ID
             ${h}=    Set Variable    ${parts}[3]
             Take Screenshot    ${path}    region=${x},${y},${w},${h}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${path}    path=${path}    region=${region}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $path}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             {% else %}
             Take Screenshot    ${path}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${path}    path=${path}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $path}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             {% endif %}
             Log    Screenshot saved to: ${path}    console=yes
 
@@ -625,6 +746,8 @@ Execute Node By ID
             ${location}=    Find Element    image:${image_path}    confidence=${confidence}
             Click    ${location}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${location}    imagePath=${image_path}    confidence=${confidence}    location=${location}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $location}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Clicked image at: ${location}    console=yes
 
 {% elif node.type == 'desktop.wait_image' %}
@@ -647,6 +770,8 @@ Execute Node By ID
                 END
             END
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${location}    imagePath=${image_path}    location=${location}    found=${TRUE}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $location}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Image found at: ${location}    console=yes
 
 {% elif node.type == 'desktop.clipboard_copy' %}
@@ -654,6 +779,8 @@ Execute Node By ID
             ${text}=    Set Variable    {{ node.config.get('text', '') | transform_vars }}
             Copy To Clipboard    ${text}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${text}    text=${text}    length=${{ '{' }}$text.__len__(){{ '}' }}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $text}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Copied to clipboard: ${text.__len__()} characters    console=yes
 
 {# ===== EXCEL (SkuldBot ExcelLibrary) ===== #}
@@ -671,6 +798,8 @@ Execute Node By ID
             Set Global Variable    ${EXCEL_ROW_COUNT}
             # Store in node-specific variable
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    data=${EXCEL_DATA}    rowCount=${EXCEL_ROW_COUNT}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Read ${EXCEL_ROW_COUNT} rows from Excel    console=yes
 {% elif node.type == 'excel.write_range' or node.type == 'excel.write' %}
             Write Data To Excel    ${EXCEL_DATA}    {{ node.config.get('sheet', 'Sheet1') | transform_vars }}
@@ -679,6 +808,8 @@ Execute Node By ID
             Set Global Variable    ${CELL_VALUE}    ${value}
             # Store in node-specific variable
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${value}    cellValue=${value}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $value}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Cell value: ${value}    console=yes
 {% elif node.type == 'excel.write_cell' %}
             Set Cell Value    {{ node.config.get('cell', 'A1') | transform_vars }}    {{ node.config.get('value', '') | transform_vars }}
@@ -689,11 +820,15 @@ Execute Node By ID
             Save And Close Excel
             {% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=saved    status=success
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'saved'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Excel saved    console=yes
 
 {% elif node.type == 'excel.close' %}
             Close Excel Without Saving
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=closed    status=success
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'closed'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Excel closed    console=yes
 
 {% elif node.type == 'excel.create' %}
@@ -702,6 +837,8 @@ Execute Node By ID
             ${sheet_name}=    Set Variable    {{ node.config.get('sheet_name', 'Sheet1') | transform_vars }}
             Create Workbook    ${path}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${path}    path=${path}    sheet=${sheet_name}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $path}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Created new Excel: ${path}    console=yes
 
 {% elif node.type == 'excel.add_row' %}
@@ -714,6 +851,8 @@ Execute Node By ID
             Append Rows To Worksheet    ${data}
             {% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${data}    rowData=${data}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $data}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Row added to sheet    console=yes
 
 {% elif node.type == 'excel.filter' %}
@@ -724,6 +863,8 @@ Execute Node By ID
             ${filtered}=    Evaluate    [row for row in $EXCEL_DATA if eval(f"row.get('{${column}}', '') {${condition}}")]
             ${count}=    Get Length    ${filtered}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${filtered}    data=${filtered}    count=${count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $filtered}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Filtered: ${count} rows match condition    console=yes
 
 {% elif node.type == 'excel.csv_read' %}
@@ -734,6 +875,8 @@ Execute Node By ID
             ${data}=    Evaluate    list(__import__('csv').DictReader(open('${path}', 'r', encoding='utf-8'), delimiter='${delimiter}')) if ${has_header} else list(__import__('csv').reader(open('${path}', 'r', encoding='utf-8'), delimiter='${delimiter}'))
             ${row_count}=    Get Length    ${data}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${data}    data=${data}    rowCount=${row_count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $data}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Read CSV: ${row_count} rows    console=yes
 
 {% elif node.type == 'excel.csv_write' %}
@@ -747,6 +890,8 @@ Execute Node By ID
             Evaluate    $writer.writerows($data)
             ${count}=    Get Length    ${data}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${path}    path=${path}    rowCount=${count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $path}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Wrote CSV: ${count} rows    console=yes
 
 {% elif node.type == 'excel.pivot' %}
@@ -757,6 +902,8 @@ Execute Node By ID
             ${pivot_data}=    Evaluate    __import__('pandas').DataFrame($EXCEL_DATA).pivot_table(index='${rows}'.split(','), values='${values}'.split(','), aggfunc='sum').reset_index().to_dict('records')
             ${count}=    Get Length    ${pivot_data}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${pivot_data}    data=${pivot_data}    rowCount=${count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $pivot_data}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Created pivot table: ${count} rows    console=yes
 
 {% elif node.type == 'excel.create_sheet' %}
@@ -764,6 +911,8 @@ Execute Node By ID
             ${name}=    Set Variable    {{ node.config.get('name', '') | transform_vars }}
             Create Worksheet    ${name}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${name}    sheetName=${name}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $name}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Created sheet: ${name}    console=yes
 
 {% elif node.type == 'excel.delete_sheet' %}
@@ -771,6 +920,8 @@ Execute Node By ID
             ${name}=    Set Variable    {{ node.config.get('name', '') | transform_vars }}
             Remove Worksheet    ${name}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${name}    deletedSheet=${name}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $name}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Deleted sheet: ${name}    console=yes
 
 {% elif node.type == 'excel.rename_sheet' %}
@@ -779,6 +930,8 @@ Execute Node By ID
             ${new_name}=    Set Variable    {{ node.config.get('new_name', '') | transform_vars }}
             Rename Worksheet    ${old_name}    ${new_name}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${new_name}    oldName=${old_name}    newName=${new_name}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $new_name}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Renamed sheet: ${old_name} -> ${new_name}    console=yes
 
 {% elif node.type == 'excel.get_sheets' %}
@@ -786,6 +939,8 @@ Execute Node By ID
             @{sheets}=    List Worksheets
             ${count}=    Get Length    ${sheets}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${sheets}    sheets=${sheets}    count=${count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $sheets}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Found ${count} sheets    console=yes
 
 {% elif node.type == 'excel.delete_row' %}
@@ -797,6 +952,8 @@ Execute Node By ID
             Delete Rows    ${row}    ${row}
             {% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${row}    deletedRow=${row}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $row}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Deleted row: ${row}    console=yes
 
 {% elif node.type == 'excel.delete_column' %}
@@ -809,6 +966,8 @@ Execute Node By ID
             Delete Columns    ${col_index}    ${col_index}
             {% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${column}    deletedColumn=${column}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $column}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Deleted column: ${column}    console=yes
 
 {% elif node.type == 'excel.insert_row' %}
@@ -828,6 +987,8 @@ Execute Node By ID
             Insert Rows    ${row}    1
             {% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${row}    insertedRow=${row}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $row}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Inserted row at: ${row}    console=yes
 
 {% elif node.type == 'excel.set_format' %}
@@ -846,6 +1007,8 @@ Execute Node By ID
             Set Cell Style    ${range}    number_format={{ node.config.get('number_format', '') | transform_vars }}
             {% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${range}    formattedRange=${range}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $range}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Formatted range: ${range}    console=yes
 
 {% elif node.type == 'excel.merge_cells' %}
@@ -853,6 +1016,8 @@ Execute Node By ID
             ${range}=    Set Variable    {{ node.config.get('range', 'A1:A1') | transform_vars }}
             Merge Cells    ${range}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${range}    mergedRange=${range}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $range}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Merged cells: ${range}    console=yes
 
 {% elif node.type == 'excel.auto_filter' %}
@@ -860,6 +1025,8 @@ Execute Node By ID
             ${range}=    Set Variable    {{ node.config.get('range', '') | transform_vars }}
             Auto Filter    ${range}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${range}    filterRange=${range}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $range}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Auto filter applied: ${range}    console=yes
 
 {% elif node.type == 'excel.sort' %}
@@ -869,6 +1036,8 @@ Execute Node By ID
             ${ascending}=    Set Variable    ${{ '{TRUE}' if node.config.get('ascending', True) else '{FALSE}' }}
             Sort Data    ${range}    ${column}    ascending=${ascending}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${range}    sortedRange=${range}    sortColumn=${column}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $range}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Sorted range: ${range} by ${column}    console=yes
 
 {% elif node.type == 'excel.find_replace' %}
@@ -881,6 +1050,8 @@ Execute Node By ID
             ${count}=    Find And Replace    ${find}    ${replace}
             {% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${count}    replacedCount=${count}    findText=${find}    replaceText=${replace}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $count}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Replaced ${count} occurrences    console=yes
 
 {% elif node.type == 'excel.create_chart' %}
@@ -890,6 +1061,8 @@ Execute Node By ID
             ${title}=    Set Variable    {{ node.config.get('title', '') | transform_vars }}
             Create Chart    ${data_range}    ${chart_type}    title=${title}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${chart_type}    chartType=${chart_type}    dataRange=${data_range}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $chart_type}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Created ${chart_type} chart    console=yes
 
 {% elif node.type == 'excel.export_pdf' %}
@@ -901,6 +1074,8 @@ Execute Node By ID
             Export To PDF    ${output_path}
             {% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${output_path}    path=${output_path}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $output_path}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Exported to PDF: ${output_path}    console=yes
 
 {% elif node.type == 'excel.vlookup' %}
@@ -918,6 +1093,8 @@ Execute Node By ID
                 END
             END
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    result=${result}    lookupValue=${lookup_value}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    VLOOKUP result: ${result}    console=yes
 
 {# ===== FILES ===== #}
@@ -926,6 +1103,8 @@ Execute Node By ID
             Set Global Variable    ${FILE_CONTENT}    ${content}
             # Store in node-specific variable
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${content}    content=${content}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $content}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    File read: {{ node.config.get('path', '') | transform_vars }}    console=yes
 {% elif node.type == 'files.write' %}
             {% if node.config.get('append', False) %}
@@ -951,6 +1130,8 @@ Execute Node By ID
             Set Global Variable    ${FILE_EXISTS}    ${exists}
             # Store in node-specific variable
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${exists}    exists=${exists}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $exists}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    File exists check: ${exists}    console=yes
 
 {% elif node.type == 'files.list' %}
@@ -964,6 +1145,8 @@ Execute Node By ID
             {% endif %}
             ${count}=    Get Length    ${files}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${files}    files=${files}    count=${count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $files}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Found ${count} files in ${path}    console=yes
 
 {% elif node.type == 'files.get_info' %}
@@ -976,6 +1159,8 @@ Execute Node By ID
             ${created}=    Evaluate    __import__('datetime').datetime.fromtimestamp(${stat.st_ctime}).isoformat()
             ${modified}=    Evaluate    __import__('datetime').datetime.fromtimestamp(${stat.st_mtime}).isoformat()
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${path}    name=${name}    size=${size}    extension=${ext}    created=${created}    modified=${modified}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $path}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    File info: ${name} (${size} bytes)    console=yes
 
 {% elif node.type == 'files.zip' %}
@@ -989,6 +1174,8 @@ Execute Node By ID
             ${files_count}=    Evaluate    len($zip_file.namelist())
             Evaluate    $zip_file.close()
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    path=${result}    size=${size}    filesCount=${files_count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Created ZIP: ${result} (${files_count} files, ${size} bytes)    console=yes
 
 {% elif node.type == 'files.unzip' %}
@@ -1001,6 +1188,8 @@ Execute Node By ID
             Evaluate    $zip_file.extractall('${dest}')
             Evaluate    $zip_file.close()
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${dest}    path=${dest}    files=${files}    filesCount=${files_count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $dest}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Extracted ${files_count} files to ${dest}    console=yes
 
 {% elif node.type == 'files.watch' %}
@@ -1032,6 +1221,8 @@ Execute Node By ID
             END
             ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${changed}    changedFile=${changed}    event=${event}    timestamp=${timestamp}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $changed}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Watch result: ${event} - ${changed}    console=yes
 
 {# ===== EMAIL ===== #}
@@ -1042,6 +1233,8 @@ Execute Node By ID
             ${body}=    Set Variable    {{ node.config.get('body', '') | transform_vars }}
             Send Message    recipients=${to}    subject=${subject}    body=${body}    html=${{ '{TRUE}' if node.config.get('html', False) else '{FALSE}' }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=sent    to=${to}    subject=${subject}    status=success
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'sent'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Email sent to: ${to}    console=yes
 
 {% elif node.type == 'email.read' %}
@@ -1053,6 +1246,8 @@ Execute Node By ID
             @{messages}=    List Messages    folder=${folder}    criterion=UNSEEN    count=${limit}
             ${count}=    Get Length    ${messages}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${messages}    messages=${messages}    count=${count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $messages}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Read ${count} emails from ${folder}    console=yes
 
 {% elif node.type == 'email.reply' %}
@@ -1061,6 +1256,8 @@ Execute Node By ID
             ${body}=    Set Variable    {{ node.config.get('body', '') | transform_vars }}
             Reply To Message    ${message_id}    body=${body}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=replied    messageId=${message_id}    status=success
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'replied'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Replied to message: ${message_id}    console=yes
 
 {% elif node.type == 'email.forward' %}
@@ -1069,6 +1266,8 @@ Execute Node By ID
             ${to}=    Set Variable    {{ node.config.get('to', '') | transform_vars }}
             Forward Message    ${message_id}    ${to}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=forwarded    messageId=${message_id}    forwardedTo=${to}    status=success
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'forwarded'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Forwarded message to: ${to}    console=yes
 
 {% elif node.type == 'email.download_attachment' %}
@@ -1078,6 +1277,8 @@ Execute Node By ID
             @{attachments}=    Save Attachment    ${message_id}    target_folder=${save_path}
             ${count}=    Get Length    ${attachments}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${attachments}    attachments=${attachments}    count=${count}    savePath=${save_path}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $attachments}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Downloaded ${count} attachments to ${save_path}    console=yes
 
 {% elif node.type == 'email.move' %}
@@ -1086,6 +1287,8 @@ Execute Node By ID
             ${folder}=    Set Variable    {{ node.config.get('folder', '') | transform_vars }}
             Move Message    ${message_id}    ${folder}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=moved    messageId=${message_id}    folder=${folder}    status=success
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'moved'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Moved message to: ${folder}    console=yes
 
 {% elif node.type == 'email.delete' %}
@@ -1093,6 +1296,8 @@ Execute Node By ID
             ${message_id}=    Set Variable    {{ node.config.get('message_id', '') | transform_vars }}
             Delete Message    ${message_id}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=deleted    messageId=${message_id}    status=success
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'deleted'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Deleted message: ${message_id}    console=yes
 
 {% elif node.type == 'email.mark_read' %}
@@ -1101,6 +1306,8 @@ Execute Node By ID
             ${read}=    Set Variable    ${{ '{TRUE}' if node.config.get('read', True) else '{FALSE}' }}
             Mark As Read    ${message_id}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=marked    messageId=${message_id}    read=${read}    status=success
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'marked'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Marked message as read: ${message_id}    console=yes
 
 {% elif node.type == 'email.search' %}
@@ -1110,6 +1317,8 @@ Execute Node By ID
             @{results}=    List Messages    folder=${folder}    criterion=${query}
             ${count}=    Get Length    ${results}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${results}    results=${results}    count=${count}    query=${query}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $results}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Search found ${count} emails    console=yes
 
 {% elif node.type == 'email.send_smtp' %}
@@ -1126,6 +1335,8 @@ Execute Node By ID
             Email.Authorize    account=${username}    password=${password}    smtp_server=${smtp_host}    smtp_port=${port}
             Send Message    recipients=${to}    subject=${subject}    body=${body}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=sent    to=${to}    subject=${subject}    smtpHost=${smtp_host}    status=success
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'sent'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    SMTP email sent to: ${to}    console=yes
 
 {% elif node.type == 'email.send_outlook' %}
@@ -1140,6 +1351,8 @@ Execute Node By ID
             Outlook.Open Application
             Outlook.Send Message    recipients=${to}    cc=${cc}    bcc=${bcc}    subject=${subject}    body=${body}    html_body=${html}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=sent    to=${to}    subject=${subject}    status=success
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'sent'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Outlook email sent to: ${to}    console=yes
 
 {% elif node.type == 'email.send_gmail' %}
@@ -1152,6 +1365,8 @@ Execute Node By ID
             Email.Authorize    account=${GMAIL_USER}    password=${GMAIL_APP_PASSWORD}    smtp_server=smtp.gmail.com    smtp_port=587
             Send Message    recipients=${to}    subject=${subject}    body=${body}    html=${html}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=sent    to=${to}    subject=${subject}    status=success
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'sent'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Gmail sent to: ${to}    console=yes
 
 {% elif node.type == 'email.read_imap' %}
@@ -1168,6 +1383,8 @@ Execute Node By ID
             @{messages}=    List Messages    folder=${folder}    count=${limit}
             ${count}=    Get Length    ${messages}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${messages}    messages=${messages}    count=${count}    folder=${folder}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $messages}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    IMAP read ${count} emails from ${folder}    console=yes
 
 {% elif node.type == 'email.create_draft' %}
@@ -1177,6 +1394,8 @@ Execute Node By ID
             ${body}=    Set Variable    {{ node.config.get('body', '') | transform_vars }}
             ${draft}=    Create Dictionary    to=${to}    subject=${subject}    body=${body}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${draft}    draft=${draft}    status=created
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $draft}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Draft created    console=yes
 
 {% elif node.type == 'email.get_folders' %}
@@ -1184,6 +1403,8 @@ Execute Node By ID
             @{folders}=    List Folders
             ${count}=    Get Length    ${folders}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${folders}    folders=${folders}    count=${count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $folders}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Found ${count} email folders    console=yes
 
 {# ===== API ===== #}
@@ -1193,6 +1414,8 @@ Execute Node By ID
             Set Global Variable    ${HTTP_STATUS}    ${response.status_code}
             # Store in node-specific variable
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${response.text}    response=${response.text}    status_code=${response.status_code}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $response.text}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    HTTP ${HTTP_STATUS}    console=yes
 {% elif node.type == 'api.rest_get' %}
             ${response}=    Evaluate    __import__('requests').get('{{ node.config.get('url', '') | transform_vars }}'{% if node.config.get('headers') %}, headers={{ node.config.get('headers') | transform_vars }}{% endif %})
@@ -1200,6 +1423,8 @@ Execute Node By ID
             Set Global Variable    ${HTTP_STATUS}    ${response.status_code}
             # Store in node-specific variable
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${response.text}    response=${response.text}    status_code=${response.status_code}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $response.text}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    GET ${HTTP_STATUS}    console=yes
 {% elif node.type == 'api.rest_post' %}
             ${response}=    Evaluate    __import__('requests').post('{{ node.config.get('url', '') | transform_vars }}', json={{ node.config.get('body', '{}') | transform_vars }}{% if node.config.get('headers') %}, headers={{ node.config.get('headers') | transform_vars }}{% endif %})
@@ -1207,6 +1432,8 @@ Execute Node By ID
             Set Global Variable    ${HTTP_STATUS}    ${response.status_code}
             # Store in node-specific variable
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${response.text}    response=${response.text}    status_code=${response.status_code}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $response.text}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    POST ${HTTP_STATUS}    console=yes
 
 {% elif node.type == 'api.graphql' %}
@@ -1219,6 +1446,8 @@ Execute Node By ID
             ${response}=    Evaluate    __import__('requests').post('${endpoint}', json=$payload, headers={'Content-Type': 'application/json'})
             ${data}=    Evaluate    $response.json()
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${data}    data=${data}    statusCode=${response.status_code}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $data}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    GraphQL response: ${response.status_code}    console=yes
 
 {% elif node.type == 'api.soap' %}
@@ -1231,6 +1460,8 @@ Execute Node By ID
             ${service}=    Evaluate    getattr($client.service, '${operation}')
             ${result}=    Evaluate    $service() if not '${body}' else $service(**__import__('json').loads('${body}'))
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    result=${result}    operation=${operation}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    SOAP ${operation} completed    console=yes
 
 {% elif node.type == 'api.oauth_token' %}
@@ -1246,6 +1477,8 @@ Execute Node By ID
             ${expires_in}=    Evaluate    $token_data.get('expires_in', 0)
             Set Global Variable    ${OAUTH_TOKEN}    ${access_token}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${access_token}    accessToken=${access_token}    expiresIn=${expires_in}    tokenType=${{ '{' }}$token_data.get('token_type', 'Bearer'){{ '}' }}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $access_token}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    OAuth token obtained (expires in ${expires_in}s)    console=yes
 
 {% elif node.type == 'api.parse_json' %}
@@ -1253,6 +1486,8 @@ Execute Node By ID
             ${input}=    Set Variable    {{ node.config.get('input', '{}') | transform_vars }}
             ${data}=    Evaluate    __import__('json').loads('''${input}''')
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${data}    data=${data}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $data}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    JSON parsed successfully    console=yes
 
 {% elif node.type == 'api.json_path' %}
@@ -1264,6 +1499,8 @@ Execute Node By ID
             ${values}=    Evaluate    [match.value for match in $result]
             ${first_value}=    Evaluate    $values[0] if $values else None
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${first_value}    result=${first_value}    allMatches=${values}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $first_value}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    JSONPath found ${values.__len__()} matches    console=yes
 
 {% elif node.type == 'api.ftp_upload' %}
@@ -1280,6 +1517,8 @@ Execute Node By ID
             Evaluate    $file.close()
             Evaluate    $ftp.quit()
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${remote_path}    localPath=${local_path}    remotePath=${remote_path}    host=${host}    status=success
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $remote_path}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    FTP uploaded: ${local_path} -> ${remote_path}    console=yes
 
 {# ===== DATABASE ===== #}
@@ -1306,6 +1545,8 @@ Execute Node By ID
             ${conn_id}=    Evaluate    f'{${db_type}}_{${database}}_{__import__("uuid").uuid4().hex[:6]}'
             Set Global Variable    ${DB_CONNECTION_ID}    ${conn_id}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${conn_id}    connectionId=${conn_id}    database=${database}    connected=${TRUE}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $conn_id}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Connected to ${db_type}: ${database}    console=yes
 
 {% elif node.type == 'database.query' %}
@@ -1317,6 +1558,8 @@ Execute Node By ID
             ${count}=    Get Length    ${records}
             ${columns}=    Evaluate    list($records[0].keys()) if $records else []
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${records}    records=${records}    columns=${columns}    recordCount=${count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $records}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Query returned ${count} records    console=yes
 
 {% elif node.type == 'database.insert' %}
@@ -1330,6 +1573,8 @@ Execute Node By ID
             Execute Sql String    ${query}
             ${row_count}=    Row Count    SELECT COUNT(*) FROM ${table}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=inserted    table=${table}    rowsAffected=${1}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'inserted'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Inserted into ${table}    console=yes
 
 {% elif node.type == 'database.update' %}
@@ -1342,6 +1587,8 @@ Execute Node By ID
             ${query}=    Set Variable    UPDATE ${table} SET ${set_clause} WHERE ${where}
             Execute Sql String    ${query}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=updated    table=${table}    where=${where}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'updated'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Updated ${table} WHERE ${where}    console=yes
 
 {% elif node.type == 'database.delete' %}
@@ -1351,6 +1598,8 @@ Execute Node By ID
             ${query}=    Set Variable    DELETE FROM ${table} WHERE ${where}
             Execute Sql String    ${query}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=deleted    table=${table}    where=${where}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'deleted'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Deleted from ${table} WHERE ${where}    console=yes
 
 {% elif node.type == 'database.call_procedure' %}
@@ -1360,12 +1609,16 @@ Execute Node By ID
             ${params}=    Evaluate    __import__('json').loads('''${params_json}''') if '''${params_json}'''.strip() else []
             @{result}=    Call Stored Procedure    ${procedure}    ${params}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    result=${result}    procedure=${procedure}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Called procedure: ${procedure}    console=yes
 
 {% elif node.type == 'database.transaction' %}
             # Start database transaction
             Set Auto Commit    ${FALSE}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=started    transactionActive=${TRUE}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'started'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Transaction started    console=yes
 
 {% elif node.type == 'database.commit' %}
@@ -1373,12 +1626,16 @@ Execute Node By ID
             Execute Sql String    COMMIT
             Set Auto Commit    ${TRUE}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=committed    status=success
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'committed'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Transaction committed    console=yes
 
 {% elif node.type == 'database.close' %}
             # Close database connection
             Disconnect From Database
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=closed    connected=${FALSE}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'closed'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Database connection closed    console=yes
 
 {# ===== DOCUMENT ===== #}
@@ -1389,6 +1646,8 @@ Execute Node By ID
             ${text}=    Get Text From PDF    ${path}
             ${page_count}=    Get Number Of Pages    ${path}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${text}    text=${text}    pageCount=${page_count}    path=${path}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $text}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Read PDF: ${path} (${page_count} pages)    console=yes
 
 {% elif node.type == 'document.pdf_merge' %}
@@ -1404,6 +1663,8 @@ Execute Node By ID
             Evaluate    $merger.close()
             ${count}=    Get Length    ${files}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${output}    path=${output}    mergedCount=${count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $output}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Merged ${count} PDFs to ${output}    console=yes
 
 {% elif node.type == 'document.pdf_split' %}
@@ -1421,6 +1682,8 @@ Execute Node By ID
             Evaluate    $writer.write(open('${output}', 'wb'))
             ${count}=    Get Length    ${page_list}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${output}    path=${output}    pagesExtracted=${count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $output}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Split PDF: extracted ${count} pages to ${output}    console=yes
 
 {% elif node.type == 'document.pdf_to_image' %}
@@ -1439,6 +1702,8 @@ Execute Node By ID
             END
             ${count}=    Get Length    ${output_files}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${output_files}    files=${output_files}    imageCount=${count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $output_files}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Converted PDF to ${count} ${format} images    console=yes
 
 {% elif node.type == 'document.ocr' %}
@@ -1448,6 +1713,8 @@ Execute Node By ID
             ${image}=    Evaluate    __import__('PIL.Image').open('${path}')
             ${text}=    Evaluate    __import__('pytesseract').image_to_string($image, lang='${language}')
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${text}    text=${text}    language=${language}    path=${path}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $text}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    OCR extracted ${text.__len__()} characters    console=yes
 
 {% elif node.type == 'document.word_read' %}
@@ -1458,6 +1725,8 @@ Execute Node By ID
             ${text}=    Evaluate    '\\n'.join($paragraphs)
             ${para_count}=    Get Length    ${paragraphs}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${text}    text=${text}    paragraphs=${paragraphs}    paragraphCount=${para_count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $text}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Read Word: ${para_count} paragraphs    console=yes
 
 {% elif node.type == 'document.word_write' %}
@@ -1473,6 +1742,8 @@ Execute Node By ID
             Evaluate    $doc.save('${path}')
             ${para_count}=    Get Length    ${paragraphs}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${path}    path=${path}    paragraphCount=${para_count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $path}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Created Word document: ${path}    console=yes
 
 {% elif node.type == 'document.html_to_pdf' %}
@@ -1487,6 +1758,8 @@ Execute Node By ID
                 Evaluate    __import__('pdfkit').from_string('${html}', '${output}')
             END
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${output}    path=${output}    source=${html}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $output}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Converted HTML to PDF: ${output}    console=yes
 
 {% elif node.type == 'document.pdf_fill_form' %}
@@ -1503,6 +1776,8 @@ Execute Node By ID
             Evaluate    $writer.write(open('${output}', 'wb'))
             ${field_count}=    Evaluate    len($fields)
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${output}    path=${output}    fieldsFilled=${field_count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $output}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Filled ${field_count} form fields in PDF    console=yes
 
 {# ===== PYTHON ===== #}
@@ -1513,6 +1788,8 @@ Execute Node By ID
             ${input_vars}=    Evaluate    __import__('json').loads('''${variables_json}''') if '''${variables_json}'''.strip() else {}
             ${result}=    Evaluate    exec('''${code}''', $input_vars) or $input_vars.get('result', 'executed')
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    result=${result}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Python code executed    console=yes
 
 {% elif node.type == 'python.project' %}
@@ -1529,6 +1806,8 @@ Execute Node By ID
                 Fail    Python project failed: ${stderr}
             END
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${stdout}    stdout=${stdout}    stderr=${stderr}    returncode=${returncode}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $stdout}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Python project executed: ${entrypoint}    console=yes
 
 {% elif node.type == 'python.pip_install' %}
@@ -1542,6 +1821,8 @@ Execute Node By ID
             END
             ${installed}=    Set Variable    ${proc.stdout}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${installed}    packages=${packages}    status=installed
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $installed}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Pip install completed    console=yes
 
 {% elif node.type == 'python.virtualenv' %}
@@ -1551,6 +1832,8 @@ Execute Node By ID
             ${proc}=    Evaluate    __import__('subprocess').run(['python${python_version}', '-m', 'venv', '${path}'], capture_output=True, text=True)
             ${created}=    Evaluate    __import__('os').path.exists('${path}')
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${path}    path=${path}    created=${created}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $path}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Virtual environment created: ${path}    console=yes
 
 {% elif node.type == 'python.function' %}
@@ -1562,6 +1845,8 @@ Execute Node By ID
             ${func_def}=    Set Variable    def ${name}(${params}):\n${code}
             Evaluate    exec('''${func_def}''', globals())
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${name}    functionName=${name}    params=${params}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $name}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Python function defined: ${name}    console=yes
 
 {% elif node.type == 'python.import_module' %}
@@ -1576,6 +1861,8 @@ Execute Node By ID
                 Evaluate    globals().__setitem__('${module}', $imported)
             END
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${module}    module=${module}    alias=${alias}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $module}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Imported module: ${module}    console=yes
 
 {% elif node.type == 'python.notebook' %}
@@ -1587,6 +1874,8 @@ Execute Node By ID
             ${proc}=    Evaluate    __import__('subprocess').run(['papermill', '${path}', '${output}'], capture_output=True, text=True)
             ${success}=    Evaluate    ${proc.returncode} == 0
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${output}    inputPath=${path}    outputPath=${output}    success=${success}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $output}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Notebook executed: ${path} -> ${output}    console=yes
 
 {% elif node.type == 'python.eval' %}
@@ -1594,6 +1883,8 @@ Execute Node By ID
             ${expression}=    Set Variable    {{ node.config.get('expression', '') | transform_vars }}
             ${result}=    Evaluate    ${expression}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    result=${result}    expression=${expression}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Python eval result: ${result}    console=yes
 
 {# ===== LOGGING ===== #}
@@ -1603,6 +1894,8 @@ Execute Node By ID
             ${level}=    Set Variable    {{ node.config.get('level', 'INFO') }}
             Log    [${level}] ${message}    console=yes    level=${level}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${message}    message=${message}    level=${level}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $message}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
 
 {% elif node.type == 'logging.screenshot' %}
             # Capture screenshot to log
@@ -1610,6 +1903,8 @@ Execute Node By ID
             ${path}=    Set Variable    ${OUTPUT_DIR}/screenshot_{{ node.id }}.png
             Take Screenshot    ${path}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${path}    path=${path}    description=${description}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $path}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Screenshot captured: ${description}    console=yes
 
 {% elif node.type == 'logging.metric' %}
@@ -1618,6 +1913,8 @@ Execute Node By ID
             ${value}=    Set Variable    {{ node.config.get('value', 0) | transform_vars }}
             ${unit}=    Set Variable    {{ node.config.get('unit', '') | transform_vars }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${value}    name=${name}    value=${value}    unit=${unit}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $value}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Metric: ${name} = ${value} ${unit}    console=yes
 
 {% elif node.type == 'logging.timer_start' %}
@@ -1626,6 +1923,8 @@ Execute Node By ID
             ${start_time}=    Evaluate    __import__('time').time()
             Set Global Variable    ${TIMER_${name}}    ${start_time}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${start_time}    timerName=${name}    startTime=${start_time}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $start_time}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Timer started: ${name}    console=yes
 
 {% elif node.type == 'logging.timer_stop' %}
@@ -1636,6 +1935,8 @@ Execute Node By ID
             ${elapsed}=    Evaluate    ${end_time} - ${start_time}
             ${elapsed_ms}=    Evaluate    round(${elapsed} * 1000, 2)
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${elapsed_ms}    timerName=${name}    elapsedMs=${elapsed_ms}    elapsedSeconds=${elapsed}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $elapsed_ms}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Timer ${name}: ${elapsed_ms}ms    console=yes
 
 {% elif node.type == 'logging.notification' %}
@@ -1644,6 +1945,8 @@ Execute Node By ID
             ${message}=    Set Variable    {{ node.config.get('message', '') | transform_vars }}
             # Placeholder for actual notification implementation
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=sent    channel=${channel}    message=${message}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'sent'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Notification sent via ${channel}    console=yes
 
 {% elif node.type == 'logging.audit' %}
@@ -1653,6 +1956,8 @@ Execute Node By ID
             ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
             ${audit_entry}=    Create Dictionary    action=${action}    details=${details_json}    timestamp=${timestamp}    botId=${BOT_ID}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${audit_entry}    action=${action}    timestamp=${timestamp}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $audit_entry}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    AUDIT: ${action}    console=yes
 
 {% elif node.type == 'logging.export' %}
@@ -1661,6 +1966,8 @@ Execute Node By ID
             ${format}=    Set Variable    {{ node.config.get('format', 'json') }}
             # Collect logs and export
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${path}    path=${path}    format=${format}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $path}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Logs exported to: ${path}    console=yes
 
 {# ===== SECURITY ===== #}
@@ -1674,6 +1981,8 @@ Execute Node By ID
                 ${secret}=    SkuldVault.Get Secret    ${name}    vault_type=${vault}
             END
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${secret}    secretName=${name}    vault=${vault}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $secret}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Secret retrieved: ${name} (masked)    console=yes
 
 {% elif node.type == 'security.encrypt' %}
@@ -1682,6 +1991,8 @@ Execute Node By ID
             ${key}=    Set Variable    {{ node.config.get('key', '') | transform_vars }}
             ${encrypted}=    Evaluate    __import__('base64').b64encode(__import__('cryptography.fernet').Fernet(__import__('base64').urlsafe_b64encode('${key}'.ljust(32)[:32].encode())).encrypt('${data}'.encode())).decode()
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${encrypted}    encrypted=${encrypted}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $encrypted}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Data encrypted    console=yes
 
 {% elif node.type == 'security.decrypt' %}
@@ -1690,6 +2001,8 @@ Execute Node By ID
             ${key}=    Set Variable    {{ node.config.get('key', '') | transform_vars }}
             ${decrypted}=    Evaluate    __import__('cryptography.fernet').Fernet(__import__('base64').urlsafe_b64encode('${key}'.ljust(32)[:32].encode())).decrypt(__import__('base64').b64decode('${data}'.encode())).decode()
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${decrypted}    decrypted=${decrypted}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $decrypted}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Data decrypted    console=yes
 
 {% elif node.type == 'security.hash' %}
@@ -1698,6 +2011,8 @@ Execute Node By ID
             ${algorithm}=    Set Variable    {{ node.config.get('algorithm', 'sha256') }}
             ${hash}=    Evaluate    __import__('hashlib').new('${algorithm}', '${data}'.encode()).hexdigest()
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${hash}    hash=${hash}    algorithm=${algorithm}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $hash}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Hash (${algorithm}): ${hash}    console=yes
 
 {% elif node.type == 'security.mask_data' %}
@@ -1707,6 +2022,8 @@ Execute Node By ID
             # Create masked pattern
             ${masked}=    Evaluate    __import__('re').sub('${pattern}', '${mask_char}' * 8, str($LAST_TEXT))
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${masked}    masked=${masked}    pattern=${pattern}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $masked}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Data masked    console=yes
 
 {% elif node.type == 'security.validate_cert' %}
@@ -1723,6 +2040,8 @@ Execute Node By ID
             ${valid}=    Evaluate    bool($cert)
             ${expires}=    Evaluate    $cert.get('notAfter', 'unknown') if $cert else 'unknown'
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${valid}    valid=${valid}    expires=${expires}    host=${host}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $valid}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Certificate valid: ${valid}, expires: ${expires}    console=yes
 
 {# ===== HUMAN ===== #}
@@ -1734,6 +2053,8 @@ Execute Node By ID
             ${timeout}=    Set Variable    {{ node.config.get('timeout_minutes', 60) }}
             # Placeholder: would integrate with orchestrator approval system
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=pending    title=${title}    status=pending    approvers=${approvers}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'pending'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Approval requested: ${title}    console=yes
 
 {% elif node.type == 'human.input' %}
@@ -1742,6 +2063,8 @@ Execute Node By ID
             ${input_type}=    Set Variable    {{ node.config.get('input_type', 'text') }}
             # Placeholder: would integrate with orchestrator input system
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=pending    prompt=${prompt}    inputType=${input_type}    status=pending
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'pending'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Input requested: ${prompt}    console=yes
 
 {% elif node.type == 'human.review' %}
@@ -1750,6 +2073,8 @@ Execute Node By ID
             ${data}=    Set Variable    {{ node.config.get('data', '') | transform_vars }}
             ${actions}=    Set Variable    {{ node.config.get('actions', 'approve,reject,edit') | transform_vars }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=pending    title=${title}    data=${data}    actions=${actions}    status=pending
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'pending'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Review requested: ${title}    console=yes
 
 {% elif node.type == 'human.exception' %}
@@ -1757,6 +2082,8 @@ Execute Node By ID
             ${error}=    Set Variable    {{ node.config.get('error', '') | transform_vars }}
             ${options}=    Set Variable    {{ node.config.get('options', 'retry,skip,abort') | transform_vars }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=pending    error=${error}    options=${options}    status=pending
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'pending'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Exception handling requested    console=yes
 
 {% elif node.type == 'human.notification' %}
@@ -1765,6 +2092,8 @@ Execute Node By ID
             ${message}=    Set Variable    {{ node.config.get('message', '') | transform_vars }}
             ${priority}=    Set Variable    {{ node.config.get('priority', 'normal') }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=sent    recipient=${recipient}    priority=${priority}    status=sent
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'sent'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Notification sent to ${recipient} (${priority})    console=yes
 
 {# ===== COMPLIANCE ===== #}
@@ -1776,6 +2105,8 @@ Execute Node By ID
             ${protected}=    Evaluate    $data    # Would apply actual masking
             ${fields_processed}=    Evaluate    len($rules) if isinstance($rules, list) else 0
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${protected}    protected_data=${protected}    fields_processed=${fields_processed}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $protected}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    PII protection applied to ${fields_processed} fields    console=yes
 
 {% elif node.type == 'compliance.protect_phi' %}
@@ -1787,6 +2118,8 @@ Execute Node By ID
             ${protected}=    Evaluate    $data    # Would apply actual masking
             ${fields_processed}=    Evaluate    len($rules) if isinstance($rules, list) else 0
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${protected}    protected_data=${protected}    fields_processed=${fields_processed}    hipaa_compliant=${strict}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $protected}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    PHI protection applied (HIPAA mode: ${strict})    console=yes
 
 {% elif node.type == 'compliance.audit_log' %}
@@ -1797,6 +2130,8 @@ Execute Node By ID
             ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
             ${audit}=    Create Dictionary    action=${action}    data_type=${data_type}    reason=${reason}    timestamp=${timestamp}    immutable=${TRUE}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${audit}    audit_entry=${audit}    timestamp=${timestamp}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $audit}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    COMPLIANCE AUDIT: ${action} on ${data_type}    console=yes
 
 {# ===== DATA QUALITY ===== #}
@@ -1809,6 +2144,8 @@ Execute Node By ID
             ${valid}=    Set Variable    ${TRUE}
             @{errors}=    Create List
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${valid}    valid=${valid}    errors=${errors}    error_count=0
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $valid}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Data validation completed: valid=${valid}    console=yes
 
 {% elif node.type == 'dataquality.profile_data' %}
@@ -1818,6 +2155,8 @@ Execute Node By ID
             ${row_count}=    Get Length    ${data_list}
             ${column_count}=    Evaluate    len($data_list[0].keys()) if $data_list and isinstance($data_list[0], dict) else 0
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${row_count}    row_count=${row_count}    column_count=${column_count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $row_count}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Data profile: ${row_count} rows, ${column_count} columns    console=yes
 
 {% elif node.type == 'dataquality.generate_report' %}
@@ -1827,6 +2166,8 @@ Execute Node By ID
             ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
             ${report}=    Create Dictionary    timestamp=${timestamp}    data_source=${data_source}    status=generated
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${report}    report=${report}    timestamp=${timestamp}    data_source=${data_source}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $report}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Quality report generated for ${data_source}    console=yes
 
 {# ===== INSURANCE ===== #}
@@ -1840,6 +2181,8 @@ Execute Node By ID
             ${created_at}=    Evaluate    __import__('datetime').datetime.now().isoformat()
             ${fnol}=    Create Dictionary    fnol_id=${fnol_id}    caller_phone=${caller_phone}    caller_name=${caller_name}    policy_number=${policy_number}    incident_type=${incident_type}    created_at=${created_at}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${fnol}    fnol_id=${fnol_id}    fnol_record=${fnol}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $fnol}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    FNOL created: ${fnol_id}    console=yes
 
 {% elif node.type == 'insurance.lookup_policy' %}
@@ -1854,6 +2197,8 @@ Execute Node By ID
             ${policy_id}=    Evaluate    $result.get('policy_id', '')
             ${policy_number}=    Evaluate    $result.get('policy_number', '')
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    policy_id=${policy_id}    policy_number=${policy_number}    found=${policy_id.__bool__()}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Policy lookup: ${policy_number}    console=yes
 
 {% elif node.type == 'insurance.validate_policy' %}
@@ -1868,6 +2213,8 @@ Execute Node By ID
             ${is_active}=    Evaluate    $result.get('is_active', False)
             ${has_coverage}=    Evaluate    $result.get('has_coverage', False)
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    is_active=${is_active}    has_coverage=${has_coverage}    policy_number=${policy_number}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Policy validation: active=${is_active}, coverage=${has_coverage}    console=yes
 
 {% elif node.type == 'insurance.extract_claim_data' %}
@@ -1877,6 +2224,8 @@ Execute Node By ID
             # Use AI to extract (would integrate with SkuldAI)
             ${extracted}=    Create Dictionary    claim_type=${claim_type}    transcript_length=${transcript.__len__()}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${extracted}    extracted=${extracted}    claim_type=${claim_type}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $extracted}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Claim data extracted    console=yes
 
 {# ===== DATA INTEGRATION (TAPS) ===== #}
@@ -1955,6 +2304,8 @@ Execute Node By ID
             {% endif %}
             # Store tap results in node variable
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    records=${result}[records]    columns=${result}[columns]    recordCount=${result}[recordCount]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Extracted ${result}[recordCount] records    console=yes
 
 {# ===== DATA INTEGRATION (TARGETS) ===== #}
@@ -2018,6 +2369,8 @@ Execute Node By ID
             {% endif %}
             # Store target results in node variable
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    insertedCount=${result}[insertedCount]    errorCount=${result}[errorCount]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Loaded ${result}[insertedCount] records (${result}[errorCount] errors)    console=yes
 
 {# ===== SECRETS MANAGEMENT ===== #}
@@ -2033,6 +2386,8 @@ Execute Node By ID
             ...    secrets=${secrets_list}
             # Store results
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    loaded=${result}[loaded]    secretNames=${result}[secretNames]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Loaded ${result}[loaded] secrets from Azure Key Vault    console=yes
 
 {% elif node.type == 'secrets.aws_secrets' %}
@@ -2045,6 +2400,8 @@ Execute Node By ID
             ...    secrets=${secrets_list}
             # Store results
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    loaded=${result}[loaded]    secretNames=${result}[secretNames]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Loaded ${result}[loaded] secrets from AWS Secrets Manager    console=yes
 
 {% elif node.type == 'secrets.hashicorp_vault' %}
@@ -2059,6 +2416,8 @@ Execute Node By ID
             ...    secrets=${secrets_list}
             # Store results
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    loaded=${result}[loaded]    secretNames=${result}[secretNames]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Loaded ${result}[loaded] secrets from HashiCorp Vault    console=yes
 
 {% elif node.type == 'secrets.local_vault' %}
@@ -2070,6 +2429,8 @@ Execute Node By ID
             ...    secrets=${secrets_list}
             # Store results
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    unlocked=${result}[unlocked]    secretCount=${result}[secretCount]    secretNames=${result}[secretNames]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Local Vault unlocked, loaded ${result}[secretCount] secrets    console=yes
 
 {# ===== VOICE & TELEPHONY ===== #}
@@ -2085,6 +2446,8 @@ Execute Node By ID
             ${result}=    SkuldVoice.Handle Incoming Call    ${call_data}
             # Store in node variable
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    call_sid=${result}[call_sid]    from_number=${result}[from_number]    to_number=${result}[to_number]    direction=${result}[direction]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Set Global Variable    ${CALL_SID}    ${result}[call_sid]
             Set Global Variable    ${FROM_NUMBER}    ${result}[from_number]
             Set Global Variable    ${TO_NUMBER}    ${result}[to_number]
@@ -2104,6 +2467,8 @@ Execute Node By ID
             ...    record=${{ '{TRUE}' if node.config.get('record', True) else '{FALSE}' }}
             ...    timeout={{ node.config.get('timeout', 30) }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    call_sid=${result}[call_sid]    status=${result}[status]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Set Global Variable    ${CALL_SID}    ${result}[call_sid]
             Log    Call initiated: ${result}[call_sid]    console=yes
 
@@ -2116,6 +2481,8 @@ Execute Node By ID
             ...    voice={{ node.config.get('voice', 'en-US-JennyNeural') | escape_newlines }}
             {% if node.config.get('style') %}...    style={{ node.config.get('style', '') | escape_newlines }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    status=${result}[status]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             {% if node.config.get('output_path') %}Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output_path=${result}[output_path]{% endif %}
             Log    Speech synthesized: ${result}[status]    console=yes
 
@@ -2126,6 +2493,8 @@ Execute Node By ID
             ...    audio_path={{ node.config.get('audio_path', '') | transform_vars }}
             ...    language={{ node.config.get('language', 'en-US') | escape_newlines }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    text=${result}[text]    confidence=${result}[confidence]    status=${result}[status]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Set Global Variable    ${TRANSCRIBED_TEXT}    ${result}[text]
             Log    Transcribed: ${result}[text]    console=yes
 
@@ -2136,6 +2505,8 @@ Execute Node By ID
             ...    voice={{ node.config.get('voice', 'Polly.Joanna') | escape_newlines }}
             ...    language={{ node.config.get('language', 'en-US') | escape_newlines }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${twiml}    twiml=${twiml}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $twiml}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    TwiML Say generated    console=yes
 
 {% elif node.type == 'voice.twiml_gather' %}
@@ -2147,6 +2518,8 @@ Execute Node By ID
             ...    timeout={{ node.config.get('timeout', 5) }}
             ...    speech_timeout={{ node.config.get('speech_timeout', 'auto') | escape_newlines }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${twiml}    twiml=${twiml}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $twiml}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    TwiML Gather generated    console=yes
 
 {% elif node.type == 'voice.transfer' %}
@@ -2157,6 +2530,8 @@ Execute Node By ID
             {% if node.config.get('call_sid') %}...    call_sid={{ node.config.get('call_sid', '') | transform_vars }}{% endif %}
             {% if node.config.get('announce_message') %}...    announce_message={{ node.config.get('announce_message', '') | transform_vars }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    call_sid=${result}[call_sid]    transferred_to=${result}[transferred_to]    status=${result}[status]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Call transferred: ${result}[status]    console=yes
 
 {% elif node.type == 'voice.hangup' %}
@@ -2166,6 +2541,8 @@ Execute Node By ID
             {% if node.config.get('call_sid') %}...    call_sid={{ node.config.get('call_sid', '') | transform_vars }}{% endif %}
             {% if node.config.get('farewell_message') %}...    farewell_message={{ node.config.get('farewell_message', '') | transform_vars }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    call_sid=${result}[call_sid]    status=${result}[status]    conversation_turns=${result}[conversation_turns]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Call ended: ${result}[status]    console=yes
 
 {% elif node.type == 'voice.get_recording' %}
@@ -2174,6 +2551,8 @@ Execute Node By ID
             ${result}=    SkuldVoice.Get Call Recording
             {% if node.config.get('call_sid') %}...    call_sid={{ node.config.get('call_sid', '') | transform_vars }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    recording_sid=${result}[recording_sid]    url=${result}[url]    duration=${result}[duration]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Set Global Variable    ${RECORDING_URL}    ${result}[url]
             Log    Recording URL: ${result}[url]    console=yes
 
@@ -2189,6 +2568,8 @@ Execute Node By ID
             # Get Conversation Transcript
             ${transcript}=    SkuldVoice.Get Conversation Transcript    format={{ node.config.get('format', 'text') | escape_newlines }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${transcript}    transcript=${transcript}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $transcript}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Set Global Variable    ${CONVERSATION_TRANSCRIPT}    ${transcript}
             Log    Transcript retrieved    console=yes
 
@@ -2204,6 +2585,8 @@ Execute Node By ID
             ${context_value}=    SkuldVoice.Get Call Context
             {% if node.config.get('key') %}...    key={{ node.config.get('key', '') | transform_vars }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${context_value}    context_value=${context_value}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $context_value}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Call context retrieved    console=yes
 
 {# ===== AI AGENT WITH TOOLS (ReAct Pattern) ===== #}
@@ -2314,6 +2697,8 @@ Execute Node By ID
             ${instructions}=    Set Variable    {{ node.config.get('instructions', '') | transform_vars }}
             ${extracted}=    SkuldAI.Extract Data    ${input_text}    ${schema}    instructions=${instructions}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${extracted}    extracted=${extracted}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $extracted}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    AI data extraction completed    console=yes
 
 {% elif node.type == 'ai.summarize' %}
@@ -2330,6 +2715,8 @@ Execute Node By ID
             ${language}=    Set Variable    {{ node.config.get('language', '') | transform_vars }}
             ${summary}=    SkuldAI.Summarize Text    ${input_text}    style=${style}    max_length=${max_length}    language=${language}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${summary}    summary=${summary}    style=${style}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $summary}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    AI summarization completed (${style})    console=yes
 
 {% elif node.type == 'ai.classify' %}
@@ -2351,6 +2738,8 @@ Execute Node By ID
             ${confidence}=    Evaluate    $result.get('confidence', 0)
             ${all_scores}=    Evaluate    $result.get('all_scores', {})
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${category}    category=${category}    confidence=${confidence}    all_scores=${all_scores}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $category}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    AI classified as: ${category} (confidence: ${confidence})    console=yes
 
 {% elif node.type == 'ai.translate' %}
@@ -2366,6 +2755,8 @@ Execute Node By ID
             ${source_language}=    Set Variable    {{ node.config.get('source_language', '') | transform_vars }}
             ${translated}=    SkuldAI.Translate Text    ${input_text}    target=${target_language}    source=${source_language}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${translated}    translated=${translated}    targetLanguage=${target_language}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $translated}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    AI translated to ${target_language}    console=yes
 
 {% elif node.type == 'ai.sentiment' %}
@@ -2383,6 +2774,8 @@ Execute Node By ID
             ${score}=    Evaluate    $result.get('score', 0)
             ${emotions}=    Evaluate    $result.get('emotions', {})
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${sentiment}    sentiment=${sentiment}    score=${score}    emotions=${emotions}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $sentiment}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    AI sentiment: ${sentiment} (score: ${score})    console=yes
 
 {% elif node.type == 'ai.vision' %}
@@ -2398,6 +2791,8 @@ Execute Node By ID
             ${detail}=    Set Variable    {{ node.config.get('detail', 'auto') | escape_newlines }}
             ${description}=    SkuldAI.Analyze Image    ${image_path}    ${prompt}    detail=${detail}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${description}    description=${description}    imagePath=${image_path}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $description}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    AI vision analysis completed    console=yes
 
 {% elif node.type == 'ai.repair_data' %}
@@ -2423,6 +2818,8 @@ Execute Node By ID
             ${repairs}=    Evaluate    $result.get('repairs', [])
             ${issues_fixed}=    Evaluate    $result.get('issues_fixed', 0)
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${repaired_data}    status=${status}    repaired_data=${repaired_data}    repairs=${repairs}    issues_fixed=${issues_fixed}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $repaired_data}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    AI repaired ${issues_fixed} data issues (${status})    console=yes
 
 {% elif node.type == 'ai.suggest_repairs' %}
@@ -2442,6 +2839,8 @@ Execute Node By ID
             ${medium_confidence}=    Evaluate    $result.get('medium_confidence', [])
             ${low_confidence}=    Evaluate    $result.get('low_confidence', [])
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    suggestion_count=${suggestion_count}    high_confidence=${high_confidence}    medium_confidence=${medium_confidence}    low_confidence=${low_confidence}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    AI suggested ${suggestion_count} repairs    console=yes
 
 {# ===== VECTOR DATABASE ===== #}
@@ -2469,6 +2868,8 @@ Execute Node By ID
             {% if node.config.get('create_table_if_not_exists') is not none %}...    create_table_if_not_exists=${{ '{TRUE}' if node.config.get('create_table_if_not_exists', True) else '{FALSE}' }}{% endif %}
             {% if node.config.get('index_type') %}...    index_type={{ node.config.get('index_type', 'ivfflat') }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${connection}    connection=${connection}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $connection}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Connected to pgvector: ${connection}[connection_id]    console=yes
 
 {% elif node.type == 'vectordb.pgvector_upsert' %}
@@ -2476,6 +2877,8 @@ Execute Node By ID
             ...    documents={{ node.config.get('documents', '[]') | transform_vars }}
             ...    auto_embed=${{ '{TRUE}' if node.config.get('auto_embed', True) else '{FALSE}' }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    inserted=${result}[inserted]    updated=${result}[updated]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Upserted ${result}[total] documents    console=yes
 
 {% elif node.type == 'vectordb.pgvector_query' %}
@@ -2485,6 +2888,8 @@ Execute Node By ID
             {% if node.config.get('min_score') %}...    min_score={{ node.config.get('min_score', 0.0) }}{% endif %}
             {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${results}    results=${results}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $results}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Found ${results.__len__()} results    console=yes
 
 {% elif node.type == 'vectordb.pgvector_delete' %}
@@ -2493,6 +2898,8 @@ Execute Node By ID
             {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
             {% if node.config.get('delete_all') %}...    delete_all=${{ '{TRUE}' if node.config.get('delete_all') else '{FALSE}' }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    deleted=${result}[deleted]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Deleted ${result}[deleted] documents    console=yes
 
 {% elif node.type == 'vectordb.supabase_connect' %}
@@ -2505,6 +2912,8 @@ Execute Node By ID
             {% if node.config.get('create_table_if_not_exists') is not none %}...    create_table_if_not_exists=${{ '{TRUE}' if node.config.get('create_table_if_not_exists', True) else '{FALSE}' }}{% endif %}
             {% if node.config.get('index_type') %}...    index_type={{ node.config.get('index_type', 'ivfflat') }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${connection}    connection=${connection}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $connection}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Connected to Supabase: ${connection}[project_ref]    console=yes
 
 {% elif node.type == 'vectordb.supabase_upsert' %}
@@ -2512,6 +2921,8 @@ Execute Node By ID
             ...    documents={{ node.config.get('documents', '[]') | transform_vars }}
             ...    auto_embed=${{ '{TRUE}' if node.config.get('auto_embed', True) else '{FALSE}' }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    inserted=${result}[inserted]    updated=${result}[updated]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Upserted ${result}[total] documents    console=yes
 
 {% elif node.type == 'vectordb.supabase_query' %}
@@ -2521,6 +2932,8 @@ Execute Node By ID
             {% if node.config.get('min_score') %}...    min_score={{ node.config.get('min_score', 0.0) }}{% endif %}
             {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${results}    results=${results}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $results}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Found ${results.__len__()} results    console=yes
 
 {% elif node.type == 'vectordb.supabase_delete' %}
@@ -2529,6 +2942,8 @@ Execute Node By ID
             {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
             {% if node.config.get('delete_all') %}...    delete_all=${{ '{TRUE}' if node.config.get('delete_all') else '{FALSE}' }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    deleted=${result}[deleted]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Deleted ${result}[deleted] documents    console=yes
 
 {% elif node.type == 'vectordb.pinecone_connect' %}
@@ -2541,6 +2956,8 @@ Execute Node By ID
             {% if node.config.get('metric') %}...    metric={{ node.config.get('metric', 'cosine') }}{% endif %}
             {% if node.config.get('create_if_not_exists') is not none %}...    create_if_not_exists=${{ '{TRUE}' if node.config.get('create_if_not_exists', True) else '{FALSE}' }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${connection}    connection=${connection}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $connection}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Connected to Pinecone: ${connection}[connection_id]    console=yes
 
 {% elif node.type == 'vectordb.pinecone_upsert' %}
@@ -2549,6 +2966,8 @@ Execute Node By ID
             {% if node.config.get('namespace') %}...    namespace={{ node.config.get('namespace', '') | transform_vars }}{% endif %}
             ...    auto_embed=${{ '{TRUE}' if node.config.get('auto_embed', True) else '{FALSE}' }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    upserted=${result}[upserted]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Upserted ${result}[upserted] vectors    console=yes
 
 {% elif node.type == 'vectordb.pinecone_query' %}
@@ -2559,6 +2978,8 @@ Execute Node By ID
             {% if node.config.get('min_score') %}...    min_score={{ node.config.get('min_score', 0.0) }}{% endif %}
             {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${results}    results=${results}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $results}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Found ${results.__len__()} results    console=yes
 
 {% elif node.type == 'vectordb.pinecone_delete' %}
@@ -2568,6 +2989,8 @@ Execute Node By ID
             {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
             {% if node.config.get('delete_all') %}...    delete_all=${{ '{TRUE}' if node.config.get('delete_all') else '{FALSE}' }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Deleted vectors from Pinecone    console=yes
 
 {% elif node.type == 'vectordb.qdrant_connect' %}
@@ -2581,6 +3004,8 @@ Execute Node By ID
             {% if node.config.get('metric') %}...    metric={{ node.config.get('metric', 'cosine') }}{% endif %}
             {% if node.config.get('create_if_not_exists') is not none %}...    create_if_not_exists=${{ '{TRUE}' if node.config.get('create_if_not_exists', True) else '{FALSE}' }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${connection}    connection=${connection}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $connection}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Connected to Qdrant: ${connection}[connection_id]    console=yes
 
 {% elif node.type == 'vectordb.qdrant_upsert' %}
@@ -2588,6 +3013,8 @@ Execute Node By ID
             ...    documents={{ node.config.get('documents', '[]') | transform_vars }}
             ...    auto_embed=${{ '{TRUE}' if node.config.get('auto_embed', True) else '{FALSE}' }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    upserted=${result}[upserted]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Upserted ${result}[upserted] points    console=yes
 
 {% elif node.type == 'vectordb.qdrant_query' %}
@@ -2597,6 +3024,8 @@ Execute Node By ID
             {% if node.config.get('min_score') %}...    min_score={{ node.config.get('min_score', 0.0) }}{% endif %}
             {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${results}    results=${results}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $results}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Found ${results.__len__()} results    console=yes
 
 {% elif node.type == 'vectordb.qdrant_delete' %}
@@ -2604,6 +3033,8 @@ Execute Node By ID
             {% if node.config.get('ids') %}...    ids={{ node.config.get('ids') | transform_vars }}{% endif %}
             {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Deleted points from Qdrant    console=yes
 
 {% elif node.type == 'vectordb.chroma_connect' %}
@@ -2615,6 +3046,8 @@ Execute Node By ID
             {% if node.config.get('port') %}...    port={{ node.config.get('port', 8000) }}{% endif %}
             {% if node.config.get('create_if_not_exists') is not none %}...    create_if_not_exists=${{ '{TRUE}' if node.config.get('create_if_not_exists', True) else '{FALSE}' }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${connection}    connection=${connection}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $connection}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Connected to ChromaDB: ${connection}[connection_id]    console=yes
 
 {% elif node.type == 'vectordb.chroma_add' %}
@@ -2622,6 +3055,8 @@ Execute Node By ID
             ...    documents={{ node.config.get('documents', '[]') | transform_vars }}
             ...    auto_embed=${{ '{TRUE}' if node.config.get('auto_embed', True) else '{FALSE}' }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    added=${result}[added]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Added ${result}[added] documents    console=yes
 
 {% elif node.type == 'vectordb.chroma_query' %}
@@ -2630,6 +3065,8 @@ Execute Node By ID
             ...    top_k={{ node.config.get('top_k', 5) }}
             {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${results}    results=${results}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $results}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Found ${results.__len__()} results    console=yes
 
 {% elif node.type == 'vectordb.chroma_delete' %}
@@ -2637,6 +3074,8 @@ Execute Node By ID
             {% if node.config.get('ids') %}...    ids={{ node.config.get('ids') | transform_vars }}{% endif %}
             {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Deleted documents from ChromaDB    console=yes
 
 {% elif node.type == 'vectordb.chroma_update' %}
@@ -2647,6 +3086,8 @@ Execute Node By ID
             {% if node.config.get('metadatas') %}...    metadatas={{ node.config.get('metadatas') | transform_vars }}{% endif %}
             {% if node.config.get('embeddings') %}...    embeddings={{ node.config.get('embeddings') | transform_vars }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    updated_count=${result}[updated]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Updated ${result}[updated] documents in ChromaDB    console=yes
 
 {% elif node.type == 'vectordb.pgvector_admin' %}
@@ -2717,6 +3158,8 @@ Execute Node By ID
             ...    collection={{ node.config.get('collection', 'agent_memory') | transform_vars }}
             ...    memory_type={{ node.config.get('memory_type', 'both') }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${memory}    memory=${memory}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $memory}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Vector memory initialized: ${memory}[provider]    console=yes
 
 {% elif node.type == 'vectordb.store_memory' %}
@@ -2725,6 +3168,8 @@ Execute Node By ID
             {% if node.config.get('metadata') %}...    metadata={{ node.config.get('metadata') | transform_vars }}{% endif %}
             {% if node.config.get('doc_id') %}...    doc_id={{ node.config.get('doc_id', '') | transform_vars }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    id=${result}[id]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Stored in memory: ${result}[id]    console=yes
 
 {% elif node.type == 'vectordb.retrieve_memory' %}
@@ -2734,6 +3179,8 @@ Execute Node By ID
             {% if node.config.get('min_score') %}...    min_score={{ node.config.get('min_score', 0.5) }}{% endif %}
             {% if node.config.get('filter_metadata') %}...    filter_metadata={{ node.config.get('filter_metadata') | transform_vars }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${results}    results=${results}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $results}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Retrieved ${results.__len__()} from memory    console=yes
 
 {% elif node.type == 'vectordb.build_rag_context' %}
@@ -2743,6 +3190,8 @@ Execute Node By ID
             {% if node.config.get('min_score') %}...    min_score={{ node.config.get('min_score', 0.5) }}{% endif %}
             {% if node.config.get('max_context_length') %}...    max_context_length={{ node.config.get('max_context_length', 4000) }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${rag}    context=${rag}[context]    sources=${rag}[sources]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $rag}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Built RAG context: ${rag}[num_sources] sources    console=yes
 
 {% elif node.type == 'vectordb.load_documents_text' %}
@@ -2752,6 +3201,8 @@ Execute Node By ID
             {% if node.config.get('chunk_overlap') %}...    chunk_overlap={{ node.config.get('chunk_overlap', 200) }}{% endif %}
             {% if node.config.get('metadata') %}...    metadata={{ node.config.get('metadata') | transform_vars }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${chunks}    chunks=${chunks}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $chunks}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Loaded ${chunks.__len__()} chunks    console=yes
 
 {% elif node.type == 'vectordb.load_documents_file' %}
@@ -2760,6 +3211,8 @@ Execute Node By ID
             {% if node.config.get('chunk_size') %}...    chunk_size={{ node.config.get('chunk_size', 1000) }}{% endif %}
             {% if node.config.get('chunk_overlap') %}...    chunk_overlap={{ node.config.get('chunk_overlap', 200) }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${chunks}    chunks=${chunks}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $chunks}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Loaded ${chunks.__len__()} chunks from file    console=yes
 
 {% elif node.type == 'vectordb.close' %}
@@ -2822,6 +3275,8 @@ Execute Node By ID
                         Log    From: ${from_email}    console=yes
                         Log    Subject: ${email_subject}    console=yes
                         Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${email}    &{email}    trigger_type=new_email
+                        ${_output_json}=    Evaluate    __import__('json').dumps({'result': $email}, default=str)
+                        Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
                         # Execute the rest of the flow for this email
                         {% set next_node_id = outputs.get('success', 'END') %}
                         {% if next_node_id != 'END' %}
@@ -2842,6 +3297,8 @@ Execute Node By ID
             ...    client_secret={{ node.config.get('client_secret', '') | transform_vars }}
             {% if node.config.get('user_email') %}...    user_email={{ node.config.get('user_email', '') | transform_vars }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=connected    status=connected    authenticated=${TRUE}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': 'connected'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Microsoft 365 connection configured    console=yes
 
 {% elif node.type == 'ms365.email_list' %}
@@ -2854,6 +3311,8 @@ Execute Node By ID
             ...    order_by={{ node.config.get('order_by', 'receivedDateTime desc') }}
             ${count}=    Get Length    ${emails}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${emails}    emails=${emails}    count=${count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $emails}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Listed ${count} emails from {{ node.config.get('folder', 'inbox') }}    console=yes
 
 {% elif node.type == 'ms365.email_get' %}
@@ -2863,6 +3322,8 @@ Execute Node By ID
             ...    include_body={{ '${TRUE}' if node.config.get('include_body', True) else '${FALSE}' }}
             ...    include_attachments={{ '${TRUE}' if node.config.get('include_attachments', False) else '${FALSE}' }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${email}    &{email}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $email}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Retrieved email: ${email}[subject]    console=yes
 
 {% elif node.type == 'ms365.email_search' %}
@@ -2873,6 +3334,8 @@ Execute Node By ID
             ...    top={{ node.config.get('top', 25) }}
             ${count}=    Get Length    ${emails}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${emails}    emails=${emails}    count=${count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $emails}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Found ${count} emails matching search    console=yes
 
 {% elif node.type == 'ms365.email_get_attachments' %}
@@ -2881,6 +3344,8 @@ Execute Node By ID
             ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
             ${count}=    Get Length    ${attachments}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${attachments}    attachments=${attachments}    count=${count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $attachments}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Found ${count} attachments    console=yes
 
 {% elif node.type == 'ms365.email_download_attachment' %}
@@ -2890,6 +3355,8 @@ Execute Node By ID
             ...    attachment_id={{ node.config.get('attachment_id', '') | transform_vars }}
             {% if node.config.get('save_path') %}...    save_path={{ node.config.get('save_path', '') | transform_vars }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${file}    &{file}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $file}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Downloaded attachment: ${file}[name]    console=yes
 
 {% elif node.type == 'ms365.email_send' %}
@@ -2905,6 +3372,8 @@ Execute Node By ID
             {% if node.config.get('attachments') %}...    attachments={{ node.config.get('attachments', '') | transform_vars }}{% endif %}
             ...    save_to_sent={{ '${TRUE}' if node.config.get('save_to_sent', True) else '${FALSE}' }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Email sent to {{ node.config.get('to', '') | transform_vars }}    console=yes
 
 {% elif node.type == 'ms365.email_reply' %}
@@ -2916,6 +3385,8 @@ Execute Node By ID
             ...    body_type={{ node.config.get('body_type', 'html') }}
             {% if node.config.get('attachments') %}...    attachments={{ node.config.get('attachments', '') | transform_vars }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Reply sent    console=yes
 
 {% elif node.type == 'ms365.email_forward' %}
@@ -2925,6 +3396,8 @@ Execute Node By ID
             ...    to={{ node.config.get('to', '') | transform_vars }}
             {% if node.config.get('comment') %}...    comment={{ node.config.get('comment', '') | transform_vars }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Email forwarded    console=yes
 
 {% elif node.type == 'ms365.email_draft' %}
@@ -2936,6 +3409,8 @@ Execute Node By ID
             {% if node.config.get('cc') %}...    cc={{ node.config.get('cc', '') | transform_vars }}{% endif %}
             ...    body_type={{ node.config.get('body_type', 'html') }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${draft}    &{draft}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $draft}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Draft created: ${draft}[id]    console=yes
 
 {% elif node.type == 'ms365.email_move' %}
@@ -2944,6 +3419,8 @@ Execute Node By ID
             ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
             ...    destination_folder={{ node.config.get('destination_folder', '') | transform_vars }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Email moved to {{ node.config.get('destination_folder', '') }}    console=yes
 
 {% elif node.type == 'ms365.email_copy' %}
@@ -2952,6 +3429,8 @@ Execute Node By ID
             ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
             ...    destination_folder={{ node.config.get('destination_folder', '') | transform_vars }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Email copied to {{ node.config.get('destination_folder', '') }}    console=yes
 
 {% elif node.type == 'ms365.email_delete' %}
@@ -2960,6 +3439,8 @@ Execute Node By ID
             ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
             ...    permanent={{ '${TRUE}' if node.config.get('permanent', False) else '${FALSE}' }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Email deleted    console=yes
 
 {% elif node.type == 'ms365.email_mark_read' %}
@@ -2968,6 +3449,8 @@ Execute Node By ID
             ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
             ...    is_read={{ '${TRUE}' if node.config.get('is_read', True) else '${FALSE}' }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Email marked as {{ 'read' if node.config.get('is_read', True) else 'unread' }}    console=yes
 
 {% elif node.type == 'ms365.email_flag' %}
@@ -2976,6 +3459,8 @@ Execute Node By ID
             ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
             ...    flag_status={{ node.config.get('flag_status', 'flagged') }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Email flag set to {{ node.config.get('flag_status', 'flagged') }}    console=yes
 
 {% elif node.type == 'ms365.email_categories' %}
@@ -2984,6 +3469,8 @@ Execute Node By ID
             ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
             ...    categories={{ node.config.get('categories', '') | transform_vars }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Email categories updated    console=yes
 
 {% elif node.type == 'ms365.email_importance' %}
@@ -2992,6 +3479,8 @@ Execute Node By ID
             ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
             ...    importance={{ node.config.get('importance', 'high') }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Email importance set to {{ node.config.get('importance', 'high') }}    console=yes
 
 {% elif node.type == 'ms365.folder_list' %}
@@ -3000,6 +3489,8 @@ Execute Node By ID
             {% if node.config.get('parent_folder_id') %}...    parent_folder_id={{ node.config.get('parent_folder_id', '') | transform_vars }}{% endif %}
             ${count}=    Get Length    ${folders}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${folders}    folders=${folders}    count=${count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $folders}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Listed ${count} folders    console=yes
 
 {% elif node.type == 'ms365.folder_create' %}
@@ -3008,6 +3499,8 @@ Execute Node By ID
             ...    display_name={{ node.config.get('display_name', '') | transform_vars }}
             {% if node.config.get('parent_folder_id') %}...    parent_folder_id={{ node.config.get('parent_folder_id', '') | transform_vars }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${folder}    &{folder}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $folder}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Folder created: ${folder}[displayName]    console=yes
 
 {% elif node.type == 'ms365.folder_delete' %}
@@ -3015,6 +3508,8 @@ Execute Node By ID
             ${result}=    MS365.Delete Folder
             ...    folder_id={{ node.config.get('folder_id', '') | transform_vars }}
             Set To Dictionary    ${NODE_{{ node.id | replace('-', '_') }}}    output=${result}    &{result}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Folder deleted    console=yes
 
 {# ===== DEFAULT ===== #}

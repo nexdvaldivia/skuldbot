@@ -142,19 +142,26 @@ function CodePanel({
   label?: string
   code?: string
 }) {
-  let child = Children.only(children)
+  // Convert children to array to handle fragments and multiple children safely
+  const childArray = Children.toArray(children)
+  const firstChild = childArray[0]
 
-  if (isValidElement(child)) {
-    const props = child.props as { tag?: string; label?: string; code?: string }
+  if (isValidElement(firstChild)) {
+    const props = firstChild.props as { tag?: string; label?: string; code?: string }
     tag = props.tag ?? tag
     label = props.label ?? label
     code = props.code ?? code
   }
 
   if (!code) {
-    throw new Error(
-      '`CodePanel` requires a `code` prop, or a child with a `code` prop.',
-    )
+    // If no code is available, try to extract from children
+    if (typeof children === 'string') {
+      code = children
+    } else if (typeof firstChild === 'string') {
+      code = firstChild
+    } else {
+      code = '' // Fallback to empty string instead of throwing
+    }
   }
 
   return (

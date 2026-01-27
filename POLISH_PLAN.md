@@ -310,3 +310,5 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 **Siguiente paso**: Decidir prioridad y empezar con las mejoras.
 
 
+
+

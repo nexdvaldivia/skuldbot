@@ -112,16 +112,10 @@ export default function DebugPanel({ className }: DebugPanelProps) {
           </button>
         )}
 
-        {/* Stop */}
+        {/* Stop - Always enabled to allow force stopping hung processes */}
         <button
           onClick={stopDebug}
-          disabled={isIdle}
-          className={cn(
-            "p-1.5 rounded transition-colors",
-            isIdle
-              ? "text-slate-300 cursor-not-allowed"
-              : "hover:bg-red-100 text-red-600"
-          )}
+          className="p-1.5 rounded transition-colors hover:bg-red-100 text-red-600"
           title="Stop (Shift+F5)"
         >
           <Square className="w-4 h-4" />

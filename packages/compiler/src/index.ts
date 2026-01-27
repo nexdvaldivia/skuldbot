@@ -29,9 +29,10 @@ import {
 } from './executor';
 
 /**
- * AI configuration node types (sub-nodes that don't execute directly)
+ * Configuration node types (sub-nodes that don't execute directly)
+ * These provide configuration to other nodes via visual connections
  */
-const AI_CONFIG_NODES = new Set(['ai.model', 'ai.embeddings']);
+const CONFIG_NODES = new Set(['ai.model', 'ai.embeddings', 'ms365.connection', 'vectordb.memory']);
 
 /**
  * Validate AI-related configurations in DSL nodes

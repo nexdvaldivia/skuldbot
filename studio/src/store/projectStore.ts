@@ -207,6 +207,17 @@ function dslToFlowNodes(dsl: BotDSL): { nodes: FlowNode[]; edges: FlowEdge[] } {
           data: { edgeType: "embeddings" },
         });
       }
+      if (dslNode.connections.connection) {
+        edges.push({
+          id: `${dslNode.connections.connection}-connection-${dslNode.id}`,
+          source: dslNode.connections.connection,
+          target: dslNode.id,
+          sourceHandle: "connection-out",
+          targetHandle: "connection",
+          type: "animated",
+          data: { edgeType: "connection" },
+        });
+      }
     }
   }
 
@@ -270,7 +281,7 @@ function flowNodesToDSL(
       dslNode.children = children.map(nodeToDSL);
     }
 
-    // Save special connections (model, tools, memory, embeddings) for UI persistence
+    // Save special connections (model, tools, memory, embeddings, connection) for UI persistence
     const modelEdge = edges.find(
       (e) => e.target === node.id && e.targetHandle === "model" && e.data?.edgeType === "model"
     );
@@ -282,6 +293,9 @@ function flowNodesToDSL(
     );
     const embeddingsEdge = edges.find(
       (e) => e.target === node.id && e.targetHandle === "embeddings" && e.data?.edgeType === "embeddings"
+    );
+    const connectionEdge = edges.find(
+      (e) => e.target === node.id && e.targetHandle === "connection" && e.data?.edgeType === "connection"
     );
 
     // Debug: Log edges for this node
@@ -297,7 +311,7 @@ function flowNodesToDSL(
       })));
     }
 
-    if (modelEdge || toolEdges.length > 0 || memoryEdge || embeddingsEdge) {
+    if (modelEdge || toolEdges.length > 0 || memoryEdge || embeddingsEdge || connectionEdge) {
       dslNode.connections = {};
       if (modelEdge) {
         dslNode.connections.model = modelEdge.source;
@@ -314,6 +328,10 @@ function flowNodesToDSL(
       if (embeddingsEdge) {
         dslNode.connections.embeddings = embeddingsEdge.source;
         console.log(`[DSL] Saving embeddings connection for ${node.id}:`, embeddingsEdge.source);
+      }
+      if (connectionEdge) {
+        dslNode.connections.connection = connectionEdge.source;
+        console.log(`[DSL] Saving service connection for ${node.id}:`, connectionEdge.source);
       }
     }
 
@@ -462,7 +480,6 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       }
     } catch (error) {
       console.error("Failed to open project:", error);
-      toast.error("Error opening project", String(error));
       set({ isLoading: false });
     }
   },
@@ -660,7 +677,6 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       });
     } catch (error) {
       console.error("Failed to open bot:", error);
-      toast.error("Error opening bot", String(error));
     }
   },
 

@@ -104,14 +104,14 @@ function SmallPrint() {
       <p className="text-xs text-zinc-600 dark:text-zinc-400">
         &copy; {new Date().getFullYear()} Skuld, LLC. All rights reserved.
       </p>
-      <span className="text-xs text-zinc-500">222 Components</span>
+      <span className="text-xs text-zinc-500">260+ Components</span>
     </div>
   )
 }
 
 export function Footer() {
   return (
-    <footer className="mx-auto w-full max-w-2xl space-y-10 pb-16 lg:max-w-5xl">
+    <footer className="mx-auto w-full space-y-10 pb-16">
       <PageNavigation />
       <SmallPrint />
     </footer>

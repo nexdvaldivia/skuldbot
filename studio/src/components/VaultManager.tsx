@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useVaultStore } from "../store/vaultStore";
+import { useProjectStore } from "../store/projectStore";
 import { useToastStore } from "../store/toastStore";
 import { Input } from "./ui/Input";
 import { Label } from "./ui/label";
@@ -26,26 +27,23 @@ interface SecretFormData {
 }
 
 export default function VaultManager() {
+  const { projectPath } = useProjectStore();
+
   const {
     isUnlocked,
     isLoading,
     secrets,
     error,
-    createVault,
-    unlockVault,
-    lockVault,
+    initializeVault,
     setSecret,
     deleteSecret,
     checkVaultStatus,
-    setError,
+    setVaultPath,
   } = useVaultStore();
 
   const toast = useToastStore();
 
   // Form states
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [isCreating, setIsCreating] = useState(false);
   const [showAddSecret, setShowAddSecret] = useState(false);
   const [newSecret, setNewSecret] = useState<SecretFormData>({
     name: "",
@@ -53,48 +51,28 @@ export default function VaultManager() {
     description: "",
   });
 
+  // Update vault path when project changes
   useEffect(() => {
-    checkVaultStatus();
-  }, []);
+    if (projectPath) {
+      const vaultDir = `${projectPath}/.skuldbot`;
+      setVaultPath(vaultDir);
+      checkVaultStatus();
+    }
+  }, [projectPath, setVaultPath, checkVaultStatus]);
 
-  const handleCreateVault = async () => {
-    if (password.length < 12) {
-      setError("Password must be at least 12 characters");
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-    const success = await createVault(password);
+  const handleInitialize = async () => {
+    const success = await initializeVault();
     if (success) {
-      toast.success("Vault created", "Local vault created successfully");
-      setPassword("");
-      setConfirmPassword("");
-      setIsCreating(false);
+      toast.success("Vault ready", "Local vault initialized and ready to use");
     } else {
-      toast.error("Error", "Failed to create vault");
+      const message = error || "Failed to initialize vault";
+      toast.error("Error", message);
     }
-  };
-
-  const handleUnlock = async () => {
-    const success = await unlockVault(password);
-    if (success) {
-      toast.success("Vault unlocked", "Local vault is now accessible");
-      setPassword("");
-    } else {
-      toast.error("Error", "Invalid password");
-    }
-  };
-
-  const handleLock = async () => {
-    await lockVault();
-    toast.info("Vault locked", "Local vault is now secured");
   };
 
   const handleAddSecret = async () => {
     if (!newSecret.name || !newSecret.value) {
-      setError("Name and value are required");
+      toast.error("Error", "Name and value are required");
       return;
     }
     const success = await setSecret(newSecret.name, newSecret.value, newSecret.description);
@@ -119,20 +97,18 @@ export default function VaultManager() {
   };
 
   // SECURITY: Secret values are never returned to frontend
-  // Show info message instead
-  const toggleSecretVisibility = (_name: string) => {
+  const toggleSecretVisibility = () => {
     toast.info("Security", "Secret values are not exposed to the UI. Use ${vault.name} in your bot to access them at runtime.");
   };
 
   // SECURITY: Secret values cannot be copied - they're resolved at runtime
   const copyToClipboard = (name: string) => {
-    // Copy the vault reference syntax instead
     const reference = `\${vault.${name}}`;
     navigator.clipboard.writeText(reference);
     toast.success("Copied", `Reference ${reference} copied. Use this in your bot config.`);
   };
 
-  // Locked state - show unlock or create form
+  // Not initialized - show initialize button
   if (!isUnlocked) {
     return (
       <div className="flex-1 bg-slate-50 overflow-auto">
@@ -158,116 +134,30 @@ export default function VaultManager() {
           )}
 
           <div className="bg-white rounded-xl border border-slate-200 p-6">
-            {isCreating ? (
-              // Create vault form
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <Shield className="w-5 h-5 text-emerald-600" />
-                  <h2 className="font-medium text-slate-800">Create New Vault</h2>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
-                    Master Password
-                  </Label>
-                  <Input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Minimum 12 characters"
-                    className="h-10"
-                  />
-                  <p className="text-xs text-slate-400">
-                    AES-256-GCM encryption with PBKDF2 key derivation
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
-                    Confirm Password
-                  </Label>
-                  <Input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Re-enter password"
-                    className="h-10"
-                  />
-                </div>
-
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    onClick={handleCreateVault}
-                    disabled={isLoading || password.length < 12}
-                    className="flex-1"
-                  >
-                    {isLoading ? (
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Shield className="w-4 h-4" />
-                    )}
-                    Create Vault
-                  </Button>
-                  <Button variant="outline" onClick={() => setIsCreating(false)}>
-                    Cancel
-                  </Button>
-                </div>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Shield className="w-5 h-5 text-emerald-600" />
+                <h2 className="font-medium text-slate-800">Initialize Vault</h2>
               </div>
-            ) : (
-              // Unlock form
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <Key className="w-5 h-5 text-amber-600" />
-                  <h2 className="font-medium text-slate-800">Unlock Vault</h2>
-                </div>
 
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-700">
-                    Master Password
-                  </Label>
-                  <Input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter master password"
-                    className="h-10"
-                    onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
-                  />
-                </div>
+              <p className="text-sm text-slate-600">
+                Click to initialize the local secrets vault. The vault is automatically
+                encrypted using AES-256-GCM and managed by the Studio.
+              </p>
 
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    onClick={handleUnlock}
-                    disabled={isLoading || !password}
-                    className="flex-1"
-                  >
-                    {isLoading ? (
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Unlock className="w-4 h-4" />
-                    )}
-                    Unlock
-                  </Button>
-                </div>
-
-                <div className="pt-4 border-t border-slate-100">
-                  <p className="text-sm text-slate-500 mb-3">
-                    Don't have a vault yet?
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setIsCreating(true);
-                      setError(null);
-                    }}
-                    className="w-full"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Create New Vault
-                  </Button>
-                </div>
-              </div>
-            )}
+              <Button
+                onClick={handleInitialize}
+                disabled={isLoading}
+                className="w-full"
+              >
+                {isLoading ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Shield className="w-4 h-4" />
+                )}
+                Initialize Vault
+              </Button>
+            </div>
           </div>
 
           {/* Info box */}
@@ -281,6 +171,9 @@ export default function VaultManager() {
             <code className="block mt-2 p-2 bg-blue-100 rounded text-sm text-blue-900 font-mono">
               {"${vault.secret_name}"}
             </code>
+            <p className="text-xs text-blue-600 mt-2">
+              This local vault is for development and testing. In production, secrets are managed in the Orchestrator.
+            </p>
           </div>
         </div>
       </div>
@@ -304,28 +197,16 @@ export default function VaultManager() {
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowAddSecret(true)}>
-              <Plus className="w-4 h-4" />
-              Add Secret
-            </Button>
-            <Button variant="outline" onClick={handleLock}>
-              <Lock className="w-4 h-4" />
-              Lock
-            </Button>
-          </div>
+          <Button variant="outline" onClick={() => setShowAddSecret(true)}>
+            <Plus className="w-4 h-4" />
+            Add Secret
+          </Button>
         </div>
 
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
             <AlertCircle className="w-4 h-4" />
             <span className="text-sm">{error}</span>
-            <button
-              onClick={() => setError(null)}
-              className="ml-auto text-red-500 hover:text-red-700"
-            >
-              &times;
-            </button>
           </div>
         )}
 
@@ -399,7 +280,7 @@ export default function VaultManager() {
           <div className="px-5 py-4 border-b border-slate-100">
             <h2 className="font-medium text-slate-800">Stored Secrets</h2>
             <p className="text-sm text-slate-500 mt-1">
-              Click the eye icon to reveal values temporarily (30s)
+              Secret values are never exposed. Click copy to get the reference syntax.
             </p>
           </div>
 
@@ -441,7 +322,7 @@ export default function VaultManager() {
                   </div>
                   <div className="flex items-center gap-1 ml-4">
                     <button
-                      onClick={() => toggleSecretVisibility(secret.name)}
+                      onClick={() => toggleSecretVisibility()}
                       className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600"
                       title="Secret values are not exposed (security)"
                     >
@@ -450,7 +331,7 @@ export default function VaultManager() {
                     <button
                       onClick={() => copyToClipboard(secret.name)}
                       className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600"
-                      title="Copy to clipboard"
+                      title="Copy reference to clipboard"
                     >
                       <Copy className="w-4 h-4" />
                     </button>
@@ -480,7 +361,7 @@ export default function VaultManager() {
             {"${vault.db_password}"}
           </code>
           <p className="text-xs text-blue-600 mt-2">
-            Secrets are resolved at runtime by the BotRunner using the SKULDBOT_VAULT_PASSWORD environment variable.
+            This local vault is for development and testing. In production, secrets are managed in the Orchestrator.
           </p>
         </div>
       </div>

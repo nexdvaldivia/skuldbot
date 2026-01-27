@@ -235,3 +235,5 @@ npm run tauri:build
 **Última actualización**: 16 de Diciembre 2025
 
 
+
+

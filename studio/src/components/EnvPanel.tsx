@@ -1,14 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { Input } from "./ui/Input";
-import { Switch } from "./ui/switch";
 import { Button } from "./ui/Button";
 import { ScrollArea } from "./ui/scroll-area";
 import {
-  KeyRound,
+  Variable,
   Plus,
   Trash2,
-  Eye,
-  EyeOff,
   Copy,
   Info,
   Server,
@@ -33,7 +30,6 @@ export default function EnvPanel() {
   const { envConfig, loadEnvConfig, saveEnvConfig, isSaving } = useProjectStore();
   const [activeEnv, setActiveEnv] = useState<EnvScope>("development");
   const [localVariables, setLocalVariables] = useState<LocalEnvVariable[]>([]);
-  const [visibleSecrets, setVisibleSecrets] = useState<Set<string>>(new Set());
   const [hasChanges, setHasChanges] = useState(false);
 
   // Load env config on mount
@@ -58,7 +54,7 @@ export default function EnvPanel() {
       id: `var-${Date.now()}`,
       name: "",
       value: "",
-      isSecret: false,
+      isSecret: false, // Always false - use Secrets Vault for sensitive data
       scope: [activeEnv],
     };
     setLocalVariables((prev) => [...prev, newVar]);
@@ -102,18 +98,6 @@ export default function EnvPanel() {
     setHasChanges(false);
   }, [envConfig, activeEnv, localVariables, saveEnvConfig]);
 
-  const toggleSecretVisibility = (id: string) => {
-    setVisibleSecrets((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
   const copyToClipboard = (value: string) => {
     navigator.clipboard.writeText(value);
   };
@@ -124,15 +108,15 @@ export default function EnvPanel() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center">
-              <KeyRound className="w-5 h-5 text-primary-600" />
+            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+              <Variable className="w-5 h-5 text-blue-600" />
             </div>
             <div>
               <h1 className="text-xl font-semibold text-slate-800">
                 Environment Variables
               </h1>
               <p className="text-sm text-slate-500">
-                Manage secrets and configuration for different environments
+                Configuration values for different environments
               </p>
             </div>
           </div>
@@ -190,7 +174,7 @@ export default function EnvPanel() {
           {/* Card Description */}
           <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/50">
             <p className="text-sm text-slate-500">
-              Variables for {activeEnv} environment. Secret values are encrypted at rest.
+              Configuration variables for {activeEnv} environment. For sensitive credentials, use the Secrets Vault.
             </p>
           </div>
 
@@ -199,7 +183,7 @@ export default function EnvPanel() {
             {localVariables.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-                  <KeyRound className="w-6 h-6 text-slate-400" />
+                  <Variable className="w-6 h-6 text-slate-400" />
                 </div>
                 <h3 className="font-medium text-slate-700 mb-1">
                   No variables yet
@@ -217,9 +201,8 @@ export default function EnvPanel() {
                 <div className="space-y-2">
                   {/* Header Row */}
                   <div className="grid grid-cols-12 gap-3 px-1 text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    <div className="col-span-4">Name</div>
-                    <div className="col-span-5">Value</div>
-                    <div className="col-span-2 text-center">Secret</div>
+                    <div className="col-span-5">Name</div>
+                    <div className="col-span-6">Value</div>
                     <div className="col-span-1"></div>
                   </div>
 
@@ -231,7 +214,7 @@ export default function EnvPanel() {
                       key={variable.id}
                       className="grid grid-cols-12 gap-3 items-center group py-1"
                     >
-                      <div className="col-span-4">
+                      <div className="col-span-5">
                         <Input
                           value={variable.name}
                           onChange={(e) =>
@@ -245,15 +228,10 @@ export default function EnvPanel() {
                           className="font-mono text-sm h-9 border-slate-200 focus:border-primary-300 focus:ring-primary-100"
                         />
                       </div>
-                      <div className="col-span-5">
+                      <div className="col-span-6">
                         <div className="relative">
                           <Input
-                            type={
-                              variable.isSecret &&
-                              !visibleSecrets.has(variable.id)
-                                ? "password"
-                                : "text"
-                            }
+                            type="text"
                             value={variable.value}
                             onChange={(e) =>
                               handleUpdateVariable(
@@ -263,23 +241,9 @@ export default function EnvPanel() {
                               )
                             }
                             placeholder="value"
-                            className="font-mono text-sm h-9 pr-16 border-slate-200 focus:border-primary-300 focus:ring-primary-100"
+                            className="font-mono text-sm h-9 pr-10 border-slate-200 focus:border-primary-300 focus:ring-primary-100"
                           />
-                          <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-0.5">
-                            {variable.isSecret && (
-                              <button
-                                className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-                                onClick={() =>
-                                  toggleSecretVisibility(variable.id)
-                                }
-                              >
-                                {visibleSecrets.has(variable.id) ? (
-                                  <EyeOff className="w-3.5 h-3.5" />
-                                ) : (
-                                  <Eye className="w-3.5 h-3.5" />
-                                )}
-                              </button>
-                            )}
+                          <div className="absolute right-1 top-1/2 -translate-y-1/2">
                             <button
                               className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
                               onClick={() => copyToClipboard(variable.value)}
@@ -288,18 +252,6 @@ export default function EnvPanel() {
                             </button>
                           </div>
                         </div>
-                      </div>
-                      <div className="col-span-2 flex justify-center">
-                        <Switch
-                          checked={variable.isSecret}
-                          onCheckedChange={(checked) =>
-                            handleUpdateVariable(
-                              variable.id,
-                              "isSecret",
-                              checked
-                            )
-                          }
-                        />
                       </div>
                       <div className="col-span-1 flex justify-center">
                         <button
@@ -318,19 +270,23 @@ export default function EnvPanel() {
         </div>
 
         {/* Info Card */}
-        <div className="mt-4 bg-primary-50 rounded-xl border border-primary-100 p-4">
+        <div className="mt-4 bg-blue-50 rounded-xl border border-blue-100 p-4">
           <div className="flex gap-3">
-            <Info className="w-5 h-5 text-primary-600 shrink-0 mt-0.5" />
+            <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
             <div className="text-sm">
               <p className="font-medium text-slate-800 mb-1">
                 Using Environment Variables
               </p>
               <p className="text-slate-600">
                 Reference variables in your bots using{" "}
-                <code className="px-1.5 py-0.5 rounded bg-white border border-primary-200 font-mono text-xs text-primary-700">
+                <code className="px-1.5 py-0.5 rounded bg-white border border-blue-200 font-mono text-xs text-blue-700">
                   {"${env.VARIABLE_NAME}"}
                 </code>
-                . Secret values are never exposed in logs or error messages.
+                . For sensitive credentials like API keys and passwords, use the{" "}
+                <strong>Secrets Vault</strong> instead with{" "}
+                <code className="px-1.5 py-0.5 rounded bg-white border border-blue-200 font-mono text-xs text-blue-700">
+                  {"${vault.SECRET_NAME}"}
+                </code>
               </p>
             </div>
           </div>

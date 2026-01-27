@@ -1,6 +1,6 @@
 export const metadata = {
   title: 'Control Flow',
-  description: 'Components for controlling the flow of your automation. Build complex logic with conditionals, loops, and error handling.',
+  description: 'Control your bot logic. Conditions, loops, switches, error handling, and flow control.',
 }
 
 export const sections = [
@@ -20,44 +20,17 @@ export const sections = [
   { title: 'Reduce/Aggregate', id: 'control-reduce' },
 ]
 
-# Control Flow
-
-Components for controlling the flow of your automation. Build complex logic with conditionals, loops, and error handling. {{ className: 'lead' }}
+Control your bot logic. Conditions, loops, switches, error handling, and flow control. {{ className: 'lead' }}
 
 <Note>
-  This category contains **14 components**. See also: [Triggers](/components/trigger) · [Logging](/components/logging) · [Data Transform](/components/data)
+  Container nodes (`control.if`, `control.loop`, `control.while`, `control.try_catch`) allow you to drag nodes inside them to create nested logic.
 </Note>
-
-## Common Use Cases
-
-- Branch logic based on conditions
-- Iterate over data collections
-- Handle errors gracefully
-- Add delays between operations
 
 ---
 
-## If Condition {{ id: 'control-if' }}
+## Branching Logic
 
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-git-branch"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <line x1="6" x2="6" y1="3" y2="15" />
-  <circle cx="18" cy="6" r="3" />
-  <circle cx="6" cy="18" r="3" />
-  <path d="M18 9a9 9 0 0 1-9 9" />
-</svg>
-`} label="If Condition" description="Container: branch based on condition. Drag nodes inside to execute when condition is true." bgColor="#f1f5f9" textColor="#475569" />
+<NodeHeader id="control-if" icon="GitBranch" label="If Condition" description="Container: branch based on condition" bgColor="#e0f2fe" textColor="#0369a1" />
 
 <Properties>
   <Property name="type" type="string">
@@ -67,70 +40,69 @@ Components for controlling the flow of your automation. Build complex logic with
 
 ### When to Use
 
-- Route workflows based on conditions
-- Handle different scenarios
-- Implement business rules
-- Create decision branches
+- Route orders based on total amount
+- Skip processing for invalid records
+- Different handling for VIP vs regular customers
+- Conditional notifications
 
 ### Configuration
 
-<Properties>
-  <Property name="condition" type="text" required>
-    Condition
-  </Property>
-</Properties>
+- **condition** (`text`, required) — Condition to evaluate
 
-### Output Variables
+### Output
 
-Access these variables in subsequent nodes using `${If Condition.variableName}`.
+- **result** (`boolean`) — Condition evaluation result
 
-<Properties>
-  <Property name="result" type="boolean">
-    Condition evaluation result
-  </Property>
-</Properties>
+### Condition Syntax
 
-### Example
+```javascript
+// Comparisons
+"${order.total} > 100"
+"${status} == 'approved'"
+"${items.length} >= 5"
 
-```json
-{
-  "id": "node-1",
-  "type": "control.if",
-  "label": "If Condition",
-  "config": {
-    "condition": "${Invoice.amount} > 10000"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
-}
+// Logical operators
+"${age} > 18 && ${country} == 'US'"
+"${status} == 'pending' || ${priority} == 'high'"
+
+// String methods
+"${email}.includes('@company.com')"
+"${name}.startsWith('Dr.')"
+
+// Null checks
+"${customer.address} != null"
+"${phone} !== undefined"
 ```
+
+### Example: Order Routing
+
+<Diagram 
+  groups={[
+    {
+      id: "input",
+      label: "Input",
+      nodes: [{ id: "order", label: "Order Data", sublabel: "total: $1500", type: "default" }]
+    },
+    {
+      id: "check",
+      label: "Check Amount",
+      nodes: [{ id: "if", label: "control.if", sublabel: "total > 1000", type: "primary" }]
+    },
+    {
+      id: "routes",
+      label: "Routes",
+      direction: "row",
+      nodes: [
+        { id: "high", label: "Manager Approval", sublabel: "High value", type: "warning" },
+        { id: "low", label: "Auto Approve", sublabel: "Standard", type: "success" }
+      ]
+    }
+  ]}
+/>
 
 ---
 
-## Switch {{ id: 'control-switch' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-git-fork"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <circle cx="12" cy="18" r="3" />
-  <circle cx="6" cy="6" r="3" />
-  <circle cx="18" cy="6" r="3" />
-  <path d="M18 9v2c0 .6-.4 1-1 1H7c-.6 0-1-.4-1-1V9" />
-  <path d="M12 12v3" />
-</svg>
-`} label="Switch" description="Multi-way branch" bgColor="#f1f5f9" textColor="#475569" />
+<NodeHeader id="control-switch" icon="Route" label="Switch" description="Multi-way branch" bgColor="#e0f2fe" textColor="#0369a1" />
 
 <Properties>
   <Property name="type" type="string">
@@ -140,73 +112,66 @@ Access these variables in subsequent nodes using `${If Condition.variableName}`.
 
 ### When to Use
 
-- Handle multiple distinct cases
-- Route by document type
-- Branch by status values
-- Implement complex routing logic
+- Route tickets by category
+- Handle multiple status values
+- Department-based routing
+- Multi-language processing
 
 ### Configuration
 
-<Properties>
-  <Property name="expression" type="text" required>
-    Expression
-  </Property>
-  <Property name="cases" type="textarea" required>
-    Cases (JSON)
-  </Property>
-</Properties>
+- **expression** (`text`, required) — Expression to evaluate
+- **cases** (`textarea`, required) — Cases as JSON array
 
-### Output Variables
+### Output
 
-Access these variables in subsequent nodes using `${Switch.variableName}`.
+- **matched_case** (`string`) — Which case was matched
 
-<Properties>
-  <Property name="matched_case" type="string">
-    Which case was matched
-  </Property>
-</Properties>
+### Example: Ticket Routing
 
-### Example
+<Diagram 
+  groups={[
+    {
+      id: "input",
+      label: "Input",
+      nodes: [{ id: "ticket", label: "Support Ticket", sublabel: "category: billing", type: "default" }]
+    },
+    {
+      id: "switch",
+      label: "Switch",
+      nodes: [{ id: "sw", label: "control.switch", sublabel: "${ticket.category}", type: "primary" }]
+    },
+    {
+      id: "routes",
+      label: "Routes",
+      direction: "row",
+      nodes: [
+        { id: "billing", label: "Billing Team", type: "success" },
+        { id: "tech", label: "Tech Support", type: "success" },
+        { id: "sales", label: "Sales Team", type: "success" },
+        { id: "default", label: "General Queue", type: "warning" }
+      ]
+    }
+  ]}
+/>
+
+**DSL Example:**
 
 ```json
 {
-  "id": "node-1",
+  "id": "switch_1",
   "type": "control.switch",
-  "label": "Switch",
   "config": {
-    "expression": "your-expression",
-    "cases": "your-cases"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
+    "expression": "${ticket.category}",
+    "cases": "[\"billing\", \"technical\", \"sales\", \"default\"]"
   }
 }
 ```
 
 ---
 
-## For Each {{ id: 'control-loop' }}
+## Loops
 
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-repeat"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="m17 2 4 4-4 4" />
-  <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
-  <path d="m7 22-4-4 4-4" />
-  <path d="M21 13v1a4 4 0 0 1-4 4H3" />
-</svg>
-`} label="For Each" description="Container: iterate over a collection. Drag nodes inside to process each item. Use 'done' output to continue after loop completes." bgColor="#f1f5f9" textColor="#475569" />
+<NodeHeader id="control-loop" icon="Repeat" label="For Each" description="Container: iterate over a collection" bgColor="#e0f2fe" textColor="#0369a1" />
 
 <Properties>
   <Property name="type" type="string">
@@ -216,92 +181,73 @@ Access these variables in subsequent nodes using `${Switch.variableName}`.
 
 ### When to Use
 
-- Process each row in a dataset
-- Iterate over file lists
-- Handle batch operations
-- Process collections of items
+- Process each row in a database query
+- Send emails to a list of recipients
+- Transform multiple files
+- Batch API calls
 
 ### Configuration
 
-<Properties>
-  <Property name="items" type="text" required>
-    Items Array
-  </Property>
-  <Property name="item_var" type="text">
-    Item Variable Name (access as $\{item\}) (e.g., `item`) Default: `item`
-  </Property>
-  <Property name="accumulator_var" type="text">
-    Accumulator Variable (use control.append) (e.g., `results`) Default: `results`
-  </Property>
-</Properties>
+- **items** (`text`, required) — Items array (e.g., `${Query.records}`)
+- **item_var** (`text`, default: `item`) — Variable name for current item
+- **accumulator_var** (`text`, default: `results`) — Accumulator variable
 
-### Output Variables
+### Output
 
-Access these variables in subsequent nodes using `${For Each.variableName}`.
+- **index** (`number`) — Current iteration index (0-based)
+- **total** (`number`) — Total number of items
+- **isFirst** (`boolean`) — True if first iteration
+- **isLast** (`boolean`) — True if last iteration
 
-<Properties>
-  <Property name="index" type="number">
-    Current iteration index (0-based)
-  </Property>
-  <Property name="total" type="number">
-    Total number of items
-  </Property>
-  <Property name="isFirst" type="boolean">
-    True if first iteration
-  </Property>
-  <Property name="isLast" type="boolean">
-    True if last iteration
-  </Property>
-  <Property name="results" type="array">
-    Accumulated results array (available after loop completes)
-  </Property>
-  <Property name="iterations" type="number">
-    Total iterations completed
-  </Property>
-</Properties>
+### Example: Process Orders
 
-### Example
+<Diagram 
+  groups={[
+    {
+      id: "query",
+      label: "Query",
+      nodes: [{ id: "db", label: "database.query", sublabel: "Get pending orders", type: "default" }]
+    },
+    {
+      id: "loop",
+      label: "For Each Order",
+      nodes: [{ id: "loop", label: "control.loop", sublabel: "${Query.records}", type: "primary" }]
+    },
+    {
+      id: "inside",
+      label: "Inside Loop",
+      direction: "row",
+      nodes: [
+        { id: "validate", label: "Validate", sublabel: "${order}", type: "warning" },
+        { id: "process", label: "Process", sublabel: "${order}", type: "warning" },
+        { id: "append", label: "control.append", sublabel: "Add to results", type: "success" }
+      ]
+    },
+    {
+      id: "after",
+      label: "After Loop",
+      nodes: [{ id: "report", label: "Generate Report", sublabel: "${results}", type: "success" }]
+    }
+  ]}
+/>
+
+**DSL Example:**
 
 ```json
 {
-  "id": "node-1",
+  "id": "loop_1",
   "type": "control.loop",
-  "label": "For Each",
   "config": {
-    "items": "your-items",
-    "item_var": "item",
-    "accumulator_var": "results"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
+    "items": "${database.orders}",
+    "item_var": "order",
+    "accumulator_var": "processed_orders"
   }
 }
 ```
 
 ---
 
-## While Loop {{ id: 'control-while' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-refresh-cw"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-  <path d="M21 3v5h-5" />
-  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-  <path d="M8 16H3v5" />
-</svg>
-`} label="While Loop" description="Container: loop while condition is true. Use 'done' output to continue after loop ends." bgColor="#f1f5f9" textColor="#475569" />
+<NodeHeader id="control-while" icon="RefreshCw" label="While Loop" description="Container: loop while condition is true" bgColor="#e0f2fe" textColor="#0369a1" />
 
 <Properties>
   <Property name="type" type="string">
@@ -311,146 +257,56 @@ Access these variables in subsequent nodes using `${For Each.variableName}`.
 
 ### When to Use
 
-- Retry operations until success
-- Poll for completion status
-- Process until queue is empty
-- Implement wait loops
+- Paginated API calls
+- Retry until success
+- Poll for completion
+- Process until queue empty
 
 ### Configuration
 
-<Properties>
-  <Property name="condition" type="text" required>
-    Condition
-  </Property>
-  <Property name="max_iterations" type="number">
-    Max Iterations (safety limit) Default: `100`
-  </Property>
-  <Property name="accumulator_var" type="text">
-    Accumulator Variable (use control.append) (e.g., `results`) Default: `results`
-  </Property>
-</Properties>
+- **condition** (`text`, required) — Condition to evaluate
+- **max_iterations** (`number`, default: `100`) — Safety limit
+- **accumulator_var** (`text`, default: `results`) — Accumulator variable
 
-### Output Variables
+### Output
 
-Access these variables in subsequent nodes using `${While Loop.variableName}`.
+- **iteration** (`number`) — Current iteration number (1-based)
+- **total_iterations** (`number`) — Total iterations executed
+- **results** (`array`) — Accumulated results
+- **exit_reason** (`string`) — Why loop exited: `condition_false`, `max_iterations`, `break`
 
-<Properties>
-  <Property name="iteration" type="number">
-    Current iteration number (1-based)
-  </Property>
-  <Property name="total_iterations" type="number">
-    Total iterations executed
-  </Property>
-  <Property name="results" type="array">
-    Accumulated results array (available after loop completes)
-  </Property>
-  <Property name="exit_reason" type="string">
-    Why loop exited: 'condition_false' | 'max_iterations' | 'break'
-  </Property>
-</Properties>
+### Example: Paginated API
 
-### Example
-
-```json
-{
-  "id": "node-1",
-  "type": "control.while",
-  "label": "While Loop",
-  "config": {
-    "condition": "your-condition",
-    "max_iterations": "100",
-    "accumulator_var": "results"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
-}
-```
+<Diagram 
+  groups={[
+    {
+      id: "init",
+      label: "Initialize",
+      nodes: [{ id: "set", label: "control.set_variable", sublabel: "hasMore = true", type: "default" }]
+    },
+    {
+      id: "while",
+      label: "While hasMore",
+      nodes: [{ id: "while", label: "control.while", sublabel: "hasMore == true", type: "primary" }]
+    },
+    {
+      id: "inside",
+      label: "Inside Loop",
+      direction: "row",
+      nodes: [
+        { id: "api", label: "api.http_request", sublabel: "Fetch page", type: "warning" },
+        { id: "append", label: "control.append", sublabel: "Add results", type: "warning" },
+        { id: "check", label: "control.set_variable", sublabel: "hasMore = nextPage?", type: "warning" }
+      ]
+    }
+  ]}
+/>
 
 ---
 
-## Wait {{ id: 'control-wait' }}
+## Variables
 
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-clock"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M12 6v6l4 2" />
-  <circle cx="12" cy="12" r="10" />
-</svg>
-`} label="Wait" description="Pause execution" bgColor="#f1f5f9" textColor="#475569" />
-
-<Properties>
-  <Property name="type" type="string">
-    `control.wait`
-  </Property>
-</Properties>
-
-### When to Use
-
-- Wait for systems to be ready
-- Add delays between API calls (rate limiting)
-- Pause for human review
-- Wait for file availability
-
-### Configuration
-
-<Properties>
-  <Property name="seconds" type="number" required>
-    Seconds Default: `1`
-  </Property>
-</Properties>
-
-### Example
-
-```json
-{
-  "id": "node-1",
-  "type": "control.wait",
-  "label": "Wait",
-  "config": {
-    "seconds": "1"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
-}
-```
-
----
-
-## Set Variable {{ id: 'control-set_variable' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-variable"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M8 21s-4-3-4-9 4-9 4-9" />
-  <path d="M16 3s4 3 4 9-4 9-4 9" />
-  <line x1="15" x2="9" y1="9" y2="15" />
-  <line x1="9" x2="15" y1="9" y2="15" />
-</svg>
-`} label="Set Variable" description="Define or update a variable. Use 'global' scope to access outside loops." bgColor="#f1f5f9" textColor="#475569" />
+<NodeHeader id="control-set_variable" icon="Variable" label="Set Variable" description="Define or update a variable" bgColor="#e0f2fe" textColor="#0369a1" />
 
 <Properties>
   <Property name="type" type="string">
@@ -461,78 +317,60 @@ Access these variables in subsequent nodes using `${While Loop.variableName}`.
 ### When to Use
 
 - Store intermediate results
-- Set configuration values
-- Track processing state
-- Accumulate values in loops
+- Counter management
+- Flag handling
+- Accumulator initialization
 
 ### Configuration
 
-<Properties>
-  <Property name="name" type="text" required>
-    Variable Name (e.g., `my_variable`)
-  </Property>
-  <Property name="value" type="textarea" required>
-    Value
-  </Property>
-  <Property name="scope" type="select">
-    Scope Default: `global`
-  </Property>
-</Properties>
+- **name** (`text`, required) — Variable name
+- **value** (`textarea`, required) — Value to set
+- **scope** (`select`, default: `global`) — Scope: `global`, `local`
 
-### Output Variables
+### Output
 
-Access these variables in subsequent nodes using `${Set Variable.variableName}`.
+- **value** (`any`) — The value that was set
 
-<Properties>
-  <Property name="value" type="any">
-    The value that was set
-  </Property>
-  <Property name="name" type="string">
-    The variable name
-  </Property>
-</Properties>
-
-### Example
+### Example: Counter
 
 ```json
 {
-  "id": "node-1",
+  "id": "set_var_1",
   "type": "control.set_variable",
-  "label": "Set Variable",
   "config": {
-    "name": "my_variable",
-    "value": "your-value",
+    "name": "processedCount",
+    "value": "${processedCount} + 1",
     "scope": "global"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
   }
 }
 ```
 
 ---
 
-## Try/Catch {{ id: 'control-try_catch' }}
+<NodeHeader id="control-wait" icon="Clock" label="Wait" description="Pause execution" bgColor="#e0e7ff" textColor="#4338ca" />
 
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-shield-alert"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
-  <path d="M12 8v4" />
-  <path d="M12 16h.01" />
-</svg>
-`} label="Try/Catch" description="Container: handle errors gracefully. Drag nodes inside to execute with error handling." bgColor="#f1f5f9" textColor="#475569" />
+<Properties>
+  <Property name="type" type="string">
+    `control.wait`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Rate limiting API calls
+- Wait for external processes
+- Debounce operations
+- Scheduled delays
+
+### Configuration
+
+- **seconds** (`number`, required, default: `1`) — Seconds to wait
+
+---
+
+## Error Handling
+
+<NodeHeader id="control-try_catch" icon="ShieldAlert" label="Try/Catch" description="Container: handle errors gracefully" bgColor="#e0f2fe" textColor="#0369a1" />
 
 <Properties>
   <Property name="type" type="string">
@@ -542,79 +380,51 @@ Access these variables in subsequent nodes using `${Set Variable.variableName}`.
 
 ### When to Use
 
-- Handle errors gracefully
-- Implement fallback logic
-- Continue processing after failures
-- Log errors without stopping
+- API calls that might fail
+- File operations with permissions issues
+- Database operations with constraints
+- External service integrations
 
 ### Configuration
 
-<Properties>
-  <Property name="retry_count" type="number">
-    Retry Count Default: `0`
-  </Property>
-  <Property name="retry_delay" type="number">
-    Retry Delay (seconds) Default: `1`
-  </Property>
-</Properties>
+- **retry_count** (`number`, default: `0`) — Number of retry attempts
+- **retry_delay** (`number`, default: `1`) — Retry delay in seconds
 
-### Output Variables
+### Output
 
-Access these variables in subsequent nodes using `${Try/Catch.variableName}`.
+- **success** (`boolean`) — True if executed without errors
+- **error_message** (`string`) — Error message if failed
+- **retry_attempts** (`number`) — Number of retry attempts made
 
-<Properties>
-  <Property name="success" type="boolean">
-    True if executed without errors
-  </Property>
-  <Property name="error_message" type="string">
-    Error message if failed
-  </Property>
-  <Property name="retry_attempts" type="number">
-    Number of retry attempts made
-  </Property>
-</Properties>
+### Example: API with Retry
 
-### Example
-
-```json
-{
-  "id": "node-1",
-  "type": "control.try_catch",
-  "label": "Try/Catch",
-  "config": {
-    "retry_count": "0",
-    "retry_delay": "1"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
-}
-```
+<Diagram 
+  groups={[
+    {
+      id: "try",
+      label: "Try/Catch Block",
+      nodes: [{ id: "try", label: "control.try_catch", sublabel: "retry: 3, delay: 5s", type: "primary" }]
+    },
+    {
+      id: "inside",
+      label: "Inside Try",
+      nodes: [{ id: "api", label: "api.http_request", sublabel: "External API", type: "warning" }]
+    },
+    {
+      id: "results",
+      label: "Results",
+      direction: "row",
+      nodes: [
+        { id: "success", label: "Continue", sublabel: "On success", type: "success" },
+        { id: "error", label: "Alert Team", sublabel: "On failure", type: "error" }
+      ]
+    }
+  ]}
+/>
 
 ---
 
-## Parallel {{ id: 'control-parallel' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-git-branch"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <line x1="6" x2="6" y1="3" y2="15" />
-  <circle cx="18" cy="6" r="3" />
-  <circle cx="6" cy="18" r="3" />
-  <path d="M18 9a9 9 0 0 1-9 9" />
-</svg>
-`} label="Parallel" description="Run branches in parallel" bgColor="#f1f5f9" textColor="#475569" />
+<NodeHeader id="control-parallel" icon="GitBranch" label="Parallel" description="Run branches in parallel" bgColor="#e0f2fe" textColor="#0369a1" />
 
 <Properties>
   <Property name="type" type="string">
@@ -624,57 +434,47 @@ Access these variables in subsequent nodes using `${Try/Catch.variableName}`.
 
 ### When to Use
 
-- Process multiple items concurrently
-- Run independent tasks simultaneously
-- Speed up batch operations
-- Handle parallel API calls
+- Independent API calls
+- Parallel data processing
+- Multiple notifications
+- Speed optimization
 
 ### Configuration
 
-<Properties>
-  <Property name="branches" type="number">
-    Number of Branches Default: `2`
-  </Property>
-</Properties>
+- **branches** (`number`, default: `2`) — Number of parallel branches
 
-### Example
+### Example: Parallel Notifications
 
-```json
-{
-  "id": "node-1",
-  "type": "control.parallel",
-  "label": "Parallel",
-  "config": {
-    "branches": "2"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
-}
-```
+<Diagram 
+  groups={[
+    {
+      id: "trigger",
+      label: "Trigger",
+      nodes: [{ id: "order", label: "New Order", type: "default" }]
+    },
+    {
+      id: "parallel",
+      label: "Parallel",
+      nodes: [{ id: "par", label: "control.parallel", sublabel: "3 branches", type: "primary" }]
+    },
+    {
+      id: "branches",
+      label: "Branches",
+      direction: "row",
+      nodes: [
+        { id: "email", label: "email.send", sublabel: "Customer", type: "success" },
+        { id: "slack", label: "logging.notification", sublabel: "Sales team", type: "success" },
+        { id: "db", label: "database.insert", sublabel: "Audit log", type: "success" }
+      ]
+    }
+  ]}
+/>
 
 ---
 
-## Stop Bot {{ id: 'control-stop' }}
+## Flow Control
 
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-circle-stop"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <circle cx="12" cy="12" r="10" />
-  <rect x="9" y="9" width="6" height="6" rx="1" />
-</svg>
-`} label="Stop Bot" description="Stop execution" bgColor="#f1f5f9" textColor="#475569" />
+<NodeHeader id="control-stop" icon="StopCircle" label="Stop Bot" description="Stop execution" bgColor="#fee2e2" textColor="#991b1b" />
 
 <Properties>
   <Property name="type" type="string">
@@ -682,59 +482,13 @@ Access these variables in subsequent nodes using `${Try/Catch.variableName}`.
   </Property>
 </Properties>
 
-### When to Use
-
-- Terminate workflow on critical error
-- End processing early when done
-- Implement circuit breakers
-- Stop on validation failure
-
 ### Configuration
 
-<Properties>
-  <Property name="status" type="select">
-    Exit Status Default: `success`
-  </Property>
-</Properties>
-
-### Example
-
-```json
-{
-  "id": "node-1",
-  "type": "control.stop",
-  "label": "Stop Bot",
-  "config": {
-    "status": "success"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
-}
-```
+- **status** (`select`, default: `success`) — Exit status: `success`, `error`
 
 ---
 
-## Go To {{ id: 'control-goto' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-corner-right-down"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="m10 15 5 5 5-5" />
-  <path d="M4 4h7a4 4 0 0 1 4 4v12" />
-</svg>
-`} label="Go To" description="Jump to node" bgColor="#f1f5f9" textColor="#475569" />
+<NodeHeader id="control-goto" icon="CornerRightDown" label="Go To" description="Jump to node" bgColor="#e0f2fe" textColor="#0369a1" />
 
 <Properties>
   <Property name="type" type="string">
@@ -742,62 +496,15 @@ Access these variables in subsequent nodes using `${Try/Catch.variableName}`.
   </Property>
 </Properties>
 
-### When to Use
-
-- Jump to specific workflow sections
-- Implement complex flow patterns
-- Skip sections conditionally
-- Create reusable workflow segments
-
 ### Configuration
 
-<Properties>
-  <Property name="target_node" type="text" required>
-    Target Node ID
-  </Property>
-</Properties>
-
-### Example
-
-```json
-{
-  "id": "node-1",
-  "type": "control.goto",
-  "label": "Go To",
-  "config": {
-    "target_node": "your-target_node"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
-}
-```
+- **target_node** (`text`, required) — Target node ID to jump to
 
 ---
 
-## Map/Transform {{ id: 'control-map' }}
+## Data Transformation
 
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-shuffle"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="m18 14 4 4-4 4" />
-  <path d="m18 2 4 4-4 4" />
-  <path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22" />
-  <path d="M2 6h1.972a4 4 0 0 1 3.6 2.2" />
-  <path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45" />
-</svg>
-`} label="Map/Transform" description="Transform each item in a collection using an expression" bgColor="#f1f5f9" textColor="#475569" />
+<NodeHeader id="control-map" icon="Shuffle" label="Map/Transform" description="Transform each item in a collection" bgColor="#e0f2fe" textColor="#0369a1" />
 
 <Properties>
   <Property name="type" type="string">
@@ -805,145 +512,41 @@ Access these variables in subsequent nodes using `${Try/Catch.variableName}`.
   </Property>
 </Properties>
 
+### When to Use
+
+- Rename fields in records
+- Calculate derived values
+- Format data for API calls
+- Prepare data for reports
+
 ### Configuration
 
-<Properties>
-  <Property name="items" type="text" required>
-    Input Array
-  </Property>
-  <Property name="expression" type="textarea" required>
-    Transform Expression
-  </Property>
-  <Property name="item_var" type="text">
-    Item Variable Name (e.g., `item`) Default: `item`
-  </Property>
-</Properties>
+- **items** (`text`, required) — Input array
+- **expression** (`textarea`, required) — Transform expression
+- **item_var** (`text`, default: `item`) — Item variable name
 
-### Output Variables
+### Output
 
-Access these variables in subsequent nodes using `${Map/Transform.variableName}`.
+- **results** (`array`) — Transformed array
+- **count** (`number`) — Number of items transformed
 
-<Properties>
-  <Property name="results" type="array">
-    Transformed array
-  </Property>
-  <Property name="count" type="number">
-    Number of items transformed
-  </Property>
-</Properties>
-
-### Example
+### Example: Format Names
 
 ```json
 {
-  "id": "node-1",
+  "id": "map_1",
   "type": "control.map",
-  "label": "Map/Transform",
   "config": {
-    "items": "your-items",
-    "expression": "your-expression",
+    "items": "${users}",
+    "expression": "{ id: ${item.id}, fullName: ${item.first} + ' ' + ${item.last}, email: ${item.email}.toLowerCase() }",
     "item_var": "item"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
   }
 }
 ```
 
 ---
 
-## Append to List {{ id: 'control-append' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-list-plus"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M16 5H3" />
-  <path d="M11 12H3" />
-  <path d="M16 19H3" />
-  <path d="M18 9v6" />
-  <path d="M21 12h-6" />
-</svg>
-`} label="Append to List" description="Add an item to the end of a list" bgColor="#f1f5f9" textColor="#475569" />
-
-<Properties>
-  <Property name="type" type="string">
-    `control.append`
-  </Property>
-</Properties>
-
-### Configuration
-
-<Properties>
-  <Property name="list" type="text" required>
-    Target List Variable (e.g., `results`)
-  </Property>
-  <Property name="item" type="textarea" required>
-    Item to Append
-  </Property>
-</Properties>
-
-### Output Variables
-
-Access these variables in subsequent nodes using `${Append to List.variableName}`.
-
-<Properties>
-  <Property name="length" type="number">
-    New length of the list
-  </Property>
-  <Property name="list" type="array">
-    Updated list reference
-  </Property>
-</Properties>
-
-### Example
-
-```json
-{
-  "id": "node-1",
-  "type": "control.append",
-  "label": "Append to List",
-  "config": {
-    "list": "results",
-    "item": "your-item"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
-}
-```
-
----
-
-## Filter List {{ id: 'control-filter' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-funnel"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14z" />
-</svg>
-`} label="Filter List" description="Filter items that match a condition" bgColor="#f1f5f9" textColor="#475569" />
+<NodeHeader id="control-filter" icon="Filter" label="Filter List" description="Filter items that match a condition" bgColor="#e0f2fe" textColor="#0369a1" />
 
 <Properties>
   <Property name="type" type="string">
@@ -951,80 +554,69 @@ Access these variables in subsequent nodes using `${Append to List.variableName}
   </Property>
 </Properties>
 
+### When to Use
+
+- Get only active records
+- Exclude invalid data
+- Segment lists
+- Pre-process before loops
+
 ### Configuration
 
-<Properties>
-  <Property name="items" type="text" required>
-    Input Array
-  </Property>
-  <Property name="condition" type="text" required>
-    Filter Condition
-  </Property>
-  <Property name="item_var" type="text">
-    Item Variable Name (e.g., `item`) Default: `item`
-  </Property>
-</Properties>
+- **items** (`text`, required) — Input array
+- **condition** (`text`, required) — Filter condition
+- **item_var** (`text`, default: `item`) — Item variable name
 
-### Output Variables
+### Output
 
-Access these variables in subsequent nodes using `${Filter List.variableName}`.
+- **results** (`array`) — Filtered array (matching items)
+- **rejected** (`array`) — Rejected array (non-matching items)
+- **count** (`number`) — Number of matching items
 
-<Properties>
-  <Property name="results" type="array">
-    Filtered array (matching items)
-  </Property>
-  <Property name="rejected" type="array">
-    Rejected array (non-matching items)
-  </Property>
-  <Property name="count" type="number">
-    Number of matching items
-  </Property>
-</Properties>
-
-### Example
+### Example: Active Users Only
 
 ```json
 {
-  "id": "node-1",
+  "id": "filter_1",
   "type": "control.filter",
-  "label": "Filter List",
   "config": {
-    "items": "your-items",
-    "condition": "your-condition",
+    "items": "${users}",
+    "condition": "${item.status} == 'active' && ${item.email} != null",
     "item_var": "item"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
   }
 }
 ```
 
 ---
 
-## Reduce/Aggregate {{ id: 'control-reduce' }}
+<NodeHeader id="control-append" icon="ListPlus" label="Append to List" description="Add an item to the end of a list" bgColor="#e0f2fe" textColor="#0369a1" />
 
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-combine"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M14 3a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1" />
-  <path d="M19 3a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1" />
-  <path d="m7 15 3 3" />
-  <path d="m7 21 3-3H5a2 2 0 0 1-2-2v-2" />
-  <rect x="14" y="14" width="7" height="7" rx="1" />
-  <rect x="3" y="3" width="7" height="7" rx="1" />
-</svg>
-`} label="Reduce/Aggregate" description="Reduce array to a single value (sum, count, etc.)" bgColor="#f1f5f9" textColor="#475569" />
+<Properties>
+  <Property name="type" type="string">
+    `control.append`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Collect results inside loops
+- Build arrays dynamically
+- Aggregate processed items
+- Create audit trails
+
+### Configuration
+
+- **list** (`text`, required) — Target list variable name
+- **item** (`textarea`, required) — Item to append
+
+### Output
+
+- **length** (`number`) — New length of the list
+- **list** (`array`) — Updated list reference
+
+---
+
+<NodeHeader id="control-reduce" icon="Combine" label="Reduce/Aggregate" description="Reduce array to a single value" bgColor="#e0f2fe" textColor="#0369a1" />
 
 <Properties>
   <Property name="type" type="string">
@@ -1032,55 +624,91 @@ Access these variables in subsequent nodes using `${Filter List.variableName}`.
   </Property>
 </Properties>
 
+### When to Use
+
+- Calculate totals
+- Count items by criteria
+- Find min/max values
+- Aggregate statistics
+
 ### Configuration
 
-<Properties>
-  <Property name="items" type="text" required>
-    Input Array
-  </Property>
-  <Property name="expression" type="text" required>
-    Reducer Expression
-  </Property>
-  <Property name="initial" type="text">
-    Initial Value (e.g., `0`) Default: `0`
-  </Property>
-  <Property name="item_var" type="text">
-    Item Variable Name (e.g., `item`) Default: `item`
-  </Property>
-</Properties>
+- **items** (`text`, required) — Input array
+- **expression** (`textarea`, required) — Reduce expression
+- **initial** (`text`, default: `0`) — Initial accumulator value
+- **item_var** (`text`, default: `item`) — Item variable name
+- **acc_var** (`text`, default: `acc`) — Accumulator variable name
 
-### Output Variables
+### Output
 
-Access these variables in subsequent nodes using `${Reduce/Aggregate.variableName}`.
+- **result** (`any`) — Final reduced value
+- **count** (`number`) — Number of items processed
 
-<Properties>
-  <Property name="result" type="any">
-    Final accumulated value
-  </Property>
-  <Property name="count" type="number">
-    Number of items processed
-  </Property>
-</Properties>
-
-### Example
+### Example: Sum Order Totals
 
 ```json
 {
-  "id": "node-1",
+  "id": "reduce_1",
   "type": "control.reduce",
-  "label": "Reduce/Aggregate",
   "config": {
-    "items": "your-items",
-    "expression": "your-expression",
+    "items": "${orders}",
+    "expression": "${acc} + ${item.total}",
     "initial": "0",
-    "item_var": "item"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
+    "item_var": "item",
+    "acc_var": "acc"
   }
 }
 ```
+
+**Output:** `{ "result": 15750.50, "count": 45 }`
+
+---
+
+## Complete Example: ETL Pipeline
+
+<Diagram 
+  flow="vertical"
+  groups={[
+    {
+      id: "extract",
+      label: "Extract",
+      nodes: [{ id: "query", label: "database.query", sublabel: "Get raw data", type: "default" }]
+    },
+    {
+      id: "transform",
+      label: "Transform",
+      direction: "row",
+      nodes: [
+        { id: "filter", label: "control.filter", sublabel: "Active only", type: "warning" },
+        { id: "map", label: "control.map", sublabel: "Format fields", type: "warning" }
+      ]
+    },
+    {
+      id: "validate",
+      label: "Validate",
+      nodes: [{ id: "loop", label: "control.loop", sublabel: "For each record", type: "primary" }]
+    },
+    {
+      id: "inside",
+      label: "Inside Loop",
+      direction: "row",
+      nodes: [
+        { id: "try", label: "control.try_catch", type: "warning" },
+        { id: "if", label: "control.if", sublabel: "Is valid?", type: "warning" },
+        { id: "append", label: "control.append", type: "success" }
+      ]
+    },
+    {
+      id: "load",
+      label: "Load",
+      direction: "row",
+      nodes: [
+        { id: "insert", label: "database.insert", sublabel: "Save valid", type: "success" },
+        { id: "reduce", label: "control.reduce", sublabel: "Count totals", type: "success" }
+      ]
+    }
+  ]}
+/>
 
 ---
 

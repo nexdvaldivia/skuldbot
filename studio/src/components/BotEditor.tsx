@@ -87,6 +87,12 @@ export default function BotEditor() {
   const nodes = activeBot?.nodes || [];
   const edges = activeBot?.edges || [];
 
+  // #region agent log
+  useEffect(() => {
+    fetch('http://127.0.0.1:7243/ingest/2ce691dc-013d-459b-9285-50430c26e8ac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BotEditor:render',message:'BotEditor rendering',data:{activeBotId,hasActiveBot:!!activeBot,nodesCount:nodes.length,edgesCount:edges.length,firstNodePositions:nodes.slice(0,3).map(n=>({id:n.id,x:n.position?.x,y:n.position?.y,type:n.data?.nodeType}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H5-render'})}).catch(()=>{});
+  }, [activeBotId, activeBot, nodes, edges]);
+  // #endregion
+
   // Keep refs in sync
   const nodesRef = useRef(nodes);
   const edgesRef = useRef(edges);
@@ -262,6 +268,18 @@ export default function BotEditor() {
       const embeddingsNode = newNodes.find(n => n.data.nodeType === "ai.embeddings");
       const memoryNode = newNodes.find(n => n.data.nodeType === "vectordb.memory");
       const agentNode = newNodes.find(n => n.data.nodeType === "ai.agent");
+      const aiTaskNodes = newNodes.filter(n =>
+        [
+          "ai.extract_data",
+          "ai.summarize",
+          "ai.classify",
+          "ai.translate",
+          "ai.sentiment",
+          "ai.vision",
+          "ai.repair_data",
+          "ai.suggest_repairs",
+        ].includes(n.data.nodeType)
+      );
 
       // Model → Agent (if both exist and no explicit connection)
       if (modelNode && agentNode) {
@@ -279,6 +297,26 @@ export default function BotEditor() {
             data: { edgeType: "model" as const },
           });
         }
+      }
+
+      // Model → AI Task Nodes (if model exists and no explicit connection)
+      if (modelNode && aiTaskNodes.length > 0) {
+        aiTaskNodes.forEach((taskNode) => {
+          const hasModelToTask = newEdges.some(e =>
+            e.source === modelNode.id && e.target === taskNode.id && e.data?.edgeType === "model"
+          );
+          if (!hasModelToTask) {
+            newEdges.push({
+              id: `${modelNode.id}-model-${taskNode.id}`,
+              source: modelNode.id,
+              target: taskNode.id,
+              sourceHandle: "model-out",
+              targetHandle: "model",
+              type: "animated",
+              data: { edgeType: "model" as const },
+            });
+          }
+        });
       }
 
       // Embeddings → Agent (if both exist and no explicit connection)

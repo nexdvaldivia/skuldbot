@@ -21,6 +21,12 @@ const categoryStyles: Record<NodeCategory, { bg: string; border: string; icon: s
     icon: "text-indigo-600",
     accent: "bg-indigo-500",
   },
+  storage: {
+    bg: "bg-amber-50",
+    border: "border-amber-200",
+    icon: "text-amber-600",
+    accent: "bg-amber-500",
+  },
   files: {
     bg: "bg-orange-50",
     border: "border-orange-200",
@@ -62,6 +68,12 @@ const categoryStyles: Record<NodeCategory, { bg: string; border: string; icon: s
     border: "border-violet-200",
     icon: "text-violet-600",
     accent: "bg-gradient-to-r from-violet-500 to-fuchsia-500",
+  },
+  code: {
+    bg: "bg-slate-100",
+    border: "border-slate-300",
+    icon: "text-slate-700",
+    accent: "bg-gradient-to-r from-orange-500 to-slate-600",
   },
   python: {
     bg: "bg-yellow-50",
@@ -140,6 +152,12 @@ const categoryStyles: Record<NodeCategory, { bg: string; border: string; icon: s
     border: "border-sky-200",
     icon: "text-sky-600",
     accent: "bg-[#0078d4]",
+  },
+  bot: {
+    bg: "bg-rose-50",
+    border: "border-rose-200",
+    icon: "text-rose-600",
+    accent: "bg-rose-500",
   },
 };
 

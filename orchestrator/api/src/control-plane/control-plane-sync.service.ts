@@ -34,6 +34,23 @@ export interface ControlPlaneConnection {
 }
 
 /**
+ * Discovered Schema from bot executions
+ */
+export interface DiscoveredSchemaPayload {
+  nodeType: string;
+  fields: SchemaField[];
+  sampleCount: number;
+  discoveredAt: Date;
+}
+
+export interface SchemaField {
+  name: string;
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'null';
+  items?: SchemaField[];
+  fields?: SchemaField[];
+}
+
+/**
  * Bot Package Info from Control-Plane
  */
 export interface BotPackageInfo {
@@ -74,7 +91,11 @@ export class ControlPlaneSyncService implements OnModuleInit, OnModuleDestroy {
   private syncStatus: Record<string, SyncStatus> = {
     botPackages: { lastSync: null, status: 'never' },
     config: { lastSync: null, status: 'never' },
+    schemas: { lastSync: null, status: 'never' },
   };
+
+  // Local cache of discovered schemas to sync
+  private pendingSchemas: Map<string, DiscoveredSchemaPayload> = new Map();
 
   private readonly orchestratorId: string;
   private pingInterval: NodeJS.Timeout | null = null;
@@ -379,5 +400,143 @@ export class ControlPlaneSyncService implements OnModuleInit, OnModuleDestroy {
       memoryUsage: process.memoryUsage(),
       timestamp: new Date().toISOString(),
     };
+  }
+
+  // ==================== SCHEMA DISCOVERY ====================
+
+  /**
+   * Add a discovered schema to the pending sync queue
+   * Called by the engine/runner after bot execution
+   */
+  addDiscoveredSchema(schema: DiscoveredSchemaPayload): void {
+    const existing = this.pendingSchemas.get(schema.nodeType);
+    
+    if (existing) {
+      // Merge fields from both schemas
+      const mergedFields = this.mergeSchemaFields(existing.fields, schema.fields);
+      existing.fields = mergedFields;
+      existing.sampleCount += schema.sampleCount;
+      existing.discoveredAt = new Date();
+    } else {
+      this.pendingSchemas.set(schema.nodeType, {
+        ...schema,
+        discoveredAt: new Date(),
+      });
+    }
+
+    this.logger.debug(`Added discovered schema for ${schema.nodeType} (${this.pendingSchemas.size} pending)`);
+  }
+
+  /**
+   * Get all pending schemas (for debugging/inspection)
+   */
+  getPendingSchemas(): DiscoveredSchemaPayload[] {
+    return Array.from(this.pendingSchemas.values());
+  }
+
+  /**
+   * Sync discovered schemas to Control-Plane
+   * Runs every 5 minutes if there are pending schemas
+   */
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async syncDiscoveredSchemas(): Promise<void> {
+    if (!this.isConnected() || this.pendingSchemas.size === 0) {
+      return;
+    }
+
+    try {
+      this.syncStatus.schemas.status = 'syncing';
+
+      const schemas = Array.from(this.pendingSchemas.values());
+      
+      const response = await this.makeRequest('/api/schemas/bulk', {
+        method: 'POST',
+        body: JSON.stringify({
+          schemas: schemas.map(s => ({
+            nodeType: s.nodeType,
+            fields: s.fields,
+            sampleCount: s.sampleCount,
+          })),
+          tenantId: this.licenseService.getTenantId(),
+          orchestratorId: this.orchestratorId,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        this.logger.log(`Synced ${result.processed} discovered schemas to Control-Plane`);
+        
+        // Clear synced schemas
+        this.pendingSchemas.clear();
+        
+        this.syncStatus.schemas = {
+          lastSync: new Date(),
+          status: 'synced',
+        };
+      } else {
+        throw new Error(`Schema sync failed: ${response.status}`);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to sync discovered schemas: ${error}`);
+      this.syncStatus.schemas = {
+        lastSync: this.syncStatus.schemas.lastSync,
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Force sync schemas immediately (for manual trigger)
+   */
+  async forceSyncSchemas(): Promise<{ success: boolean; synced: number }> {
+    if (this.pendingSchemas.size === 0) {
+      return { success: true, synced: 0 };
+    }
+
+    const count = this.pendingSchemas.size;
+    await this.syncDiscoveredSchemas();
+    
+    return {
+      success: this.syncStatus.schemas.status === 'synced',
+      synced: count,
+    };
+  }
+
+  /**
+   * Merge two schema field arrays, combining unique fields
+   */
+  private mergeSchemaFields(existing: SchemaField[], incoming: SchemaField[]): SchemaField[] {
+    const merged = new Map<string, SchemaField>();
+
+    // Add existing fields
+    for (const field of existing) {
+      merged.set(field.name, { ...field });
+    }
+
+    // Merge incoming fields
+    for (const field of incoming) {
+      const existingField = merged.get(field.name);
+      if (existingField) {
+        // Merge nested fields if both have them
+        if (existingField.items && field.items) {
+          existingField.items = this.mergeSchemaFields(existingField.items, field.items);
+        }
+        if (existingField.fields && field.fields) {
+          existingField.fields = this.mergeSchemaFields(existingField.fields, field.fields);
+        }
+        // If incoming has nested but existing doesn't, add them
+        if (!existingField.items && field.items) {
+          existingField.items = field.items;
+        }
+        if (!existingField.fields && field.fields) {
+          existingField.fields = field.fields;
+        }
+      } else {
+        merged.set(field.name, { ...field });
+      }
+    }
+
+    return Array.from(merged.values());
   }
 }

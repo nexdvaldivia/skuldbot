@@ -45,6 +45,86 @@ interface ExecutionResult {
   logs?: string[];
 }
 
+// Discovered schema for a field
+interface DiscoveredField {
+  name: string;
+  type: "string" | "number" | "boolean" | "object" | "array" | "null";
+  items?: DiscoveredField[]; // For arrays - schema of items
+  fields?: DiscoveredField[]; // For objects - nested fields
+}
+
+// Discovered schema entry for a node
+interface DiscoveredSchema {
+  nodeId: string;
+  nodeType: string;
+  fields: DiscoveredField[];
+  discoveredAt: number;
+  sampleCount: number;
+}
+
+// Infer schema from any data value
+function inferSchema(data: any, maxDepth: number = 3): DiscoveredField[] {
+  if (data === null || data === undefined) return [];
+  
+  if (Array.isArray(data)) {
+    // For arrays, analyze items to discover common schema
+    if (data.length === 0) return [];
+    
+    // Sample first few items to infer schema
+    const sampleSize = Math.min(data.length, 5);
+    const itemSchemas: Map<string, DiscoveredField> = new Map();
+    
+    for (let i = 0; i < sampleSize; i++) {
+      const item = data[i];
+      if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
+        const itemFields = inferSchema(item, maxDepth - 1);
+        for (const field of itemFields) {
+          if (!itemSchemas.has(field.name)) {
+            itemSchemas.set(field.name, field);
+          }
+        }
+      }
+    }
+    
+    return Array.from(itemSchemas.values());
+  }
+  
+  if (typeof data === 'object') {
+    const fields: DiscoveredField[] = [];
+    
+    for (const [key, value] of Object.entries(data)) {
+      const field: DiscoveredField = {
+        name: key,
+        type: inferType(value),
+      };
+      
+      if (maxDepth > 0) {
+        if (Array.isArray(value) && value.length > 0) {
+          field.items = inferSchema(value, maxDepth - 1);
+        } else if (typeof value === 'object' && value !== null) {
+          field.fields = inferSchema(value, maxDepth - 1);
+        }
+      }
+      
+      fields.push(field);
+    }
+    
+    return fields;
+  }
+  
+  return [];
+}
+
+function inferType(value: any): DiscoveredField['type'] {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  if (typeof value === 'string') return 'string';
+  if (typeof value === 'number') return 'number';
+  if (typeof value === 'boolean') return 'boolean';
+  if (typeof value === 'object') return 'object';
+  return 'string';
+}
+
 // Pinned data for n8n-style data pinning
 interface PinnedDataEntry {
   nodeId: string;
@@ -69,6 +149,9 @@ interface DebugStoreState {
 
   // Data Pinning (n8n-style)
   pinnedData: Map<string, PinnedDataEntry>;
+  
+  // Schema Discovery - automatically inferred schemas from execution
+  discoveredSchemas: Map<string, DiscoveredSchema>;
 
   // Settings
   slowMotion: boolean;
@@ -115,6 +198,11 @@ interface DebugStoreState {
   isPinned: (nodeId: string) => boolean;
   getPinnedData: (nodeId: string) => PinnedDataEntry | undefined;
 
+  // Schema Discovery
+  discoverSchema: (nodeId: string, nodeType: string, data: any) => void;
+  getDiscoveredSchema: (nodeId: string, nodeType?: string) => DiscoveredSchema | undefined;
+  clearDiscoveredSchemas: () => void;
+
   // Internal
   _syncFromSession: (session: DebugSessionState) => void;
 }
@@ -128,6 +216,19 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
   watchVariables: new Map(),
   globalVariables: {},
   pinnedData: new Map(),
+  discoveredSchemas: (() => {
+    // Hydrate from localStorage on init
+    try {
+      const stored = localStorage.getItem('skuldbot_discovered_schemas');
+      if (stored) {
+        const allSchemas = JSON.parse(stored) as Record<string, DiscoveredSchema>;
+        return new Map(Object.entries(allSchemas));
+      }
+    } catch (e) {
+      console.warn('Failed to hydrate schemas from localStorage:', e);
+    }
+    return new Map();
+  })(),
   slowMotion: false,
   slowMotionDelay: 500,
   useInteractiveDebug: true, // Default to new interactive debug mode
@@ -348,16 +449,39 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
             }
 
             // Check for NODE_OUTPUT to capture node output data
-            const outputMatch = log.match(/NODE_OUTPUT:([^:]+):(.+)$/);
-            if (outputMatch) {
-              const nodeId = outputMatch[1];
-              const jsonData = outputMatch[2];
+            if (log.includes("NODE_OUTPUT:")) {
+              const outputLine = log.slice(log.indexOf("NODE_OUTPUT:") + "NODE_OUTPUT:".length).trim();
+              let nodeId: string | null = null;
+              let payload = outputLine;
+
+              // Format with node id: NODE_OUTPUT:<nodeId>:<json>
+              if (!outputLine.startsWith("{") && !outputLine.startsWith("[")) {
+                const firstColon = outputLine.indexOf(":");
+                if (firstColon > -1) {
+                  const maybeNodeId = outputLine.slice(0, firstColon).trim();
+                  const maybeJson = outputLine.slice(firstColon + 1).trim();
+                  if (maybeNodeId && maybeJson) {
+                    nodeId = maybeNodeId;
+                    payload = maybeJson;
+                  }
+                }
+              }
+
               try {
-                const outputData = JSON.parse(jsonData);
-                get().markNodeStatus(nodeId, "success", outputData);
+                const outputData = JSON.parse(payload);
+                if (nodeId) {
+                  get().markNodeStatus(nodeId, "success", outputData);
+                  // Discover schema from the actual output
+                  const flowNodes = useFlowStore.getState().nodes;
+                  const flowNode = flowNodes.find(n => n.id === nodeId);
+                  if (flowNode) {
+                    get().discoverSchema(nodeId, flowNode.data.nodeType, outputData);
+                  }
+                }
               } catch {
-                // If JSON parse fails, use raw string
-                get().markNodeStatus(nodeId, "success", jsonData);
+                if (nodeId) {
+                  get().markNodeStatus(nodeId, "success", payload);
+                }
               }
             }
 
@@ -444,6 +568,12 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
   stopDebug: async () => {
     const logs = useLogsStore.getState();
 
+    // IMMEDIATELY reset state to idle so Run button becomes enabled
+    set({
+      state: "idle",
+      currentNodeId: null,
+    });
+
     try {
       // Stop both interactive debug session and any running bot process
       await Promise.all([
@@ -455,10 +585,9 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
       // Ignore errors when stopping
     }
 
+    // Keep session state for inspection but ensure state is idle
     set({
-      state: "stopped",
-      currentNodeId: null,
-      sessionState: null,
+      state: "idle",
     });
   },
 
@@ -530,6 +659,35 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     const projectStore = useProjectStore.getState();
     const logs = useLogsStore.getState();
     const toast = useToastStore.getState();
+
+    const extractNodeOutput = (rawOutput?: string): any => {
+      if (!rawOutput) return null;
+      const lines = rawOutput.split("\n").reverse();
+      for (const line of lines) {
+        if (line.includes("NODE_OUTPUT:")) {
+          const idx = line.indexOf("NODE_OUTPUT:");
+          const payloadRaw = line.slice(idx + "NODE_OUTPUT:".length).trim();
+          if (!payloadRaw) continue;
+
+          // Accept both formats: NODE_OUTPUT:<json> or NODE_OUTPUT:<nodeId>:<json>
+          let payload = payloadRaw;
+          if (!payloadRaw.startsWith("{") && !payloadRaw.startsWith("[")) {
+            const firstColon = payloadRaw.indexOf(":");
+            if (firstColon > -1) {
+              const maybeJson = payloadRaw.slice(firstColon + 1).trim();
+              if (maybeJson) payload = maybeJson;
+            }
+          }
+          if (!payload) continue;
+          try {
+            return JSON.parse(payload);
+          } catch {
+            return payload;
+          }
+        }
+      }
+      return null;
+    };
 
     // Sync flowStore with projectStore data
     const activeBot = projectStore.activeBotId ? projectStore.bots.get(projectStore.activeBotId) : null;
@@ -630,9 +788,14 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
       });
 
       if (result.success) {
-        // Use output if available, otherwise use message, otherwise use a default
-        const outputToShow = result.output || result.message || "Execution completed successfully";
+        const parsedOutput = extractNodeOutput(result.output);
+        // Use parsed node output if available, otherwise use output/message
+        const outputToShow = parsedOutput ?? result.output ?? result.message ?? "Execution completed successfully";
         get().markNodeStatus(nodeId, "success", outputToShow);
+        // Discover schema from the actual output
+        if (parsedOutput && typeof parsedOutput === 'object') {
+          get().discoverSchema(nodeId, node.data.nodeType, parsedOutput);
+        }
         logs.success(`Node "${node.data.label}" executed successfully`);
         toast.success("Node executed", result.message || "Success");
       } else {
@@ -672,6 +835,7 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
   },
 
   markNodeStatus: (nodeId, status, output, error) => {
+    console.log("[DebugStore] markNodeStatus called:", { nodeId, status, output: typeof output === 'object' ? JSON.stringify(output).substring(0, 100) : output, error });
     set((state) => {
       const existingIndex = state.executionHistory.findIndex(
         (e) => e.nodeId === nodeId
@@ -687,6 +851,7 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
         output,
         error,
       };
+      console.log("[DebugStore] executionHistory will have:", state.executionHistory.length + (existingIndex >= 0 ? 0 : 1), "entries");
 
       if (existingIndex >= 0) {
         const newHistory = [...state.executionHistory];
@@ -775,6 +940,97 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
 
   clearAllPinnedData: () => {
     set({ pinnedData: new Map() });
+  },
+
+  // Schema Discovery with localStorage persistence
+  // Stores by BOTH nodeId (specific) and nodeType (global for all nodes of same type)
+  discoverSchema: (nodeId, nodeType, data) => {
+    if (!data) return;
+    
+    const fields = inferSchema(data, 4);
+    if (fields.length === 0) return;
+    
+    const schema: DiscoveredSchema = {
+      nodeId,
+      nodeType,
+      fields,
+      discoveredAt: Date.now(),
+      sampleCount: (get().discoveredSchemas.get(nodeId)?.sampleCount || 0) + 1,
+    };
+    
+    set((state) => {
+      const newSchemas = new Map(state.discoveredSchemas);
+      // Store by nodeId (specific instance)
+      newSchemas.set(nodeId, schema);
+      // Also store by nodeType (benefits ALL nodes of this type)
+      newSchemas.set(`type:${nodeType}`, schema);
+      
+      // Persist to localStorage
+      try {
+        const allSchemas: Record<string, DiscoveredSchema> = {};
+        newSchemas.forEach((s, id) => { allSchemas[id] = s; });
+        localStorage.setItem('skuldbot_discovered_schemas', JSON.stringify(allSchemas));
+      } catch (e) {
+        console.warn('Failed to persist schemas to localStorage:', e);
+      }
+      
+      return { discoveredSchemas: newSchemas };
+    });
+  },
+
+  getDiscoveredSchema: (nodeId, nodeType?: string) => {
+    const state = get();
+    
+    // First check specific nodeId
+    const nodeSchema = state.discoveredSchemas.get(nodeId);
+    if (nodeSchema) return nodeSchema;
+    
+    // Then check by nodeType (global schema for this type)
+    if (nodeType) {
+      const typeSchema = state.discoveredSchemas.get(`type:${nodeType}`);
+      if (typeSchema) return typeSchema;
+    }
+    
+    // Try to load from localStorage if not in memory
+    try {
+      const stored = localStorage.getItem('skuldbot_discovered_schemas');
+      if (stored) {
+        const allSchemas = JSON.parse(stored) as Record<string, DiscoveredSchema>;
+        
+        // Check nodeId first
+        if (allSchemas[nodeId]) {
+          set((s) => {
+            const newSchemas = new Map(s.discoveredSchemas);
+            newSchemas.set(nodeId, allSchemas[nodeId]);
+            return { discoveredSchemas: newSchemas };
+          });
+          return allSchemas[nodeId];
+        }
+        
+        // Check nodeType
+        if (nodeType && allSchemas[`type:${nodeType}`]) {
+          set((s) => {
+            const newSchemas = new Map(s.discoveredSchemas);
+            newSchemas.set(`type:${nodeType}`, allSchemas[`type:${nodeType}`]);
+            return { discoveredSchemas: newSchemas };
+          });
+          return allSchemas[`type:${nodeType}`];
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load schema from localStorage:', e);
+    }
+    
+    return undefined;
+  },
+
+  clearDiscoveredSchemas: () => {
+    set({ discoveredSchemas: new Map() });
+    try {
+      localStorage.removeItem('skuldbot_discovered_schemas');
+    } catch (e) {
+      console.warn('Failed to clear schemas from localStorage:', e);
+    }
   },
 
   isPinned: (nodeId) => {

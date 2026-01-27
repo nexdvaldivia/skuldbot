@@ -17,8 +17,10 @@ class ValidationError(Exception):
 class DSLValidator:
     """Advanced DSL validator"""
 
-    # AI configuration node types (sub-nodes that provide config to other nodes)
-    AI_CONFIG_NODES = {"ai.model", "ai.embeddings"}
+    # Configuration node types (sub-nodes that provide config to other nodes)
+    # These nodes don't participate in execution flow, they provide configuration
+    # via visual connections (e.g., AI Model -> AI Agent, MS365 Connection -> Email Trigger)
+    CONFIG_NODES = {"ai.model", "ai.embeddings", "ms365.connection", "vectordb.memory"}
 
     def __init__(self):
         self.errors: List[str] = []
@@ -68,6 +70,14 @@ class DSLValidator:
         node_ids.add("END")
 
         for node in bot.nodes:
+            # Skip validation for config nodes (they don't have outputs)
+            if node.type in self.CONFIG_NODES:
+                continue
+
+            # Skip if node has no outputs (config nodes)
+            if node.outputs is None:
+                continue
+
             # Validate output success
             if node.outputs.success not in node_ids:
                 self.errors.append(
@@ -106,8 +116,8 @@ class DSLValidator:
             path.append(node_id)
 
             node = bot.get_node(node_id)
-            if node:
-                # Explorar ambas salidas
+            if node and node.outputs:
+                # Explorar ambas salidas (skip config nodes that have no outputs)
                 if node.outputs.success != node_id:  # Evitar self-loop inmediato
                     dfs(node.outputs.success)
 
@@ -151,7 +161,7 @@ class DSLValidator:
 
             reachable.add(node_id)
             node = bot.get_node(node_id)
-            if node:
+            if node and node.outputs:
                 visit(node.outputs.success)
                 visit(node.outputs.error)
 
@@ -167,7 +177,7 @@ class DSLValidator:
             for node_id in unreachable:
                 # Get node type to check if it's a config node
                 node = bot.get_node(node_id)
-                if node and node.type in self.AI_CONFIG_NODES:
+                if node and node.type in self.CONFIG_NODES:
                     # Config nodes don't participate in execution flow,
                     # they provide configuration via visual connections
                     continue

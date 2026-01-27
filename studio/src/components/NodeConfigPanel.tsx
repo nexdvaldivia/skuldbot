@@ -1,18 +1,20 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { open } from "@tauri-apps/api/dialog";
 import { invoke } from "@tauri-apps/api/tauri";
 import { useFlowStore } from "../store/flowStore";
 import { useProjectStore } from "../store/projectStore";
+import { useVaultStore } from "../store/vaultStore";
 import { useNavigationStore } from "../store/navigationStore";
 import { useTabsStore } from "../store/tabsStore";
 import { useDebugStore } from "../store/debugStore";
 import { getNodeTemplate } from "../data/nodeTemplates";
-import { X, Info, Eye, Copy, Check, ChevronRight, ChevronDown, FolderOpen, Loader2, CheckCircle2, XCircle, Zap, Pin, PinOff } from "lucide-react";
+import { X, Info, Eye, EyeOff, Copy, Check, ChevronRight, ChevronDown, FolderOpen, Loader2, CheckCircle2, XCircle, Zap, Pin, PinOff, Table, Braces, GripVertical, Package, Sparkles, ShieldCheck } from "lucide-react";
+import { maskObject, DEFAULT_MASKING_POLICY, type MaskingPolicy } from "../lib/dataMasking";
 import { Icon } from "./ui/Icon";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
-import { Textarea } from "./ui/textarea";
+// Textarea replaced by ExpressionInput with multiline support
 import { Switch } from "./ui/switch";
 import { Label } from "./ui/label";
 import {
@@ -34,6 +36,218 @@ interface AvailableVariable {
   nodeType: string;
   field: OutputField;
   expression: string;
+}
+
+// Expression input with autocomplete
+interface ExpressionInputProps {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  suggestions: { label: string; value: string; description?: string }[];
+  className?: string;
+  multiline?: boolean;
+}
+
+function ExpressionInput({
+  value,
+  onChange,
+  placeholder,
+  suggestions,
+  className = "",
+  multiline = false,
+}: ExpressionInputProps) {
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [filteredSuggestions, setFilteredSuggestions] = useState(suggestions);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+
+  // Find expression being typed (text between ${ and cursor or })
+  const getExpressionContext = useCallback((text: string, cursor: number) => {
+    const beforeCursor = text.slice(0, cursor);
+    const lastOpen = beforeCursor.lastIndexOf('${');
+    if (lastOpen === -1) return null;
+    
+    const afterOpen = beforeCursor.slice(lastOpen + 2);
+    if (afterOpen.includes('}')) return null; // Already closed
+    
+    return {
+      start: lastOpen,
+      query: afterOpen.toLowerCase(),
+      prefix: text.slice(0, lastOpen),
+      suffix: text.slice(cursor),
+    };
+  }, []);
+
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    const cursor = e.target.selectionStart || 0;
+    setCursorPosition(cursor);
+    onChange(newValue);
+
+    const context = getExpressionContext(newValue, cursor);
+    if (context) {
+      const filtered = suggestions.filter(s => 
+        s.label.toLowerCase().includes(context.query) ||
+        s.value.toLowerCase().includes(context.query)
+      ).slice(0, 10);
+      setFilteredSuggestions(filtered);
+      setShowSuggestions(filtered.length > 0);
+      setSelectedIndex(0);
+    } else {
+      setShowSuggestions(false);
+    }
+  }, [suggestions, onChange, getExpressionContext]);
+
+  const insertSuggestion = useCallback((suggestion: { value: string }) => {
+    const context = getExpressionContext(value, cursorPosition);
+    if (context) {
+      // Extract just the expression path without ${ }
+      const exprPath = suggestion.value.slice(2, -1); // Remove ${ and }
+      const newValue = context.prefix + '${' + exprPath + '}' + context.suffix;
+      onChange(newValue);
+      setShowSuggestions(false);
+      
+      // Focus back to input
+      setTimeout(() => {
+        inputRef.current?.focus();
+        const newCursor = context.prefix.length + suggestion.value.length;
+        inputRef.current?.setSelectionRange(newCursor, newCursor);
+      }, 0);
+    }
+  }, [value, cursorPosition, onChange, getExpressionContext]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!showSuggestions) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedIndex(i => Math.min(i + 1, filteredSuggestions.length - 1));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedIndex(i => Math.max(i - 1, 0));
+        break;
+      case 'Enter':
+      case 'Tab':
+        if (filteredSuggestions[selectedIndex]) {
+          e.preventDefault();
+          insertSuggestion(filteredSuggestions[selectedIndex]);
+        }
+        break;
+      case 'Escape':
+        setShowSuggestions(false);
+        break;
+    }
+  }, [showSuggestions, filteredSuggestions, selectedIndex, insertSuggestion]);
+
+  // Scroll selected item into view
+  useEffect(() => {
+    if (showSuggestions && suggestionsRef.current) {
+      const selected = suggestionsRef.current.children[selectedIndex] as HTMLElement;
+      selected?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [selectedIndex, showSuggestions]);
+
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  // Handle drag and drop
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    const expression = e.dataTransfer.getData('application/x-skuld-expression') || 
+                       e.dataTransfer.getData('text/plain');
+    
+    if (expression) {
+      // Insert at cursor position or append
+      const input = inputRef.current;
+      if (input) {
+        const start = input.selectionStart || value.length;
+        const end = input.selectionEnd || value.length;
+        const newValue = value.slice(0, start) + expression + value.slice(end);
+        onChange(newValue);
+        
+        // Set cursor after inserted expression
+        setTimeout(() => {
+          input.focus();
+          const newPos = start + expression.length;
+          input.setSelectionRange(newPos, newPos);
+        }, 0);
+      } else {
+        onChange(value + expression);
+      }
+    }
+  }, [value, onChange]);
+
+  const InputComponent = multiline ? 'textarea' : 'input';
+  const baseClassName = multiline 
+    ? "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+    : "flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+
+  return (
+    <div 
+      className={`relative ${isDragOver ? 'ring-2 ring-blue-400 ring-offset-1 rounded-md' : ''}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      <InputComponent
+        ref={inputRef as any}
+        value={value}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+        placeholder={isDragOver ? 'Drop variable here...' : placeholder}
+        className={`${baseClassName} ${className} ${value.includes('${') ? 'font-mono text-xs' : ''} ${isDragOver ? 'bg-blue-50 border-blue-400' : ''}`}
+        rows={multiline ? 3 : undefined}
+      />
+      
+      {/* Expression hint */}
+      {!showSuggestions && !value.includes('${') && (
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 pointer-events-none">
+          Type <span className="font-mono bg-slate-100 px-1 rounded">${"${"}</span> for variables
+        </div>
+      )}
+
+      {/* Autocomplete dropdown */}
+      {showSuggestions && (
+        <div 
+          ref={suggestionsRef}
+          className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+        >
+          {filteredSuggestions.map((suggestion, i) => (
+            <div
+              key={suggestion.value}
+              className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2 ${
+                i === selectedIndex ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50'
+              }`}
+              onClick={() => insertSuggestion(suggestion)}
+            >
+              <span className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">
+                {suggestion.value}
+              </span>
+              {suggestion.description && (
+                <span className="text-xs text-slate-400 truncate">{suggestion.description}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // Tree node component for nested output display
@@ -120,13 +334,452 @@ function OutputTreeNode({
   );
 }
 
+// Discovered schema field type (from debugStore)
+interface DiscoveredField {
+  name: string;
+  type: "string" | "number" | "boolean" | "object" | "array" | "null";
+  items?: DiscoveredField[];
+  fields?: DiscoveredField[];
+}
+
 // Input tree node component for grouping variables by source node
 interface InputNodeTreeProps {
+  nodeId: string;
   nodeLabel: string;
   regularFields: AvailableVariable[];
   formDataFields: AvailableVariable[];
+  discoveredFields?: DiscoveredField[];
   copyExpression: (expr: string) => void;
   copiedExpression: string | null;
+}
+
+// Schema array/object field component for showing nested structure
+interface SchemaArrayFieldProps {
+  fieldName: string;
+  items: { name: string; type: string; description?: string; items?: any }[];
+  nodeLabel: string;
+  description?: string;
+  copyExpression: (expr: string) => void;
+  copiedExpression: string | null;
+  isLast: boolean;
+  fieldType?: "array" | "object" | string;
+}
+
+function SchemaArrayField({
+  fieldName,
+  items,
+  nodeLabel,
+  copyExpression,
+  copiedExpression,
+  isLast,
+  fieldType = "array",
+}: SchemaArrayFieldProps) {
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  
+  const toggleItemExpand = (key: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+  
+  const isArray = fieldType === "array";
+  const openBracket = isArray ? "[" : "{";
+  const closeBracket = isArray ? "]" : "}";
+  const collapsedPreview = isArray ? `[${items.length} fields]` : `{${items.length} fields}`;
+
+  return (
+    <div className="pl-4">
+      {/* Field header with toggle */}
+      <div
+        className="flex items-center gap-1 py-0.5 cursor-pointer hover:bg-slate-50 rounded -ml-3 pl-1"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        {isExpanded ? (
+          <ChevronDown className="w-3 h-3 text-slate-400" />
+        ) : (
+          <ChevronRight className="w-3 h-3 text-slate-400" />
+        )}
+        <span className="text-pink-600">&quot;{fieldName}&quot;</span>
+        <span className="text-slate-400">:</span>
+        <span className="text-slate-500 ml-1">{isExpanded ? openBracket : collapsedPreview}</span>
+        {!isExpanded && !isLast && <span className="text-slate-400">,</span>}
+        <span className="text-[9px] text-slate-400 ml-auto">{items.length}</span>
+      </div>
+
+      {isExpanded && (
+        <>
+          {/* For arrays, show item structure hint */}
+          {isArray && (
+            <div className="pl-4 text-[9px] text-slate-400 py-0.5">
+              {"{"} <span className="italic">each item has:</span>
+            </div>
+          )}
+          
+          {/* Nested fields */}
+          {items.map((item, i) => {
+            const basePath = isArray ? `${fieldName}[i]` : fieldName;
+            const itemExpression = `\${${nodeLabel}.${basePath}.${item.name}}`;
+            const itemIsLast = i === items.length - 1;
+            const itemKey = `${fieldName}-${item.name}`;
+            
+            // Check if this item has nested fields
+            const nestedFields = item.items?.fields || (Array.isArray(item.items) ? item.items : null);
+            const hasNestedFields = (item.type === "array" || item.type === "object") && nestedFields && nestedFields.length > 0;
+            const isItemExpanded = expandedItems.has(itemKey);
+            
+            if (hasNestedFields) {
+              return (
+                <div key={item.name} className="pl-8">
+                  <div
+                    className="flex items-center gap-1 py-0.5 cursor-pointer hover:bg-pink-50 rounded -ml-3 pl-1"
+                    onClick={(e) => toggleItemExpand(itemKey, e)}
+                  >
+                    {isItemExpanded ? (
+                      <ChevronDown className="w-3 h-3 text-pink-400" />
+                    ) : (
+                      <ChevronRight className="w-3 h-3 text-pink-400" />
+                    )}
+                    <span className="text-pink-600">&quot;{item.name}&quot;</span>
+                    <span className="text-slate-400">:</span>
+                    <span className="text-slate-500 ml-1">
+                      {isItemExpanded 
+                        ? (item.type === "array" ? "[" : "{") 
+                        : (item.type === "array" ? `[${nestedFields.length}]` : `{${nestedFields.length}}`)}
+                    </span>
+                    {!isItemExpanded && !itemIsLast && <span className="text-slate-400">,</span>}
+                  </div>
+                  
+                  {isItemExpanded && (
+                    <>
+                      {nestedFields.map((nested: any, ni: number) => {
+                        const nestedPath = item.type === "array" 
+                          ? `${basePath}.${item.name}[j]` 
+                          : `${basePath}.${item.name}`;
+                        const nestedExpr = `\${${nodeLabel}.${nestedPath}.${nested.name}}`;
+                        const nestedIsLast = ni === nestedFields.length - 1;
+                        
+                        return (
+                          <div
+                            key={nested.name}
+                            className="group pl-4 py-0.5 hover:bg-pink-50 rounded cursor-pointer flex items-center gap-1"
+                            onClick={() => copyExpression(nestedExpr)}
+                            title={nested.description ? `${nested.description}\nClick to copy: ${nestedExpr}` : `Click to copy: ${nestedExpr}`}
+                          >
+                            <span className="text-pink-500">&quot;{nested.name}&quot;</span>
+                            <span className="text-slate-400">:</span>
+                            <span className={`ml-1 ${
+                              nested.type === "string" ? "text-green-600" :
+                              nested.type === "number" ? "text-blue-600" :
+                              nested.type === "boolean" ? "text-purple-600" :
+                              "text-slate-600"
+                            }`}>
+                              {nested.type === "string" ? '"..."' :
+                               nested.type === "number" ? "0" :
+                               nested.type === "boolean" ? "true" :
+                               "..."}
+                            </span>
+                            {!nestedIsLast && <span className="text-slate-400">,</span>}
+                            {copiedExpression === nestedExpr ? (
+                              <Check className="w-3 h-3 text-green-500 ml-auto" />
+                            ) : (
+                              <Copy className="w-3 h-3 text-slate-300 ml-auto opacity-0 group-hover:opacity-100" />
+                            )}
+                          </div>
+                        );
+                      })}
+                      <div className="text-slate-500">{item.type === "array" ? "]" : "}"}{!itemIsLast && ","}</div>
+                    </>
+                  )}
+                </div>
+              );
+            }
+            
+            return (
+              <div
+                key={item.name}
+                className="group pl-8 py-0.5 hover:bg-pink-50 rounded cursor-pointer flex items-center gap-1"
+                onClick={() => copyExpression(itemExpression)}
+                title={item.description ? `${item.description}\nClick to copy: ${itemExpression}` : `Click to copy: ${itemExpression}`}
+              >
+                <span className="text-pink-600">&quot;{item.name}&quot;</span>
+                <span className="text-slate-400">:</span>
+                <span className={`ml-1 ${
+                  item.type === "string" ? "text-green-600" :
+                  item.type === "number" ? "text-blue-600" :
+                  item.type === "boolean" ? "text-purple-600" :
+                  item.type === "object" ? "text-orange-600" :
+                  item.type === "array" ? "text-pink-600" :
+                  "text-slate-600"
+                }`}>
+                  {item.type === "string" ? '"..."' :
+                   item.type === "number" ? "0" :
+                   item.type === "boolean" ? "true" :
+                   item.type === "object" ? "{...}" :
+                   item.type === "array" ? "[...]" :
+                   "..."}
+                </span>
+                {!itemIsLast && <span className="text-slate-400">,</span>}
+                {copiedExpression === itemExpression ? (
+                  <Check className="w-3 h-3 text-green-500 ml-auto" />
+                ) : (
+                  <Copy className="w-3 h-3 text-slate-300 ml-auto opacity-0 group-hover:opacity-100" />
+                )}
+              </div>
+            );
+          })}
+          
+          {isArray && <div className="pl-4 text-slate-500">{"}"}</div>}
+          <div className="text-slate-500 pl-0">{closeBracket}{!isLast && ","}</div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Global input tree for Environment and Vault variables (same style as node trees)
+interface GlobalInputTreeProps {
+  label: string;
+  icon: "env" | "vault";
+  variables: { label: string; value: string; description?: string }[];
+  emptyMessage: string;
+  copyExpression: (expr: string) => void;
+  copiedExpression: string | null;
+  isMasked?: boolean;
+}
+
+function GlobalInputTree({
+  label,
+  icon,
+  variables,
+  emptyMessage,
+  copyExpression,
+  copiedExpression,
+  isMasked = false,
+}: GlobalInputTreeProps) {
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  const iconColor = icon === "env" ? "text-emerald-600" : "text-amber-600";
+  const hoverBg = icon === "env" ? "hover:bg-emerald-50" : "hover:bg-amber-50";
+
+  return (
+    <div className="mb-3 font-mono text-xs bg-white rounded-lg border border-slate-200 p-2">
+      {/* Header with toggle */}
+      <div
+        className="flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 rounded p-1 -m-1"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        {isExpanded ? (
+          <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+        ) : (
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+        )}
+        <span className={`${iconColor} font-semibold`}>{label}</span>
+        <span className="text-slate-400 text-[10px] ml-auto">{variables.length}</span>
+      </div>
+
+      {isExpanded && (
+        <div className="mt-1 pl-2 border-l-2 border-slate-100 ml-1.5">
+          {variables.length === 0 ? (
+            <div className="text-[10px] text-slate-400 py-1">{emptyMessage}</div>
+          ) : (
+            variables.map((variable) => (
+              <div
+                key={variable.value}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/plain', variable.value);
+                  e.dataTransfer.setData('application/x-skuld-expression', variable.value);
+                  e.dataTransfer.effectAllowed = 'copy';
+                }}
+                className={`group py-0.5 ${hoverBg} rounded cursor-grab active:cursor-grabbing flex items-center gap-1 px-1`}
+                onClick={() => copyExpression(variable.value)}
+                title={variable.description ? `${variable.description}\nDrag to field or click to copy: ${variable.value}` : `Drag to field or click to copy: ${variable.value}`}
+              >
+                <GripVertical className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 flex-shrink-0" />
+                <span className={iconColor}>&quot;{variable.label}&quot;</span>
+                <span className="text-slate-400">:</span>
+                <span className="text-green-600 ml-1">{isMasked ? '"••••••"' : '"..."'}</span>
+                {copiedExpression === variable.value ? (
+                  <Check className="w-3 h-3 text-green-500 ml-auto" />
+                ) : (
+                  <Copy className="w-3 h-3 text-slate-300 ml-auto opacity-0 group-hover:opacity-100" />
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Expandable JSON node for recursive rendering
+interface ExpandableJsonNodeProps {
+  keyName: string | number;
+  value: any;
+  path: string;
+  nodeLabel: string;
+  copyExpression: (expr: string) => void;
+  copiedExpression: string | null;
+  isLast: boolean;
+  defaultExpanded?: boolean;
+}
+
+function ExpandableJsonNode({
+  keyName,
+  value,
+  path,
+  nodeLabel,
+  copyExpression,
+  copiedExpression,
+  isLast,
+  defaultExpanded = false,
+}: ExpandableJsonNodeProps) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  
+  const isArray = Array.isArray(value);
+  const isObject = typeof value === "object" && value !== null && !isArray;
+  const isExpandable = isArray || isObject;
+  const expression = `\${${nodeLabel}.${path}}`;
+  
+  // Format the key display
+  const displayKey = typeof keyName === "number" ? `item ${keyName + 1}` : keyName;
+  const keyColor = typeof keyName === "number" ? "text-pink-600" : "text-emerald-600";
+
+  if (!isExpandable) {
+    // Primitive value - render inline or block for long strings
+    let valueDisplay: React.ReactNode;
+    let valueColor = "text-slate-600";
+    let isLongString = false;
+    
+    if (value === null) {
+      valueDisplay = "null";
+      valueColor = "text-slate-400";
+    } else if (value === undefined) {
+      valueDisplay = "undefined";
+      valueColor = "text-slate-400";
+    } else if (typeof value === "string") {
+      isLongString = value.length > 50;
+      valueDisplay = `"${value}"`;
+      valueColor = "text-amber-600";
+    } else if (typeof value === "number") {
+      valueDisplay = String(value);
+      valueColor = "text-blue-600";
+    } else if (typeof value === "boolean") {
+      valueDisplay = String(value);
+      valueColor = "text-purple-600";
+    } else {
+      valueDisplay = String(value);
+    }
+    
+    // For long strings, use block layout
+    if (isLongString) {
+      return (
+        <div
+          className="group py-1 hover:bg-emerald-50 rounded cursor-pointer pl-4"
+          onClick={() => copyExpression(expression)}
+          title={`Click to copy: ${expression}`}
+        >
+          <div className="flex items-center gap-1">
+            <span className={keyColor}>&quot;{displayKey}&quot;</span>
+            <span className="text-slate-400">:</span>
+            {copiedExpression === expression ? (
+              <Check className="w-3 h-3 text-green-500 ml-auto" />
+            ) : (
+              <Copy className="w-3 h-3 text-slate-300 ml-auto opacity-0 group-hover:opacity-100" />
+            )}
+          </div>
+          <div className={`mt-0.5 pl-2 text-[10px] ${valueColor} break-all leading-relaxed`}>
+            {valueDisplay}
+          </div>
+          {!isLast && <span className="text-slate-400">,</span>}
+        </div>
+      );
+    }
+    
+    return (
+      <div
+        className="group py-0.5 hover:bg-emerald-50 rounded cursor-pointer flex items-center gap-1 pl-4"
+        onClick={() => copyExpression(expression)}
+        title={`Click to copy: ${expression}`}
+      >
+        <span className={keyColor}>&quot;{displayKey}&quot;</span>
+        <span className="text-slate-400">:</span>
+        <span className={`ml-1 ${valueColor} truncate max-w-[200px]`} title={String(value)}>{valueDisplay}</span>
+        {!isLast && <span className="text-slate-400">,</span>}
+        {copiedExpression === expression ? (
+          <Check className="w-3 h-3 text-green-500 ml-auto" />
+        ) : (
+          <Copy className="w-3 h-3 text-slate-300 ml-auto opacity-0 group-hover:opacity-100" />
+        )}
+      </div>
+    );
+  }
+
+  // Expandable value (array or object)
+  const entries = isArray ? value : Object.entries(value);
+  const count = isArray ? value.length : Object.keys(value).length;
+  const bracket = isArray ? ["[", "]"] : ["{", "}"];
+
+  return (
+    <div className="pl-4">
+      <div
+        className="flex items-center gap-1 py-0.5 cursor-pointer hover:bg-slate-50 rounded -ml-3 pl-1"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        {isExpanded ? (
+          <ChevronDown className="w-3 h-3 text-slate-400" />
+        ) : (
+          <ChevronRight className="w-3 h-3 text-slate-400" />
+        )}
+        <span className={keyColor}>&quot;{displayKey}&quot;</span>
+        <span className="text-slate-400">:</span>
+        <span className="text-slate-500 ml-1">
+          {isExpanded ? bracket[0] : `${bracket[0]}${count} ${isArray ? 'items' : 'fields'}${bracket[1]}`}
+        </span>
+        {!isExpanded && !isLast && <span className="text-slate-400">,</span>}
+        <span className="text-[9px] text-slate-400 ml-auto">{count}</span>
+      </div>
+
+      {isExpanded && (
+        <>
+          {isArray ? (
+            value.map((item: any, i: number) => (
+              <ExpandableJsonNode
+                key={i}
+                keyName={i}
+                value={item}
+                path={`${path}[${i}]`}
+                nodeLabel={nodeLabel}
+                copyExpression={copyExpression}
+                copiedExpression={copiedExpression}
+                isLast={i === value.length - 1}
+              />
+            ))
+          ) : (
+            entries.map(([k, v]: [string, any], i: number) => (
+              <ExpandableJsonNode
+                key={k}
+                keyName={k}
+                value={v}
+                path={path ? `${path}.${k}` : k}
+                nodeLabel={nodeLabel}
+                copyExpression={copyExpression}
+                copiedExpression={copiedExpression}
+                isLast={i === entries.length - 1}
+              />
+            ))
+          )}
+          <div className="text-slate-500 pl-0">{bracket[1]}{!isLast && ","}</div>
+        </>
+      )}
+    </div>
+  );
 }
 
 // Live data tree component for showing real execution data (n8n-style)
@@ -144,133 +797,148 @@ function LiveDataTree({
   copiedExpression,
 }: LiveDataTreeProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const [viewMode, setViewMode] = useState<'json' | 'table'>('json');
 
   // Count items if data is an array
   const itemCount = Array.isArray(data) ? data.length : null;
-
-  // Render a value with clickable paths for copying expressions
-  const renderValue = (value: any, path: string, _depth: number = 0): React.ReactNode => {
-    if (value === null) return <span className="text-slate-400">null</span>;
-    if (value === undefined) return <span className="text-slate-400">undefined</span>;
-
-    if (typeof value === "string") {
-      const displayValue = value.length > 50 ? value.substring(0, 50) + "..." : value;
-      return (
-        <span
-          className="text-green-600 cursor-pointer hover:bg-green-100 rounded px-0.5"
-          onClick={(e) => { e.stopPropagation(); copyExpression(`\${${nodeLabel}.${path}}`); }}
-          title={`Click to copy: \${${nodeLabel}.${path}}`}
-        >
-          &quot;{displayValue}&quot;
-          {copiedExpression === `\${${nodeLabel}.${path}}` && (
-            <Check className="w-3 h-3 text-green-500 inline ml-1" />
-          )}
-        </span>
-      );
-    }
-
-    if (typeof value === "number") {
-      return (
-        <span
-          className="text-blue-600 cursor-pointer hover:bg-blue-100 rounded px-0.5"
-          onClick={(e) => { e.stopPropagation(); copyExpression(`\${${nodeLabel}.${path}}`); }}
-          title={`Click to copy: \${${nodeLabel}.${path}}`}
-        >
-          {value}
-          {copiedExpression === `\${${nodeLabel}.${path}}` && (
-            <Check className="w-3 h-3 text-green-500 inline ml-1" />
-          )}
-        </span>
-      );
-    }
-
-    if (typeof value === "boolean") {
-      return (
-        <span
-          className="text-purple-600 cursor-pointer hover:bg-purple-100 rounded px-0.5"
-          onClick={(e) => { e.stopPropagation(); copyExpression(`\${${nodeLabel}.${path}}`); }}
-          title={`Click to copy: \${${nodeLabel}.${path}}`}
-        >
-          {value.toString()}
-          {copiedExpression === `\${${nodeLabel}.${path}}` && (
-            <Check className="w-3 h-3 text-green-500 inline ml-1" />
-          )}
-        </span>
-      );
-    }
-
-    if (Array.isArray(value)) {
-      if (value.length === 0) return <span className="text-slate-400">[]</span>;
-      return (
-        <span className="text-pink-600">
-          [{value.length} items]
-        </span>
-      );
-    }
-
-    if (typeof value === "object") {
-      const keys = Object.keys(value);
-      if (keys.length === 0) return <span className="text-slate-400">{"{}"}</span>;
-      return (
-        <span className="text-orange-600">
-          {"{"}...{"}"}
-        </span>
-      );
-    }
-
-    return <span className="text-slate-600">{String(value)}</span>;
-  };
-
-  // Render object entries recursively (limited depth)
-  const renderObjectEntries = (obj: any, basePath: string, depth: number = 0): React.ReactNode[] => {
-    if (depth > 2) return []; // Limit depth
-    const entries = Object.entries(obj);
-
-    return entries.slice(0, 10).map(([key, value], i) => {
-      const path = basePath ? `${basePath}.${key}` : key;
-      const isLast = i === Math.min(entries.length - 1, 9);
-
-      return (
-        <div key={key} className="pl-3 py-0.5 hover:bg-green-50 rounded">
-          <span className="text-green-700">&quot;{key}&quot;</span>
-          <span className="text-slate-400">: </span>
-          {renderValue(value, path, depth)}
-          {!isLast && <span className="text-slate-400">,</span>}
-        </div>
-      );
-    }).concat(entries.length > 10 ? [
-      <div key="more" className="pl-3 text-slate-400 text-[10px]">
-        ... {entries.length - 10} more fields
-      </div>
-    ] : []);
-  };
+  const isArray = Array.isArray(data);
+  const isObject = typeof data === "object" && data !== null && !isArray;
+  
+  // Check if data is array of objects (suitable for table view)
+  const isArrayOfObjects = isArray && data.length > 0 && typeof data[0] === 'object' && data[0] !== null;
+  
+  // Get table columns from first object
+  const tableColumns = isArrayOfObjects ? Object.keys(data[0]).slice(0, 6) : []; // Max 6 columns
 
   return (
     <div className="mb-3 font-mono text-xs bg-green-50 rounded-lg border border-green-200 p-2">
-      {/* Node header with LIVE badge */}
-      <div
-        className="flex items-center gap-1.5 cursor-pointer hover:bg-green-100 rounded p-1 -m-1"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        {isExpanded ? (
-          <ChevronDown className="w-3.5 h-3.5 text-green-500" />
-        ) : (
-          <ChevronRight className="w-3.5 h-3.5 text-green-500" />
+      {/* Node header with LIVE badge and view toggle */}
+      <div className="flex items-center gap-1.5 p-1 -m-1">
+        <div 
+          className="flex items-center gap-1.5 cursor-pointer hover:bg-green-100 rounded flex-1"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          {isExpanded ? (
+            <ChevronDown className="w-3.5 h-3.5 text-green-500" />
+          ) : (
+            <ChevronRight className="w-3.5 h-3.5 text-green-500" />
+          )}
+          <span className="text-green-700 font-semibold">{nodeLabel}</span>
+          <span className="text-[9px] text-green-600 bg-green-200 px-1.5 py-0.5 rounded-full font-semibold">LIVE</span>
+        </div>
+        
+        {/* View toggle for arrays of objects */}
+        {isArrayOfObjects && isExpanded && (
+          <div className="flex items-center gap-0.5 bg-green-200/50 rounded p-0.5">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setViewMode('json'); }}
+              className={`p-1 rounded ${viewMode === 'json' ? 'bg-white shadow-sm' : 'hover:bg-green-100'}`}
+              title="JSON view"
+            >
+              <Braces className="w-3 h-3 text-green-600" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setViewMode('table'); }}
+              className={`p-1 rounded ${viewMode === 'table' ? 'bg-white shadow-sm' : 'hover:bg-green-100'}`}
+              title="Table view"
+            >
+              <Table className="w-3 h-3 text-green-600" />
+            </button>
+          </div>
         )}
-        <span className="text-green-700 font-semibold">{nodeLabel}</span>
-        <span className="text-[9px] text-green-600 bg-green-200 px-1.5 py-0.5 rounded-full font-semibold">LIVE</span>
+        
         {itemCount !== null && (
-          <span className="text-[9px] text-green-500 ml-auto">{itemCount} items</span>
+          <span className="text-[9px] text-green-500">{itemCount} items</span>
         )}
       </div>
 
       {isExpanded && (
-        <div className="mt-1 pl-1 border-l-2 border-green-200 ml-1.5">
-          {typeof data === "object" && data !== null ? (
-            renderObjectEntries(data, "")
+        <div className="mt-1">
+          {/* Table View */}
+          {viewMode === 'table' && isArrayOfObjects ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[10px] border-collapse">
+                <thead>
+                  <tr className="bg-green-100">
+                    <th className="px-2 py-1 text-left text-green-700 font-semibold border-b border-green-200">#</th>
+                    {tableColumns.map(col => (
+                      <th key={col} className="px-2 py-1 text-left text-green-700 font-semibold border-b border-green-200 max-w-[120px] truncate">
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.slice(0, 50).map((row: any, i: number) => (
+                    <tr 
+                      key={i} 
+                      className="hover:bg-green-100 cursor-pointer group"
+                      onClick={() => copyExpression(`\${${nodeLabel}[${i}]}`)}
+                      title={`Click to copy: \${${nodeLabel}[${i}]}`}
+                    >
+                      <td className="px-2 py-1 text-green-500 border-b border-green-100">{i}</td>
+                      {tableColumns.map(col => (
+                        <td key={col} className="px-2 py-1 border-b border-green-100 max-w-[120px] truncate">
+                          <span className={
+                            typeof row[col] === 'string' ? 'text-green-700' :
+                            typeof row[col] === 'number' ? 'text-blue-600' :
+                            typeof row[col] === 'boolean' ? 'text-purple-600' :
+                            row[col] === null ? 'text-slate-400 italic' :
+                            'text-orange-600'
+                          }>
+                            {row[col] === null ? 'null' :
+                             typeof row[col] === 'object' ? '{...}' :
+                             typeof row[col] === 'boolean' ? String(row[col]) :
+                             String(row[col]).slice(0, 30) + (String(row[col]).length > 30 ? '...' : '')}
+                          </span>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {data.length > 50 && (
+                <div className="text-[9px] text-green-500 text-center py-1">
+                  Showing 50 of {data.length} items
+                </div>
+              )}
+            </div>
           ) : (
-            <div className="pl-3 py-0.5">
-              {renderValue(data, "output", 0)}
+            /* JSON View */
+            <div className="pl-1 border-l-2 border-green-200 ml-1.5">
+              {isArray ? (
+                data.map((item: any, i: number) => (
+                  <ExpandableJsonNode
+                    key={i}
+                    keyName={i}
+                    value={item}
+                    path={`[${i}]`}
+                    nodeLabel={nodeLabel}
+                    copyExpression={copyExpression}
+                    copiedExpression={copiedExpression}
+                    isLast={i === data.length - 1}
+                    defaultExpanded={i === 0}
+                  />
+                ))
+              ) : isObject ? (
+                Object.entries(data).map(([key, value], i, arr) => (
+                  <ExpandableJsonNode
+                    key={key}
+                    keyName={key}
+                    value={value}
+                    path={key}
+                    nodeLabel={nodeLabel}
+                    copyExpression={copyExpression}
+                    copiedExpression={copiedExpression}
+                    isLast={i === arr.length - 1}
+                    defaultExpanded={true}
+                  />
+                ))
+              ) : (
+                <div className="pl-3 py-0.5 text-slate-600">{String(data)}</div>
+              )}
             </div>
           )}
         </div>
@@ -280,16 +948,124 @@ function LiveDataTree({
 }
 
 function InputNodeTree({
+  nodeId: _nodeId, // Reserved for future use
   nodeLabel,
   regularFields,
   formDataFields,
+  discoveredFields,
   copyExpression,
   copiedExpression,
 }: InputNodeTreeProps) {
+  void _nodeId; // Suppress unused warning
   const [isExpanded, setIsExpanded] = useState(true);
   const [isFormDataExpanded, setIsFormDataExpanded] = useState(true);
+  const [expandedArrays, setExpandedArrays] = useState<Set<string>>(new Set());
+
+  const toggleArrayExpand = (fieldName: string) => {
+    setExpandedArrays(prev => {
+      const next = new Set(prev);
+      if (next.has(fieldName)) next.delete(fieldName);
+      else next.add(fieldName);
+      return next;
+    });
+  };
+
+  // Merge regular fields with discovered fields for richer display
+  const getDiscoveredField = (fieldName: string): DiscoveredField | undefined => {
+    return discoveredFields?.find(f => f.name === fieldName);
+  };
 
   const totalFields = regularFields.length + formDataFields.length;
+  const hasDiscovery = discoveredFields && discoveredFields.length > 0;
+
+  // Recursive component for nested fields
+  const renderNestedField = (field: DiscoveredField, basePath: string, depth: number = 0) => {
+    const expression = `\${${nodeLabel}.${basePath}}`;
+    const hasChildren = (field.type === 'array' && field.items && field.items.length > 0) ||
+                       (field.type === 'object' && field.fields && field.fields.length > 0);
+    const isArrayExpanded = expandedArrays.has(basePath);
+    
+    if (!hasChildren) {
+      return (
+        <div
+          key={basePath}
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData('text/plain', expression);
+            e.dataTransfer.setData('application/x-skuld-expression', expression);
+            e.dataTransfer.effectAllowed = 'copy';
+          }}
+          className="group py-0.5 hover:bg-blue-50 rounded cursor-grab active:cursor-grabbing flex items-center gap-1 px-1"
+          style={{ paddingLeft: `${depth * 12 + 4}px` }}
+          onClick={() => copyExpression(expression)}
+          title={`Drag to field or click to copy: ${expression}`}
+        >
+          <GripVertical className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 flex-shrink-0" />
+          <span className="text-blue-600">&quot;{field.name}&quot;</span>
+          <span className="text-slate-400">:</span>
+          <span className={`ml-1 ${
+            field.type === "string" ? "text-green-600" :
+            field.type === "number" ? "text-blue-600" :
+            field.type === "boolean" ? "text-purple-600" :
+            "text-slate-600"
+          }`}>
+            {field.type === "string" ? '"..."' :
+             field.type === "number" ? "0" :
+             field.type === "boolean" ? "true" : "..."}
+          </span>
+          {copiedExpression === expression ? (
+            <Check className="w-3 h-3 text-green-500 ml-auto" />
+          ) : (
+            <Copy className="w-3 h-3 text-slate-300 ml-auto opacity-0 group-hover:opacity-100" />
+          )}
+        </div>
+      );
+    }
+
+    const childFields = field.type === 'array' ? field.items : field.fields;
+    const bracket = field.type === 'array' ? ['[', ']'] : ['{', '}'];
+
+    return (
+      <div key={basePath}>
+        <div
+          className="flex items-center gap-1 py-0.5 cursor-pointer hover:bg-blue-50 rounded px-1"
+          style={{ paddingLeft: `${depth * 12 + 4}px` }}
+          onClick={() => toggleArrayExpand(basePath)}
+        >
+          {isArrayExpanded ? (
+            <ChevronDown className="w-3 h-3 text-blue-400" />
+          ) : (
+            <ChevronRight className="w-3 h-3 text-blue-400" />
+          )}
+          <span className="text-blue-600">&quot;{field.name}&quot;</span>
+          <span className="text-slate-400">:</span>
+          <span className={`ml-1 ${field.type === 'array' ? 'text-pink-600' : 'text-orange-600'}`}>
+            {isArrayExpanded ? bracket[0] : `${bracket[0]}${childFields?.length || 0}${bracket[1]}`}
+          </span>
+          <span className="text-[9px] text-slate-400 ml-auto">{childFields?.length || 0}</span>
+        </div>
+        
+        {isArrayExpanded && childFields && (
+          <>
+            {field.type === 'array' && (
+              <div className="text-[9px] text-slate-400 py-0.5" style={{ paddingLeft: `${(depth + 1) * 12 + 4}px` }}>
+                {"{"} <span className="italic">each item:</span>
+              </div>
+            )}
+            {childFields.map((child) => {
+              const childPath = field.type === 'array' 
+                ? `${basePath}[i].${child.name}` 
+                : `${basePath}.${child.name}`;
+              return renderNestedField(child, childPath, depth + 1);
+            })}
+            <div className="text-slate-500" style={{ paddingLeft: `${depth * 12 + 4}px` }}>
+              {field.type === 'array' && '}'}{bracket[1]}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="mb-3 font-mono text-xs bg-white rounded-lg border border-slate-200 p-2">
@@ -304,22 +1080,42 @@ function InputNodeTree({
           <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
         )}
         <span className="text-blue-600 font-semibold">{nodeLabel}</span>
+        {hasDiscovery && (
+          <span title="Schema discovered from execution">
+            <Sparkles className="w-3 h-3 text-purple-500" />
+          </span>
+        )}
         <span className="text-slate-400 text-[10px] ml-auto">{totalFields}</span>
       </div>
 
       {isExpanded && (
         <div className="mt-1 pl-2 border-l-2 border-slate-100 ml-1.5">
-          {/* Regular fields */}
+          {/* Regular fields - use discovered schema if available */}
           {regularFields.map((v, i) => {
-            // Show the field name (not description) so users know the actual variable name
             const displayName = v.field.name;
+            const discovered = getDiscoveredField(displayName);
+            
+            // If discovered and has nested structure, render expandable
+            if (discovered && ((discovered.type === 'array' && discovered.items) || 
+                              (discovered.type === 'object' && discovered.fields))) {
+              return renderNestedField(discovered, displayName, 0);
+            }
+            
+            // Otherwise render flat - draggable
             return (
               <div
                 key={i}
-                className="group py-0.5 hover:bg-blue-50 rounded cursor-pointer flex items-center gap-1 px-1"
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/plain', v.expression);
+                  e.dataTransfer.setData('application/x-skuld-expression', v.expression);
+                  e.dataTransfer.effectAllowed = 'copy';
+                }}
+                className="group py-0.5 hover:bg-blue-50 rounded cursor-grab active:cursor-grabbing flex items-center gap-1 px-1"
                 onClick={() => copyExpression(v.expression)}
-                title={v.field.description ? `${v.field.description}\nClick to copy: ${v.expression}` : `Click to copy: ${v.expression}`}
+                title={v.field.description ? `${v.field.description}\nDrag to field or click to copy: ${v.expression}` : `Drag to field or click to copy: ${v.expression}`}
               >
+                <GripVertical className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 flex-shrink-0" />
                 <span className="text-blue-600">&quot;{displayName}&quot;</span>
                 <span className="text-slate-400">:</span>
                 <span className={`ml-1 ${
@@ -412,14 +1208,32 @@ export default function NodeConfigPanel() {
   const { currentView } = useNavigationStore();
   const flowStore = useFlowStore();
   const projectStore = useProjectStore();
+  const vaultSecrets = useVaultStore((state) => state.secrets);
+  const vaultExists = useVaultStore((state) => state.vaultExists);
+  const isVaultUnlocked = useVaultStore((state) => state.isUnlocked);
+  const checkVaultStatus = useVaultStore((state) => state.checkVaultStatus);
   const { setTabDirty } = useTabsStore();
-  const { sessionState, pinnedData, pinNodeData, unpinNodeData } = useDebugStore();
+  // Use individual selectors for proper Zustand reactivity
+  const sessionState = useDebugStore((state) => state.sessionState);
+  const pinnedData = useDebugStore((state) => state.pinnedData);
+  const pinNodeData = useDebugStore((state) => state.pinNodeData);
+  const unpinNodeData = useDebugStore((state) => state.unpinNodeData);
+  const getDiscoveredSchema = useDebugStore((state) => state.getDiscoveredSchema);
+  const executionHistory = useDebugStore((state) => state.executionHistory);
   const [showFormPreview, setShowFormPreview] = useState(false);
   const [copiedExpression, setCopiedExpression] = useState<string | null>(null);
   const [excelSheets, setExcelSheets] = useState<string[]>([]);
   const [loadingSheets, setLoadingSheets] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionTestResult, setConnectionTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  
+  // Data masking for regulated industries (HIPAA, PCI-DSS)
+  const [dataMaskingEnabled, setDataMaskingEnabled] = useState(false);
+  const maskingPolicy: MaskingPolicy = {
+    ...DEFAULT_MASKING_POLICY,
+    enabled: dataMaskingEnabled,
+    mode: dataMaskingEnabled ? 'enforced' : 'disabled',
+  };
 
   // Determine which store to use based on current view
   const isProjectMode = currentView === "project";
@@ -742,6 +1556,101 @@ export default function NodeConfigPanel() {
       });
   }, [isSecretsNode, secretsConfig]);
 
+  // === HOOKS THAT MUST BE CALLED UNCONDITIONALLY (before any return) ===
+  const envConfig = projectStore.envConfig;
+  const loadEnvConfig = projectStore.loadEnvConfig;
+  const projectStructure = projectStore.structure;
+  const activeEnvScope = envConfig?.activeScope;
+
+  useEffect(() => {
+    if (projectStructure && !envConfig) {
+      loadEnvConfig();
+    }
+  }, [projectStructure, envConfig, loadEnvConfig]);
+
+  useEffect(() => {
+    checkVaultStatus();
+  }, [checkVaultStatus]);
+
+  const envVariableOptions = useMemo(() => {
+    if (!envConfig) return [];
+    return envConfig.variables
+      .filter((v) => !activeEnvScope || v.scope.includes(activeEnvScope))
+      .map((v) => ({
+        label: `env.${v.name}`,
+        value: `\${env.${v.name}}`,
+        description: v.description,
+      }));
+  }, [envConfig, activeEnvScope]);
+
+  const vaultVariableOptions = useMemo(() => {
+    return vaultSecrets.map((secret) => ({
+      label: `vault.${secret.name}`,
+      value: `\${vault.${secret.name}}`,
+      description: secret.description,
+    }));
+  }, [vaultSecrets]);
+
+  // Combined suggestions for expression autocomplete
+  const allExpressionSuggestions = useMemo(() => {
+    const suggestions: { label: string; value: string; description?: string }[] = [];
+    
+    // Add node output variables
+    availableVariables.forEach(v => {
+      suggestions.push({
+        label: v.expression,
+        value: v.expression,
+        description: `${v.nodeLabel}: ${v.field.description || v.field.name}`,
+      });
+    });
+    
+    // Add environment variables
+    envVariableOptions.forEach(v => {
+      suggestions.push(v);
+    });
+    
+    // Add vault variables
+    vaultVariableOptions.forEach(v => {
+      suggestions.push(v);
+    });
+    
+    return suggestions;
+  }, [availableVariables, envVariableOptions, vaultVariableOptions]);
+
+  // Get discovered schema if available (from runtime) - MUST be before early returns
+  // Passes nodeType to also check global type-based schemas
+  const discoveredSchema = node ? getDiscoveredSchema(node.id, node.data.nodeType) : undefined;
+  
+  // Convert discovered schema to OutputField format - MUST be before early returns
+  const discoveredOutputFields = useMemo(() => {
+    if (!discoveredSchema) return null;
+    
+    const convertField = (field: any): OutputField => {
+      const converted: OutputField = {
+        name: field.name,
+        type: field.type === 'null' ? 'any' : field.type,
+      };
+      
+      if (field.type === 'array' && field.items && field.items.length > 0) {
+        // For arrays, use the items schema
+        converted.items = {
+          type: 'object',
+          fields: field.items.map(convertField),
+        };
+      } else if (field.type === 'object' && field.fields && field.fields.length > 0) {
+        converted.items = {
+          type: 'object',
+          fields: field.fields.map(convertField),
+        };
+      }
+      
+      return converted;
+    };
+    
+    return discoveredSchema.fields.map(convertField);
+  }, [discoveredSchema]);
+  // === END UNCONDITIONAL HOOKS ===
+
   if (!node) return null;
 
   const template = getNodeTemplate(node.data.nodeType);
@@ -758,14 +1667,48 @@ export default function NodeConfigPanel() {
     "ms365.connection",
   ].includes(node.data.nodeType);
 
-  const hasInputPanel = !isTrigger && !isConfigNode && availableVariables.length > 0;
-  const hasOutputPanel = template.outputSchema && template.outputSchema.length > 0;
+  const totalInputCount =
+    availableVariables.length + envVariableOptions.length + vaultVariableOptions.length;
+  const hasInputPanel = !isConfigNode && totalInputCount > 0;
+  
+  // Use discovered schema if available, otherwise fall back to template
+  const effectiveOutputSchema = discoveredOutputFields || template.outputSchema || [];
+  const hasOutputPanel = effectiveOutputSchema.length > 0;
 
   // Get real output data from debug execution if available
-  const nodeExecution = sessionState?.nodeExecutions?.[node.id];
-  const realOutputData = nodeExecution?.output;
+  // Try sessionState first (interactive debug), then fall back to executionHistory (normal run)
+  const nodeExecution = sessionState?.nodeExecutions?.[node.id] 
+    || executionHistory.find(e => e.nodeId === node.id);
+  const rawOutputData = nodeExecution?.output;
   const nodeError = nodeExecution?.error;
   const nodeStatus = nodeExecution?.status;
+  
+  // Debug logging
+  console.log("[NodeConfigPanel] node.id:", node.id);
+  console.log("[NodeConfigPanel] executionHistory length:", executionHistory.length);
+  console.log("[NodeConfigPanel] nodeExecution:", nodeExecution);
+  console.log("[NodeConfigPanel] rawOutputData:", rawOutputData);
+  
+  // Parse output if it's a JSON string and unwrap 'result' if present
+  const realOutputData = (() => {
+    if (!rawOutputData) return undefined;
+    
+    let parsed = rawOutputData;
+    if (typeof rawOutputData === 'string') {
+      try {
+        parsed = JSON.parse(rawOutputData);
+      } catch {
+        return rawOutputData;
+      }
+    }
+    
+    // Unwrap 'result' wrapper if it exists (NODE_OUTPUT format is {"result": actualData})
+    if (typeof parsed === 'object' && parsed !== null && 'result' in parsed && Object.keys(parsed).length === 1) {
+      return parsed.result;
+    }
+    
+    return parsed;
+  })();
 
   const handleConfigChange = (field: string, value: any) => {
     updateNode(node.id, {
@@ -850,7 +1793,7 @@ export default function NodeConfigPanel() {
         <div
           data-properties-panel="true"
           id="node-config-panel"
-          className="bg-card border rounded-2xl shadow-2xl overflow-hidden pointer-events-auto flex w-full max-w-4xl"
+          className="bg-card border rounded-2xl shadow-2xl overflow-hidden pointer-events-auto flex w-full max-w-6xl"
           style={{ maxHeight: 'calc(100vh - 120px)' }}
           onKeyDown={(e) => e.stopPropagation()}
         >
@@ -862,7 +1805,7 @@ export default function NodeConfigPanel() {
             );
 
             return (
-              <div className="w-64 border-r bg-slate-50/80 flex flex-col flex-shrink-0">
+              <div className="w-80 border-r bg-slate-50/80 flex flex-col flex-shrink-0">
                 <div className={`px-4 py-3 border-b flex items-center gap-2 ${hasLiveInputData ? 'bg-green-50/80' : 'bg-blue-50/80'}`}>
                   <div className={`w-2.5 h-2.5 rounded-full ${hasLiveInputData ? 'bg-green-500 animate-pulse' : 'bg-blue-500'}`} />
                   <span className={`text-xs font-semibold uppercase tracking-wide ${hasLiveInputData ? 'text-green-700' : 'text-blue-700'}`}>Input</span>
@@ -870,7 +1813,7 @@ export default function NodeConfigPanel() {
                     <span className="text-[9px] text-green-600 bg-green-200 px-1.5 py-0.5 rounded-full font-semibold">LIVE</span>
                   )}
                   <span className={`text-[10px] ml-auto px-1.5 py-0.5 rounded-full ${hasLiveInputData ? 'text-green-500 bg-green-100' : 'text-blue-500 bg-blue-100'}`}>
-                    {availableVariables.length}
+                    {totalInputCount}
                   </span>
                 </div>
 
@@ -885,11 +1828,16 @@ export default function NodeConfigPanel() {
 
                     // Show LIVE data if available (n8n-style)
                     if (hasLiveData) {
+                      // Parse JSON string if needed
+                      let parsedData = predExecution.output;
+                      if (typeof parsedData === 'string') {
+                        try { parsedData = JSON.parse(parsedData); } catch {}
+                      }
                       return (
                         <LiveDataTree
                           key={predNode.id}
                           nodeLabel={predNode.data.label}
-                          data={predExecution.output}
+                          data={parsedData}
                           copyExpression={copyExpression}
                           copiedExpression={copiedExpression}
                         />
@@ -900,17 +1848,64 @@ export default function NodeConfigPanel() {
                     const regularFields = nodeVars.filter(v => !v.field.name.startsWith('formData.'));
                     const formDataFields = nodeVars.filter(v => v.field.name.startsWith('formData.'));
 
+                    // Get discovered schema for this predecessor node (checks both nodeId and nodeType)
+                    const predDiscoveredSchema = getDiscoveredSchema(predNode.id, predNode.data.nodeType);
+                    
+                    // Convert static outputSchema to DiscoveredField format if no discovered schema
+                    const predTemplate = getNodeTemplate(predNode.data.nodeType);
+                    const staticFields = predTemplate?.outputSchema?.map((field): DiscoveredField => {
+                      const converted: DiscoveredField = {
+                        name: field.name,
+                        type: field.type === 'any' ? 'string' : field.type as DiscoveredField['type'],
+                      };
+                      // Convert items.fields to items array format for discovered fields
+                      if (field.items?.fields) {
+                        converted.items = field.items.fields.map(f => ({
+                          name: f.name,
+                          type: f.type === 'any' ? 'string' : f.type as DiscoveredField['type'],
+                        }));
+                      }
+                      return converted;
+                    });
+                    
+                    // Use discovered schema if available, otherwise use static
+                    const effectiveFields = predDiscoveredSchema?.fields || staticFields;
+                    
                     return (
                       <InputNodeTree
                         key={predNode.id}
+                        nodeId={predNode.id}
                         nodeLabel={predNode.data.label}
                         regularFields={regularFields}
                         formDataFields={formDataFields}
+                        discoveredFields={effectiveFields}
                         copyExpression={copyExpression}
                         copiedExpression={copiedExpression}
                       />
                     );
                   })}
+
+                  {/* Global inputs: Environment + Vault - styled like node trees */}
+                  {envConfig && (
+                    <GlobalInputTree
+                      label="Environment"
+                      icon="env"
+                      variables={envVariableOptions}
+                      emptyMessage="No environment variables configured"
+                      copyExpression={copyExpression}
+                      copiedExpression={copiedExpression}
+                    />
+                  )}
+                  
+                  <GlobalInputTree
+                    label="Vault"
+                    icon="vault"
+                    variables={isVaultUnlocked ? vaultVariableOptions : []}
+                    emptyMessage={!vaultExists ? "Vault not initialized" : !isVaultUnlocked ? "Vault locked" : "No secrets configured"}
+                    copyExpression={copyExpression}
+                    copiedExpression={copiedExpression}
+                    isMasked={true}
+                  />
 
                   {/* Legend */}
                   <div className="mt-3 pt-3 border-t border-slate-200">
@@ -1121,26 +2116,23 @@ export default function NodeConfigPanel() {
                           </Button>
                         </div>
                       ) : (
-                        <Input
-                          id={field.name}
-                          type="text"
+                        <ExpressionInput
                           value={node.data.config[field.name] || ""}
-                          onChange={(e) => handleConfigChange(field.name, e.target.value)}
+                          onChange={(value) => handleConfigChange(field.name, value)}
                           placeholder={field.placeholder}
-                          className="h-9"
+                          suggestions={allExpressionSuggestions}
                         />
                       );
                     })()
                   )}
 
                   {field.type === "textarea" && (
-                    <Textarea
-                      id={field.name}
+                    <ExpressionInput
                       value={node.data.config[field.name] || ""}
-                      onChange={(e) => handleConfigChange(field.name, e.target.value)}
+                      onChange={(value) => handleConfigChange(field.name, value)}
                       placeholder={field.placeholder}
-                      rows={3}
-                      className="resize-none"
+                      suggestions={allExpressionSuggestions}
+                      multiline={true}
                     />
                   )}
 
@@ -1184,6 +2176,85 @@ export default function NodeConfigPanel() {
                         ))}
                       </SelectContent>
                     </Select>
+                  )}
+
+                  {field.type === "node-select" && (
+                    (() => {
+                      // Get nodes of the specified type from the current flow
+                      const targetNodeType = (field as { nodeType?: string }).nodeType;
+                      const flowNodes = flowStore.nodes.filter(
+                        (n) => n.data?.nodeType === targetNodeType && n.id !== node.id
+                      );
+                      return (
+                        <Select
+                          value={node.data.config[field.name] || ""}
+                          onValueChange={(value) => handleConfigChange(field.name, value === "__none__" ? "" : value)}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Select provider (or use local)..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">
+                              <span className="text-muted-foreground">Local Filesystem</span>
+                            </SelectItem>
+                            {flowNodes.map((n) => (
+                              <SelectItem key={n.id} value={n.id}>
+                                <div className="flex items-center gap-2">
+                                  <span>{n.data?.label || n.data?.nodeType}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    ({n.data?.config?.provider || "local"})
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                            {flowNodes.length === 0 && (
+                              <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                                Add a Storage Provider node to use cloud storage
+                              </div>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      );
+                    })()
+                  )}
+
+                  {field.type === "bot-select" && (
+                    (() => {
+                      // Get bots from the project store
+                      const projectBots = Array.from(projectStore.bots.values()).filter(
+                        (bot) => bot.id !== activeBotId // Don't allow calling self
+                      );
+                      return (
+                        <Select
+                          value={node.data.config[field.name] || ""}
+                          onValueChange={(value) => handleConfigChange(field.name, value === "__none__" ? "" : value)}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Select a bot to call..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {projectBots.map((bot) => (
+                              <SelectItem key={bot.id} value={bot.id}>
+                                <div className="flex items-center gap-2">
+                                  <Package className="h-3.5 w-3.5 text-rose-500" />
+                                  <span>{bot.name}</span>
+                                  {bot.description && (
+                                    <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                      - {bot.description}
+                                    </span>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            ))}
+                            {projectBots.length === 0 && (
+                              <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                                No other bots in this project. Create a bot to call as subprocess.
+                              </div>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      );
+                    })()
                   )}
 
                   {field.type === "password" && (
@@ -1308,7 +2379,11 @@ export default function NodeConfigPanel() {
           {hasOutputPanel && (() => {
             const nodePinnedData = pinnedData.get(node.id);
             const isPinned = !!nodePinnedData;
-            const displayData = isPinned ? nodePinnedData.data : realOutputData;
+            const rawDisplayData = isPinned ? nodePinnedData.data : realOutputData;
+            // Apply masking if enabled
+            const displayData = dataMaskingEnabled && rawDisplayData 
+              ? maskObject(rawDisplayData, maskingPolicy) 
+              : rawDisplayData;
             const hasData = displayData !== undefined;
             const hasError = nodeStatus === "error" && nodeError;
 
@@ -1328,7 +2403,7 @@ export default function NodeConfigPanel() {
             };
 
             return (
-            <div className="w-64 border-l bg-slate-50/80 flex flex-col flex-shrink-0">
+            <div className="w-80 border-l bg-slate-50/80 flex flex-col flex-shrink-0">
               <div className={`px-4 py-3 border-b flex items-center gap-2 ${getHeaderStyle()}`}>
                 <div className={`w-2.5 h-2.5 rounded-full ${getDotStyle()}`} />
                 <span className={`text-xs font-semibold uppercase tracking-wide ${hasError ? 'text-red-700' : isPinned ? 'text-amber-700' : 'text-emerald-700'}`}>Output</span>
@@ -1348,6 +2423,18 @@ export default function NodeConfigPanel() {
                   <span className="text-[9px] text-green-600 bg-green-200 px-1.5 py-0.5 rounded-full font-semibold">LIVE</span>
                 )}
                 <div className="ml-auto flex items-center gap-1">
+                  {/* Data Masking toggle (HIPAA/PCI compliance) */}
+                  <button
+                    onClick={() => setDataMaskingEnabled(!dataMaskingEnabled)}
+                    className={`p-1 rounded transition-colors ${
+                      dataMaskingEnabled
+                        ? 'text-green-600 bg-green-100 hover:bg-green-200'
+                        : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+                    }`}
+                    title={dataMaskingEnabled ? 'PII Masking ON - Click to show real data' : 'PII Masking OFF - Click to mask sensitive data (HIPAA/PCI)'}
+                  >
+                    {dataMaskingEnabled ? <ShieldCheck className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                  </button>
                   {/* Pin/Unpin button */}
                   {hasData && (
                     <button
@@ -1369,8 +2456,14 @@ export default function NodeConfigPanel() {
                     </button>
                   )}
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isPinned ? 'text-amber-500 bg-amber-100' : 'text-emerald-500 bg-emerald-100'}`}>
-                    {(template.outputSchema?.length || 0) + dynamicFormFields.length + dynamicExcelColumns.length + dynamicSecrets.length}
+                    {effectiveOutputSchema.length + dynamicFormFields.length + dynamicExcelColumns.length + dynamicSecrets.length}
                   </span>
+                  {discoveredSchema && (
+                    <span className="text-[9px] text-purple-500 ml-1 flex items-center gap-0.5" title={`Discovered from execution at ${new Date(discoveredSchema.discoveredAt).toLocaleString()}`}>
+                      <Sparkles className="w-3 h-3" />
+                      discovered
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -1465,9 +2558,38 @@ export default function NodeConfigPanel() {
                         </span>
                       )}
                     </div>
-                    <pre className={`whitespace-pre-wrap break-all text-[10px] max-h-64 overflow-y-auto ${isPinned ? 'text-amber-800' : 'text-green-800'}`}>
-                      {JSON.stringify(displayData, null, 2)}
-                    </pre>
+                    {/* Expandable JSON tree */}
+                    <div className="max-h-80 overflow-y-auto">
+                      {Array.isArray(displayData) ? (
+                        displayData.map((item: any, i: number) => (
+                          <ExpandableJsonNode
+                            key={i}
+                            keyName={i}
+                            value={item}
+                            path={`[${i}]`}
+                            nodeLabel={node.data.label}
+                            copyExpression={copyExpression}
+                            copiedExpression={copiedExpression}
+                            isLast={i === displayData.length - 1}
+                            defaultExpanded={i === 0}
+                          />
+                        ))
+                      ) : (
+                        Object.entries(displayData).map(([key, value], i, arr) => (
+                          <ExpandableJsonNode
+                            key={key}
+                            keyName={key}
+                            value={value}
+                            path={key}
+                            nodeLabel={node.data.label}
+                            copyExpression={copyExpression}
+                            copiedExpression={copiedExpression}
+                            isLast={i === arr.length - 1}
+                            defaultExpanded={true}
+                          />
+                        ))
+                      )}
+                    </div>
                   </div>
                 ) : displayData ? (
                   <div className={`font-mono text-xs rounded-lg border p-3 ${isPinned ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'}`}>
@@ -1486,10 +2608,32 @@ export default function NodeConfigPanel() {
                       {/* Root object */}
                       <div className="text-slate-500">{"{"}</div>
 
-                    {/* Standard output fields */}
-                    {template.outputSchema?.map((field, i) => {
+                    {/* Standard output fields (from discovered or static schema) */}
+                    {effectiveOutputSchema.map((field: any, i: number) => {
                       const expression = `\${${node.data.label}.${field.name}}`;
-                      const isLast = i === (template.outputSchema?.length || 0) - 1 && dynamicFormFields.length === 0 && dynamicExcelColumns.length === 0 && dynamicSecrets.length === 0;
+                      const isLast = i === effectiveOutputSchema.length - 1 && dynamicFormFields.length === 0 && dynamicExcelColumns.length === 0 && dynamicSecrets.length === 0;
+                      
+                      // Check if this is an array or object with nested fields
+                      // items.fields for discovered schema, or items as array for legacy
+                      const nestedFields = field.items?.fields || (Array.isArray(field.items) ? field.items : null);
+                      const hasNestedFields = (field.type === "array" || field.type === "object") && nestedFields && nestedFields.length > 0;
+                      
+                      if (hasNestedFields) {
+                        return (
+                          <SchemaArrayField
+                            key={i}
+                            fieldName={field.name}
+                            items={nestedFields}
+                            nodeLabel={node.data.label}
+                            description={field.description}
+                            copyExpression={copyExpression}
+                            copiedExpression={copiedExpression}
+                            isLast={isLast}
+                            fieldType={field.type}
+                          />
+                        );
+                      }
+                      
                       return (
                         <div
                           key={i}

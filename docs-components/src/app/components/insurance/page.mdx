@@ -1,6 +1,6 @@
 export const metadata = {
   title: 'Insurance',
-  description: 'Components specific to insurance workflows like FNOL processing, claims management, and policy handling.',
+  description: 'Insurance-specific automation. FNOL processing, policy management, and claims handling.',
 }
 
 export const sections = [
@@ -10,43 +10,15 @@ export const sections = [
   { title: 'Extract Claim Data', id: 'insurance-extract_claim_data' },
 ]
 
-# Insurance
-
-Components specific to insurance workflows like FNOL processing, claims management, and policy handling. {{ className: 'lead' }}
+Insurance-specific automation. FNOL processing, policy management, and claims handling. {{ className: 'lead' }}
 
 <Note>
-  This category contains **4 components**. See also: [Document Processing](/components/document) · [AI / LLM](/components/ai) · [Compliance](/components/compliance)
+  These nodes are designed for P&C insurance workflows and integrate with common policy admin systems.
 </Note>
-
-## Common Use Cases
-
-- Process first notice of loss
-- Validate policy information
-- Calculate premiums
-- Handle claims workflow
 
 ---
 
-## Create FNOL Record {{ id: 'insurance-fnol_record' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-file-exclamation-point"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
-  <path d="M12 9v4" />
-  <path d="M12 17h.01" />
-</svg>
-`} label="Create FNOL Record" description="Create canonical First Notice of Loss record" bgColor="#d1fae5" textColor="#047857" />
+<NodeHeader id="insurance-fnol_record" icon="FileText" label="Create FNOL Record" description="Create canonical First Notice of Loss record" bgColor="#fce7f3" textColor="#9d174d" />
 
 <Properties>
   <Property name="type" type="string">
@@ -54,108 +26,33 @@ Components specific to insurance workflows like FNOL processing, claims manageme
   </Property>
 </Properties>
 
-### When to Use
+**Configuration:**
+- **caller_phone** (`text`, required) — Caller phone number
+- **caller_name** (`text`) — Caller name
+- **policy_number** (`text`) — Associated policy number
+- **incident_type** (`select`, required) — Incident type:
+  - `auto` — Auto/Vehicle
+  - `property` — Property
+  - `liability` — Liability
+  - `health` — Health
+  - `workers_comp` — Workers Compensation
+  - `other` — Other
+- **incident_date** (`text`) — Date of incident
+- **incident_location** (`text`) — Location of incident
+- **incident_description** (`textarea`, required) — Description of the incident
+- **injuries** (`boolean`, default: `false`) — Injuries reported
+- **police_report** (`text`) — Police report number
+- **recording_url** (`text`) — Call recording URL
+- **transcript** (`textarea`) — Call transcript
 
-- Create First Notice of Loss records
-- Document insurance claims intake
-- Record accident/incident reports
-- Initialize claim processing
-
-### Configuration
-
-<Properties>
-  <Property name="caller_phone" type="text" required>
-    Caller Phone
-  </Property>
-  <Property name="caller_name" type="text">
-    Caller Name
-  </Property>
-  <Property name="policy_number" type="text">
-    Policy Number
-  </Property>
-  <Property name="incident_type" type="select" required>
-    Incident Type
-  </Property>
-  <Property name="incident_date" type="text">
-    Incident Date
-  </Property>
-  <Property name="incident_location" type="text">
-    Incident Location
-  </Property>
-  <Property name="incident_description" type="textarea" required>
-    Description
-  </Property>
-  <Property name="injuries" type="boolean">
-    Injuries Reported Default: `false`
-  </Property>
-  <Property name="police_report" type="text">
-    Police Report Number
-  </Property>
-  <Property name="recording_url" type="text">
-    Call Recording URL
-  </Property>
-  <Property name="transcript" type="textarea">
-    Call Transcript
-  </Property>
-</Properties>
-
-### Output Variables
-
-Access these variables in subsequent nodes using `${Create FNOL Record.variableName}`.
-
-<Properties>
-  <Property name="fnol_id" type="string">
-    Unique FNOL record ID
-  </Property>
-  <Property name="fnol_record" type="object">
-    Complete FNOL record object
-  </Property>
-  <Property name="created_at" type="string">
-    Record creation timestamp
-  </Property>
-</Properties>
-
-### Example
-
-```json
-{
-  "id": "node-1",
-  "type": "insurance.fnol_record",
-  "label": "Create FNOL Record",
-  "config": {
-    "caller_phone": "your-caller_phone",
-    "caller_name": "your-caller_name",
-    "policy_number": "your-policy_number",
-    "incident_type": "option"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
-}
-```
+**Output:**
+- **fnol_id** (`string`) — Unique FNOL record ID
+- **fnol_record** (`object`) — Complete FNOL record object
+- **created_at** (`string`) — Record creation timestamp
 
 ---
 
-## Lookup Policy {{ id: 'insurance-lookup_policy' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-search"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="m21 21-4.34-4.34" />
-  <circle cx="11" cy="11" r="8" />
-</svg>
-`} label="Lookup Policy" description="Find policy by phone, name, DOB (caller often doesn't have policy number)" bgColor="#d1fae5" textColor="#047857" />
+<NodeHeader id="insurance-lookup_policy" icon="Search" label="Lookup Policy" description="Find policy by phone, name, DOB (caller often doesn't have policy number)" bgColor="#fce7f3" textColor="#9d174d" />
 
 <Properties>
   <Property name="type" type="string">
@@ -163,116 +60,29 @@ Access these variables in subsequent nodes using `${Create FNOL Record.variableN
   </Property>
 </Properties>
 
-### When to Use
+**Configuration:**
+- **api_url** (`text`, required) — Policy Lookup API URL
+- **phone_number** (`text`) — Phone number (from CallerID)
+- **policyholder_name** (`text`) — Policyholder name
+- **date_of_birth** (`text`) — Date of birth (YYYY-MM-DD)
+- **ssn_last_four** (`text`) — SSN last 4 digits
+- **address** (`text`) — Address
+- **vin** (`text`) — Vehicle VIN (for auto)
+- **policy_number** (`text`) — Policy number (if known)
+- **method** (`select`, default: `POST`) — HTTP method: `GET`, `POST`
+- **headers** (`textarea`) — Headers as JSON
 
-- Find policy by phone/name/DOB
-- Verify policyholder identity
-- Look up coverage information
-- Search for matching policies
-
-### Configuration
-
-<Properties>
-  <Property name="api_url" type="text" required>
-    Policy Lookup API URL
-
-    Example: `https://your-insurance-system.com/api/policies/lookup`
-  </Property>
-  <Property name="phone_number" type="text">
-    Phone Number (from CallerID)
-  </Property>
-  <Property name="policyholder_name" type="text">
-    Policyholder Name
-  </Property>
-  <Property name="date_of_birth" type="text">
-    Date of Birth (e.g., `YYYY-MM-DD`)
-  </Property>
-  <Property name="ssn_last_four" type="text">
-    SSN Last 4 Digits
-  </Property>
-  <Property name="address" type="text">
-    Address
-  </Property>
-  <Property name="vin" type="text">
-    Vehicle VIN (for auto)
-  </Property>
-  <Property name="policy_number" type="text">
-    Policy Number (if known)
-  </Property>
-  <Property name="method" type="select">
-    HTTP Method Default: `POST`
-  </Property>
-  <Property name="headers" type="textarea">
-    Headers (JSON)
-  </Property>
-</Properties>
-
-### Output Variables
-
-Access these variables in subsequent nodes using `${Lookup Policy.variableName}`.
-
-<Properties>
-  <Property name="found" type="boolean">
-    Policy was found
-  </Property>
-  <Property name="policy_id" type="string">
-    Policy internal ID
-  </Property>
-  <Property name="policy_number" type="string">
-    Policy number
-  </Property>
-  <Property name="policyholder_name" type="string">
-    Policyholder name
-  </Property>
-  <Property name="match_method" type="string">
-    How policy was found (phone, name_dob, etc.)
-  </Property>
-  <Property name="raw_response" type="object">
-    Raw API response
-  </Property>
-</Properties>
-
-### Example
-
-```json
-{
-  "id": "node-1",
-  "type": "insurance.lookup_policy",
-  "label": "Lookup Policy",
-  "config": {
-    "api_url": "https://your-insurance-system.com/api/policies/lookup",
-    "phone_number": "your-phone_number",
-    "policyholder_name": "your-policyholder_name",
-    "date_of_birth": "YYYY-MM-DD"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
-}
-```
+**Output:**
+- **found** (`boolean`) — Policy was found
+- **policy_id** (`string`) — Policy internal ID
+- **policy_number** (`string`) — Policy number
+- **policyholder_name** (`string`) — Policyholder name
+- **match_method** (`string`) — How policy was found (phone, name_dob, etc.)
+- **raw_response** (`object`) — Raw API response
 
 ---
 
-## Validate Policy {{ id: 'insurance-validate_policy' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-shield-check"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
-  <path d="m9 12 2 2 4-4" />
-</svg>
-`} label="Validate Policy" description="Check if policy is active and has coverage for claim type" bgColor="#d1fae5" textColor="#047857" />
+<NodeHeader id="insurance-validate_policy" icon="ShieldCheck" label="Validate Policy" description="Check if policy is active and has coverage for claim type" bgColor="#fce7f3" textColor="#9d174d" />
 
 <Properties>
   <Property name="type" type="string">
@@ -280,131 +90,31 @@ Access these variables in subsequent nodes using `${Lookup Policy.variableName}`
   </Property>
 </Properties>
 
-### When to Use
+**Configuration:**
+- **api_url** (`text`, required) — Policy Validation API URL
+- **policy_id** (`text`) — Policy ID (from lookup)
+- **policy_number** (`text`) — Policy number
+- **claim_type** (`select`) — Claim type to validate:
+  - `auto` — Auto/Vehicle
+  - `property` — Property
+  - `liability` — Liability
+  - `health` — Health
+  - `any` — Any Coverage
+- **check_active** (`boolean`, default: `true`) — Check policy is active
+- **check_coverage** (`boolean`, default: `true`) — Verify coverage type
+- **method** (`select`, default: `POST`) — HTTP method: `GET`, `POST`
+- **headers** (`textarea`) — Headers as JSON
 
-- Confirm policy is active
-- Verify coverage applies to claim
-- Check policy effective dates
-- Validate coverage limits
-
-### Configuration
-
-<Properties>
-  <Property name="api_url" type="text" required>
-    Policy Validation API URL
-
-    Example: `https://your-insurance-system.com/api/policies/validate`
-  </Property>
-  <Property name="policy_id" type="text">
-    Policy ID (from lookup)
-  </Property>
-  <Property name="policy_number" type="text">
-    Policy Number
-  </Property>
-  <Property name="claim_type" type="select">
-    Claim Type to Validate
-  </Property>
-  <Property name="check_active" type="boolean">
-    Check Policy is Active Default: `true`
-  </Property>
-  <Property name="check_coverage" type="boolean">
-    Verify Coverage Type Default: `true`
-  </Property>
-  <Property name="method" type="select">
-    HTTP Method Default: `POST`
-  </Property>
-  <Property name="headers" type="textarea">
-    Headers (JSON)
-  </Property>
-</Properties>
-
-### Output Variables
-
-Access these variables in subsequent nodes using `${Validate Policy.variableName}`.
-
-<Properties>
-  <Property name="valid" type="boolean">
-    Policy is valid for this claim type
-  </Property>
-  <Property name="is_active" type="boolean">
-    Policy is currently active
-  </Property>
-  <Property name="has_coverage" type="boolean">
-    Policy has coverage for claim type
-  </Property>
-  <Property name="policyholder_name" type="string">
-    Policyholder name
-  </Property>
-  <Property name="coverage_type" type="string">
-    Type of coverage
-  </Property>
-  <Property name="effective_date" type="string">
-    Policy effective date
-  </Property>
-  <Property name="expiration_date" type="string">
-    Policy expiration date
-  </Property>
-  <Property name="status" type="string">
-    Policy status (active, cancelled, expired)
-  </Property>
-  <Property name="deductible" type="number">
-    Deductible amount
-  </Property>
-  <Property name="coverage_limit" type="number">
-    Coverage limit
-  </Property>
-  <Property name="raw_response" type="object">
-    Raw API response
-  </Property>
-</Properties>
-
-### Example
-
-```json
-{
-  "id": "node-1",
-  "type": "insurance.validate_policy",
-  "label": "Validate Policy",
-  "config": {
-    "api_url": "https://your-insurance-system.com/api/policies/validate",
-    "policy_id": "your-policy_id",
-    "policy_number": "your-policy_number",
-    "claim_type": "option"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
-}
-```
+**Output:**
+- **valid** (`boolean`) — Policy is valid for this claim type
+- **is_active** (`boolean`) — Policy is currently active
+- **has_coverage** (`boolean`) — Policy has coverage for claim type
+- **policyholder_name** (`string`) — Policyholder name
+- **coverage_type** (`string`) — Type of coverage
 
 ---
 
-## Extract Claim Data {{ id: 'insurance-extract_claim_data' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-brain"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M12 18V5" />
-  <path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4" />
-  <path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5" />
-  <path d="M17.997 5.125a4 4 0 0 1 2.526 5.77" />
-  <path d="M18 18a4 4 0 0 0 2-7.464" />
-  <path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517" />
-  <path d="M6 18a4 4 0 0 1-2-7.464" />
-  <path d="M6.003 5.125a4 4 0 0 0-2.526 5.77" />
-</svg>
-`} label="Extract Claim Data" description="Use AI to extract structured claim data from conversation" bgColor="#d1fae5" textColor="#047857" />
+<NodeHeader id="insurance-extract_claim_data" icon="FileSearch" label="Extract Claim Data" description="Use AI to extract structured claim data from conversation" bgColor="#fce7f3" textColor="#9d174d" />
 
 <Properties>
   <Property name="type" type="string">
@@ -412,61 +122,63 @@ Access these variables in subsequent nodes using `${Validate Policy.variableName
   </Property>
 </Properties>
 
-### When to Use
+**Configuration:**
+- **transcript** (`textarea`, required) — Conversation transcript
+- **claim_type** (`select`) — Expected claim type:
+  - `auto` — Auto/Vehicle
+  - `property` — Property
+  - `any` — Any/Auto-detect
+- **llm_provider** (`select`, default: `openai`) — LLM provider:
+  - `openai` — OpenAI
+  - `anthropic` — Anthropic Claude
+  - `azure_openai` — Azure OpenAI
 
-- Extract claim details from transcripts
-- Parse incident descriptions
-- Structure claim information
-- AI-extract claim fields
+**Output:**
+- **extracted_data** (`object`) — Structured claim data
+- **confidence** (`number`) — Extraction confidence (0-1)
+- **missing_fields** (`array`) — Fields that couldn't be extracted
 
-### Configuration
+---
 
-<Properties>
-  <Property name="transcript" type="textarea" required>
-    Conversation Transcript
-  </Property>
-  <Property name="claim_type" type="select">
-    Expected Claim Type
-  </Property>
-  <Property name="llm_provider" type="select">
-    LLM Provider Default: `openai`
-  </Property>
-</Properties>
+## Example: Voice FNOL Workflow
 
-### Output Variables
-
-Access these variables in subsequent nodes using `${Extract Claim Data.variableName}`.
-
-<Properties>
-  <Property name="extracted_data" type="object">
-    Structured claim data
-  </Property>
-  <Property name="confidence" type="number">
-    Extraction confidence (0-1)
-  </Property>
-  <Property name="missing_fields" type="array">
-    Fields that couldn't be extracted
-  </Property>
-</Properties>
-
-### Example
-
-```json
-{
-  "id": "node-1",
-  "type": "insurance.extract_claim_data",
-  "label": "Extract Claim Data",
-  "config": {
-    "transcript": "your-transcript",
-    "claim_type": "option",
-    "llm_provider": "openai"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
-}
-```
+<Diagram 
+  flow="vertical"
+  groups={[
+    {
+      id: "trigger",
+      label: "Trigger",
+      nodes: [{ id: "voice", label: "trigger.voice_inbound", sublabel: "Incoming call", type: "primary" }]
+    },
+    {
+      id: "identify",
+      label: "Identify Caller",
+      direction: "row",
+      nodes: [
+        { id: "lookup", label: "insurance.lookup_policy", sublabel: "By CallerID", type: "warning" },
+        { id: "validate", label: "insurance.validate_policy", sublabel: "Check active", type: "warning" }
+      ]
+    },
+    {
+      id: "collect",
+      label: "Collect Information",
+      direction: "row",
+      nodes: [
+        { id: "speak", label: "voice.speak", sublabel: "Ask questions", type: "warning" },
+        { id: "listen", label: "voice.listen", sublabel: "Record answers", type: "warning" }
+      ]
+    },
+    {
+      id: "process",
+      label: "Process",
+      direction: "row",
+      nodes: [
+        { id: "extract", label: "insurance.extract_claim_data", sublabel: "AI extraction", type: "warning" },
+        { id: "fnol", label: "insurance.fnol_record", sublabel: "Create FNOL", type: "success" }
+      ]
+    }
+  ]}
+/>
 
 ---
 

@@ -1,0 +1,718 @@
+export const metadata = {
+  title: 'Storage Providers',
+  description: 'Enterprise-grade multi-provider storage abstraction. Connect to AWS S3, Azure Blob, Google Cloud Storage, SharePoint, OneDrive, Google Drive, SFTP, FTP, WebDAV, and more.',
+}
+
+export const sections = [
+  { title: 'Overview', id: 'overview' },
+  { title: 'Storage Provider', id: 'storage-provider' },
+  { title: 'Transfer Files', id: 'storage-transfer' },
+  { title: 'Sync Directories', id: 'storage-sync' },
+  { title: 'Provider Configuration', id: 'provider-config' },
+  { title: 'AWS S3', id: 'provider-s3' },
+  { title: 'Azure Blob', id: 'provider-azure' },
+  { title: 'Google Cloud Storage', id: 'provider-gcs' },
+  { title: 'SharePoint', id: 'provider-sharepoint' },
+  { title: 'OneDrive', id: 'provider-onedrive' },
+  { title: 'Google Drive', id: 'provider-gdrive' },
+  { title: 'SFTP', id: 'provider-sftp' },
+  { title: 'FTP', id: 'provider-ftp' },
+  { title: 'WebDAV', id: 'provider-webdav' },
+  { title: 'Cross-Provider Examples', id: 'examples' },
+]
+
+Enterprise-grade multi-provider storage abstraction. Connect to AWS S3, Azure Blob, Google Cloud Storage, SharePoint, OneDrive, Google Drive, SFTP, FTP, WebDAV, and more. {{ className: 'lead' }}
+
+<Note variant="warning">
+  **Required:** All `files.*` nodes require a Storage Provider connection. Even for local filesystem operations, you must connect a Storage Provider node configured with "Local Filesystem" type.
+</Note>
+
+<Note>
+  Storage Providers provide a unified interface for file operations across local filesystem and 10+ cloud storage backends. Configure once, use everywhere.
+</Note>
+
+## Overview {{ id: 'overview' }}
+
+The Storage Provider system provides a unified interface for file operations across 11 different storage backends. This enables:
+
+- **Unified API**: Same file operations work on any storage provider
+- **Cloud Migration**: Move from local storage to cloud without changing workflows
+- **Cross-Provider Transfer**: Copy/sync files between different providers
+- **Enterprise Security**: Encryption, audit logging, checksum verification
+
+### Supported Providers
+
+| Provider | Type | Use Case |
+|----------|------|----------|
+| **Local** | Filesystem | Development, on-premise |
+| **AWS S3** | Cloud | AWS workloads, static files |
+| **MinIO** | S3-Compatible | Self-hosted S3 |
+| **Azure Blob** | Cloud | Azure workloads, data lakes |
+| **Google Cloud Storage** | Cloud | GCP workloads |
+| **SharePoint** | Microsoft 365 | Document libraries, team sites |
+| **OneDrive** | Microsoft 365 | Personal/business files |
+| **Google Drive** | Cloud | Personal/team drives |
+| **SFTP** | Protocol | Secure file transfer |
+| **FTP/FTPS** | Protocol | Legacy systems |
+| **WebDAV** | Protocol | NextCloud, ownCloud |
+
+### Architecture
+
+<Diagram 
+  groups={[
+    {
+      id: "config",
+      label: "Configuration (Required)",
+      nodes: [{ id: "provider", label: "storage.provider", sublabel: "REQUIRED", type: "pill" }]
+    },
+    {
+      id: "operations",
+      label: "File Operations",
+      direction: "column",
+      nodes: [
+        { id: "read", label: "files.read", type: "success" },
+        { id: "write", label: "files.write", type: "success" },
+        { id: "copy", label: "files.copy", type: "success" },
+        { id: "list", label: "files.list", type: "success" }
+      ]
+    },
+    {
+      id: "backends",
+      label: "Storage Backends",
+      direction: "row",
+      nodes: [
+        { id: "local", label: "Local", type: "default" },
+        { id: "s3", label: "S3", type: "default" },
+        { id: "azure", label: "Azure", type: "default" },
+        { id: "gcs", label: "GCS", type: "default" },
+        { id: "sp", label: "SharePoint", type: "default" },
+        { id: "sftp", label: "SFTP", type: "default" }
+      ]
+    }
+  ]}
+/>
+
+---
+
+<NodeHeader id="storage-provider" icon="Database" label="Storage Provider" description="Configure multi-provider storage backend" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `storage.provider`
+  </Property>
+</Properties>
+
+### How It Works
+
+The Storage Provider node configures a storage backend that can be used by any `files.*` node. Connect it to file operations to switch from local filesystem to cloud storage.
+
+<FlowDiagram items={[
+  { label: "storage.provider", sublabel: "AWS S3", type: "primary" },
+  { label: "Configuration", sublabel: "bucket, region, credentials", type: "default" },
+  { label: "Options", sublabel: "audit, checksums, encryption", type: "success" }
+]} />
+
+### Configuration
+
+<Properties>
+  <Property name="provider" type="select" required>
+    **Provider** — Storage backend type: `local`, `s3`, `minio`, `azure_blob`, `gcs`, `sharepoint`, `onedrive`, `google_drive`, `sftp`, `ftp`, `webdav`.
+  </Property>
+  <Property name="enable_audit" type="boolean">
+    **Enable Audit Logging** — Log all file operations for compliance. Default: `true`.
+  </Property>
+  <Property name="enable_checksums" type="boolean">
+    **Verify Checksums** — SHA-256 integrity verification. Default: `true`.
+  </Property>
+  <Property name="chunk_size_mb" type="number">
+    **Chunk Size** — For streaming large files. Default: `8` MB.
+  </Property>
+</Properties>
+
+### Output
+
+```json
+{
+  "provider": "s3",
+  "connected": true,
+  "endpoint": "s3://my-bucket"
+}
+```
+
+### Using with Files Nodes
+
+Connect the Storage Provider to any `files.*` node to use cloud storage:
+
+<FlowDiagram items={[
+  { label: "storage.provider", sublabel: "S3 Bucket", type: "primary" },
+  { label: "files.read", sublabel: "path: /data/*.csv", type: "success" }
+]} />
+
+---
+
+<NodeHeader id="storage-transfer" icon="ArrowLeftRight" label="Transfer Files" description="Transfer files between storage providers" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `storage.transfer`
+  </Property>
+</Properties>
+
+### How It Works
+
+Transfer files between different storage providers with checksum verification for data integrity.
+
+<FlowDiagram items={[
+  { label: "Source", sublabel: "local → /data/reports/", type: "default" },
+  { label: "storage.transfer", sublabel: "checksum verified", type: "warning" },
+  { label: "Destination", sublabel: "s3 → /backups/reports/", type: "success" }
+]} />
+
+### Configuration
+
+<Properties>
+  <Property name="source_provider" type="text" required>
+    **Source Provider** — Name of configured source storage provider.
+  </Property>
+  <Property name="source_path" type="text" required>
+    **Source Path** — Path in source provider.
+  </Property>
+  <Property name="dest_provider" type="text" required>
+    **Destination Provider** — Name of configured destination storage provider.
+  </Property>
+  <Property name="dest_path" type="text" required>
+    **Destination Path** — Path in destination provider.
+  </Property>
+  <Property name="verify_checksum" type="boolean">
+    **Verify Checksum** — Compare SHA-256 before/after transfer. Default: `true`.
+  </Property>
+</Properties>
+
+### Output
+
+```json
+{
+  "transferred": true,
+  "size": 1048576,
+  "checksum": "a3f2c8b1d9e4..."
+}
+```
+
+---
+
+<NodeHeader id="storage-sync" icon="RefreshCw" label="Sync Directories" description="Synchronize directories between storage providers" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `storage.sync`
+  </Property>
+</Properties>
+
+### How It Works
+
+Synchronize entire directories between storage providers, with optional deletion of extra files.
+
+<FlowDiagram items={[
+  { label: "Source", sublabel: "SharePoint → /Documents/", type: "primary" },
+  { label: "storage.sync", sublabel: "bidirectional sync", type: "warning" },
+  { label: "Destination", sublabel: "Azure Blob → /backup/", type: "success" }
+]} />
+
+### Configuration
+
+<Properties>
+  <Property name="source_provider" type="text" required>
+    **Source Provider** — Name of source storage provider.
+  </Property>
+  <Property name="source_path" type="text" required>
+    **Source Path** — Source directory path.
+  </Property>
+  <Property name="dest_provider" type="text" required>
+    **Destination Provider** — Name of destination storage provider.
+  </Property>
+  <Property name="dest_path" type="text" required>
+    **Destination Path** — Destination directory path.
+  </Property>
+  <Property name="delete_extra" type="boolean">
+    **Delete Extra Files** — Remove files in destination that don't exist in source. Default: `false`.
+  </Property>
+</Properties>
+
+### Output
+
+```json
+{
+  "transferred": 15,
+  "skipped": 42,
+  "deleted": 0,
+  "errors": []
+}
+```
+
+---
+
+## Provider Configuration {{ id: 'provider-config' }}
+
+Each storage provider has specific configuration options. See below for details on each provider.
+
+---
+
+<NodeHeader id="provider-s3" icon="Cloud" label="AWS S3" description="Amazon S3 and S3-compatible storage" bgColor="#fff7ed" textColor="#ea580c" />
+
+### Configuration
+
+<Properties>
+  <Property name="bucket" type="text" required>
+    **Bucket Name** — S3 bucket name.
+  </Property>
+  <Property name="region" type="select">
+    **Region** — AWS region (`us-east-1`, `eu-west-1`, etc.).
+  </Property>
+  <Property name="endpoint_url" type="text">
+    **Custom Endpoint** — For S3-compatible services (MinIO, DigitalOcean Spaces).
+  </Property>
+  <Property name="access_key" type="text">
+    **Access Key ID** — AWS access key. Use `${vault.aws_access_key}`.
+  </Property>
+  <Property name="secret_key" type="password">
+    **Secret Access Key** — AWS secret key. Use `${vault.aws_secret_key}`.
+  </Property>
+  <Property name="encryption" type="select">
+    **Server-Side Encryption** — `SSE-S3` (AES-256), `SSE-KMS` (AWS KMS).
+  </Property>
+  <Property name="kms_key_id" type="text">
+    **KMS Key ID** — For SSE-KMS encryption.
+  </Property>
+</Properties>
+
+### Features
+
+- ✅ Multipart upload for large files (>100MB)
+- ✅ Server-side encryption (SSE-S3, SSE-KMS)
+- ✅ Presigned URLs for temporary access
+- ✅ Transfer acceleration
+- ✅ Versioning support
+
+### Example
+
+```json
+{
+  "provider": "s3",
+  "bucket": "my-data-bucket",
+  "region": "us-east-1",
+  "access_key": "${vault.aws_access_key}",
+  "secret_key": "${vault.aws_secret_key}",
+  "encryption": "SSE-KMS",
+  "kms_key_id": "arn:aws:kms:us-east-1:123456789:key/abc123"
+}
+```
+
+---
+
+<NodeHeader id="provider-azure" icon="Cloud" label="Azure Blob" description="Microsoft Azure Blob Storage" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+### Configuration
+
+<Properties>
+  <Property name="container" type="text" required>
+    **Container Name** — Azure storage container.
+  </Property>
+  <Property name="connection_string" type="password">
+    **Connection String** — Full Azure Storage connection string.
+  </Property>
+  <Property name="account_name" type="text">
+    **Storage Account** — Azure storage account name (if not using connection string).
+  </Property>
+  <Property name="account_key" type="password">
+    **Account Key** — Storage account key.
+  </Property>
+  <Property name="sas_token" type="password">
+    **SAS Token** — Shared Access Signature token.
+  </Property>
+</Properties>
+
+### Features
+
+- ✅ Managed Identity authentication
+- ✅ Block, append, and page blobs
+- ✅ Server-side encryption
+- ✅ Immutability policies
+- ✅ Soft delete & versioning
+
+### Example
+
+```json
+{
+  "provider": "azure_blob",
+  "container": "documents",
+  "connection_string": "${vault.azure_connection_string}"
+}
+```
+
+---
+
+<NodeHeader id="provider-gcs" icon="Cloud" label="Google Cloud Storage" description="GCP Cloud Storage buckets" bgColor="#fef9c3" textColor="#ca8a04" />
+
+### Configuration
+
+<Properties>
+  <Property name="gcs_bucket" type="text" required>
+    **Bucket Name** — GCS bucket name.
+  </Property>
+  <Property name="gcs_project" type="text">
+    **Project ID** — GCP project ID.
+  </Property>
+  <Property name="gcs_credentials_json" type="textarea">
+    **Service Account JSON** — Service account key JSON.
+  </Property>
+</Properties>
+
+### Features
+
+- ✅ Service account authentication
+- ✅ Customer-managed encryption keys (CMEK)
+- ✅ Signed URLs
+- ✅ Object versioning
+- ✅ Uniform bucket-level access
+
+### Example
+
+```json
+{
+  "provider": "gcs",
+  "gcs_bucket": "my-gcs-bucket",
+  "gcs_project": "my-project-id",
+  "gcs_credentials_json": "${vault.gcp_service_account}"
+}
+```
+
+---
+
+<NodeHeader id="provider-sharepoint" icon="Cloud" label="SharePoint" description="Microsoft SharePoint document libraries" bgColor="#dbeafe" textColor="#0284c7" />
+
+### Configuration
+
+<Properties>
+  <Property name="sp_site_url" type="text" required>
+    **Site URL** — SharePoint site URL (e.g., `https://company.sharepoint.com/sites/MySite`).
+  </Property>
+  <Property name="sp_tenant_id" type="text">
+    **Tenant ID** — Azure AD tenant ID.
+  </Property>
+  <Property name="sp_client_id" type="text">
+    **App (Client) ID** — Azure AD app registration client ID.
+  </Property>
+  <Property name="sp_client_secret" type="password">
+    **Client Secret** — Azure AD app client secret.
+  </Property>
+  <Property name="sp_library" type="text">
+    **Document Library** — Library name. Default: `Documents`.
+  </Property>
+</Properties>
+
+### Features
+
+- ✅ Document libraries
+- ✅ Site collections
+- ✅ Team sites
+- ✅ Microsoft Graph API
+
+### Example
+
+```json
+{
+  "provider": "sharepoint",
+  "sp_site_url": "https://company.sharepoint.com/sites/Finance",
+  "sp_tenant_id": "${vault.azure_tenant_id}",
+  "sp_client_id": "${vault.sp_client_id}",
+  "sp_client_secret": "${vault.sp_client_secret}",
+  "sp_library": "Shared Documents"
+}
+```
+
+---
+
+<NodeHeader id="provider-onedrive" icon="Cloud" label="OneDrive" description="Microsoft OneDrive personal and business" bgColor="#dbeafe" textColor="#0284c7" />
+
+### Configuration
+
+<Properties>
+  <Property name="od_tenant_id" type="text">
+    **Tenant ID** — Azure AD tenant ID.
+  </Property>
+  <Property name="od_client_id" type="text">
+    **App (Client) ID** — Azure AD app registration client ID.
+  </Property>
+  <Property name="od_client_secret" type="password">
+    **Client Secret** — Azure AD app client secret.
+  </Property>
+  <Property name="od_user_email" type="text">
+    **User Email** — Target user's email for delegated access.
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "provider": "onedrive",
+  "od_tenant_id": "${vault.azure_tenant_id}",
+  "od_client_id": "${vault.od_client_id}",
+  "od_client_secret": "${vault.od_client_secret}",
+  "od_user_email": "finance@company.com"
+}
+```
+
+---
+
+<NodeHeader id="provider-gdrive" icon="Cloud" label="Google Drive" description="Google Drive personal and team drives" bgColor="#fef9c3" textColor="#ca8a04" />
+
+### Configuration
+
+<Properties>
+  <Property name="gd_credentials_json" type="textarea">
+    **Service Account JSON** — Google service account key JSON.
+  </Property>
+  <Property name="gd_folder_id" type="text">
+    **Root Folder ID** — Optional folder ID to limit access.
+  </Property>
+</Properties>
+
+### Features
+
+- ✅ Personal Drive
+- ✅ Shared Drives (Team Drives)
+- ✅ Service account access
+
+### Example
+
+```json
+{
+  "provider": "google_drive",
+  "gd_credentials_json": "${vault.gdrive_service_account}",
+  "gd_folder_id": "1ABCxyz123"
+}
+```
+
+---
+
+<NodeHeader id="provider-sftp" icon="Server" label="SFTP" description="Secure File Transfer Protocol" bgColor="#f3e8ff" textColor="#7c3aed" />
+
+### Configuration
+
+<Properties>
+  <Property name="sftp_host" type="text" required>
+    **Host** — SFTP server hostname.
+  </Property>
+  <Property name="sftp_port" type="number">
+    **Port** — SFTP port. Default: `22`.
+  </Property>
+  <Property name="sftp_username" type="text">
+    **Username** — SFTP username.
+  </Property>
+  <Property name="sftp_password" type="password">
+    **Password** — SFTP password (or use private key).
+  </Property>
+  <Property name="sftp_private_key" type="text">
+    **Private Key Path** — Path to SSH private key file.
+  </Property>
+  <Property name="sftp_passphrase" type="password">
+    **Key Passphrase** — Passphrase for encrypted private key.
+  </Property>
+</Properties>
+
+### Features
+
+- ✅ Key-based authentication
+- ✅ Password authentication
+- ✅ Host key verification
+- ✅ Resume interrupted transfers
+
+### Example
+
+```json
+{
+  "provider": "sftp",
+  "sftp_host": "sftp.company.com",
+  "sftp_port": 22,
+  "sftp_username": "${vault.sftp_user}",
+  "sftp_private_key": "/path/to/id_rsa"
+}
+```
+
+---
+
+<NodeHeader id="provider-ftp" icon="Server" label="FTP/FTPS" description="File Transfer Protocol with TLS support" bgColor="#fee2e2" textColor="#dc2626" />
+
+### Configuration
+
+<Properties>
+  <Property name="ftp_host" type="text" required>
+    **Host** — FTP server hostname.
+  </Property>
+  <Property name="ftp_port" type="number">
+    **Port** — FTP port. Default: `21`.
+  </Property>
+  <Property name="ftp_username" type="text">
+    **Username** — FTP username.
+  </Property>
+  <Property name="ftp_password" type="password">
+    **Password** — FTP password.
+  </Property>
+  <Property name="ftp_secure" type="boolean">
+    **Use FTPS** — Enable TLS/SSL encryption. Default: `true`.
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "provider": "ftp",
+  "ftp_host": "ftp.company.com",
+  "ftp_port": 21,
+  "ftp_username": "${vault.ftp_user}",
+  "ftp_password": "${vault.ftp_pass}",
+  "ftp_secure": true
+}
+```
+
+---
+
+<NodeHeader id="provider-webdav" icon="Server" label="WebDAV" description="NextCloud, ownCloud, and WebDAV servers" bgColor="#dcfce7" textColor="#166534" />
+
+### Configuration
+
+<Properties>
+  <Property name="webdav_url" type="text" required>
+    **WebDAV URL** — Full WebDAV endpoint URL.
+  </Property>
+  <Property name="webdav_username" type="text">
+    **Username** — WebDAV username.
+  </Property>
+  <Property name="webdav_password" type="password">
+    **Password** — WebDAV password.
+  </Property>
+</Properties>
+
+### Compatible Services
+
+- NextCloud
+- ownCloud
+- Apache mod_dav
+- Microsoft IIS WebDAV
+- Box.com
+
+### Example
+
+```json
+{
+  "provider": "webdav",
+  "webdav_url": "https://cloud.company.com/remote.php/dav/files/user/",
+  "webdav_username": "${vault.webdav_user}",
+  "webdav_password": "${vault.webdav_pass}"
+}
+```
+
+---
+
+## Cross-Provider Examples {{ id: 'examples' }}
+
+### Example 1: Backup Local to S3
+
+<Diagram 
+  groups={[
+    {
+      id: "source",
+      label: "Source",
+      nodes: [{ id: "local", label: "storage.provider", sublabel: "Local: /data", type: "default" }]
+    },
+    {
+      id: "operation",
+      label: "Operation",
+      direction: "column",
+      nodes: [
+        { id: "list", label: "files.list", sublabel: "/*.csv", type: "primary" },
+        { id: "transfer", label: "storage.transfer", sublabel: "local → s3", type: "warning" }
+      ]
+    },
+    {
+      id: "dest",
+      label: "Destination",
+      nodes: [{ id: "s3", label: "storage.provider", sublabel: "S3: backups", type: "success" }]
+    }
+  ]}
+/>
+
+### Example 2: SharePoint to Azure Blob Sync
+
+<Diagram 
+  groups={[
+    {
+      id: "source",
+      label: "Source",
+      nodes: [{ id: "sp", label: "storage.provider", sublabel: "SharePoint: Finance", type: "primary" }]
+    },
+    {
+      id: "sync",
+      label: "Sync Operation",
+      nodes: [{ id: "sync", label: "storage.sync", sublabel: "delete_extra: no", type: "warning" }]
+    },
+    {
+      id: "dest",
+      label: "Destination",
+      nodes: [{ id: "azure", label: "storage.provider", sublabel: "Azure Blob: archive", type: "success" }]
+    }
+  ]}
+/>
+
+### Example 3: Process Files from Google Drive
+
+<Diagram 
+  groups={[
+    {
+      id: "storage",
+      label: "Storage",
+      nodes: [{ id: "gdrive", label: "storage.provider", sublabel: "Google Drive: Invoices", type: "primary" }]
+    },
+    {
+      id: "list",
+      label: "List Files",
+      nodes: [{ id: "list", label: "files.list", sublabel: "pattern: *.pdf", type: "default" }]
+    },
+    {
+      id: "process",
+      label: "Process",
+      direction: "column",
+      nodes: [
+        { id: "loop", label: "control.loop", sublabel: "${files}", type: "warning" },
+        { id: "ocr", label: "document.ocr", sublabel: "${item.path}", type: "success" }
+      ]
+    }
+  ]}
+/>
+
+### Python Dependencies
+
+Install the required packages for each provider:
+
+```bash
+# AWS S3 / MinIO
+pip install boto3
+
+# Azure Blob Storage
+pip install azure-storage-blob azure-identity
+
+# Google Cloud Storage
+pip install google-cloud-storage
+
+# Google Drive
+pip install google-api-python-client google-auth
+
+# SFTP
+pip install paramiko
+
+# SharePoint/OneDrive/WebDAV (only requests needed)
+pip install requests
+```
+

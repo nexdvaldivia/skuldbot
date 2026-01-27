@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     template: '%s - SkuldBot Components',
     default: 'SkuldBot RPA Components Documentation',
   },
-  description: 'Documentation for all 222 RPA components available in SkuldBot Studio',
+  description: 'Documentation for all 260+ RPA components available in SkuldBot Studio',
 }
 
 export default async function RootLayout({

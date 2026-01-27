@@ -48,7 +48,7 @@ function SecretRow({ secret, onDelete, onVerify }: SecretRowProps) {
 
   const handleCopy = () => {
     // Copy the variable reference, NEVER the value
-    navigator.clipboard.writeText(`\${${secret.name}}`);
+    navigator.clipboard.writeText(`\${vault.${secret.name}}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -193,7 +193,7 @@ function AddSecretForm({ onAdd, onCancel }: AddSecretFormProps) {
             className="h-9 font-mono border-slate-200"
           />
           <p className="text-xs text-slate-500">
-            Use this name in configs: <code className="bg-slate-200 px-1 rounded">${"{" + (name || "NAME") + "}"}</code>
+            Use this name in configs: <code className="bg-slate-200 px-1 rounded">${"{vault." + (name || "NAME") + "}"}</code>
           </p>
         </div>
 
@@ -251,27 +251,27 @@ function AddSecretForm({ onAdd, onCancel }: AddSecretFormProps) {
 export default function SettingsPanel() {
   const {
     project,
+    projectPath,
     updateProjectSettings,
     isSaving,
   } = useProjectStore();
 
   const {
     isUnlocked,
+    isLoading: vaultLoading,
     secrets,
     error: vaultError,
-    unlockVault,
-    lockVault,
+    initializeVault,
     listSecrets,
     setSecret,
     deleteSecret,
     verifySecret,
     checkVaultStatus,
+    setVaultPath,
   } = useVaultStore();
 
   const [hasChanges, setHasChanges] = useState(false);
   const [showAddSecret, setShowAddSecret] = useState(false);
-  const [vaultPassword, setVaultPassword] = useState("");
-  const [unlocking, setUnlocking] = useState(false);
 
   const [formData, setFormData] = useState({
     name: project?.project.name || "",
@@ -282,9 +282,14 @@ export default function SettingsPanel() {
     autoSaveInterval: project?.settings.autoSave?.intervalMs || 5000,
   });
 
+  // Update vault path when project changes
   useEffect(() => {
-    checkVaultStatus();
-  }, [checkVaultStatus]);
+    if (projectPath) {
+      const vaultDir = `${projectPath}/.skuldbot`;
+      setVaultPath(vaultDir);
+      checkVaultStatus();
+    }
+  }, [projectPath, setVaultPath, checkVaultStatus]);
 
   useEffect(() => {
     if (isUnlocked) {
@@ -309,12 +314,8 @@ export default function SettingsPanel() {
     setHasChanges(false);
   };
 
-  const handleUnlockVault = async () => {
-    if (!vaultPassword) return;
-    setUnlocking(true);
-    await unlockVault(vaultPassword);
-    setVaultPassword("");
-    setUnlocking(false);
+  const handleInitializeVault = async () => {
+    await initializeVault();
   };
 
   const handleAddSecret = async (name: string, value: string, description?: string) => {
@@ -418,54 +419,40 @@ export default function SettingsPanel() {
                   </p>
                 </div>
                 {isUnlocked && (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => lockVault()}
-                    >
-                      <Lock className="w-3.5 h-3.5" />
-                      Lock
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => setShowAddSecret(true)}
-                      disabled={showAddSecret}
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      Add Secret
-                    </Button>
-                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => setShowAddSecret(true)}
+                    disabled={showAddSecret}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add Secret
+                  </Button>
                 )}
               </div>
             </div>
 
             <div className="p-5">
               {!isUnlocked ? (
-                // Unlock form
+                // Initialize vault - automatic, no password needed
                 <div className="space-y-4">
-                  <div className="p-4 bg-amber-50 rounded-lg border border-amber-100">
-                    <p className="text-sm text-amber-700">
-                      Enter your vault password to manage secrets. Set the
-                      <code className="mx-1 bg-amber-100 px-1 rounded">SKULDBOT_VAULT_PASSWORD</code>
-                      environment variable for automatic unlock.
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+                    <p className="text-sm text-blue-700">
+                      Click to initialize the local secrets vault. The vault is automatically
+                      encrypted and managed by the Studio.
                     </p>
                   </div>
-                  <div className="flex gap-2">
-                    <Input
-                      type="password"
-                      value={vaultPassword}
-                      onChange={(e) => setVaultPassword(e.target.value)}
-                      placeholder="Vault password..."
-                      className="h-10 border-slate-200"
-                      onKeyDown={(e) => e.key === "Enter" && handleUnlockVault()}
-                    />
-                    <Button onClick={handleUnlockVault} disabled={unlocking || !vaultPassword}>
-                      {unlocking ? "Unlocking..." : "Unlock Vault"}
-                    </Button>
-                  </div>
+                  <Button
+                    onClick={handleInitializeVault}
+                    disabled={vaultLoading}
+                    className="w-full"
+                  >
+                    {vaultLoading ? "Initializing..." : "Initialize Vault"}
+                  </Button>
                   {vaultError && (
-                    <div className="text-sm text-red-600">{vaultError}</div>
+                    <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4" />
+                      {vaultError}
+                    </div>
                   )}
                 </div>
               ) : (
@@ -502,8 +489,11 @@ export default function SettingsPanel() {
                   <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
                     <p className="text-xs text-blue-700">
                       <strong>Usage:</strong> Reference secrets in node configs using{" "}
-                      <code className="bg-blue-100 px-1 rounded">${"{SECRET_NAME}"}</code>.
-                      Values are resolved at runtime by the Runner, never stored in the DSL.
+                      <code className="bg-blue-100 px-1 rounded">${"{vault.SECRET_NAME}"}</code>.
+                      Values are resolved at runtime, never stored in the DSL.
+                    </p>
+                    <p className="text-xs text-blue-600 mt-1">
+                      This local vault is for development. In production, secrets are managed in the Orchestrator.
                     </p>
                   </div>
                 </div>

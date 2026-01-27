@@ -1,6 +1,6 @@
 export const metadata = {
   title: 'Database',
-  description: 'Components for connecting to and querying databases. Support for PostgreSQL, MySQL, SQL Server, MongoDB, and more.',
+  description: 'Connect to any database. SQL queries, stored procedures, and transactions.',
 }
 
 export const sections = [
@@ -15,43 +15,15 @@ export const sections = [
   { title: 'Close Connection', id: 'database-close' },
 ]
 
-# Database
-
-Components for connecting to and querying databases. Support for PostgreSQL, MySQL, SQL Server, MongoDB, and more. {{ className: 'lead' }}
+Connect to any database. Execute SQL queries, stored procedures, and transactions. {{ className: 'lead' }}
 
 <Note>
-  This category contains **9 components**. See also: [API / HTTP](/components/api) · [Data Transform](/components/data) · [Excel](/components/excel)
+  Supported databases: **PostgreSQL**, **MySQL**, **SQL Server**, **Oracle**, **SQLite**.
 </Note>
-
-## Common Use Cases
-
-- Query relational databases
-- Insert and update records
-- Work with MongoDB documents
-- Execute stored procedures
 
 ---
 
-## Connect Database {{ id: 'database-connect' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-database"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <ellipse cx="12" cy="5" rx="9" ry="3" />
-  <path d="M3 5V19A9 3 0 0 0 21 19V5" />
-  <path d="M3 12A9 3 0 0 0 21 12" />
-</svg>
-`} label="Connect Database" description="Connect to database using individual credentials (supports vault references)" bgColor="#cffafe" textColor="#0e7490" />
+<NodeHeader id="database-connect" icon="Database" label="Connect Database" description="Connect to database using individual credentials (supports vault references)" bgColor="#fed7aa" textColor="#9a3412" />
 
 <Properties>
   <Property name="type" type="string">
@@ -59,93 +31,45 @@ Components for connecting to and querying databases. Support for PostgreSQL, MyS
   </Property>
 </Properties>
 
-### When to Use
+**Configuration:**
+- **type** (`select`, default: `postgresql`) — Database type:
+  - `postgresql` — PostgreSQL
+  - `mysql` — MySQL
+  - `mssql` — SQL Server
+  - `oracle` — Oracle
+  - `sqlite` — SQLite
+- **host** (`text`, required) — Host. Supports expressions like `${vault.db_host}`
+- **port** (`number`, default: `5432`) — Port
+- **database** (`text`, required) — Database name
+- **username** (`text`, required) — Username. Supports expressions like `${vault.db_user}`
+- **password** (`text`, required) — Password. Supports expressions like `${vault.db_password}`
+- **ssl** (`boolean`, default: `false`) — Enable SSL
 
-- Establish connection to production database
-- Connect to data warehouses
-- Access MongoDB clusters
-- Connect with connection pooling
+**Output:**
+- **connectionId** (`string`) — Connection ID for use in other database nodes
+- **connected** (`boolean`) — Whether connection was successful
+- **serverVersion** (`string`) — Database server version
 
-### Configuration
-
-<Properties>
-  <Property name="type" type="select">
-    Database Type Default: `postgresql`
-  </Property>
-  <Property name="host" type="text" required>
-    Host
-  </Property>
-  <Property name="port" type="number">
-    Port (e.g., `5432`) Default: `5432`
-  </Property>
-  <Property name="database" type="text" required>
-    Database Name (e.g., `mydb`)
-  </Property>
-  <Property name="username" type="text" required>
-    Username
-  </Property>
-  <Property name="password" type="password" required>
-    Password
-  </Property>
-</Properties>
-
-### Output Variables
-
-Access these variables in subsequent nodes using `${Connect Database.variableName}`.
-
-<Properties>
-  <Property name="connected" type="boolean">
-    Connection status
-  </Property>
-  <Property name="connectionId" type="string">
-    Connection identifier for use in subsequent nodes
-  </Property>
-  <Property name="database" type="string">
-    Connected database name
-  </Property>
-</Properties>
-
-### Example
+**Example:**
 
 ```json
 {
-  "id": "node-1",
   "type": "database.connect",
-  "label": "Connect Database",
   "config": {
     "type": "postgresql",
-    "host": "your-host",
-    "port": "5432",
-    "database": "mydb"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
+    "host": "${VAULT.db_host}",
+    "port": 5432,
+    "database": "myapp",
+    "username": "${VAULT.db_user}",
+    "password": "${VAULT.db_password}",
+    "ssl": true
   }
 }
 ```
 
 ---
 
-## Execute Query {{ id: 'database-query' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-code"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="m16 18 6-6-6-6" />
-  <path d="m8 6-6 6 6 6" />
-</svg>
-`} label="Execute Query" description="Run SQL query on connected database" bgColor="#cffafe" textColor="#0e7490" />
+<NodeHeader id="database-query" icon="Code" label="Execute Query" description="Run SQL query on connected database" bgColor="#fed7aa" textColor="#9a3412" />
 
 <Properties>
   <Property name="type" type="string">
@@ -153,126 +77,36 @@ Access these variables in subsequent nodes using `${Connect Database.variableNam
   </Property>
 </Properties>
 
-### When to Use
+**Configuration:**
+- **connection** (`text`) — Connection reference. Supports expressions like `${Connect Database.connectionId}`
+- **query** (`textarea`, required) — SQL query. Supports expressions.
+- **params** (`textarea`) — Query parameters as JSON. Supports expressions.
 
-- Fetch pending orders for processing
-- Query customer data for reports
-- Select records matching criteria
-- Execute complex analytical queries
+**Output:**
+- **records** (`array`) — Query result rows
+- **columns** (`array`) — Column names
+- **recordCount** (`number`) — Number of rows returned
 
-<Prerequisites>
-
-- Database connection configured in Orchestrator
-- Network access to database server
-- Database user with appropriate permissions
-
-</Prerequisites>
-
-### Configuration
-
-<Properties>
-  <Property name="connection" type="text">
-    Connection
-  </Property>
-  <Property name="query" type="textarea" required>
-    SQL Query
-  </Property>
-  <Property name="params" type="textarea">
-    Parameters (JSON)
-  </Property>
-</Properties>
-
-### Setup Guide
-
-
-<Collapsible title="Configure PostgreSQL Connection">
-
-1. In Orchestrator, go to **Connections > Database**
-2. Click **Add Connection** and fill in:
-   - **Name**: `postgres-main` (use this in your workflows)
-   - **Type**: PostgreSQL
-   - **Host**: `db.example.com`
-   - **Port**: `5432`
-   - **Database**: `myapp`
-   - **Username**: `bot_user`
-   - **Password**: Store in Secrets as `db_password`
-3. Test the connection before saving
-
-</Collapsible>
-
-<Collapsible title="Configure MySQL Connection">
-
-1. Add connection with Type: MySQL
-2. Default port: `3306`
-3. For SSL, enable "Use SSL" and upload certificates if required
-
-</Collapsible>
-
-<Collapsible title="Configure SQL Server Connection">
-
-1. Add connection with Type: SQL Server
-2. Default port: `1433`
-3. For Windows Auth, use: `Server=host;Database=db;Trusted_Connection=True;`
-
-</Collapsible>
-
-
-### Output Variables
-
-Access these variables in subsequent nodes using `${Execute Query.variableName}`.
-
-<Properties>
-  <Property name="records" type="array">
-    Query result rows
-  </Property>
-  <Property name="columns" type="array">
-    Column names
-  </Property>
-  <Property name="recordCount" type="number">
-    Number of rows returned
-  </Property>
-</Properties>
-
-### Example
+**Example - Parameterized Query:**
 
 ```json
 {
-  "id": "node-1",
   "type": "database.query",
-  "label": "Execute Query",
   "config": {
-    "connection": "postgres-main",
-    "query": "SELECT * FROM invoices WHERE status = $1",
-    "params": "[\"pending\"]"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
+    "connection": "${Connect Database.connectionId}",
+    "query": "SELECT * FROM customers WHERE status = $1 AND created_at > $2",
+    "params": "[\"active\", \"2024-01-01\"]"
   }
 }
 ```
 
+<Warning>
+  **Always use parameterized queries** to prevent SQL injection. Never concatenate user input directly into SQL strings.
+</Warning>
+
 ---
 
-## Insert Row {{ id: 'database-insert' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-plus"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M5 12h14" />
-  <path d="M12 5v14" />
-</svg>
-`} label="Insert Row" description="Insert data into table" bgColor="#cffafe" textColor="#0e7490" />
+<NodeHeader id="database-insert" icon="Plus" label="Insert Row" description="Insert data into table" bgColor="#fed7aa" textColor="#9a3412" />
 
 <Properties>
   <Property name="type" type="string">
@@ -280,82 +114,31 @@ Access these variables in subsequent nodes using `${Execute Query.variableName}`
   </Property>
 </Properties>
 
-### When to Use
+**Configuration:**
+- **connection** (`text`) — Connection reference. Supports expressions like `${Connect Database.connectionId}`
+- **table** (`text`, required) — Table name. Supports expressions.
+- **data** (`textarea`, required) — Data as JSON. Supports expressions.
 
-- Save processed results to database
-- Log audit records
-- Create new customer records
-- Store webhook data
+**Output:**
+- **insertedId** (`string`) — ID of inserted row
+- **rowsAffected** (`number`) — Number of rows inserted
 
-### Configuration
-
-<Properties>
-  <Property name="connection" type="text">
-    Connection
-  </Property>
-  <Property name="table" type="text" required>
-    Table Name
-  </Property>
-  <Property name="data" type="textarea" required>
-    Data (JSON)
-  </Property>
-</Properties>
-
-### Output Variables
-
-Access these variables in subsequent nodes using `${Insert Row.variableName}`.
-
-<Properties>
-  <Property name="insertedId" type="string">
-    ID of inserted row
-  </Property>
-  <Property name="rowsAffected" type="number">
-    Number of rows inserted
-  </Property>
-</Properties>
-
-### Example
+**Example:**
 
 ```json
 {
-  "id": "node-1",
   "type": "database.insert",
-  "label": "Insert Row",
   "config": {
-    "connection": "postgres-main",
-    "table": "audit_log",
-    "data": "${Process Data.record}"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
+    "connection": "${Connect Database.connectionId}",
+    "table": "orders",
+    "data": "${processed_order}"
   }
 }
 ```
 
 ---
 
-## Update Rows {{ id: 'database-update' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-refresh-cw"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-  <path d="M21 3v5h-5" />
-  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-  <path d="M8 16H3v5" />
-</svg>
-`} label="Update Rows" description="Update table data" bgColor="#cffafe" textColor="#0e7490" />
+<NodeHeader id="database-update" icon="RefreshCw" label="Update Rows" description="Update table data" bgColor="#fed7aa" textColor="#9a3412" />
 
 <Properties>
   <Property name="type" type="string">
@@ -363,84 +146,32 @@ Access these variables in subsequent nodes using `${Insert Row.variableName}`.
   </Property>
 </Properties>
 
-### When to Use
+**Configuration:**
+- **connection** (`text`) — Connection reference. Supports expressions like `${Connect Database.connectionId}`
+- **table** (`text`, required) — Table name. Supports expressions.
+- **data** (`textarea`, required) — Data to update as JSON. Supports expressions.
+- **where** (`text`, required) — WHERE clause. Supports expressions.
 
-- Update order status after processing
-- Mark records as processed
-- Sync data changes from external systems
-- Update timestamps and flags
+**Output:**
+- **rowsAffected** (`number`) — Number of rows updated
 
-### Configuration
-
-<Properties>
-  <Property name="connection" type="text">
-    Connection
-  </Property>
-  <Property name="table" type="text" required>
-    Table Name
-  </Property>
-  <Property name="data" type="textarea" required>
-    Data (JSON)
-  </Property>
-  <Property name="where" type="text" required>
-    WHERE Clause
-  </Property>
-</Properties>
-
-### Output Variables
-
-Access these variables in subsequent nodes using `${Update Rows.variableName}`.
-
-<Properties>
-  <Property name="rowsAffected" type="number">
-    Number of rows updated
-  </Property>
-</Properties>
-
-### Example
+**Example:**
 
 ```json
 {
-  "id": "node-1",
   "type": "database.update",
-  "label": "Update Rows",
   "config": {
-    "connection": "your-connection",
-    "table": "your-table",
-    "data": "your-data",
-    "where": "your-where"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
+    "connection": "${Connect Database.connectionId}",
+    "table": "customers",
+    "data": "{\"status\": \"processed\", \"updated_at\": \"NOW()\"}",
+    "where": "id = ${customer.id}"
   }
 }
 ```
 
 ---
 
-## Delete Rows {{ id: 'database-delete' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-trash-2"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M10 11v6" />
-  <path d="M14 11v6" />
-  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-  <path d="M3 6h18" />
-  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-</svg>
-`} label="Delete Rows" description="Delete from table" bgColor="#cffafe" textColor="#0e7490" />
+<NodeHeader id="database-delete" icon="Trash2" label="Delete Rows" description="Delete from table" bgColor="#fed7aa" textColor="#9a3412" />
 
 <Properties>
   <Property name="type" type="string">
@@ -448,76 +179,17 @@ Access these variables in subsequent nodes using `${Update Rows.variableName}`.
   </Property>
 </Properties>
 
-### When to Use
+**Configuration:**
+- **connection** (`text`) — Connection reference. Supports expressions like `${Connect Database.connectionId}`
+- **table** (`text`, required) — Table name. Supports expressions.
+- **where** (`text`, required) — WHERE clause. Supports expressions.
 
-- Remove expired records
-- Clean up temporary data
-- Delete cancelled orders
-- Purge old audit logs
-
-### Configuration
-
-<Properties>
-  <Property name="connection" type="text">
-    Connection
-  </Property>
-  <Property name="table" type="text" required>
-    Table Name
-  </Property>
-  <Property name="where" type="text" required>
-    WHERE Clause
-  </Property>
-</Properties>
-
-### Output Variables
-
-Access these variables in subsequent nodes using `${Delete Rows.variableName}`.
-
-<Properties>
-  <Property name="rowsAffected" type="number">
-    Number of rows deleted
-  </Property>
-</Properties>
-
-### Example
-
-```json
-{
-  "id": "node-1",
-  "type": "database.delete",
-  "label": "Delete Rows",
-  "config": {
-    "connection": "your-connection",
-    "table": "your-table",
-    "where": "your-where"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
-}
-```
+**Output:**
+- **rowsAffected** (`number`) — Number of rows deleted
 
 ---
 
-## Call Procedure {{ id: 'database-call_procedure' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-play"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
-</svg>
-`} label="Call Procedure" description="Execute stored procedure" bgColor="#cffafe" textColor="#0e7490" />
+<NodeHeader id="database-call_procedure" icon="Play" label="Call Procedure" description="Execute stored procedure" bgColor="#fed7aa" textColor="#9a3412" />
 
 <Properties>
   <Property name="type" type="string">
@@ -525,77 +197,29 @@ Access these variables in subsequent nodes using `${Delete Rows.variableName}`.
   </Property>
 </Properties>
 
-### When to Use
+**Configuration:**
+- **procedure** (`text`, required) — Stored procedure name
+- **params** (`textarea`) — Parameters as JSON
 
-- Execute complex business logic in stored procedures
-- Run database maintenance procedures
-- Call functions that return results
-- Execute batch operations
+**Output:**
+- **result** (`object`) — Procedure return value
+- **outParams** (`object`) — Output parameters
 
-### Configuration
-
-<Properties>
-  <Property name="procedure" type="text" required>
-    Procedure Name
-  </Property>
-  <Property name="params" type="textarea">
-    Parameters (JSON)
-  </Property>
-</Properties>
-
-### Output Variables
-
-Access these variables in subsequent nodes using `${Call Procedure.variableName}`.
-
-<Properties>
-  <Property name="result" type="object">
-    Procedure return value
-  </Property>
-  <Property name="outParams" type="object">
-    Output parameters
-  </Property>
-</Properties>
-
-### Example
+**Example:**
 
 ```json
 {
-  "id": "node-1",
   "type": "database.call_procedure",
-  "label": "Call Procedure",
   "config": {
-    "procedure": "your-procedure",
-    "params": "your-params"
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
+    "procedure": "sp_process_monthly_report",
+    "params": "{\"month\": 1, \"year\": 2024}"
   }
 }
 ```
 
 ---
 
-## Transaction {{ id: 'database-transaction' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-git-merge"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <circle cx="18" cy="18" r="3" />
-  <circle cx="6" cy="6" r="3" />
-  <path d="M6 21V9a9 9 0 0 0 9 9" />
-</svg>
-`} label="Transaction" description="Start database transaction" bgColor="#cffafe" textColor="#0e7490" />
+<NodeHeader id="database-transaction" icon="GitMerge" label="Transaction" description="Start database transaction" bgColor="#fed7aa" textColor="#9a3412" />
 
 <Properties>
   <Property name="type" type="string">
@@ -603,50 +227,11 @@ Access these variables in subsequent nodes using `${Call Procedure.variableName}
   </Property>
 </Properties>
 
-### When to Use
-
-- Ensure data consistency across multiple operations
-- Implement all-or-nothing updates
-- Handle complex multi-table inserts
-- Manage financial transactions
-
-### Example
-
-```json
-{
-  "id": "node-1",
-  "type": "database.transaction",
-  "label": "Transaction",
-  "config": {
-    // No configuration required
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
-}
-```
+Starts a new database transaction. All subsequent database operations will be part of this transaction until committed or rolled back.
 
 ---
 
-## Commit {{ id: 'database-commit' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-check"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M20 6 9 17l-5-5" />
-</svg>
-`} label="Commit" description="Commit transaction" bgColor="#cffafe" textColor="#0e7490" />
+<NodeHeader id="database-commit" icon="Check" label="Commit" description="Commit transaction" bgColor="#fed7aa" textColor="#9a3412" />
 
 <Properties>
   <Property name="type" type="string">
@@ -654,51 +239,11 @@ Access these variables in subsequent nodes using `${Call Procedure.variableName}
   </Property>
 </Properties>
 
-### When to Use
-
-- Finalize successful transactions
-- Make changes permanent
-- Release row locks
-- Complete batch operations
-
-### Example
-
-```json
-{
-  "id": "node-1",
-  "type": "database.commit",
-  "label": "Commit",
-  "config": {
-    // No configuration required
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
-}
-```
+Commits the current transaction, making all changes permanent.
 
 ---
 
-## Close Connection {{ id: 'database-close' }}
-
-<NodeHeader icon={`
-<svg
-  class="lucide lucide-x"
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="M18 6 6 18" />
-  <path d="m6 6 12 12" />
-</svg>
-`} label="Close Connection" description="Close database connection" bgColor="#cffafe" textColor="#0e7490" />
+<NodeHeader id="database-close" icon="X" label="Close Connection" description="Close database connection" bgColor="#fed7aa" textColor="#9a3412" />
 
 <Properties>
   <Property name="type" type="string">
@@ -706,29 +251,19 @@ Access these variables in subsequent nodes using `${Call Procedure.variableName}
   </Property>
 </Properties>
 
-### When to Use
+Closes the database connection and releases resources.
 
-- Release database connections
-- Clean up connection pools
-- Free database resources
-- End database sessions
+---
 
-### Example
+## Complete Example: ETL Pipeline
 
-```json
-{
-  "id": "node-1",
-  "type": "database.close",
-  "label": "Close Connection",
-  "config": {
-    // No configuration required
-  },
-  "outputs": {
-    "success": "next-node",
-    "error": "error-handler"
-  }
-}
-```
+<FlowDiagram items={[
+  { label: "database.connect", sublabel: "Source DB", type: "default" },
+  { label: "database.query", sublabel: "SELECT daily_sales", type: "primary" },
+  { label: "code.python", sublabel: "Clean & enrich", type: "warning" },
+  { label: "database.connect", sublabel: "Destination DB", type: "default" },
+  { label: "database.insert", sublabel: "Load data", type: "success" }
+]} />
 
 ---
 

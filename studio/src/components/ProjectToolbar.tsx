@@ -1,4 +1,4 @@
-import { Play, Download, Save, Package, Loader2, Undo, Redo } from "lucide-react";
+import { Play, Square, Download, Save, Package, Loader2, Undo, Redo } from "lucide-react";
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
 import { useProjectStore } from "../store/projectStore";
@@ -7,114 +7,12 @@ import { useFlowStore, FormTriggerConfig } from "../store/flowStore";
 import { useHistoryStore } from "../store/historyStore";
 import { useToastStore } from "../store/toastStore";
 import { useLogsStore } from "../store/logsStore";
+import { useDebugStore } from "../store/debugStore";
 import { SkuldLogoBox } from "./ui/SkuldLogo";
 import { Button } from "./ui/Button";
 import FormTriggerModal from "./FormTriggerModal";
-import { FlowNode, FlowEdge, BotDSL, DSLNode } from "../types/flow";
-
-// AI node types that can have a model connection
-const AI_NODES_WITH_MODEL = [
-  "ai.agent",
-  "ai.llm_prompt",
-  "ai.classify",
-  "ai.summarize",
-  "ai.translate",
-  "ai.sentiment",
-  "ai.extract",
-  "ai.vision",
-  "ai.generate_code",
-  "ai.explain_code"
-];
-
-// Helper to convert nodes/edges to DSL
-function generateDSL(
-  botId: string,
-  botName: string,
-  description: string | undefined,
-  nodes: FlowNode[],
-  edges: FlowEdge[]
-): BotDSL {
-  const dslNodes: DSLNode[] = nodes.map((node) => {
-    const successEdge = edges.find(
-      (e) => e.source === node.id && e.sourceHandle === "success"
-    );
-    const errorEdge = edges.find(
-      (e) => e.source === node.id && e.sourceHandle === "error"
-    );
-
-    const dslNode: DSLNode = {
-      id: node.id,
-      type: node.data.nodeType,
-      config: node.data.config,
-      outputs: {
-        success: successEdge?.target || "END",
-        error: errorEdge?.target || "END",
-      },
-      label: node.data.label,
-    };
-
-    // Check for AI Model connections for AI nodes
-    if (AI_NODES_WITH_MODEL.includes(node.data.nodeType)) {
-      const modelEdge = edges.find(
-        (e) => e.target === node.id && e.targetHandle === "model" && e.data?.edgeType === "model"
-      );
-
-      if (modelEdge) {
-        const modelNode = nodes.find((n) => n.id === modelEdge.source);
-        if (modelNode && modelNode.data.nodeType === "ai.model") {
-          const modConfig = modelNode.data.config || {};
-          const model_config: Record<string, any> = {
-            provider: modConfig.provider || "openai",
-            model: modConfig.model || "gpt-4o",
-            temperature: modConfig.temperature ?? 0.7,
-          };
-
-          if (modConfig.max_tokens) {
-            model_config.max_tokens = modConfig.max_tokens;
-          }
-          if (modConfig.api_key) {
-            model_config.api_key = modConfig.api_key;
-          }
-          if (modConfig.base_url) {
-            model_config.base_url = modConfig.base_url;
-          }
-          if (modConfig.api_version) {
-            model_config.api_version = modConfig.api_version;
-          }
-
-          // Use model_config_ to match Jinja2 template expectations
-          dslNode.model_config_ = model_config as DSLNode["model_config_"];
-          console.log(`[ProjectToolbar] Added model_config_ for ${node.id}:`, model_config);
-        }
-      }
-    }
-
-    return dslNode;
-  });
-
-  const triggerNodes = nodes.filter((node) => node.data.category === "trigger");
-  const triggerIds = triggerNodes.map((node) => node.id);
-
-  // Determinar start_node: preferir nodo trigger, sino el primer nodo
-  let startNode: string | undefined;
-  if (triggerNodes.length > 0) {
-    startNode = triggerNodes[0].id;
-  } else if (nodes.length > 0) {
-    startNode = nodes[0].id;
-  }
-
-  return {
-    version: "1.0",
-    bot: {
-      id: botId,
-      name: botName,
-      description,
-    },
-    nodes: dslNodes,
-    triggers: triggerIds.length > 0 ? triggerIds : undefined,
-    start_node: startNode,
-  };
-}
+import { DSLNode } from "../types/flow";
+import { buildExecutionDSL } from "../lib/dsl";
 
 export default function ProjectToolbar() {
   const { project, activeBotId, saveBot, getActiveBot, updateActiveBotNodes, updateActiveBotEdges } = useProjectStore();
@@ -123,9 +21,13 @@ export default function ProjectToolbar() {
   const { undo, redo, canUndo, canRedo } = useHistoryStore();
   const toast = useToastStore();
   const logs = useLogsStore();
+  const { stopDebug, state: debugState } = useDebugStore();
 
   const [isCompiling, setIsCompiling] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
+
+  // Check if any execution is running
+  const isExecutionRunning = isRunning || debugState === "running";
   const [isSaving, setIsSaving] = useState(false);
   const [showFormModal, setShowFormModal] = useState(false);
   const [formConfig, setFormConfig] = useState<FormTriggerConfig | null>(null);
@@ -158,6 +60,32 @@ export default function ProjectToolbar() {
       if (activeBotId) {
         setTabDirty(`bot-${activeBotId}`, true);
       }
+    }
+  };
+
+  // Handle stop execution - uses the debugStore's stopDebug which handles everything
+  const handleStop = async () => {
+    logs.info("Stopping execution...");
+
+    // IMMEDIATELY reset local running state so Run button becomes enabled
+    setIsRunning(false);
+
+    try {
+      // Stop both regular bot and debug processes via Tauri
+      await Promise.all([
+        invoke("stop_bot").catch((e) => console.log("stop_bot error:", e)),
+        invoke("debug_stop").catch((e) => console.log("debug_stop error:", e)),
+      ]);
+
+      // Also call the store's stopDebug to reset UI state
+      await stopDebug();
+
+      logs.success("Execution stopped");
+      toast.info("Execution stopped");
+    } catch (error) {
+      logs.error("Failed to stop execution", String(error));
+      // Even on error, ensure we can run again
+      setIsRunning(false);
     }
   };
 
@@ -208,10 +136,8 @@ export default function ProjectToolbar() {
 
     try {
       // Generate DSL with auto-trigger if needed
-      let dsl = generateDSL(
-        activeBot.id,
-        activeBot.name,
-        activeBot.description,
+      let dsl = buildExecutionDSL(
+        { id: activeBot.id, name: activeBot.name, description: activeBot.description },
         activeBot.nodes,
         activeBot.edges
       );
@@ -276,11 +202,9 @@ export default function ProjectToolbar() {
     logs.openPanel();
 
     try {
-      // Generate DSL
-      let dsl = generateDSL(
-        activeBot.id,
-        activeBot.name,
-        activeBot.description,
+      // Generate DSL from project store's active bot
+      let dsl = buildExecutionDSL(
+        { id: activeBot.id, name: activeBot.name, description: activeBot.description },
         activeBot.nodes,
         activeBot.edges
       );
@@ -327,9 +251,50 @@ export default function ProjectToolbar() {
         { dsl: JSON.stringify(dsl) }
       );
 
-      // Parse and show logs
+      // Get debug store for storing execution results
+      const debugStore = useDebugStore.getState();
+
+      // Parse and show logs, capture NODE_OUTPUT for schema discovery
       if (result.logs && Array.isArray(result.logs)) {
         result.logs.forEach((log: string) => {
+          // Check for NODE_OUTPUT to capture node output data
+          if (log.includes("NODE_OUTPUT:")) {
+            const outputLine = log.slice(log.indexOf("NODE_OUTPUT:") + "NODE_OUTPUT:".length).trim();
+            let nodeId: string | null = null;
+            let payload = outputLine;
+
+            // Format: NODE_OUTPUT:<nodeId>:<json>
+            if (!outputLine.startsWith("{") && !outputLine.startsWith("[")) {
+              const firstColon = outputLine.indexOf(":");
+              if (firstColon > -1) {
+                const maybeNodeId = outputLine.slice(0, firstColon).trim();
+                const maybeJson = outputLine.slice(firstColon + 1).trim();
+                if (maybeNodeId && maybeJson) {
+                  nodeId = maybeNodeId;
+                  payload = maybeJson;
+                }
+              }
+            }
+
+            try {
+              const outputData = JSON.parse(payload);
+              if (nodeId) {
+                // Store execution result in debug store
+                debugStore.markNodeStatus(nodeId, "success", outputData);
+                // Discover schema from the actual output
+                const flowNode = activeBot.nodes.find(n => n.id === nodeId);
+                if (flowNode) {
+                  debugStore.discoverSchema(nodeId, flowNode.data.nodeType, outputData);
+                }
+              }
+            } catch {
+              if (nodeId) {
+                debugStore.markNodeStatus(nodeId, "success", payload);
+              }
+            }
+          }
+          
+          // Show log in panel
           if (log.includes("ERROR")) {
             logs.error(log);
           } else if (log.includes("WARNING")) {
@@ -361,10 +326,8 @@ export default function ProjectToolbar() {
   const handleExportDSL = () => {
     if (!activeBot || !hasNodes) return;
 
-    const dsl = generateDSL(
-      activeBot.id,
-      activeBot.name,
-      activeBot.description,
+    const dsl = buildExecutionDSL(
+      { id: activeBot.id, name: activeBot.name, description: activeBot.description },
       activeBot.nodes,
       activeBot.edges
     );
@@ -460,6 +423,21 @@ export default function ProjectToolbar() {
             <Play className="h-4 w-4" />
           )}
           <span className="ml-1">Run</span>
+        </Button>
+
+        {/* Stop - shows animated when execution is running */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleStop}
+          title="Stop execution"
+          className={isExecutionRunning
+            ? "text-red-600 bg-red-100 hover:bg-red-200 animate-pulse"
+            : "text-red-500 hover:text-red-700 hover:bg-red-50"
+          }
+        >
+          <Square className="h-4 w-4" fill={isExecutionRunning ? "currentColor" : "none"} />
+          <span className="ml-1">Stop</span>
         </Button>
 
         <div className="w-px h-5 bg-slate-200 mx-1" />

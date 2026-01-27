@@ -6,9 +6,13 @@ mod protection;
 use std::process::Command;
 use std::path::PathBuf;
 use std::fs;
+use std::io::ErrorKind;
+use tauri::api::path::app_data_dir;
+use sha2::{Digest, Sha256};
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
+use rand::Rng;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct BotDSL {
@@ -105,6 +109,30 @@ use std::process::{Child, Stdio};
 use std::io::{BufRead, BufReader, Write};
 
 static DEBUG_PROCESS: Lazy<Arc<TokioMutex<Option<Child>>>> = Lazy::new(|| Arc::new(TokioMutex::new(None)));
+
+// Global run_bot process handle (for cancellation)
+// Store the PID so we can kill the process tree
+static RUN_BOT_PROCESS: Lazy<Arc<TokioMutex<Option<Child>>>> = Lazy::new(|| Arc::new(TokioMutex::new(None)));
+static RUN_BOT_PID: Lazy<Arc<TokioMutex<Option<u32>>>> = Lazy::new(|| Arc::new(TokioMutex::new(None)));
+
+// ============================================================
+// Vault Session State
+// ============================================================
+// Stores the vault password in memory during the session
+// The password is set when user unlocks the vault and cleared on lock
+use std::sync::Mutex as StdMutex;
+
+struct VaultSession {
+    password: Option<String>,
+    path: Option<String>,
+}
+
+static VAULT_SESSION: Lazy<StdMutex<VaultSession>> = Lazy::new(|| {
+    StdMutex::new(VaultSession {
+        password: None,
+        path: None,
+    })
+});
 
 // ============================================================
 // Project System Types
@@ -412,6 +440,12 @@ async fn compile_dsl(dsl: String) -> Result<CompileResult, String> {
             r#"
 import sys
 sys.path.insert(0, '{}')
+
+# Clear any cached skuldbot modules to ensure fresh templates are loaded
+modules_to_remove = [key for key in sys.modules.keys() if key.startswith('skuldbot')]
+for mod in modules_to_remove:
+    del sys.modules[mod]
+
 import json
 from skuldbot import Compiler
 
@@ -450,22 +484,26 @@ print(str(bot_dir))
 #[tauri::command]
 async fn run_bot(dsl: String) -> Result<ExecutionResult, String> {
     println!("▶️  Running bot...");
-    
+
     let engine_path = get_engine_path();
     let python_exe = get_python_executable();
-    
+
     // Create a temporary file with the DSL
     let temp_dir = std::env::temp_dir();
     let dsl_file = temp_dir.join("bot_run_dsl.json");
     std::fs::write(&dsl_file, &dsl).map_err(|e| e.to_string())?;
-    
-    // Run the bot
-    let output = Command::new(&python_exe)
-        .arg("-c")
-        .arg(format!(
-            r#"
+
+    // Build the Python command
+    let python_script = format!(
+        r#"
 import sys
 sys.path.insert(0, '{}')
+
+# Clear any cached skuldbot modules to ensure fresh templates are loaded
+modules_to_remove = [key for key in sys.modules.keys() if key.startswith('skuldbot')]
+for mod in modules_to_remove:
+    del sys.modules[mod]
+
 import json
 import subprocess
 from pathlib import Path
@@ -516,30 +554,168 @@ print('SUCCESS:', result.returncode == 0)
 if result.stderr:
     print('STDERR:', result.stderr)
 "#,
-            engine_path.display(),
-            dsl_file.display(),
-            temp_dir.join("bots_run").display()
-        ))
-        .output()
-        .map_err(|e| format!("Failed to execute Python: {}", e))?;
-    
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    
-    println!("📝 Output: {}", stdout);
-    if !stderr.is_empty() {
-        println!("⚠️  Stderr: {}", stderr);
+        engine_path.display(),
+        dsl_file.display(),
+        temp_dir.join("bots_run").display()
+    );
+
+    // Kill any previous process that might still be running
+    {
+        let mut process_guard = RUN_BOT_PROCESS.lock().await;
+        if let Some(mut old_child) = process_guard.take() {
+            let _ = old_child.kill();
+        }
+        let mut pid_guard = RUN_BOT_PID.lock().await;
+        if let Some(pid) = pid_guard.take() {
+            // Kill the entire process group on Unix
+            #[cfg(unix)]
+            {
+                let _ = std::process::Command::new("pkill")
+                    .args(["-P", &pid.to_string()])
+                    .output();
+            }
+        }
     }
-    
-    if output.status.success() {
+
+    // Spawn the process so we can cancel it
+    let mut child = Command::new(&python_exe)
+        .arg("-c")
+        .arg(&python_script)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to spawn Python process: {}", e))?;
+
+    // Store the PID for killing the process tree
+    let child_pid = child.id();
+    {
+        let mut pid_guard = RUN_BOT_PID.lock().await;
+        *pid_guard = Some(child_pid);
+    }
+
+    // We need to store the child but also wait for it
+    // Get the stdout/stderr handles before storing
+    let stdout_handle = child.stdout.take();
+    let stderr_handle = child.stderr.take();
+
+    // Store the child process for cancellation
+    {
+        let mut process_guard = RUN_BOT_PROCESS.lock().await;
+        *process_guard = Some(child);
+    }
+
+    // Wait for completion by reading output
+    let stdout_content = if let Some(stdout) = stdout_handle {
+        let reader = BufReader::new(stdout);
+        reader.lines().filter_map(|l| l.ok()).collect::<Vec<_>>().join("\n")
+    } else {
+        String::new()
+    };
+
+    let stderr_content = if let Some(stderr) = stderr_handle {
+        let reader = BufReader::new(stderr);
+        reader.lines().filter_map(|l| l.ok()).collect::<Vec<_>>().join("\n")
+    } else {
+        String::new()
+    };
+
+    // Clear the PID as we're done reading
+    {
+        let mut pid_guard = RUN_BOT_PID.lock().await;
+        *pid_guard = None;
+    }
+
+    // Wait for the process to complete and get exit status
+    let exit_status = {
+        let mut process_guard = RUN_BOT_PROCESS.lock().await;
+        if let Some(mut child) = process_guard.take() {
+            child.wait().ok()
+        } else {
+            None
+        }
+    };
+
+    let success = exit_status.map(|s| s.success()).unwrap_or(false);
+
+    println!("📝 Output: {}", stdout_content);
+    if !stderr_content.is_empty() {
+        println!("⚠️  Stderr: {}", stderr_content);
+    }
+
+    if success {
         Ok(ExecutionResult {
             success: true,
             message: "Bot executed successfully".to_string(),
-            output: Some(stdout.to_string()),
-            logs: stdout.lines().map(|s| s.to_string()).collect(),
+            output: Some(stdout_content.clone()),
+            logs: stdout_content.lines().map(|s| s.to_string()).collect(),
         })
     } else {
-        Err(format!("Execution error: {}\n{}", stdout, stderr))
+        // Check if it was cancelled
+        if stdout_content.is_empty() && stderr_content.is_empty() {
+            Err("Execution cancelled".to_string())
+        } else {
+            Err(format!("Execution error: {}\n{}", stdout_content, stderr_content))
+        }
+    }
+}
+
+/// Stop a running bot execution
+#[tauri::command]
+async fn stop_bot() -> Result<bool, String> {
+    println!("🛑 Stopping bot execution...");
+
+    // First, get the PID and kill the process tree
+    let pid = {
+        let mut pid_guard = RUN_BOT_PID.lock().await;
+        pid_guard.take()
+    };
+
+    if let Some(pid) = pid {
+        println!("🛑 Killing process tree for PID: {}", pid);
+
+        // Kill the entire process tree on Unix (kills all child processes)
+        #[cfg(unix)]
+        {
+            // First kill children
+            let _ = std::process::Command::new("pkill")
+                .args(["-P", &pid.to_string()])
+                .output();
+
+            // Then kill the main process
+            let _ = std::process::Command::new("kill")
+                .args(["-9", &pid.to_string()])
+                .output();
+        }
+
+        #[cfg(windows)]
+        {
+            // On Windows, kill the process tree
+            let _ = std::process::Command::new("taskkill")
+                .args(["/F", "/T", "/PID", &pid.to_string()])
+                .output();
+        }
+    }
+
+    // Also try to kill via the Child handle if we still have it
+    let mut process_guard = RUN_BOT_PROCESS.lock().await;
+    if let Some(mut child) = process_guard.take() {
+        match child.kill() {
+            Ok(_) => {
+                println!("✅ Bot process killed successfully");
+                Ok(true)
+            }
+            Err(e) => {
+                // Even if this fails, we already killed via PID above
+                println!("⚠️  Child.kill() returned: {} (may have already been killed)", e);
+                Ok(true) // Return true because we already killed via PID
+            }
+        }
+    } else if pid.is_some() {
+        println!("✅ Bot process killed via PID");
+        Ok(true)
+    } else {
+        println!("ℹ️  No bot process running");
+        Ok(false)
     }
 }
 
@@ -1121,7 +1297,16 @@ async fn open_project(path: String) -> Result<ProjectManifest, String> {
     }
 
     let manifest_content = fs::read_to_string(&manifest_path)
-        .map_err(|e| format!("Failed to read manifest: {}", e))?;
+        .map_err(|e| {
+            if e.kind() == ErrorKind::PermissionDenied {
+                format!(
+                    "Permission denied reading manifest. On macOS, re-open the project with the file picker or grant Files and Folders access to Skuldbot Studio in System Settings. ({})",
+                    e
+                )
+            } else {
+                format!("Failed to read manifest: {}", e)
+            }
+        })?;
 
     let manifest: ProjectManifest = serde_json::from_str(&manifest_content)
         .map_err(|e| format!("Failed to parse manifest: {}", e))?;
@@ -1210,7 +1395,16 @@ async fn load_bot(bot_path: String) -> Result<serde_json::Value, String> {
     }
 
     let content = fs::read_to_string(&bot_json_path)
-        .map_err(|e| format!("Failed to read bot file: {}", e))?;
+        .map_err(|e| {
+            if e.kind() == ErrorKind::PermissionDenied {
+                format!(
+                    "Permission denied reading bot file. On macOS, re-open the project with the file picker or grant Files and Folders access to Skuldbot Studio in System Settings. ({})",
+                    e
+                )
+            } else {
+                format!("Failed to read bot file: {}", e)
+            }
+        })?;
 
     let bot: serde_json::Value = serde_json::from_str(&content)
         .map_err(|e| format!("Failed to parse bot file: {}", e))?;
@@ -1535,15 +1729,42 @@ struct VaultSecret {
 
 #[tauri::command]
 async fn vault_exists(path: String) -> Result<bool, String> {
-    let vault_path = PathBuf::from(&path).join("secrets.vault");
-    Ok(vault_path.exists())
+    // LocalVault creates vault.enc and vault.meta files
+    let vault_enc = PathBuf::from(&path).join("vault.enc");
+    let vault_meta = PathBuf::from(&path).join("vault.meta");
+    // Vault exists if both files are present
+    Ok(vault_enc.exists() && vault_meta.exists())
+}
+
+/// Delete existing vault files to allow recreation
+#[tauri::command]
+async fn vault_delete(path: String) -> Result<bool, String> {
+    println!("Deleting vault at: {}", path);
+    let vault_enc = PathBuf::from(&path).join("vault.enc");
+    let vault_meta = PathBuf::from(&path).join("vault.meta");
+    
+    if vault_enc.exists() {
+        fs::remove_file(&vault_enc).map_err(|e| format!("Failed to delete vault.enc: {}", e))?;
+    }
+    if vault_meta.exists() {
+        fs::remove_file(&vault_meta).map_err(|e| format!("Failed to delete vault.meta: {}", e))?;
+    }
+    
+    // Clear session
+    let mut session = VAULT_SESSION.lock().map_err(|e| format!("Lock error: {}", e))?;
+    session.password = None;
+    session.path = None;
+    
+    println!("Vault deleted successfully");
+    Ok(true)
 }
 
 #[tauri::command]
 async fn vault_is_unlocked(path: String) -> Result<bool, String> {
-    // For now, we can't check unlock status without trying to unlock
-    // Return false to force unlock
-    Ok(false)
+    // Check if vault is unlocked by verifying session state
+    let session = VAULT_SESSION.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let is_unlocked = session.password.is_some() && session.path.as_ref() == Some(&path);
+    Ok(is_unlocked)
 }
 
 #[tauri::command]
@@ -1581,8 +1802,194 @@ print('OK')
     }
 }
 
+/// Generate a secure random password for the vault
+fn generate_vault_password() -> String {
+    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+    let mut rng = rand::thread_rng();
+    let password: String = (0..32)
+        .map(|_| {
+            let idx = rng.gen_range(0..CHARSET.len());
+            CHARSET[idx] as char
+        })
+        .collect();
+    password
+}
+
+fn vault_keyring_entry(vault_path: &str) -> Result<keyring::Entry, String> {
+    keyring::Entry::new("skuldbot-studio-vault", vault_path)
+        .map_err(|e| format!("Keyring error: {}", e))
+}
+
+fn save_vault_key_keyring(vault_path: &str, password: &str) -> Result<(), String> {
+    let entry = vault_keyring_entry(vault_path)?;
+    entry
+        .set_password(password)
+        .map_err(|e| format!("Keyring error: {}", e))
+}
+
+fn load_vault_key_keyring(vault_path: &str) -> Result<String, String> {
+    let entry = vault_keyring_entry(vault_path)?;
+    entry
+        .get_password()
+        .map_err(|e| format!("Keyring error: {}", e))
+}
+
+/// Save vault key securely in the OS keyring
+fn save_vault_key(vault_path: &str, password: &str) -> Result<(), String> {
+    save_vault_key_keyring(vault_path, password)
+}
+
+/// Load vault key from the OS keyring
+fn load_vault_key(vault_path: &str) -> Result<String, String> {
+    load_vault_key_keyring(vault_path)
+}
+
+fn vault_key_fallback_path(vault_path: &str, app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let mut base = app_data_dir(&app_handle.config())
+        .ok_or_else(|| "Failed to resolve app data dir".to_string())?;
+    base.push("vault_keys");
+    fs::create_dir_all(&base).map_err(|e| format!("Failed to create vault_keys dir: {}", e))?;
+
+    let mut hasher = Sha256::new();
+    hasher.update(vault_path.as_bytes());
+    let hash = format!("{:x}", hasher.finalize());
+    base.push(format!("{}.key", hash));
+    Ok(base)
+}
+
+fn save_vault_key_fallback(vault_path: &str, password: &str, app_handle: &tauri::AppHandle) -> Result<(), String> {
+    let path = vault_key_fallback_path(vault_path, app_handle)?;
+    let mut file = fs::File::create(&path).map_err(|e| format!("Failed to create fallback key file: {}", e))?;
+    file.write_all(password.as_bytes()).map_err(|e| format!("Failed to write fallback key: {}", e))?;
+    Ok(())
+}
+
+fn load_vault_key_fallback(vault_path: &str, app_handle: &tauri::AppHandle) -> Result<String, String> {
+    let path = vault_key_fallback_path(vault_path, app_handle)?;
+    let data = fs::read_to_string(&path).map_err(|e| format!("Failed to read fallback key: {}", e))?;
+    Ok(data.trim().to_string())
+}
+
+fn save_vault_key_with_fallback(
+    vault_path: &str,
+    password: &str,
+    app_handle: &tauri::AppHandle,
+) -> Result<(), String> {
+    if let Err(err) = save_vault_key(vault_path, password) {
+        println!("⚠️  Keyring failed: {}. Using fallback file.", err);
+        save_vault_key_fallback(vault_path, password, app_handle)?;
+    }
+    Ok(())
+}
+
+fn load_vault_key_with_fallback(
+    vault_path: &str,
+    app_handle: &tauri::AppHandle,
+) -> Result<String, String> {
+    match load_vault_key(vault_path) {
+        Ok(p) => Ok(p),
+        Err(_) => load_vault_key_fallback(vault_path, app_handle),
+    }
+}
+
+/// Create vault automatically with generated password, save key, and unlock
 #[tauri::command]
-async fn vault_unlock(password: String, path: String) -> Result<bool, String> {
+async fn vault_create_auto(path: String, app: tauri::AppHandle) -> Result<bool, String> {
+    println!("Creating vault automatically at: {}", path);
+
+    // Generate secure password
+    let password = generate_vault_password();
+
+    let engine_path = get_engine_path();
+    let python_exe = get_python_executable();
+
+    let output = Command::new(&python_exe)
+        .arg("-c")
+        .arg(format!(
+            r#"
+import sys
+sys.path.insert(0, '{}')
+from skuldbot.libs.local_vault import LocalVault
+
+vault = LocalVault('{}')
+vault.create('{}')
+print('OK')
+"#,
+            engine_path.display(),
+            path.replace("'", "\\'"),
+            password.replace("'", "\\'")
+        ))
+        .output()
+        .map_err(|e| format!("Failed to execute Python: {}", e))?;
+
+    if output.status.success() {
+        println!("Vault created automatically");
+
+        if let Err(err) = save_vault_key_with_fallback(&path, &password, &app) {
+            println!("⚠️  Failed to persist vault key: {}", err);
+            println!("⚠️  Auto-unlock may be unavailable on next launch.");
+        }
+
+        // Store password in session - vault is unlocked for this session
+        let mut session = VAULT_SESSION.lock().map_err(|e| format!("Lock error: {}", e))?;
+        session.password = Some(password);
+        session.path = Some(path);
+        Ok(true)
+    } else {
+        let error = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Failed to create vault: {}", error))
+    }
+}
+
+/// Auto-unlock vault using saved key file
+#[tauri::command]
+async fn vault_auto_unlock(path: String, app: tauri::AppHandle) -> Result<bool, String> {
+    println!("Attempting auto-unlock for vault at: {}", path);
+
+    // Try to load saved key
+    let password = match load_vault_key_with_fallback(&path, &app) {
+        Ok(p) => p,
+        Err(_) => return Ok(false), // No keyring entry, need manual unlock
+    };
+
+    let engine_path = get_engine_path();
+    let python_exe = get_python_executable();
+
+    let output = Command::new(&python_exe)
+        .arg("-c")
+        .arg(format!(
+            r#"
+import sys
+sys.path.insert(0, '{}')
+from skuldbot.libs.local_vault import LocalVault
+
+vault = LocalVault('{}')
+vault.unlock('{}')
+print('OK')
+"#,
+            engine_path.display(),
+            path.replace("'", "\\'"),
+            password.replace("'", "\\'")
+        ))
+        .output()
+        .map_err(|e| format!("Failed to execute Python: {}", e))?;
+
+    if output.status.success() {
+        println!("Vault auto-unlocked successfully");
+        // Store password in session
+        let mut session = VAULT_SESSION.lock().map_err(|e| format!("Lock error: {}", e))?;
+        session.password = Some(password);
+        session.path = Some(path);
+        Ok(true)
+    } else {
+        // Key file exists but unlock failed - might be corrupted or from different machine
+        println!("Auto-unlock failed, key might be invalid");
+        Ok(false)
+    }
+}
+
+#[tauri::command]
+async fn vault_unlock(password: String, path: String, app: tauri::AppHandle) -> Result<bool, String> {
     println!("Unlocking vault at: {}", path);
 
     let engine_path = get_engine_path();
@@ -1609,6 +2016,13 @@ print('OK')
 
     if output.status.success() {
         println!("Vault unlocked successfully");
+        if let Err(err) = save_vault_key_with_fallback(&path, &password, &app) {
+            println!("⚠️  Failed to persist vault key: {}", err);
+        }
+        // Store password in session
+        let mut session = VAULT_SESSION.lock().map_err(|e| format!("Lock error: {}", e))?;
+        session.password = Some(password);
+        session.path = Some(path);
         Ok(true)
     } else {
         let error = String::from_utf8_lossy(&output.stderr);
@@ -1618,8 +2032,10 @@ print('OK')
 
 #[tauri::command]
 async fn vault_lock(path: String) -> Result<bool, String> {
-    // Lock is handled by not storing the password
-    // In a real implementation, we'd clear any cached state
+    // Clear password from session
+    let mut session = VAULT_SESSION.lock().map_err(|e| format!("Lock error: {}", e))?;
+    session.password = None;
+    session.path = None;
     println!("Vault locked: {}", path);
     Ok(true)
 }
@@ -1631,9 +2047,10 @@ async fn vault_list_secrets(path: String) -> Result<Vec<VaultSecret>, String> {
     let engine_path = get_engine_path();
     let python_exe = get_python_executable();
 
-    // Get password from environment
-    let password = std::env::var("SKULDBOT_VAULT_PASSWORD")
-        .map_err(|_| "SKULDBOT_VAULT_PASSWORD not set. Set it in your environment to use the vault.".to_string())?;
+    // Get password from session
+    let session = VAULT_SESSION.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let password = session.password.clone()
+        .ok_or_else(|| "Vault is not unlocked. Please unlock the vault first.".to_string())?;
 
     let output = Command::new(&python_exe)
         .arg("-c")
@@ -1677,8 +2094,10 @@ async fn vault_verify_secret(name: String, path: String) -> Result<bool, String>
     let engine_path = get_engine_path();
     let python_exe = get_python_executable();
 
-    let password = std::env::var("SKULDBOT_VAULT_PASSWORD")
-        .map_err(|_| "SKULDBOT_VAULT_PASSWORD not set".to_string())?;
+    // Get password from session
+    let session = VAULT_SESSION.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let password = session.password.clone()
+        .ok_or_else(|| "Vault is not unlocked".to_string())?;
 
     let output = Command::new(&python_exe)
         .arg("-c")
@@ -1718,8 +2137,10 @@ async fn vault_set_secret(name: String, value: String, description: Option<Strin
     let engine_path = get_engine_path();
     let python_exe = get_python_executable();
 
-    let password = std::env::var("SKULDBOT_VAULT_PASSWORD")
-        .map_err(|_| "SKULDBOT_VAULT_PASSWORD not set".to_string())?;
+    // Get password from session
+    let session = VAULT_SESSION.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let password = session.password.clone()
+        .ok_or_else(|| "Vault is not unlocked".to_string())?;
 
     let desc_arg = description.map(|d| format!("description='{}'", d.replace("'", "\\'"))).unwrap_or_default();
 
@@ -1762,8 +2183,10 @@ async fn vault_delete_secret(name: String, path: String) -> Result<bool, String>
     let engine_path = get_engine_path();
     let python_exe = get_python_executable();
 
-    let password = std::env::var("SKULDBOT_VAULT_PASSWORD")
-        .map_err(|_| "SKULDBOT_VAULT_PASSWORD not set".to_string())?;
+    // Get password from session
+    let session = VAULT_SESSION.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let password = session.password.clone()
+        .ok_or_else(|| "Vault is not unlocked".to_string())?;
 
     let output = Command::new(&python_exe)
         .arg("-c")
@@ -2595,6 +3018,108 @@ async fn test_llm_connection(
     }
 }
 
+/// Test MS365 connection using OAuth2 client credentials flow
+#[tauri::command]
+async fn test_ms365_connection(
+    tenant_id: String,
+    client_id: String,
+    client_secret: String,
+) -> Result<serde_json::Value, String> {
+    println!("🔌 Testing MS365 connection for tenant {}...", tenant_id);
+
+    let client = reqwest::Client::new();
+
+    // Get OAuth2 token using client credentials flow
+    let token_url = format!(
+        "https://login.microsoftonline.com/{}/oauth2/v2.0/token",
+        tenant_id
+    );
+
+    let params = [
+        ("client_id", client_id.as_str()),
+        ("client_secret", client_secret.as_str()),
+        ("scope", "https://graph.microsoft.com/.default"),
+        ("grant_type", "client_credentials"),
+    ];
+
+    let token_response = client
+        .post(&token_url)
+        .form(&params)
+        .send()
+        .await
+        .map_err(|e| format!("Connection failed: {}", e))?;
+
+    if !token_response.status().is_success() {
+        let status = token_response.status();
+        let error_text = token_response.text().await.unwrap_or_default();
+        println!("❌ MS365 auth failed: {} - {}", status, error_text);
+
+        // Parse error for better message
+        let error_msg = if error_text.contains("invalid_client") {
+            "Invalid Client ID or Client Secret. Please verify your Azure AD app credentials."
+        } else if error_text.contains("invalid_tenant") || error_text.contains("AADSTS90002") {
+            "Invalid Tenant ID. Please verify your Azure AD tenant."
+        } else if error_text.contains("unauthorized_client") {
+            "Client not authorized. Please ensure the app has required permissions in Azure AD."
+        } else {
+            "Authentication failed. Please check your credentials."
+        };
+
+        return Ok(serde_json::json!({
+            "success": false,
+            "message": error_msg,
+            "details": error_text
+        }));
+    }
+
+    // Parse token response
+    let token_data: serde_json::Value = token_response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse token response: {}", e))?;
+
+    let access_token = token_data["access_token"]
+        .as_str()
+        .ok_or("No access token in response")?;
+
+    // Test the token by calling Graph API
+    let graph_response = client
+        .get("https://graph.microsoft.com/v1.0/organization")
+        .header("Authorization", format!("Bearer {}", access_token))
+        .send()
+        .await
+        .map_err(|e| format!("Graph API call failed: {}", e))?;
+
+    if graph_response.status().is_success() {
+        let org_data: serde_json::Value = graph_response
+            .json()
+            .await
+            .unwrap_or(serde_json::json!({}));
+
+        let org_name = org_data["value"][0]["displayName"]
+            .as_str()
+            .unwrap_or("Unknown");
+
+        println!("✅ MS365 connection successful! Organization: {}", org_name);
+
+        Ok(serde_json::json!({
+            "success": true,
+            "message": format!("Connection successful! Connected to: {}", org_name),
+            "organization": org_name
+        }))
+    } else {
+        let status = graph_response.status();
+        let error_text = graph_response.text().await.unwrap_or_default();
+        println!("❌ Graph API failed: {} - {}", status, error_text);
+
+        Ok(serde_json::json!({
+            "success": false,
+            "message": "Token obtained but Graph API access failed. Please verify app permissions.",
+            "details": error_text
+        }))
+    }
+}
+
 async fn call_openai_api(
     prompt: &str,
     system_prompt: &str,
@@ -3187,6 +3712,7 @@ fn main() {
             // Engine commands
             compile_dsl,
             run_bot,
+            stop_bot,
             validate_dsl,
             get_engine_setup_status,
             // Debug commands
@@ -3224,6 +3750,9 @@ fn main() {
             vault_exists,
             vault_is_unlocked,
             vault_create,
+            vault_create_auto,
+            vault_delete,
+            vault_auto_unlock,
             vault_unlock,
             vault_lock,
             vault_list_secrets,
@@ -3235,6 +3764,7 @@ fn main() {
             save_connections,
             load_connections,
             test_llm_connection,
+            test_ms365_connection,
             // AI Planner commands
             ai_generate_plan,
             ai_refine_plan,
@@ -3258,5 +3788,6 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
 
 
