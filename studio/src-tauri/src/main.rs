@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod protection;
+mod mcp;
 
 use std::process::Command;
 use std::path::PathBuf;
@@ -4056,13 +4057,33 @@ If confidence < 0.7, populate unknowns array with blocking questions."#,
             });
         }
     };
+    
+    // Initialize MCP Client for enhanced context
+    let mcp_client = mcp::client::MCPClient::new();
+    let mcp_context = mcp_client.get_context_for_planner();
+    
+    // Combine system prompt with MCP context
+    let enhanced_system_prompt = if !mcp_context.is_empty() {
+        println!("✅ MCP Context added ({} tools, {} resources)", 
+            mcp_client.list_tools().len(),
+            mcp_client.list_resources().len()
+        );
+        format!("{}\n\n{}\n\n{}", 
+            system_prompt,
+            "## MCP CAPABILITIES\n\nYou have access to Model Context Protocol tools and resources that provide additional capabilities and context:",
+            mcp_context
+        )
+    } else {
+        println!("⚠️  No MCP servers available, using base prompt");
+        system_prompt
+    };
 
     // Call LLM
     let result = match provider.as_str() {
         "openai" | "local" => {
             call_openai_api(
                 &prompt,
-                &system_prompt,
+                &enhanced_system_prompt,
                 &model,
                 temperature,
                 base_url.as_deref(),
@@ -4071,7 +4092,7 @@ If confidence < 0.7, populate unknowns array with blocking questions."#,
             .await
         }
         "anthropic" => {
-            call_anthropic_api(&prompt, &system_prompt, &model, &api_key).await
+            call_anthropic_api(&prompt, &enhanced_system_prompt, &model, &api_key).await
         }
         _ => Err(format!("Unsupported provider: {}", provider)),
     };
