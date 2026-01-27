@@ -123,3 +123,92 @@ export interface LicenseValidationResponse {
   features: string[];
   error?: string;
 }
+
+// ============================================================
+// AI Planner V2 - Executable Workflows Types
+// ============================================================
+
+export interface ValidationIssue {
+  severity: "error" | "warning";
+  message: string;
+  nodeId?: string;
+  nodeType?: string;
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  compilable: boolean;
+  errors: ValidationIssue[];
+  warnings: ValidationIssue[];
+}
+
+export interface Clarification {
+  question: string;
+  blocking: boolean;
+  context?: string;
+}
+
+export interface ExecutablePlan {
+  goal: string;
+  assumptions: string[];
+  unknowns: Clarification[];
+  tasks: PlanStep[];
+  dsl: any;  // Complete DSL ready to execute
+  validation: ValidationResult;
+}
+
+export interface ExecutablePlanResponse {
+  success: boolean;
+  confidence: number;  // 0.0 - 1.0
+  plan?: ExecutablePlan;
+  error?: string;
+  clarifyingQuestions?: string[];
+  suggestions: string[];
+}
+
+// ============================================================
+// AI Planner V2 Store State
+// ============================================================
+
+export type PlannerMode = "simple" | "advanced";
+
+export interface AIPlannerV2State {
+  // Mode
+  mode: PlannerMode;
+  
+  // Panel state
+  isPanelOpen: boolean;
+  
+  // Conversation
+  conversation: ConversationMessage[];
+  userInput: string;
+  
+  // Current plan
+  currentPlan: ExecutablePlan | null;
+  confidence: number;
+  
+  // State
+  isGenerating: boolean;
+  isRefining: boolean;
+  error: string | null;
+  
+  // LLM configuration
+  llmConfig: LLMConfig;
+  
+  // Iterations
+  iterations: number;
+  maxIterations: number;
+  
+  // Actions
+  openPanel: () => void;
+  closePanel: () => void;
+  setMode: (mode: PlannerMode) => void;
+  setUserInput: (input: string) => void;
+  generateExecutablePlan: (description: string) => Promise<void>;
+  refineWithFeedback: (feedback: string) => Promise<void>;
+  askClarification: (question: string) => Promise<void>;
+  validatePlan: () => Promise<void>;
+  applyToCanvas: () => void;
+  setLLMConfig: (config: Partial<LLMConfig>) => void;
+  reset: () => void;
+}

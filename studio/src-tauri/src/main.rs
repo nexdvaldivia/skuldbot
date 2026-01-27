@@ -2297,6 +2297,59 @@ struct AIPlanResponse {
     clarifying_questions: Option<Vec<String>>,
 }
 
+// ============================================================
+// AI Planner V2 Types - Executable Workflows
+// ============================================================
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct ValidationIssue {
+    severity: String,  // "error" | "warning"
+    message: String,
+    #[serde(rename = "nodeId", skip_serializing_if = "Option::is_none")]
+    node_id: Option<String>,
+    #[serde(rename = "nodeType", skip_serializing_if = "Option::is_none")]
+    node_type: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ValidationResult {
+    valid: bool,
+    compilable: bool,
+    errors: Vec<ValidationIssue>,
+    warnings: Vec<ValidationIssue>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ExecutablePlan {
+    goal: String,
+    assumptions: Vec<String>,
+    unknowns: Vec<Clarification>,
+    tasks: Vec<AIPlanStep>,
+    dsl: serde_json::Value,  // Complete DSL ready to execute
+    validation: ValidationResult,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct Clarification {
+    question: String,
+    blocking: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    context: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct ExecutablePlanResponse {
+    success: bool,
+    confidence: f64,  // 0.0 - 1.0
+    #[serde(skip_serializing_if = "Option::is_none")]
+    plan: Option<ExecutablePlan>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+    #[serde(rename = "clarifyingQuestions", skip_serializing_if = "Option::is_none")]
+    clarifying_questions: Option<Vec<String>>,
+    suggestions: Vec<String>,
+}
+
 #[derive(Debug, Serialize)]
 struct LicenseValidationResult {
     valid: bool,
@@ -2715,6 +2768,118 @@ Before generating the plan, mentally walk through:
 7. Are all AI connections properly defined?
 </thinking_process>
 
+<validation_requirements>
+CRITICAL: Every generated plan MUST pass these checks:
+
+1. **Exactly ONE trigger node** (trigger.*)
+   - Every workflow starts with a trigger
+   - No workflows without triggers
+   
+2. **Valid outputs for EVERY node**
+   - All nodes must have outputs.success and outputs.error
+   - No dead-end nodes (except END)
+   - Error paths must lead somewhere (not just "END" everywhere)
+
+3. **ONLY use nodes from the catalog**
+   - No invented node types
+   - No combining concepts (e.g., "compliance.embeddings" DOES NOT EXIST)
+   
+4. **Proper error handling**
+   - Don't route all errors to "END"
+   - Consider retry logic, logging, or recovery steps
+
+5. **AI workflows must have proper connections**
+   - ai.agent REQUIRES ai.model connection (visual)
+   - RAG requires: ai.embeddings + vectordb.memory
+   
+6. **Realistic config values**
+   - Use placeholders like "${VARIABLE_NAME}" for secrets
+   - Not "YOUR_API_KEY" or "TODO"
+   - Include actual selectors, paths, patterns
+
+BEFORE returning your plan, validate it against these requirements.
+If ANY requirement fails, FIX IT before returning.
+</validation_requirements>
+
+<confidence_scoring>
+After generating the plan, assess your confidence (0.0 - 1.0):
+
+**High Confidence (0.8 - 1.0):**
+- All requirements are clear
+- Standard, well-understood workflow
+- All node types are known
+- No ambiguity in the task
+
+**Medium Confidence (0.5 - 0.8):**
+- Some assumptions made
+- Might need clarification on minor details
+- Standard workflow but with unknowns
+- User might want different approach
+
+**Low Confidence (0.0 - 0.5):**
+- Multiple unknowns
+- Ambiguous requirements
+- Missing critical information
+- Need user input to proceed
+
+**If confidence < 0.7:**
+Generate specific clarifying questions in the "unknowns" array:
+```json
+{
+  "unknowns": [
+    {
+      "question": "What file format for the data?",
+      "blocking": true,
+      "context": "Need to know CSV, Excel, or JSON to choose correct nodes"
+    }
+  ]
+}
+```
+</confidence_scoring>
+
+<self_correction>
+IMPORTANT: Before returning the plan, run this self-check:
+
+1. ✓ All node types exist in catalog?
+   → If no: Use similar nodes that DO exist
+
+2. ✓ All nodes have valid outputs?
+   → If no: Add success/error paths
+
+3. ✓ No unreachable nodes?
+   → If yes: Remove them or fix connections
+
+4. ✓ No cycles?
+   → If yes: Break the cycle
+
+5. ✓ Proper error handling?
+   → If no: Add error recovery nodes
+
+6. ✓ Config values are realistic?
+   → If no: Replace placeholders with actual values or ${VARIABLES}
+
+IF ANY CHECK FAILS: Fix the issue AUTOMATICALLY before returning.
+Do NOT return a broken plan and ask the user to fix it.
+</self_correction>
+
+<definition_of_done>
+For production-ready workflows, each task should define:
+
+1. **Expected Output**
+   - What data/artifact does this step produce?
+   - Example: "CSV file with filtered records" or "List of URLs"
+
+2. **Success Criteria**
+   - How do we know it worked?
+   - Example: "File exists and has >0 rows" or "HTTP 200 response"
+
+3. **Error Conditions**
+   - What could go wrong?
+   - Example: "API timeout", "Invalid credentials", "File not found"
+
+Include this thinking in your "reasoning" field for each step.
+</definition_of_done>
+
 <final_instruction>
 Now analyze the user's request and generate a professional automation plan.
 Use ONLY nodes from the catalog above.
@@ -2883,6 +3048,295 @@ fn validate_plan_node_types(plan: &[AIPlanStep]) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+// ============================================================
+// AI Planner V2 - Validation Pipeline
+// ============================================================
+
+/// Convert plan steps to complete DSL format
+fn plan_to_dsl(goal: &str, plan: &[AIPlanStep]) -> serde_json::Value {
+    use std::collections::HashMap;
+    
+    // Generate nodes from plan steps
+    let mut nodes: Vec<serde_json::Value> = Vec::new();
+    let mut prev_node_id: Option<String> = None;
+    
+    for (idx, step) in plan.iter().enumerate() {
+        let node_id = step.id.clone().unwrap_or_else(|| format!("node-{}", idx));
+        let next_node_id = if idx + 1 < plan.len() {
+            plan[idx + 1].id.clone().unwrap_or_else(|| format!("node-{}", idx + 1))
+        } else {
+            "END".to_string()
+        };
+        
+        // Build node with outputs
+        let mut node = serde_json::json!({
+            "id": node_id,
+            "type": step.node_type,
+            "label": step.label,
+            "description": step.description,
+            "config": step.config,
+            "outputs": {
+                "success": next_node_id,
+                "error": "END"  // Simple error handling for now
+            }
+        });
+        
+        // Add AI connections if present
+        if let Some(ref ai_conns) = step.ai_connections {
+            node["aiConnections"] = serde_json::to_value(ai_conns).unwrap_or_default();
+        }
+        
+        nodes.push(node);
+        prev_node_id = Some(node_id);
+    }
+    
+    // Generate bot DSL
+    serde_json::json!({
+        "version": "1.0",
+        "bot": {
+            "id": format!("bot-{}", uuid::Uuid::new_v4().to_string()[..8].to_string()),
+            "name": goal,
+            "description": format!("Automation workflow: {}", goal)
+        },
+        "nodes": nodes,
+        "variables": {}
+    })
+}
+
+/// Validate DSL and return detailed results
+fn validate_dsl_detailed(dsl: &serde_json::Value) -> Result<ValidationResult, String> {
+    let engine_path = get_engine_path();
+    let python_exe = get_python_executable();
+    
+    // Write DSL to temp file
+    let temp_dir = std::env::temp_dir();
+    let dsl_file = temp_dir.join(format!("validate_{}.json", uuid::Uuid::new_v4()));
+    let dsl_str = serde_json::to_string_pretty(dsl).map_err(|e| e.to_string())?;
+    std::fs::write(&dsl_file, &dsl_str).map_err(|e| e.to_string())?;
+    
+    let output = Command::new(&python_exe)
+        .arg("-c")
+        .arg(format!(
+            r#"
+import sys
+sys.path.insert(0, '{}')
+import json
+from skuldbot.dsl import DSLValidator
+
+with open('{}', 'r') as f:
+    dsl = json.load(f)
+
+validator = DSLValidator()
+result = {{
+    "valid": False,
+    "errors": [],
+    "warnings": []
+}}
+
+try:
+    bot_def = validator.validate(dsl)
+    result["valid"] = True
+    result["warnings"] = [
+        {{"severity": "warning", "message": w}}
+        for w in validator.get_warnings()
+    ]
+except Exception as e:
+    result["errors"] = [
+        {{"severity": "error", "message": str(e)}}
+    ]
+
+print(json.dumps(result))
+"#,
+            engine_path.display(),
+            dsl_file.display()
+        ))
+        .output()
+        .map_err(|e| format!("Failed to execute Python: {}", e))?;
+    
+    // Clean up temp file
+    let _ = std::fs::remove_file(&dsl_file);
+    
+    if output.status.success() {
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        let validation: serde_json::Value = serde_json::from_str(&output_str)
+            .map_err(|e| format!("Failed to parse validation result: {}", e))?;
+        
+        let valid = validation["valid"].as_bool().unwrap_or(false);
+        let errors: Vec<ValidationIssue> = validation["errors"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|e| {
+                        Some(ValidationIssue {
+                            severity: e["severity"].as_str()?.to_string(),
+                            message: e["message"].as_str()?.to_string(),
+                            node_id: e["nodeId"].as_str().map(|s| s.to_string()),
+                            node_type: e["nodeType"].as_str().map(|s| s.to_string()),
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        
+        let warnings: Vec<ValidationIssue> = validation["warnings"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|w| {
+                        Some(ValidationIssue {
+                            severity: "warning".to_string(),
+                            message: w["message"].as_str()?.to_string(),
+                            node_id: w.get("nodeId").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                            node_type: w.get("nodeType").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        
+        Ok(ValidationResult {
+            valid,
+            compilable: false,  // Will be set by test_compile
+            errors,
+            warnings,
+        })
+    } else {
+        let error = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Validation failed: {}", error))
+    }
+}
+
+/// Test compile DSL without executing
+fn test_compile_dsl(dsl: &serde_json::Value) -> Result<bool, String> {
+    let engine_path = get_engine_path();
+    let python_exe = get_python_executable();
+    
+    // Write DSL to temp file
+    let temp_dir = std::env::temp_dir();
+    let dsl_file = temp_dir.join(format!("compile_{}.json", uuid::Uuid::new_v4()));
+    let dsl_str = serde_json::to_string_pretty(dsl).map_err(|e| e.to_string())?;
+    std::fs::write(&dsl_file, &dsl_str).map_err(|e| e.to_string())?;
+    
+    let output_dir = temp_dir.join(format!("compiled_{}", uuid::Uuid::new_v4()));
+    
+    let output = Command::new(&python_exe)
+        .arg("-c")
+        .arg(format!(
+            r#"
+import sys
+sys.path.insert(0, '{}')
+import json
+from skuldbot.compiler import Compiler
+
+with open('{}', 'r') as f:
+    dsl = json.load(f)
+
+compiler = Compiler()
+try:
+    package = compiler.compile(dsl)
+    print('COMPILE_SUCCESS')
+except Exception as e:
+    print('COMPILE_FAILED:', str(e))
+    sys.exit(1)
+"#,
+            engine_path.display(),
+            dsl_file.display()
+        ))
+        .output()
+        .map_err(|e| format!("Failed to execute Python: {}", e))?;
+    
+    // Clean up temp files
+    let _ = std::fs::remove_file(&dsl_file);
+    let _ = std::fs::remove_dir_all(&output_dir);
+    
+    if output.status.success() {
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        if output_str.contains("COMPILE_SUCCESS") {
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    } else {
+        let error = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Compilation test failed: {}", error))
+    }
+}
+
+/// Validate and test compile a plan
+fn validate_and_compile_plan(goal: &str, plan: &[AIPlanStep]) -> Result<ValidationResult, String> {
+    println!("🔍 Validating plan with {} steps...", plan.len());
+    
+    // Step 1: Check node types
+    if let Err(e) = validate_plan_node_types(plan) {
+        return Ok(ValidationResult {
+            valid: false,
+            compilable: false,
+            errors: vec![ValidationIssue {
+                severity: "error".to_string(),
+                message: e,
+                node_id: None,
+                node_type: None,
+            }],
+            warnings: vec![],
+        });
+    }
+    
+    // Step 2: Convert to DSL
+    let dsl = plan_to_dsl(goal, plan);
+    
+    // Step 3: Validate DSL structure
+    let mut validation_result = match validate_dsl_detailed(&dsl) {
+        Ok(result) => result,
+        Err(e) => {
+            return Ok(ValidationResult {
+                valid: false,
+                compilable: false,
+                errors: vec![ValidationIssue {
+                    severity: "error".to_string(),
+                    message: e,
+                    node_id: None,
+                    node_type: None,
+                }],
+                warnings: vec![],
+            });
+        }
+    };
+    
+    // Step 4: Test compilation if validation passed
+    if validation_result.valid {
+        match test_compile_dsl(&dsl) {
+            Ok(compilable) => {
+                validation_result.compilable = compilable;
+                if !compilable {
+                    validation_result.errors.push(ValidationIssue {
+                        severity: "error".to_string(),
+                        message: "Workflow failed compilation test".to_string(),
+                        node_id: None,
+                        node_type: None,
+                    });
+                    validation_result.valid = false;
+                }
+            }
+            Err(e) => {
+                validation_result.errors.push(ValidationIssue {
+                    severity: "error".to_string(),
+                    message: format!("Compilation error: {}", e),
+                    node_id: None,
+                    node_type: None,
+                });
+                validation_result.valid = false;
+                validation_result.compilable = false;
+            }
+        }
+    }
+    
+    println!("✅ Validation complete: valid={}, compilable={}, errors={}, warnings={}",
+        validation_result.valid, validation_result.compilable,
+        validation_result.errors.len(), validation_result.warnings.len());
+    
+    Ok(validation_result)
 }
 
 fn get_api_key_from_env(provider: &str) -> Option<String> {
@@ -3501,6 +3955,314 @@ Follow the same format as the original plan with nodeType, label, description, c
 }
 
 // ============================================================
+// AI Planner V2 - Executable Plan Generation
+// ============================================================
+
+#[tauri::command]
+async fn ai_generate_executable_plan(
+    description: String,
+    provider: String,
+    model: String,
+    temperature: f64,
+    base_url: Option<String>,
+    api_key: Option<String>,
+) -> Result<ExecutablePlanResponse, String> {
+    println!("🤖 AI Generating EXECUTABLE plan for: {}", description);
+    println!("   Provider: {}, Model: {}", provider, model);
+
+    // Get API key from parameter or fall back to environment
+    let api_key = match api_key.filter(|k| !k.is_empty()) {
+        Some(key) => key,
+        None => match get_api_key_from_env(&provider) {
+            Some(key) => key,
+            None => {
+                return Ok(ExecutablePlanResponse {
+                    success: false,
+                    confidence: 0.0,
+                    plan: None,
+                    error: Some("No API key configured. Please add LLM connection in Settings.".to_string()),
+                    clarifying_questions: None,
+                    suggestions: vec![],
+                });
+            }
+        }
+    };
+
+    // Enhanced prompt for executable workflows
+    let prompt = format!(
+        r#"Create a PRODUCTION-READY automation workflow for the following task:
+
+TASK:
+{}
+
+REQUIREMENTS:
+1. The workflow MUST be executable without modifications
+2. All node types MUST exist in the SkuldBot catalog
+3. Every node MUST have valid success/error paths
+4. Include proper error handling
+5. Use realistic config values (not placeholders)
+
+SELF-VALIDATION:
+Before returning your plan, verify:
+- All node types are from the catalog
+- No unreachable nodes
+- No cycles
+- Complete error handling
+
+If you are UNCERTAIN about any aspect (< 70% confidence):
+- List specific clarifying questions
+- Identify unknowns that block implementation
+
+RESPONSE FORMAT:
+Return a JSON object with this structure:
+{{
+  "goal": "Clear description of what this workflow does",
+  "assumptions": ["Assumption 1", "Assumption 2"],
+  "unknowns": [
+    {{"question": "What format?", "blocking": true, "context": "Need to know CSV vs Excel"}}
+  ],
+  "confidence": 0.85,
+  "tasks": [
+    {{
+      "nodeType": "trigger.manual",
+      "label": "Start",
+      "description": "...",
+      "config": {{}},
+      "reasoning": "...",
+      "id": "node-0"
+    }}
+  ]
+}}
+
+If confidence < 0.7, populate unknowns array with blocking questions."#,
+        description
+    );
+
+    // Build system prompt with dynamic node catalog
+    let system_prompt = match build_ai_planner_prompt() {
+        Ok(p) => {
+            println!("✅ Loaded dynamic node catalog");
+            p
+        },
+        Err(e) => {
+            println!("⚠️  Failed to load node catalog: {}, using fallback", e);
+            return Ok(ExecutablePlanResponse {
+                success: false,
+                confidence: 0.0,
+                plan: None,
+                error: Some(format!("Failed to load node catalog: {}", e)),
+                clarifying_questions: None,
+                suggestions: vec![],
+            });
+        }
+    };
+
+    // Call LLM
+    let result = match provider.as_str() {
+        "openai" | "local" => {
+            call_openai_api(
+                &prompt,
+                &system_prompt,
+                &model,
+                temperature,
+                base_url.as_deref(),
+                &api_key,
+            )
+            .await
+        }
+        "anthropic" => {
+            call_anthropic_api(&prompt, &system_prompt, &model, &api_key).await
+        }
+        _ => Err(format!("Unsupported provider: {}", provider)),
+    };
+
+    match result {
+        Ok(response) => {
+            println!("📝 LLM Response received ({} chars)", response.len());
+            
+            // Try to parse as ExecutablePlan format first
+            let parsed_response: Result<serde_json::Value, _> = 
+                serde_json::from_str(&response.trim().trim_start_matches("```json").trim_end_matches("```"));
+            
+            match parsed_response {
+                Ok(json) => {
+                    // Extract fields from JSON
+                    let goal = json["goal"].as_str().unwrap_or(&description).to_string();
+                    let confidence = json["confidence"].as_f64().unwrap_or(0.5);
+                    
+                    let assumptions: Vec<String> = json["assumptions"]
+                        .as_array()
+                        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+                        .unwrap_or_default();
+                    
+                    let unknowns: Vec<Clarification> = json["unknowns"]
+                        .as_array()
+                        .map(|arr| {
+                            arr.iter().filter_map(|v| {
+                                Some(Clarification {
+                                    question: v["question"].as_str()?.to_string(),
+                                    blocking: v["blocking"].as_bool().unwrap_or(false),
+                                    context: v["context"].as_str().map(|s| s.to_string()),
+                                })
+                            }).collect()
+                        })
+                        .unwrap_or_default();
+                    
+                    // Parse tasks
+                    let tasks: Vec<AIPlanStep> = json["tasks"]
+                        .as_array()
+                        .map(|arr| {
+                            arr.iter().filter_map(|v| {
+                                Some(AIPlanStep {
+                                    id: v["id"].as_str().map(|s| s.to_string()),
+                                    node_type: v["nodeType"].as_str()?.to_string(),
+                                    label: v["label"].as_str()?.to_string(),
+                                    description: v["description"].as_str()?.to_string(),
+                                    config: v["config"].clone(),
+                                    reasoning: v["reasoning"].as_str().map(|s| s.to_string()),
+                                    ai_connections: None,  // TODO: parse if present
+                                })
+                            }).collect()
+                        })
+                        .unwrap_or_else(|| {
+                            // Fallback: try to parse as simple array
+                            parse_plan_from_response(&response).unwrap_or_default()
+                        });
+                    
+                    if tasks.is_empty() {
+                        return Ok(ExecutablePlanResponse {
+                            success: false,
+                            confidence: 0.0,
+                            plan: None,
+                            error: Some("LLM returned empty plan".to_string()),
+                            clarifying_questions: None,
+                            suggestions: vec!["Try rephrasing your request with more details".to_string()],
+                        });
+                    }
+                    
+                    // Validate and compile the plan
+                    let validation_result = match validate_and_compile_plan(&goal, &tasks) {
+                        Ok(result) => result,
+                        Err(e) => {
+                            return Ok(ExecutablePlanResponse {
+                                success: false,
+                                confidence,
+                                plan: None,
+                                error: Some(format!("Validation failed: {}", e)),
+                                clarifying_questions: None,
+                                suggestions: vec![],
+                            });
+                        }
+                    };
+                    
+                    // Generate complete DSL
+                    let dsl = plan_to_dsl(&goal, &tasks);
+                    
+                    // Build executable plan
+                    let executable_plan = ExecutablePlan {
+                        goal: goal.clone(),
+                        assumptions,
+                        unknowns: unknowns.clone(),
+                        tasks,
+                        dsl,
+                        validation: validation_result.clone(),
+                    };
+                    
+                    // Determine success based on validation
+                    let success = validation_result.valid && validation_result.compilable;
+                    
+                    // Generate suggestions
+                    let mut suggestions = Vec::new();
+                    if !validation_result.warnings.is_empty() {
+                        suggestions.push("Review warnings before running".to_string());
+                    }
+                    if validation_result.compilable {
+                        suggestions.push("Workflow is ready to test in Studio".to_string());
+                    }
+                    
+                    // Extract clarifying questions from unknowns
+                    let clarifying_questions = if !unknowns.is_empty() {
+                        Some(unknowns.iter().map(|u| u.question.clone()).collect())
+                    } else {
+                        None
+                    };
+                    
+                    println!("✅ Generated executable plan: valid={}, compilable={}, confidence={}",
+                        validation_result.valid, validation_result.compilable, confidence);
+                    
+                    Ok(ExecutablePlanResponse {
+                        success,
+                        confidence,
+                        plan: Some(executable_plan),
+                        error: if success { None } else { 
+                            Some(format!("Validation errors: {}", 
+                                validation_result.errors.iter()
+                                    .map(|e| &e.message)
+                                    .cloned()
+                                    .collect::<Vec<_>>()
+                                    .join("; ")
+                            ))
+                        },
+                        clarifying_questions,
+                        suggestions,
+                    })
+                }
+                Err(parse_err) => {
+                    // Fallback to old format
+                    println!("⚠️  Could not parse as ExecutablePlan, trying old format: {}", parse_err);
+                    match parse_plan_from_response(&response) {
+                        Ok(tasks) if !tasks.is_empty() => {
+                            let goal = description.clone();
+                            let validation_result = validate_and_compile_plan(&goal, &tasks)?;
+                            let dsl = plan_to_dsl(&goal, &tasks);
+                            
+                            let executable_plan = ExecutablePlan {
+                                goal: goal.clone(),
+                                assumptions: vec![],
+                                unknowns: vec![],
+                                tasks,
+                                dsl,
+                                validation: validation_result.clone(),
+                            };
+                            
+                            Ok(ExecutablePlanResponse {
+                                success: validation_result.valid && validation_result.compilable,
+                                confidence: 0.6,  // Lower confidence for fallback format
+                                plan: Some(executable_plan),
+                                error: None,
+                                clarifying_questions: None,
+                                suggestions: vec!["Consider using the enhanced format in future requests".to_string()],
+                            })
+                        }
+                        _ => {
+                            Ok(ExecutablePlanResponse {
+                                success: false,
+                                confidence: 0.0,
+                                plan: None,
+                                error: Some(format!("Failed to parse LLM response: {}", parse_err)),
+                                clarifying_questions: None,
+                                suggestions: vec!["Try rephrasing your request".to_string()],
+                            })
+                        }
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            println!("❌ LLM API call failed: {}", e);
+            Ok(ExecutablePlanResponse {
+                success: false,
+                confidence: 0.0,
+                plan: None,
+                error: Some(e),
+                clarifying_questions: None,
+                suggestions: vec![],
+            })
+        }
+    }
+}
+
+// ============================================================
 // License Validation Commands
 // ============================================================
 
@@ -3768,6 +4530,7 @@ fn main() {
             // AI Planner commands
             ai_generate_plan,
             ai_refine_plan,
+            ai_generate_executable_plan,
             // License commands
             validate_license,
             // Utility commands
