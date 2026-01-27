@@ -2311,7 +2311,7 @@ struct ValidationIssue {
     node_type: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct ValidationResult {
     valid: bool,
     compilable: bool,
