@@ -26,7 +26,7 @@ import {
 import { Slider } from "../ui/slider";
 import { Input } from "../ui/Input";
 import { Card, CardContent } from "../ui/card";
-import { useAIPlannerStore } from "../../store/aiPlannerStore";
+import { useAIPlannerV2Store } from "../../store/aiPlannerV2Store";
 import { useConnectionsStore, LLMConnection, maskApiKey } from "../../store/connectionsStore";
 import { LLMProvider } from "../../types/ai-planner";
 import ConnectionDialog from "./ConnectionDialog";
@@ -76,7 +76,7 @@ const PROVIDER_COLORS: Record<LLMProvider, string> = {
 };
 
 export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
-  const { llmConfig, setLLMConfig } = useAIPlannerStore();
+  const { llmConfig, setLLMConfig } = useAIPlannerV2Store();
   const {
     connections,
     selectedConnectionId,

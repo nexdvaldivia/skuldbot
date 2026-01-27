@@ -150,6 +150,7 @@ export interface Clarification {
 
 export interface ExecutablePlan {
   goal: string;
+  description: string;
   assumptions: string[];
   unknowns: Clarification[];
   tasks: PlanStep[];
@@ -186,6 +187,7 @@ export interface AIPlannerV2State {
   // Current plan
   currentPlan: ExecutablePlan | null;
   confidence: number;
+  suggestions: string[];
   
   // State
   isGenerating: boolean;

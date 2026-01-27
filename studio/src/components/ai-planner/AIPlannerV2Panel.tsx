@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { X, Bot, Sparkles, Settings } from "lucide-react";
 import { Button } from "../ui/Button";
 import { useLicenseStore, useCanUseAIPlanner } from "../../store/licenseStore";
+import { useAIPlannerV2Store } from "../../store/aiPlannerV2Store";
 import { ChatPanel } from "./v2/ChatPanel";
 import { PreviewPanel } from "./v2/PreviewPanel";
 import { ValidationPanel } from "./v2/ValidationPanel";
@@ -22,8 +23,16 @@ interface AIPlannerV2PanelProps {
 export function AIPlannerV2Panel({ isOpen, onClose }: AIPlannerV2PanelProps) {
   const canUseAI = useCanUseAIPlanner();
   const isStudioActivated = useLicenseStore((state) => state.isStudioActivated);
+  const { currentPlan, reset } = useAIPlannerV2Store();
   const [showLLMConfig, setShowLLMConfig] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "preview" | "validation">("chat");
+
+  // Reset on close
+  useEffect(() => {
+    if (!isOpen) {
+      // Don't auto-reset; let user decide
+    }
+  }, [isOpen]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
