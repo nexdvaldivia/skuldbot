@@ -1,14 +1,23 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { Tool, Resource, ToolResult, ResourceContent } from '../types/mcp.types';
+import { BillingService } from '../../billing/billing.service';
+import { StripeProvider } from '../../integrations/payment/stripe.provider';
+import { PAYMENT_PROVIDER } from '../../integrations/payment/payment.module';
+import { PaymentProvider } from '../../common/interfaces/integration.interface';
 
 /**
  * Billing MCP Server
  * 
  * Calculates invoices and manages billing cycles.
- * Integrates with Metering Server for usage data.
+ * Integrates with BillingService and Stripe for real payments.
  */
 @Injectable()
 export class BillingServer {
+  constructor(
+    private readonly billingService: BillingService,
+    @Inject(PAYMENT_PROVIDER)
+    private readonly paymentProvider: PaymentProvider,
+  ) {}
   /**
    * Get all tools provided by this server
    */
@@ -33,6 +42,78 @@ export class BillingServer {
         },
         requiresApproval: false,
         tags: ['billing', 'invoice'],
+      },
+      {
+        name: 'process_payment',
+        description: 'Process a one-time payment via Stripe',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            customerId: {
+              type: 'string',
+              description: 'Stripe Customer ID',
+            },
+            amount: {
+              type: 'number',
+              description: 'Amount in USD',
+            },
+            description: {
+              type: 'string',
+              description: 'Payment description',
+            },
+          },
+          required: ['customerId', 'amount'],
+        },
+        requiresApproval: true,
+        tags: ['billing', 'payment', 'stripe'],
+      },
+      {
+        name: 'create_stripe_customer',
+        description: 'Create a new Stripe customer',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            email: {
+              type: 'string',
+              description: 'Customer email',
+            },
+            name: {
+              type: 'string',
+              description: 'Customer name',
+            },
+            metadata: {
+              type: 'object',
+              description: 'Additional metadata',
+            },
+          },
+          required: ['email', 'name'],
+        },
+        requiresApproval: false,
+        tags: ['billing', 'customer', 'stripe'],
+      },
+      {
+        name: 'create_subscription',
+        description: 'Create a Stripe subscription for a customer',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            customerId: {
+              type: 'string',
+              description: 'Stripe Customer ID',
+            },
+            priceId: {
+              type: 'string',
+              description: 'Stripe Price ID',
+            },
+            trialDays: {
+              type: 'number',
+              description: 'Trial period in days (optional)',
+            },
+          },
+          required: ['customerId', 'priceId'],
+        },
+        requiresApproval: false,
+        tags: ['billing', 'subscription', 'stripe'],
       },
       {
         name: 'get_invoice',
@@ -118,6 +199,27 @@ export class BillingServer {
             toolCall.arguments.period,
           );
 
+        case 'process_payment':
+          return await this.processPayment(
+            toolCall.arguments.customerId,
+            toolCall.arguments.amount,
+            toolCall.arguments.description,
+          );
+
+        case 'create_stripe_customer':
+          return await this.createStripeCustomer(
+            toolCall.arguments.email,
+            toolCall.arguments.name,
+            toolCall.arguments.metadata,
+          );
+
+        case 'create_subscription':
+          return await this.createSubscription(
+            toolCall.arguments.customerId,
+            toolCall.arguments.priceId,
+            toolCall.arguments.trialDays,
+          );
+
         case 'get_invoice':
           return await this.getInvoice(toolCall.arguments.invoiceId);
 
@@ -171,6 +273,103 @@ export class BillingServer {
   // ============================================================
   // Tool Implementations
   // ============================================================
+
+  private async processPayment(
+    customerId: string,
+    amount: number,
+    description?: string,
+  ): Promise<ToolResult> {
+    try {
+      const paymentIntent = await this.paymentProvider.createPaymentIntent({
+        customerId,
+        amount: Math.round(amount * 100), // Convert to cents
+        currency: 'usd',
+        description: description || 'SkuldBot payment',
+        metadata: {
+          source: 'mcp_billing_server',
+        },
+      });
+
+      return {
+        success: true,
+        result: {
+          paymentIntentId: paymentIntent.id,
+          status: paymentIntent.status,
+          amount: paymentIntent.amount / 100, // Convert back to dollars
+          currency: paymentIntent.currency,
+          clientSecret: paymentIntent.clientSecret,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Stripe payment failed: ${error.message}`,
+      };
+    }
+  }
+
+  private async createStripeCustomer(
+    email: string,
+    name: string,
+    metadata?: Record<string, string>,
+  ): Promise<ToolResult> {
+    try {
+      const customer = await this.paymentProvider.createCustomer({
+        email,
+        name,
+        metadata: metadata || {},
+      });
+
+      return {
+        success: true,
+        result: {
+          customerId: customer.id,
+          email: customer.email,
+          name: customer.name,
+          created: customer.created,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to create Stripe customer: ${error.message}`,
+      };
+    }
+  }
+
+  private async createSubscription(
+    customerId: string,
+    priceId: string,
+    trialDays?: number,
+  ): Promise<ToolResult> {
+    try {
+      const subscription = await this.paymentProvider.createSubscription({
+        customerId,
+        items: [{ priceId }],
+        trialPeriodDays: trialDays,
+        metadata: {
+          source: 'mcp_billing_server',
+        },
+      });
+
+      return {
+        success: true,
+        result: {
+          subscriptionId: subscription.id,
+          status: subscription.status,
+          customerId: subscription.customerId,
+          currentPeriodStart: subscription.currentPeriodStart,
+          currentPeriodEnd: subscription.currentPeriodEnd,
+          trialEnd: subscription.trialEnd,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to create subscription: ${error.message}`,
+      };
+    }
+  }
 
   private async calculateInvoice(
     tenantId: string,
