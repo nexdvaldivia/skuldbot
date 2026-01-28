@@ -6,7 +6,7 @@
 import { useState, useEffect } from "react";
 import { X, Key, Globe, Loader2, CheckCircle, AlertCircle, Plug } from "lucide-react";
 import { Button } from "../ui/Button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "../ui/Select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "../ui/select";
 import { useConnectionsStore, ConnectionFormData } from "../../store/connectionsStore";
 import { 
   LLMProvider, 
