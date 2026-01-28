@@ -323,11 +323,20 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
             let responseText = "";
             
             if (response.clarifyingQuestions && response.clarifyingQuestions.length > 0) {
-              responseText = "I need some clarification before proceeding:\n\n";
-              response.clarifyingQuestions.forEach((q, i) => {
-                responseText += `${i + 1}. ${q}\n`;
-              });
-              responseText += "\nPlease provide these details.";
+              // Check if it's a single conversational response (greeting/chat) or actual questions
+              if (response.clarifyingQuestions.length === 1 && 
+                  !response.clarifyingQuestions[0].includes("?") &&
+                  response.clarifyingQuestions[0].length < 500) {
+                // It's a conversational response (greeting/chat)
+                responseText = response.clarifyingQuestions[0];
+              } else {
+                // It's actual clarifying questions
+                responseText = "I need some clarification before proceeding:\n\n";
+                response.clarifyingQuestions.forEach((q, i) => {
+                  responseText += `${i + 1}. ${q}\n`;
+                });
+                responseText += "\nPlease provide these details.";
+              }
             } else if (response.proposedSteps && response.proposedSteps.length > 0) {
               responseText = "Here's my proposed approach:\n\n";
               response.proposedSteps.forEach((step, i) => {

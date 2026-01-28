@@ -4067,30 +4067,28 @@ async fn ai_generate_executable_plan(
         "ask" => {
             // ASK MODE: Conversational + ask clarifying questions when needed
             format!(
-                r#"You are SkuldBot's AI assistant. Respond in the SAME LANGUAGE as the user.
+                r#"You are SkuldBot's AI assistant. USE THE USER'S LANGUAGE CONSISTENTLY.
 
 USER REQUEST:
 {}{}
 
-If greeting: Respond warmly.
-If automation request: Ask 2-3 specific questions about:
-- Data sources/formats
-- Output destinations  
-- Business rules
-- Error handling
+INSTRUCTIONS:
+1. If simple greeting/chat (hi, hello, how are you, thanks, etc.) → Respond conversationally in plain text
+2. If automation request → Ask clarifying questions in JSON format
 
-RESPONSE (JSON only):
+RESPONSE FORMAT:
+- Greeting/chat: Plain text response (NO JSON)
+- Automation: JSON with questions:
 {{
-  "goal": "1-sentence summary",
-  "confidence": 0.1-0.9,
-  "assumptions": [],
+  "goal": "Brief summary",
+  "confidence": 0.3,
   "unknowns": [
-    {{"question": "Your question?", "blocking": true, "context": "Why need this"}}
+    {{"question": "Specific question?", "blocking": true}}
   ],
   "tasks": []
 }}
 
-Return ONLY JSON in user's language."#,
+USE USER'S LANGUAGE. BE CONCISE."#,
                 description,
                 history_context
             )
@@ -4246,6 +4244,25 @@ If confidence < 0.7, populate unknowns array with blocking questions."#,
     match result {
         Ok(response) => {
             println!("📝 LLM Response received ({} chars)", response.len());
+            
+            // In ASK mode, check if response is plain text (greeting/chat)
+            if mode == "ask" {
+                let trimmed = response.trim();
+                // If response doesn't look like JSON, treat as conversational response
+                if !trimmed.starts_with('{') && !trimmed.contains("```json") {
+                    println!("💬 Plain text response detected in ASK mode (greeting/chat)");
+                    return Ok(ExecutablePlanResponse {
+                        success: true,
+                        confidence: 1.0,
+                        plan: None,
+                        error: None,
+                        clarifying_questions: Some(vec![response.clone()]), // Use this field for chat response
+                        suggestions: vec![],
+                        proposed_steps: None,
+                        agent_mode: Some("ask".to_string()),
+                    });
+                }
+            }
             
             // Clean response: extract JSON from markdown or text
             let cleaned_response = extract_json_from_response(&response);
