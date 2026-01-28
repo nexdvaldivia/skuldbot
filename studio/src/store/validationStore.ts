@@ -138,8 +138,6 @@ const validateNodes = (nodes: FlowNode[], edges: FlowEdge[]): ValidationIssue[] 
       case "web.click":
       case "browser.get_text":
       case "web.get_text":
-      case "web.get_attribute":
-      case "web.select_option":
       case "browser.wait":
       case "web.wait_element":
         if (!config.selector) {
@@ -269,6 +267,15 @@ const validateNodes = (nodes: FlowNode[], edges: FlowEdge[]): ValidationIssue[] 
         break;
 
       case "web.get_attribute":
+        if (!config.selector) {
+          issues.push({
+            id: `${node.id}-selector`,
+            nodeId: node.id,
+            severity: "error",
+            message: `Selector is required`,
+            field: "selector",
+          });
+        }
         if (!config.attribute) {
           issues.push({
             id: `${node.id}-attribute`,
@@ -281,6 +288,15 @@ const validateNodes = (nodes: FlowNode[], edges: FlowEdge[]): ValidationIssue[] 
         break;
 
       case "web.select_option":
+        if (!config.selector) {
+          issues.push({
+            id: `${node.id}-selector`,
+            nodeId: node.id,
+            severity: "error",
+            message: `Selector is required`,
+            field: "selector",
+          });
+        }
         if (!config.value) {
           issues.push({
             id: `${node.id}-value`,
