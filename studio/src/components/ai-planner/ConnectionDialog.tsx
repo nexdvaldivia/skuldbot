@@ -6,6 +6,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { X, Key, Globe, Loader2, CheckCircle, AlertCircle, Plug } from "lucide-react";
 import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
+import { Textarea } from "../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "../ui/select";
 import { useConnectionsStore, ConnectionFormData } from "../../store/connectionsStore";
 import { 
@@ -387,7 +389,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
                 <Globe className="w-4 h-4 inline mr-1" />
                 Azure Endpoint
               </label>
-              <input
+              <Input
                 type="text"
                 value={azureEndpoint}
                 onChange={(e) => setAzureEndpoint(e.target.value)}
@@ -399,7 +401,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
               <label className="block text-sm font-medium text-neutral-700 mb-2">
                 Deployment Name
               </label>
-              <input
+              <Input
                 type="text"
                 value={azureDeployment}
                 onChange={(e) => setAzureDeployment(e.target.value)}
@@ -412,7 +414,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
                 <Key className="w-4 h-4 inline mr-1" />
                 API Key
               </label>
-              <input
+              <Input
                 type="password"
                 value={azureApiKey}
                 onChange={(e) => setAzureApiKey(e.target.value)}
@@ -424,7 +426,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
               <label className="block text-sm font-medium text-neutral-700 mb-2">
                 API Version
               </label>
-              <input
+              <Input
                 type="text"
                 value={azureApiVersion}
                 onChange={(e) => setAzureApiVersion(e.target.value)}
@@ -443,7 +445,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
                 <Key className="w-4 h-4 inline mr-1" />
                 AWS Access Key ID
               </label>
-              <input
+              <Input
                 type="password"
                 value={awsAccessKeyId}
                 onChange={(e) => setAwsAccessKeyId(e.target.value)}
@@ -456,7 +458,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
                 <Key className="w-4 h-4 inline mr-1" />
                 AWS Secret Access Key
               </label>
-              <input
+              <Input
                 type="password"
                 value={awsSecretAccessKey}
                 onChange={(e) => setAwsSecretAccessKey(e.target.value)}
@@ -498,7 +500,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
                 </SelectContent>
               </Select>
               {awsModelId === "custom" && (
-                <input
+                <Input
                   type="text"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
@@ -517,7 +519,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
               <label className="block text-sm font-medium text-neutral-700 mb-2">
                 GCP Project ID
               </label>
-              <input
+              <Input
                 type="text"
                 value={gcpProjectId}
                 onChange={(e) => setGcpProjectId(e.target.value)}
@@ -558,7 +560,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
                 </SelectContent>
               </Select>
               {gcpModel === "custom" && (
-                <input
+                <Input
                   type="text"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
@@ -572,7 +574,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
                 <Key className="w-4 h-4 inline mr-1" />
                 Service Account JSON
               </label>
-              <textarea
+              <Textarea
                 value={gcpServiceAccountJson}
                 onChange={(e) => setGcpServiceAccountJson(e.target.value)}
                 placeholder={isEditing ? "Leave empty to keep existing" : '{"type": "service_account", ...}'}
@@ -596,7 +598,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
                 <Globe className="w-4 h-4 inline mr-1" />
                 Base URL
               </label>
-              <input
+              <Input
                 type="text"
                 value={baseUrl}
                 onChange={(e) => setBaseUrl(e.target.value)}
@@ -611,7 +613,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
               <label className="block text-sm font-medium text-neutral-700 mb-2">
                 Model Name
               </label>
-              <input
+              <Input
                 type="text"
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
@@ -630,7 +632,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
                 <Key className="w-4 h-4 inline mr-1" />
                 API Key
               </label>
-              <input
+              <Input
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
@@ -656,7 +658,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
                 </SelectContent>
               </Select>
               {openaiModel === "custom" && (
-                <input
+                <Input
                   type="text"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
@@ -676,7 +678,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
                 <Key className="w-4 h-4 inline mr-1" />
                 API Key
               </label>
-              <input
+              <Input
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
@@ -701,7 +703,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
                 </SelectContent>
               </Select>
               {anthropicModel === "custom" && (
-                <input
+                <Input
                   type="text"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
@@ -720,7 +722,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
               <label className="block text-sm font-medium text-neutral-700 mb-2">
                 Provider Name
               </label>
-              <input
+              <Input
                 type="text"
                 value={customName}
                 onChange={(e) => setCustomName(e.target.value)}
@@ -733,7 +735,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
                 <Globe className="w-4 h-4 inline mr-1" />
                 Base URL
               </label>
-              <input
+              <Input
                 type="text"
                 value={baseUrl}
                 onChange={(e) => setBaseUrl(e.target.value)}
@@ -745,7 +747,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
               <label className="block text-sm font-medium text-neutral-700 mb-2">
                 Model Name
               </label>
-              <input
+              <Input
                 type="text"
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
@@ -758,7 +760,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
                 <Key className="w-4 h-4 inline mr-1" />
                 API Key (Optional)
               </label>
-              <input
+              <Input
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
@@ -796,12 +798,14 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
               </p>
             </div>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onClose}
             className="p-1 text-neutral-400 hover:text-neutral-600 rounded"
           >
             <X className="w-5 h-5" />
-          </button>
+          </Button>
         </div>
 
         {/* Content */}
@@ -811,7 +815,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
             <label className="block text-sm font-medium text-neutral-700 mb-2">
               Connection Name
             </label>
-            <input
+            <Input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
