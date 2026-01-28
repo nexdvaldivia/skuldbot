@@ -80,15 +80,23 @@ export function ChatPanel() {
     const input = userInput.trim();
     setUserInput("");
 
+    // If we have a plan, this is always refinement regardless of mode
+    if (currentPlan) {
+      await refineWithFeedback(input);
+      return;
+    }
+
     // Detect if this is a workflow request or just conversation
     const isWorkflowRequest = detectWorkflowIntent(input);
-    console.log(`💬 Input: "${input}" | Is Workflow: ${isWorkflowRequest}`);
+    console.log(`💬 Input: "${input}" | Mode: ${agentMode} | Looks like workflow: ${isWorkflowRequest}`);
 
-    if (currentPlan) {
-      // If we have a plan, this is refinement
-      await refineWithFeedback(input);
+    // Respect the selected agent mode
+    if (agentMode === "ask" || agentMode === "plan" || agentMode === "generate") {
+      // If user explicitly selected a mode, always call generateExecutablePlan
+      // The backend will use the appropriate prompt based on the mode
+      await generateExecutablePlan(input);
     } else if (isWorkflowRequest) {
-      // If it looks like a workflow request, generate plan
+      // Fallback: If mode is idle/refine and it looks like a workflow request
       await generateExecutablePlan(input);
     } else {
       // Otherwise, just have a conversation (add to chat without generating)

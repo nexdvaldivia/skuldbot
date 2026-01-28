@@ -293,6 +293,8 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
           
           // Build conversation history for LLM context
           const { conversation, agentMode } = get();
+          console.log(`   🎯 Agent Mode: ${agentMode}`);
+          
           const conversationHistory = conversation
             .map((msg) => `${msg.role === "user" ? "User" : "Assistant"}: ${msg.content}`)
             .join("\n\n");

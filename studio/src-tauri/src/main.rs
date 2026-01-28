@@ -4019,7 +4019,7 @@ async fn ai_generate_executable_plan(
 
     // Determine agent mode (like Cursor: ask → plan → generate)
     let mode = agent_mode.as_deref().unwrap_or("generate");
-    println!("   Agent Mode: {}", mode);
+    println!("   🎯 Agent Mode: {} (received: {:?})", mode, agent_mode);
 
     // Get API key from parameter or fall back to environment
     // For local/self-hosted (Ollama, vLLM, etc.), API key is optional
