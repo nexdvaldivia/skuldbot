@@ -593,6 +593,11 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
         agentMode: state.agentMode,
         planningContext: state.planningContext,
         llmConfig: state.llmConfig,
+        conversation: state.conversation, // ← Guardar conversación
+        currentPlan: state.currentPlan,   // ← Guardar plan actual
+        confidence: state.confidence,
+        suggestions: state.suggestions,
+        iterations: state.iterations,
       }),
     }
   )

@@ -4,7 +4,7 @@
  */
 
 import { useRef, useEffect } from "react";
-import { Send, Loader2, Bot, User, Link2, AlertCircle, MessageSquare, ListChecks, Zap } from "lucide-react";
+import { Send, Loader2, Bot, User, Link2, AlertCircle, MessageSquare, ListChecks, Zap, RotateCcw } from "lucide-react";
 import { Button } from "../../ui/Button";
 import { Textarea } from "../../ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../../ui/select";
@@ -26,6 +26,7 @@ export function ChatPanel() {
     currentPlan,
     agentMode,
     setAgentMode,
+    reset,
   } = useAIPlannerV2Store();
   
   const {
@@ -158,60 +159,81 @@ export function ChatPanel() {
       
       {/* Agent Mode Selector (Ask / Plan / Generate) */}
       <div className="px-6 py-3 bg-white border-b border-neutral-200">
-        <div className="flex items-center justify-center gap-1 max-w-3xl mx-auto">
-          {/* Ask Mode */}
-          <Button
-            variant={agentMode === "ask" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setAgentMode("ask")}
-            disabled={isGenerating || isRefining}
-            className={`
-              flex items-center gap-2 h-8 px-4 text-xs font-medium transition-all
-              ${agentMode === "ask" 
-                ? "bg-primary-500 text-white hover:bg-primary-600" 
-                : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
-              }
-            `}
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-            <span>Ask</span>
-          </Button>
+        <div className="flex items-center justify-between max-w-3xl mx-auto">
+          <div className="flex items-center gap-1">
+            {/* Ask Mode */}
+            <Button
+              variant={agentMode === "ask" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setAgentMode("ask")}
+              disabled={isGenerating || isRefining}
+              className={`
+                flex items-center gap-2 h-8 px-4 text-xs font-medium transition-all
+                ${agentMode === "ask" 
+                  ? "bg-primary-500 text-white hover:bg-primary-600" 
+                  : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
+                }
+              `}
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>Ask</span>
+            </Button>
 
-          {/* Plan Mode */}
-          <Button
-            variant={agentMode === "plan" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setAgentMode("plan")}
-            disabled={isGenerating || isRefining}
-            className={`
-              flex items-center gap-2 h-8 px-4 text-xs font-medium transition-all
-              ${agentMode === "plan" 
-                ? "bg-primary-500 text-white hover:bg-primary-600" 
-                : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
-              }
-            `}
-          >
-            <ListChecks className="w-3.5 h-3.5" />
-            <span>Plan</span>
-          </Button>
+            {/* Plan Mode */}
+            <Button
+              variant={agentMode === "plan" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setAgentMode("plan")}
+              disabled={isGenerating || isRefining}
+              className={`
+                flex items-center gap-2 h-8 px-4 text-xs font-medium transition-all
+                ${agentMode === "plan" 
+                  ? "bg-primary-500 text-white hover:bg-primary-600" 
+                  : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
+                }
+              `}
+            >
+              <ListChecks className="w-3.5 h-3.5" />
+              <span>Plan</span>
+            </Button>
 
-          {/* Generate Mode */}
-          <Button
-            variant={agentMode === "generate" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setAgentMode("generate")}
-            disabled={isGenerating || isRefining}
-            className={`
-              flex items-center gap-2 h-8 px-4 text-xs font-medium transition-all
-              ${agentMode === "generate" 
-                ? "bg-primary-500 text-white hover:bg-primary-600" 
-                : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
-              }
-            `}
-          >
-            <Zap className="w-3.5 h-3.5" />
-            <span>Generate</span>
-          </Button>
+            {/* Generate Mode */}
+            <Button
+              variant={agentMode === "generate" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setAgentMode("generate")}
+              disabled={isGenerating || isRefining}
+              className={`
+                flex items-center gap-2 h-8 px-4 text-xs font-medium transition-all
+                ${agentMode === "generate" 
+                  ? "bg-primary-500 text-white hover:bg-primary-600" 
+                  : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
+                }
+              `}
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>Generate</span>
+            </Button>
+          </div>
+
+          {/* New Conversation Button */}
+          {conversation.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (confirm("¿Iniciar nueva conversación? Se perderá el chat actual.")) {
+                  reset();
+                  toast.success("Nueva conversación", "Chat limpiado");
+                }
+              }}
+              disabled={isGenerating || isRefining}
+              className="flex items-center gap-2 h-8 px-3 text-xs font-medium text-neutral-600 hover:text-neutral-900"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Nueva</span>
+            </Button>
+          )}
         </div>
 
         {/* Mode Description */}
