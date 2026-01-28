@@ -139,7 +139,7 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
     (set, get) => ({
       // Initial state
       complexity: "advanced",
-      agentMode: "generate", // Default to generate mode
+      agentMode: "ask", // Default to ask mode - converse first, generate later
       planningContext: {
         userGoal: "",
         clarifications: {},
@@ -168,11 +168,11 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
       // ============================================================
 
       openPanel: () => {
-        set({ isPanelOpen: true, error: null, agentMode: "generate" });
+        set({ isPanelOpen: true, error: null }); // Don't override agentMode
       },
 
       closePanel: () => {
-        set({ isPanelOpen: false, agentMode: "generate" });
+        set({ isPanelOpen: false }); // Don't reset agentMode
       },
 
       setMode: (complexity) => {
