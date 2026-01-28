@@ -3971,21 +3971,36 @@ async fn ai_generate_executable_plan(
 ) -> Result<ExecutablePlanResponse, String> {
     println!("🤖 AI Generating EXECUTABLE plan for: {}", description);
     println!("   Provider: {}, Model: {}", provider, model);
+    if let Some(ref url) = base_url {
+        println!("   Base URL: {}", url);
+    }
 
     // Get API key from parameter or fall back to environment
-    let api_key = match api_key.filter(|k| !k.is_empty()) {
-        Some(key) => key,
-        None => match get_api_key_from_env(&provider) {
+    // For local/self-hosted (Ollama, vLLM, etc.), API key is optional
+    let is_local = base_url.as_ref().map(|url| {
+        url.contains("localhost") || url.contains("127.0.0.1") || url.contains("0.0.0.0")
+    }).unwrap_or(false);
+
+    let api_key = if is_local {
+        // Local models don't require API key
+        println!("   Local model detected, API key not required");
+        api_key.filter(|k| !k.is_empty()).unwrap_or_else(|| "dummy-key-for-local".to_string())
+    } else {
+        // Cloud providers require API key
+        match api_key.filter(|k| !k.is_empty()) {
             Some(key) => key,
-            None => {
-                return Ok(ExecutablePlanResponse {
-                    success: false,
-                    confidence: 0.0,
-                    plan: None,
-                    error: Some("No API key configured. Please add LLM connection in Settings.".to_string()),
-                    clarifying_questions: None,
-                    suggestions: vec![],
-                });
+            None => match get_api_key_from_env(&provider) {
+                Some(key) => key,
+                None => {
+                    return Ok(ExecutablePlanResponse {
+                        success: false,
+                        confidence: 0.0,
+                        plan: None,
+                        error: Some("No API key configured. Please add LLM connection in Settings.".to_string()),
+                        clarifying_questions: None,
+                        suggestions: vec![],
+                    });
+                }
             }
         }
     };
