@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { ComplianceServer } from './servers/compliance.server';
 import { WorkflowServer } from './servers/workflow.server';
+import { BYOMService } from './services/byom.service';
 import { ToolCallDto, MCPCapabilitiesDto } from './dto/tool-call.dto';
 
 /**
@@ -27,6 +28,7 @@ export class MCPController {
   constructor(
     private readonly complianceServer: ComplianceServer,
     private readonly workflowServer: WorkflowServer,
+    private readonly byomService: BYOMService,
   ) {}
 
   /**
@@ -37,6 +39,7 @@ export class MCPController {
     const tools = [
       ...this.complianceServer.getTools(),
       ...this.workflowServer.getTools(),
+      ...this.byomService.getTools(),
     ];
 
     return {
@@ -68,6 +71,19 @@ export class MCPController {
   async callTool(@Body() toolCall: ToolCallDto) {
     // Route to the appropriate server based on tool name
     const toolName = toolCall.name;
+
+    // BYOM tools
+    if (
+      toolName.startsWith('configure_llm') ||
+      toolName.startsWith('list_llm') ||
+      toolName.startsWith('get_llm') ||
+      toolName.startsWith('update_llm') ||
+      toolName.startsWith('delete_llm') ||
+      toolName.startsWith('test_llm') ||
+      toolName.startsWith('route_to_best')
+    ) {
+      return await this.byomService.executeTool(toolCall);
+    }
 
     // Compliance tools
     if (

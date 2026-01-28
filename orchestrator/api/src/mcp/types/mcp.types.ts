@@ -133,6 +133,85 @@ export interface TenantPolicy {
 }
 
 // ============================================================
+// BYOM (Bring Your Own Model) Types
+// ============================================================
+
+/**
+ * LLM Provider Types for BYOM
+ */
+export type LLMProviderType = 
+  | 'azure-ai-foundry'
+  | 'aws-bedrock'
+  | 'vertex-ai'
+  | 'openai'
+  | 'anthropic'
+  | 'ollama'
+  | 'vllm'
+  | 'tgi'
+  | 'llamacpp'
+  | 'lmstudio'
+  | 'localai'
+  | 'custom';
+
+/**
+ * LLM Provider Configuration
+ */
+export interface LLMProviderConfig {
+  id: string;
+  name: string;
+  tenantId: string;
+  provider: LLMProviderType;
+  endpoint: string;
+  model: string;
+  apiKey?: string;
+  credentials?: {
+    azureKeyCredential?: string;
+    awsAccessKey?: string;
+    awsSecretKey?: string;
+    googleServiceAccount?: string;
+  };
+  headers?: Record<string, string>;
+  baaRequired: boolean;
+  baaSigned: boolean;
+  hipaaCompliant: boolean;
+  dataResidency: string;
+  allowedDataClassifications: DataClassification[];
+  priority: number;
+  fallbackTo?: string;
+  capabilities: {
+    chat: boolean;
+    streaming: boolean;
+    functionCalling: boolean;
+    embedding: boolean;
+    vision: boolean;
+    jsonMode: boolean;
+  };
+  limits: {
+    maxTokens: number;
+    maxConcurrent: number;
+    rateLimit: {
+      requestsPerMinute: number;
+      tokensPerMinute: number;
+    };
+  };
+  pricing: {
+    inputTokens: number;
+    outputTokens: number;
+    currency: string;
+  };
+  healthCheck?: {
+    status: 'healthy' | 'degraded' | 'down';
+    lastCheck: string;
+    latencyMs: number;
+    errorRate: number;
+    uptime: number;
+  };
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================================
 // MCP Protocol Types
 // ============================================================
 
