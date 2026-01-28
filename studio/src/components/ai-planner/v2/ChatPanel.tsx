@@ -3,18 +3,30 @@
  * User can describe automations and refine through natural conversation
  */
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { Send, Loader2, Bot, User, Link2, AlertCircle, MessageSquare, ListChecks, Zap, RotateCcw } from "lucide-react";
 import { Button } from "../../ui/Button";
 import { Textarea } from "../../ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../../ui/select";
 import { ScrollArea } from "../../ui/scroll-area";
 import { Card } from "../../ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../ui/alert-dialog";
 import { useAIPlannerV2Store } from "../../../store/aiPlannerV2Store";
 import { useConnectionsStore } from "../../../store/connectionsStore";
 import { useToastStore } from "../../../store/toastStore";
 
 export function ChatPanel() {
+  const [showClearDialog, setShowClearDialog] = useState(false);
+  
   const {
     conversation,
     userInput,
@@ -221,12 +233,7 @@ export function ChatPanel() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                if (confirm("Start new conversation? Current chat will be lost.")) {
-                  reset();
-                  toast.success("New Conversation", "Chat cleared");
-                }
-              }}
+              onClick={() => setShowClearDialog(true)}
               disabled={isGenerating || isRefining}
               className="flex items-center gap-2 h-8 px-3 text-xs font-medium text-neutral-600 hover:text-neutral-900"
             >
@@ -409,6 +416,31 @@ export function ChatPanel() {
           </p>
         </div>
       </div>
+
+      {/* Clear Conversation Dialog */}
+      <AlertDialog open={showClearDialog} onOpenChange={setShowClearDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Start New Conversation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will clear the current chat history and reset the AI Planner. 
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                reset();
+                setShowClearDialog(false);
+                toast.success("New Conversation", "Chat cleared");
+              }}
+            >
+              Clear Chat
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
