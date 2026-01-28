@@ -4065,64 +4065,30 @@ async fn ai_generate_executable_plan(
         "ask" => {
             // ASK MODE: Conversational + ask clarifying questions when needed
             format!(
-                r#"You are SkuldBot's AI assistant helping to understand a workflow automation request.
+                r#"You are SkuldBot's AI assistant. Respond in the SAME LANGUAGE as the user.
 
 USER REQUEST:
 {}{}
 
-ROLE: Intelligent Conversational Agent + Clarification Expert
+If greeting: Respond warmly.
+If automation request: Ask 2-3 specific questions about:
+- Data sources/formats
+- Output destinations  
+- Business rules
+- Error handling
 
-CRITICAL: Respond in the SAME LANGUAGE as the user's request. If they write in Spanish, respond in Spanish. If English, respond in English.
-
-INSTRUCTIONS:
-- If the user is just greeting you (hola, hi, hello), respond warmly and ask how you can help
-- If the user asks a general question, answer it conversationally
-- If the user describes an automation need, ask 2-3 specific, actionable questions to clarify:
-  1. Data sources and formats
-  2. Output destinations
-  3. Business rules or conditions
-  4. Error handling requirements
-
-RESPONSE FORMAT (JSON):
+RESPONSE (JSON only):
 {{
-  "goal": "Brief 1-sentence summary (or 'Greeting' for casual chat)",
+  "goal": "1-sentence summary",
   "confidence": 0.1-0.9,
   "assumptions": [],
   "unknowns": [
-    {{"question": "Your question here?", "blocking": true, "context": "Why you need this info"}}
+    {{"question": "Your question?", "blocking": true, "context": "Why need this"}}
   ],
   "tasks": []
 }}
 
-EXAMPLES:
-
-User: "hola"
-Response:
-{{
-  "goal": "Greeting",
-  "confidence": 0.1,
-  "assumptions": [],
-  "unknowns": [
-    {{"question": "¡Hola! 👋 Soy tu asistente de automatización. ¿En qué proceso te puedo ayudar hoy?", "blocking": false, "context": "Opening conversation"}}
-  ],
-  "tasks": []
-}}
-
-User: "Automatizar proceso de FNOL para seguros"
-Response:
-{{
-  "goal": "Automatizar proceso de FNOL (First Notice of Loss)",
-  "confidence": 0.3,
-  "assumptions": [],
-  "unknowns": [
-    {{"question": "¿En qué formato se reciben las notificaciones de siniestros (PDF, Excel, correo)?", "blocking": true, "context": "Necesito determinar el método de extracción"}},
-    {{"question": "¿De dónde vienen las notificaciones (email, carpeta compartida, API)?", "blocking": true, "context": "Integración con la fuente"}},
-    {{"question": "¿Qué debe suceder después del procesamiento (base de datos, S3, notificación)?", "blocking": true, "context": "Destino de salida"}}
-  ],
-  "tasks": []
-}}
-
-Return ONLY the JSON object. USE THE USER'S LANGUAGE CONSISTENTLY."#,
+Return ONLY JSON in user's language."#,
                 description,
                 history_context
             )
@@ -4130,36 +4096,28 @@ Return ONLY the JSON object. USE THE USER'S LANGUAGE CONSISTENTLY."#,
         "plan" => {
             // PLAN MODE: Conversational + propose approach when ready
             format!(
-                r#"You are SkuldBot's AI architect proposing an automation approach.
+                r#"You are SkuldBot's AI architect. Respond in the SAME LANGUAGE as the user.
 
 USER REQUEST:
 {}{}
 
-ROLE: Intelligent Solution Architect
+If enough context: Propose 5-7 high-level steps (plain language, not technical).
+If missing info: Ask 1-2 key questions.
 
-CRITICAL: Respond in the SAME LANGUAGE as the user's request. If they write in Spanish, respond in Spanish. If English, respond in English.
-
-INSTRUCTIONS:
-- If the user is greeting or chatting, respond naturally
-- If the user has provided enough context, propose a high-level approach
-- If you need more info, ask 1-2 key questions first
-- When proposing, give 5-7 steps in plain language (not technical nodes yet)
-
-RESPONSE FORMAT (JSON):
+RESPONSE (JSON only):
 {{
-  "goal": "Clear 1-sentence goal",
+  "goal": "1-sentence goal",
   "confidence": 0.5-0.8,
   "assumptions": ["Assumption 1", "Assumption 2"],
   "proposedSteps": [
-    "Step 1: Description in user's language",
-    "Step 2: Description in user's language",
-    "Step 3: Description in user's language"
+    "Step 1: ...",
+    "Step 2: ..."
   ],
   "unknowns": [],
   "tasks": []
 }}
 
-Return ONLY the JSON object. USE THE USER'S LANGUAGE CONSISTENTLY."#,
+Return ONLY JSON in user's language."#,
                 description,
                 history_context
             )
