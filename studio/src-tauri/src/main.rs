@@ -4315,12 +4315,41 @@ If confidence < 0.7, populate unknowns array with blocking questions."#,
                             parse_plan_from_response(&response).unwrap_or_default()
                         });
                     
+                    // In ASK or PLAN mode, empty tasks is OK (we're just asking questions or proposing steps)
+                    if tasks.is_empty() && (mode == "ask" || mode == "plan") {
+                        println!("✅ {} mode: No tasks generated (as expected)", mode);
+                        
+                        // Extract proposed steps if in plan mode
+                        let proposed_steps: Option<Vec<String>> = json["proposedSteps"]
+                            .as_array()
+                            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect());
+                        
+                        // Extract clarifying questions from unknowns
+                        let clarifying_questions: Option<Vec<String>> = if unknowns.is_empty() {
+                            None
+                        } else {
+                            Some(unknowns.iter().map(|u| u.question.clone()).collect())
+                        };
+                        
+                        return Ok(ExecutablePlanResponse {
+                            success: true,
+                            confidence,
+                            plan: None, // No plan yet in ask/plan mode
+                            error: None,
+                            clarifying_questions,
+                            suggestions: vec![],
+                            proposed_steps,
+                            agent_mode: Some(mode.to_string()),
+                        });
+                    }
+                    
+                    // In GENERATE mode, empty tasks is an error
                     if tasks.is_empty() {
                         return Ok(ExecutablePlanResponse {
                             success: false,
                             confidence: 0.0,
                             plan: None,
-                            error: Some("LLM returned empty plan".to_string()),
+                            error: Some("LLM returned empty plan in GENERATE mode".to_string()),
                             clarifying_questions: None,
                             suggestions: vec!["Try rephrasing your request with more details".to_string()],
                             proposed_steps: None,
