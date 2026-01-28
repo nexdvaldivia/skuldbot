@@ -7,6 +7,7 @@ import { useRef, useEffect } from "react";
 import { Send, Loader2, Bot, User, Link2, AlertCircle } from "lucide-react";
 import { Button } from "../../ui/Button";
 import { Textarea } from "../../ui/textarea";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../../ui/select";
 import { ScrollArea } from "../../ui/scroll-area";
 import { Card } from "../../ui/card";
 import { useAIPlannerV2Store } from "../../../store/aiPlannerV2Store";
@@ -117,21 +118,24 @@ export function ChatPanel() {
             
             {selectedConnection ? (
               <div className="flex items-center gap-2">
-                <select
+                <Select
                   value={selectedConnectionId || ""}
-                  onChange={(e) => selectConnection(e.target.value)}
-                  className={`
-                    text-xs font-medium px-2.5 py-1.5 rounded-md border transition-colors
-                    ${getProviderColor(selectedConnection.provider)}
-                    focus:outline-none focus:ring-2 focus:ring-primary-500
-                  `}
+                  onValueChange={(value) => selectConnection(value)}
                 >
-                  {connections.map((conn) => (
-                    <option key={conn.id} value={conn.id}>
-                      {conn.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className={`
+                    w-[200px] text-xs font-medium h-8 border transition-colors
+                    ${getProviderColor(selectedConnection.provider)}
+                  `}>
+                    <SelectValue placeholder="Select connection" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {connections.map((conn) => (
+                      <SelectItem key={conn.id} value={conn.id}>
+                        {conn.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             ) : (
               <div className="flex items-center gap-2 text-amber-700 text-xs">
@@ -243,13 +247,15 @@ export function ChatPanel() {
                 "Data pipeline",
                 "RAG chatbot",
               ].map((suggestion) => (
-                <button
+                <Button
                   key={suggestion}
+                  variant="outline"
+                  size="sm"
                   onClick={() => setUserInput(suggestion)}
-                  className="px-3 py-1.5 text-xs font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 h-auto"
                 >
                   {suggestion}
-                </button>
+                </Button>
               ))}
             </div>
           )}
