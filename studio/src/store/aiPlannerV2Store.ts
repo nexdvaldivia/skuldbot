@@ -313,8 +313,50 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
 
           console.log("📝 Response received:", response);
 
-          if (!response.success || !response.plan) {
-            throw new Error(response.error || "Failed to generate executable plan");
+          // Handle different agent modes
+          if (!response.success) {
+            throw new Error(response.error || "Failed to generate response");
+          }
+
+          // ASK or PLAN mode: May not have a full plan, just questions or proposed steps
+          if (agentMode === "ask" || agentMode === "plan") {
+            let responseText = "";
+            
+            if (response.clarifyingQuestions && response.clarifyingQuestions.length > 0) {
+              responseText = "I need some clarification before proceeding:\n\n";
+              response.clarifyingQuestions.forEach((q, i) => {
+                responseText += `${i + 1}. ${q}\n`;
+              });
+              responseText += "\nPlease provide these details.";
+            } else if (response.proposedSteps && response.proposedSteps.length > 0) {
+              responseText = "Here's my proposed approach:\n\n";
+              response.proposedSteps.forEach((step, i) => {
+                responseText += `${i + 1}. ${step}\n`;
+              });
+              responseText += "\nWould you like me to proceed with generating the workflow?";
+            } else if (response.plan && response.plan.unknowns && response.plan.unknowns.length > 0) {
+              responseText = "I need some clarification:\n\n";
+              response.plan.unknowns.forEach((unknown, i) => {
+                responseText += `${i + 1}. ${unknown.question}`;
+                if (unknown.context) {
+                  responseText += ` (${unknown.context})`;
+                }
+                responseText += "\n";
+              });
+              responseText += "\nPlease provide these details so I can generate an accurate workflow.";
+            } else {
+              responseText = "I understand your request. What would you like to know more about?";
+            }
+
+            addMessage("assistant", responseText);
+            set({ isGenerating: false });
+            toast.info("Response Ready", "Please review the questions/plan");
+            return;
+          }
+
+          // GENERATE mode: Must have a full plan
+          if (!response.plan) {
+            throw new Error("No plan generated. Please try again.");
           }
 
           const { plan, confidence, suggestions } = response;
