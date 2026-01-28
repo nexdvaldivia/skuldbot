@@ -11,7 +11,8 @@ import {
   ExecutablePlanResponse,
   ConversationMessage,
   LLMConfig,
-  PlannerMode,
+  PlannerComplexity,
+  PlannerAgentMode,
 } from "../types/ai-planner";
 import { useToastStore } from "./toastStore";
 import { useLicenseStore } from "./licenseStore";
@@ -24,8 +25,17 @@ import { useFlowStore } from "./flowStore";
 // ============================================================
 
 interface AIPlannerV2State {
-  // Mode
-  mode: PlannerMode;
+  // Modes
+  complexity: PlannerComplexity;
+  agentMode: PlannerAgentMode;
+  
+  // Planning context
+  planningContext: {
+    userGoal: string;
+    clarifications: Record<string, string>;
+    proposedSteps: string[];
+    needsApproval: boolean;
+  };
 
   // Panel state
   isPanelOpen: boolean;
@@ -54,7 +64,7 @@ interface AIPlannerV2State {
   // Actions
   openPanel: () => void;
   closePanel: () => void;
-  setMode: (mode: PlannerMode) => void;
+  setMode: (complexity: PlannerComplexity) => void;
   setUserInput: (input: string) => void;
   generateExecutablePlan: (description: string) => Promise<void>;
   refineWithFeedback: (feedback: string) => Promise<void>;
@@ -65,7 +75,7 @@ interface AIPlannerV2State {
   reset: () => void;
   
   // Internal helpers
-  addMessage: (role: "user" | "assistant", content: string) => void;
+  addMessage: (role: "user" | "assistant", content: string, mode?: PlannerAgentMode) => void;
 }
 
 // Helper to generate message ID
@@ -127,7 +137,14 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
   persist(
     (set, get) => ({
       // Initial state
-      mode: "advanced",
+      complexity: "advanced",
+      agentMode: "idle",
+      planningContext: {
+        userGoal: "",
+        clarifications: {},
+        proposedSteps: [],
+        needsApproval: false,
+      },
       isPanelOpen: false,
       conversation: [],
       userInput: "",
@@ -150,15 +167,15 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
       // ============================================================
 
       openPanel: () => {
-        set({ isPanelOpen: true, error: null });
+        set({ isPanelOpen: true, error: null, agentMode: "idle" });
       },
 
       closePanel: () => {
-        set({ isPanelOpen: false });
+        set({ isPanelOpen: false, agentMode: "idle" });
       },
 
-      setMode: (mode) => {
-        set({ mode });
+      setMode: (complexity) => {
+        set({ complexity });
       },
 
       setUserInput: (input) => {
@@ -169,12 +186,13 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
       // Message Management
       // ============================================================
 
-      addMessage: (role, content) => {
+      addMessage: (role, content, mode) => {
         const message: ConversationMessage = {
           id: generateMessageId(),
           role,
           content,
           timestamp: new Date().toISOString(),
+          mode,
         };
         set((state) => ({
           conversation: [...state.conversation, message],
@@ -514,7 +532,9 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
     {
       name: "ai-planner-v2-storage",
       partialize: (state) => ({
-        mode: state.mode,
+        complexity: state.complexity,
+        agentMode: state.agentMode,
+        planningContext: state.planningContext,
         llmConfig: state.llmConfig,
       }),
     }

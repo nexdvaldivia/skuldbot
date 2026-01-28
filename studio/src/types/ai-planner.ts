@@ -27,6 +27,7 @@ export interface ConversationMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: string;
+  mode?: "idle" | "ask" | "plan" | "generate" | "refine"; // Track which mode generated this message
 }
 
 export type LLMProvider = 
@@ -187,11 +188,28 @@ export interface ExecutablePlanResponse {
 // AI Planner V2 Store State
 // ============================================================
 
-export type PlannerMode = "simple" | "advanced";
+export type PlannerComplexity = "simple" | "advanced";
+export type PlannerAgentMode = 
+  | "idle"        // No active planning session
+  | "ask"         // Asking clarifying questions
+  | "plan"        // Proposing approach/steps
+  | "generate"    // Generating executable workflow
+  | "refine";     // Refining existing workflow
 
 export interface AIPlannerV2State {
-  // Mode
-  mode: PlannerMode;
+  // Complexity mode
+  complexity: PlannerComplexity;
+  
+  // Agent mode (like Cursor)
+  agentMode: PlannerAgentMode;
+  
+  // Planning context
+  planningContext: {
+    userGoal: string;
+    clarifications: Record<string, string>;
+    proposedSteps: string[];
+    needsApproval: boolean;
+  };
   
   // Panel state
   isPanelOpen: boolean;
@@ -220,7 +238,7 @@ export interface AIPlannerV2State {
   // Actions
   openPanel: () => void;
   closePanel: () => void;
-  setMode: (mode: PlannerMode) => void;
+  setMode: (complexity: PlannerComplexity) => void;
   setUserInput: (input: string) => void;
   generateExecutablePlan: (description: string) => Promise<void>;
   refineWithFeedback: (feedback: string) => Promise<void>;
