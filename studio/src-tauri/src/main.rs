@@ -4065,30 +4065,19 @@ async fn ai_generate_executable_plan(
     // Build prompt based on agent mode
     let prompt = match mode {
         "ask" => {
-            // ASK MODE: Conversational + ask clarifying questions when needed
+            // ASK MODE: Pure conversation - LLM decides everything
             format!(
-                r#"You are SkuldBot's AI assistant. USE THE USER'S LANGUAGE CONSISTENTLY.
+                r#"You are SkuldBot's AI assistant for RPA automation.
 
-USER REQUEST:
-{}{}
+USER: {}{}
 
-INSTRUCTIONS:
-1. If simple greeting/chat (hi, hello, how are you, thanks, etc.) → Respond conversationally in plain text
-2. If automation request → Ask clarifying questions in JSON format
+RESPOND NATURALLY in the user's language.
+- If greeting → greet back warmly
+- If question → answer helpfully  
+- If automation request → ask what you need to know
+- If unclear → ask for clarification
 
-RESPONSE FORMAT:
-- Greeting/chat: Plain text response (NO JSON)
-- Automation: JSON with questions:
-{{
-  "goal": "Brief summary",
-  "confidence": 0.3,
-  "unknowns": [
-    {{"question": "Specific question?", "blocking": true}}
-  ],
-  "tasks": []
-}}
-
-USE USER'S LANGUAGE. BE CONCISE."#,
+Just respond as a helpful assistant. No JSON needed."#,
                 description,
                 history_context
             )
@@ -4467,6 +4456,21 @@ If confidence < 0.7, populate unknowns with blocking questions."#,
                             })
                         }
                         _ => {
+                            // In ASK mode, if parsing fails, return the raw response as conversation
+                            if mode == "ask" || mode == "plan" {
+                                println!("💬 Returning raw response as conversational (ASK/PLAN mode)");
+                                return Ok(ExecutablePlanResponse {
+                                    success: true,
+                                    confidence: 1.0,
+                                    plan: None,
+                                    error: None,
+                                    clarifying_questions: Some(vec![response.clone()]),
+                                    suggestions: vec![],
+                                    proposed_steps: None,
+                                    agent_mode: Some(mode.to_string()),
+                                });
+                            }
+                            
                             Ok(ExecutablePlanResponse {
                                 success: false,
                                 confidence: 0.0,

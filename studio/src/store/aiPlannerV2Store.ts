@@ -318,48 +318,24 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
             throw new Error(response.error || "Failed to generate response");
           }
 
-          // ASK or PLAN mode: May not have a full plan, just questions or proposed steps
+          // ASK or PLAN mode: Show LLM response directly
           if (agentMode === "ask" || agentMode === "plan") {
+            // The LLM decides what to say - we just display it
             let responseText = "";
             
             if (response.clarifyingQuestions && response.clarifyingQuestions.length > 0) {
-              // Check if it's a single conversational response (greeting/chat) or actual questions
-              if (response.clarifyingQuestions.length === 1 && 
-                  !response.clarifyingQuestions[0].includes("?") &&
-                  response.clarifyingQuestions[0].length < 500) {
-                // It's a conversational response (greeting/chat)
-                responseText = response.clarifyingQuestions[0];
-              } else {
-                // It's actual clarifying questions
-                responseText = "I need some clarification before proceeding:\n\n";
-                response.clarifyingQuestions.forEach((q, i) => {
-                  responseText += `${i + 1}. ${q}\n`;
-                });
-                responseText += "\nPlease provide these details.";
-              }
+              // LLM responded with text - show it directly
+              responseText = response.clarifyingQuestions.join("\n\n");
             } else if (response.proposedSteps && response.proposedSteps.length > 0) {
-              responseText = "Here's my proposed approach:\n\n";
-              response.proposedSteps.forEach((step, i) => {
-                responseText += `${i + 1}. ${step}\n`;
-              });
-              responseText += "\nWould you like me to proceed with generating the workflow?";
-            } else if (response.plan && response.plan.unknowns && response.plan.unknowns.length > 0) {
-              responseText = "I need some clarification:\n\n";
-              response.plan.unknowns.forEach((unknown, i) => {
-                responseText += `${i + 1}. ${unknown.question}`;
-                if (unknown.context) {
-                  responseText += ` (${unknown.context})`;
-                }
-                responseText += "\n";
-              });
-              responseText += "\nPlease provide these details so I can generate an accurate workflow.";
+              responseText = response.proposedSteps.join("\n\n");
+            } else if (response.plan?.goal) {
+              responseText = response.plan.goal;
             } else {
-              responseText = "I understand your request. What would you like to know more about?";
+              responseText = "Ready to help. What would you like to automate?";
             }
 
             addMessage("assistant", responseText);
             set({ isGenerating: false });
-            toast.info("Response Ready", "Please review the questions/plan");
             return;
           }
 
