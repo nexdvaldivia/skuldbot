@@ -6,6 +6,7 @@ import { Input } from "./ui/Input";
 import { Label } from "./ui/label";
 import { Button } from "./ui/Button";
 import { Textarea } from "./ui/textarea";
+import { ConfirmDialog } from "./ui/ConfirmDialog";
 import {
   Lock,
   Unlock,
@@ -45,6 +46,10 @@ export default function VaultManager() {
 
   // Form states
   const [showAddSecret, setShowAddSecret] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; secretName: string | null }>({
+    open: false,
+    secretName: null,
+  });
   const [newSecret, setNewSecret] = useState<SecretFormData>({
     name: "",
     value: "",
@@ -86,13 +91,18 @@ export default function VaultManager() {
   };
 
   const handleDeleteSecret = async (name: string) => {
-    if (confirm(`Delete secret "${name}"?`)) {
-      const success = await deleteSecret(name);
+    setDeleteConfirm({ open: true, secretName: name });
+  };
+
+  const confirmDelete = async () => {
+    if (deleteConfirm.secretName) {
+      const success = await deleteSecret(deleteConfirm.secretName);
       if (success) {
-        toast.success("Secret deleted", `${name} removed from vault`);
+        toast.success("Secret deleted", `${deleteConfirm.secretName} removed from vault`);
       } else {
         toast.error("Error", "Failed to delete secret");
       }
+      setDeleteConfirm({ open: false, secretName: null });
     }
   };
 
@@ -366,5 +376,16 @@ export default function VaultManager() {
         </div>
       </div>
     </div>
+
+    {/* Delete Confirmation Dialog */}
+    <ConfirmDialog
+      open={deleteConfirm.open}
+      onOpenChange={(open) => !open && setDeleteConfirm({ open: false, secretName: null })}
+      title="Delete Secret"
+      description={`Are you sure you want to delete the secret "${deleteConfirm.secretName}"? This action cannot be undone.`}
+      confirmLabel="Delete"
+      variant="destructive"
+      onConfirm={confirmDelete}
+    />
   );
 }
