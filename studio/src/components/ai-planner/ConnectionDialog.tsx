@@ -3,7 +3,7 @@
  * Modal for creating and editing LLM connections with provider-specific configurations
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { X, Key, Globe, Loader2, CheckCircle, AlertCircle, Plug } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "../ui/select";
@@ -135,70 +135,66 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
     setCustomHeaders("");
   }, []);
 
-  // Reset form on open/edit
+  // Reset form on open/edit - IMMEDIATE, NO TIMEOUT
   useEffect(() => {
     if (!isOpen) return;
     
-    // Use setTimeout to defer heavy operations after render
-    const timer = setTimeout(() => {
-      if (editingConnection) {
-        setName(editingConnection.name);
-        setProvider(editingConnection.provider);
-        
-        // Load config based on provider type
-        const config = editingConnection.config;
-        switch (config.type) {
-          case "azure-foundry":
-            setAzureEndpoint(config.endpoint);
-            setAzureDeployment(config.deployment);
-            setAzureApiVersion(config.apiVersion || "2024-02-15-preview");
-            setAzureApiKey(""); // Don't show existing key
-            break;
-          case "aws-bedrock":
-            setAwsRegion(config.region);
-            setAwsModelId(config.modelId);
-            setAwsAccessKeyId(""); // Don't show existing keys
-            setAwsSecretAccessKey("");
-            break;
-          case "vertex-ai":
-            setGcpProjectId(config.projectId);
-            setGcpLocation(config.location);
-            setGcpModel(config.model);
-            setGcpServiceAccountJson(""); // Don't show existing JSON
-            break;
-          case "ollama":
-          case "vllm":
-          case "tgi":
-          case "llamacpp":
-          case "lmstudio":
-          case "localai":
-            setBaseUrl(config.baseUrl);
-            setModel(config.model);
-            break;
-          case "openai":
-            setOpenaiModel(config.model);
-            setApiKey(""); // Don't show existing key
-            if (config.baseUrl) setBaseUrl(config.baseUrl);
-            break;
-          case "anthropic":
-            setAnthropicModel(config.model);
-            setApiKey(""); // Don't show existing key
-            break;
-          case "custom":
-            setCustomName(config.name);
-            setBaseUrl(config.baseUrl);
-            setModel(config.model);
-            setApiKey(""); // Don't show existing key
-            break;
-        }
-      } else {
-        // Reset all fields
-        resetForm();
+    // Execute immediately without setTimeout for instant render
+    if (editingConnection) {
+      setName(editingConnection.name);
+      setProvider(editingConnection.provider);
+      
+      // Load config based on provider type
+      const config = editingConnection.config;
+      switch (config.type) {
+        case "azure-foundry":
+          setAzureEndpoint(config.endpoint);
+          setAzureDeployment(config.deployment);
+          setAzureApiVersion(config.apiVersion || "2024-02-15-preview");
+          setAzureApiKey(""); // Don't show existing key
+          break;
+        case "aws-bedrock":
+          setAwsRegion(config.region);
+          setAwsModelId(config.modelId);
+          setAwsAccessKeyId(""); // Don't show existing keys
+          setAwsSecretAccessKey("");
+          break;
+        case "vertex-ai":
+          setGcpProjectId(config.projectId);
+          setGcpLocation(config.location);
+          setGcpModel(config.model);
+          setGcpServiceAccountJson(""); // Don't show existing JSON
+          break;
+        case "ollama":
+        case "vllm":
+        case "tgi":
+        case "llamacpp":
+        case "lmstudio":
+        case "localai":
+          setBaseUrl(config.baseUrl);
+          setModel(config.model);
+          break;
+        case "openai":
+          setOpenaiModel(config.model);
+          setApiKey(""); // Don't show existing key
+          if (config.baseUrl) setBaseUrl(config.baseUrl);
+          break;
+        case "anthropic":
+          setAnthropicModel(config.model);
+          setApiKey(""); // Don't show existing key
+          break;
+        case "custom":
+          setCustomName(config.name);
+          setBaseUrl(config.baseUrl);
+          setModel(config.model);
+          setApiKey(""); // Don't show existing key
+          break;
       }
-      setTestResult(null);
-    }, 0);
-    
-    return () => clearTimeout(timer);
+    } else {
+      // Reset all fields immediately
+      resetForm();
+    }
+    setTestResult(null);
   }, [isOpen, editingConnection, resetForm]);
 
   const handleProviderChange = useCallback((newProvider: LLMProvider) => {
@@ -380,8 +376,8 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
 
   const isEditing = !!editingConnection;
   
-  // Render provider-specific fields
-  const renderProviderFields = () => {
+  // Memoize provider fields to prevent unnecessary re-renders
+  const renderProviderFields = useMemo(() => {
     switch (provider) {
       case "azure-foundry":
         return (
@@ -776,7 +772,11 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
       default:
         return null;
     }
-  };
+  }, [provider, azureEndpoint, azureDeployment, azureApiKey, azureApiVersion, 
+      awsAccessKeyId, awsSecretAccessKey, awsRegion, awsModelId, model,
+      gcpProjectId, gcpLocation, gcpServiceAccountJson, gcpModel,
+      baseUrl, apiKey, openaiModel, anthropicModel,
+      customName, customHeaders, isEditing]);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70]">
@@ -857,7 +857,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
           </div>
 
           {/* Provider-specific fields */}
-          {renderProviderFields()}
+          {renderProviderFields}
 
           {/* Test Connection */}
           <div>
