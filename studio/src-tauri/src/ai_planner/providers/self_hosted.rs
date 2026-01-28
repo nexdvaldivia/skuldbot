@@ -12,7 +12,7 @@ pub async fn test_connection(
     let url = format!("{}/v1/chat/completions", base_url.trim_end_matches('/'));
     
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(120))  // 2 minutes for large models
         .build()
         .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
 
