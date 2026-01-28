@@ -4130,31 +4130,38 @@ Return ONLY JSON in user's language."#,
 TASK:
 {}{}
 
-REQUIREMENTS:
-1. The workflow MUST be executable without modifications
-2. All node types MUST exist in the SkuldBot catalog
+CRITICAL REQUIREMENTS:
+1. Use EXACT node types from catalog (e.g. "trigger.manual" NOT "node.trigger.manual")
+2. Node types format: "category.action" (NO "node." prefix!)
 3. Every node MUST have valid success/error paths
 4. Include proper error handling
-5. Use realistic config values (not placeholders)
+5. Use realistic config values
+
+VALID NODE TYPE EXAMPLES:
+✅ "trigger.manual" 
+✅ "http.request"
+✅ "json.parse"
+✅ "condition.if"
+❌ "node.http.request" (WRONG - no "node." prefix!)
+❌ "node.json.parse" (WRONG)
 
 SELF-VALIDATION:
-Before returning your plan, verify:
-- All node types are from the catalog
+Before returning, verify:
+- All nodeType values match catalog exactly
+- No "node." prefix in any nodeType
 - No unreachable nodes
-- No cycles
 - Complete error handling
 
-If you are UNCERTAIN about any aspect (< 70% confidence):
+If UNCERTAIN (< 70% confidence):
 - List specific clarifying questions
-- Identify unknowns that block implementation
+- Identify blocking unknowns
 
 RESPONSE FORMAT:
-Return a JSON object with this structure:
 {{
-  "goal": "Clear description of what this workflow does",
-  "assumptions": ["Assumption 1", "Assumption 2"],
+  "goal": "Clear description",
+  "assumptions": ["Assumption 1"],
   "unknowns": [
-    {{"question": "What format?", "blocking": true, "context": "Need to know CSV vs Excel"}}
+    {{"question": "What format?", "blocking": true, "context": "Need CSV vs Excel"}}
   ],
   "confidence": 0.85,
   "tasks": [
@@ -4169,7 +4176,7 @@ Return a JSON object with this structure:
   ]
 }}
 
-If confidence < 0.7, populate unknowns array with blocking questions."#,
+If confidence < 0.7, populate unknowns with blocking questions."#,
                 description,
                 history_context
             )
