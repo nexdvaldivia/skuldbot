@@ -182,6 +182,8 @@ export interface ExecutablePlanResponse {
   error?: string;
   clarifyingQuestions?: string[];
   suggestions: string[];
+  proposedSteps?: string[]; // For "plan" mode
+  agentMode?: string; // "ask", "plan", or "generate"
 }
 
 // ============================================================

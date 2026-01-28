@@ -286,7 +286,13 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
           console.log(`   Provider: ${provider}, Model: ${model}`);
           console.log(`   Base URL: ${baseUrl || "default"}`);
           
-          // Call Tauri backend
+          // Build conversation history for LLM context
+          const { conversation } = get();
+          const conversationHistory = conversation
+            .map((msg) => `${msg.role === "user" ? "User" : "Assistant"}: ${msg.content}`)
+            .join("\n\n");
+          
+          // Call Tauri backend with conversation history and agent mode
           const response = await invoke<ExecutablePlanResponse>("ai_generate_executable_plan", {
             description,
             provider,
@@ -294,6 +300,8 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
             temperature: llmConfig.temperature,
             baseUrl,
             apiKey,
+            agentMode: null, // Will add UI controls for this later
+            conversationHistory: conversationHistory || null,
           });
 
           console.log("📝 Response received:", response);
