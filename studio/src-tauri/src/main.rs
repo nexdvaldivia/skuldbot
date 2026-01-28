@@ -3691,6 +3691,27 @@ async fn call_anthropic_api(
         .ok_or_else(|| "No response from Anthropic".to_string())
 }
 
+/// Extract JSON from LLM response, handling markdown code blocks and extra text
+fn extract_json_from_response(response: &str) -> String {
+    let response = response.trim();
+    
+    // Remove markdown code blocks
+    let mut cleaned = response
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim();
+    
+    // Find JSON object boundaries
+    if let Some(start) = cleaned.find('{') {
+        if let Some(end) = cleaned.rfind('}') {
+            cleaned = &cleaned[start..=end];
+        }
+    }
+    
+    cleaned.to_string()
+}
+
 fn parse_plan_from_response(response: &str) -> Result<Vec<AIPlanStep>, String> {
     // Try to extract JSON from the response
     let json_str = if response.contains('[') {
@@ -4134,9 +4155,13 @@ If confidence < 0.7, populate unknowns array with blocking questions."#,
         Ok(response) => {
             println!("📝 LLM Response received ({} chars)", response.len());
             
+            // Clean response: extract JSON from markdown or text
+            let cleaned_response = extract_json_from_response(&response);
+            println!("🧹 Cleaned response ({} chars)", cleaned_response.len());
+            
             // Try to parse as ExecutablePlan format first
             let parsed_response: Result<serde_json::Value, _> = 
-                serde_json::from_str(&response.trim().trim_start_matches("```json").trim_end_matches("```"));
+                serde_json::from_str(&cleaned_response);
             
             match parsed_response {
                 Ok(json) => {
