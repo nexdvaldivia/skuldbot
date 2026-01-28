@@ -4,7 +4,7 @@
  */
 
 import { useRef, useEffect } from "react";
-import { Send, Loader2, Bot, User, Link2, AlertCircle } from "lucide-react";
+import { Send, Loader2, Bot, User, Link2, AlertCircle, MessageSquare, ListChecks, Zap } from "lucide-react";
 import { Button } from "../../ui/Button";
 import { Textarea } from "../../ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../../ui/select";
@@ -25,6 +25,8 @@ export function ChatPanel() {
     refineWithFeedback,
     currentPlan,
     addMessage,
+    agentMode,
+    setAgentMode,
   } = useAIPlannerV2Store();
   
   const {
@@ -192,6 +194,76 @@ export function ChatPanel() {
           </div>
         </div>
       )}
+      
+      {/* Agent Mode Selector (Ask / Plan / Generate) */}
+      <div className="px-6 py-3 bg-white border-b border-neutral-200">
+        <div className="flex items-center justify-center gap-1 max-w-3xl mx-auto">
+          {/* Ask Mode */}
+          <Button
+            variant={agentMode === "ask" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setAgentMode("ask")}
+            disabled={isGenerating || isRefining}
+            className={`
+              flex items-center gap-2 h-8 px-4 text-xs font-medium transition-all
+              ${agentMode === "ask" 
+                ? "bg-primary-500 text-white hover:bg-primary-600" 
+                : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
+              }
+            `}
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>Ask</span>
+          </Button>
+
+          {/* Plan Mode */}
+          <Button
+            variant={agentMode === "plan" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setAgentMode("plan")}
+            disabled={isGenerating || isRefining}
+            className={`
+              flex items-center gap-2 h-8 px-4 text-xs font-medium transition-all
+              ${agentMode === "plan" 
+                ? "bg-primary-500 text-white hover:bg-primary-600" 
+                : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
+              }
+            `}
+          >
+            <ListChecks className="w-3.5 h-3.5" />
+            <span>Plan</span>
+          </Button>
+
+          {/* Generate Mode */}
+          <Button
+            variant={agentMode === "generate" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setAgentMode("generate")}
+            disabled={isGenerating || isRefining}
+            className={`
+              flex items-center gap-2 h-8 px-4 text-xs font-medium transition-all
+              ${agentMode === "generate" 
+                ? "bg-primary-500 text-white hover:bg-primary-600" 
+                : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
+              }
+            `}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span>Generate</span>
+          </Button>
+        </div>
+
+        {/* Mode Description */}
+        <div className="text-center mt-2">
+          <p className="text-[11px] text-neutral-500">
+            {agentMode === "ask" && "Ask clarifying questions before planning"}
+            {agentMode === "plan" && "Propose high-level approach without implementation"}
+            {agentMode === "generate" && "Create complete executable workflow"}
+            {agentMode === "idle" && "Select a mode to start"}
+            {agentMode === "refine" && "Refining existing workflow"}
+          </p>
+        </div>
+      </div>
       
       {/* Warning if no connections */}
       {connections.length === 0 && (

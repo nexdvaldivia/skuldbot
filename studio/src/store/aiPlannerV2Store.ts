@@ -65,6 +65,7 @@ interface AIPlannerV2State {
   openPanel: () => void;
   closePanel: () => void;
   setMode: (complexity: PlannerComplexity) => void;
+  setAgentMode: (mode: PlannerAgentMode) => void;
   setUserInput: (input: string) => void;
   generateExecutablePlan: (description: string) => Promise<void>;
   refineWithFeedback: (feedback: string) => Promise<void>;
@@ -138,7 +139,7 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
     (set, get) => ({
       // Initial state
       complexity: "advanced",
-      agentMode: "idle",
+      agentMode: "generate", // Default to generate mode
       planningContext: {
         userGoal: "",
         clarifications: {},
@@ -167,15 +168,19 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
       // ============================================================
 
       openPanel: () => {
-        set({ isPanelOpen: true, error: null, agentMode: "idle" });
+        set({ isPanelOpen: true, error: null, agentMode: "generate" });
       },
 
       closePanel: () => {
-        set({ isPanelOpen: false, agentMode: "idle" });
+        set({ isPanelOpen: false, agentMode: "generate" });
       },
 
       setMode: (complexity) => {
         set({ complexity });
+      },
+
+      setAgentMode: (mode) => {
+        set({ agentMode: mode });
       },
 
       setUserInput: (input) => {
@@ -287,7 +292,7 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
           console.log(`   Base URL: ${baseUrl || "default"}`);
           
           // Build conversation history for LLM context
-          const { conversation } = get();
+          const { conversation, agentMode } = get();
           const conversationHistory = conversation
             .map((msg) => `${msg.role === "user" ? "User" : "Assistant"}: ${msg.content}`)
             .join("\n\n");
@@ -300,7 +305,7 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
             temperature: llmConfig.temperature,
             baseUrl,
             apiKey,
-            agentMode: null, // Will add UI controls for this later
+            agentMode: agentMode === "idle" ? null : agentMode, // Pass current agent mode
             conversationHistory: conversationHistory || null,
           });
 
