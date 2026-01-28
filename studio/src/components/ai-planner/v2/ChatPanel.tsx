@@ -85,10 +85,6 @@ export function ChatPanel() {
       return;
     }
 
-    // Detect if this is a workflow request or just conversation
-    const isWorkflowRequest = detectWorkflowIntent(input);
-    console.log(`💬 Input: "${input}" | Mode: ${agentMode} | Looks like workflow: ${isWorkflowRequest}`);
-
     // Always call LLM with the selected mode - let the AI decide what to do
     // The LLM is smart enough to:
     // - Respond conversationally to greetings
