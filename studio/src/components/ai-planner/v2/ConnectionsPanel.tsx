@@ -120,8 +120,8 @@ export function ConnectionsPanel() {
 
   // Get provider color
   const getProviderColor = (provider: string): string => {
-    const colors: Record<string, string> = {
-      "openai": "bg-emerald-100 text-emerald-700 border-emerald-200",
+      const colors: Record<string, string> = {
+      "openai": "bg-primary-100 text-primary-700 border-primary-200",
       "anthropic": "bg-purple-100 text-purple-700 border-purple-200",
       "azure-foundry": "bg-blue-100 text-blue-700 border-blue-200",
       "aws-bedrock": "bg-orange-100 text-orange-700 border-orange-200",
@@ -145,7 +145,7 @@ export function ConnectionsPanel() {
 
     switch (connection.healthStatus.status) {
       case "healthy":
-        return <CheckCircle2 className="w-4 h-4 text-emerald-600" />;
+        return <CheckCircle2 className="w-4 h-4 text-primary-600" />;
       case "degraded":
         return <AlertCircle className="w-4 h-4 text-amber-600" />;
       case "down":
@@ -247,7 +247,7 @@ export function ConnectionsPanel() {
 
                       {/* Default Badge */}
                       {connection.isDefault && (
-                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200">
+                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-primary-100 text-primary-700 border border-primary-200">
                           <Star className="w-3 h-3 mr-1 fill-current" />
                           Default
                         </span>
