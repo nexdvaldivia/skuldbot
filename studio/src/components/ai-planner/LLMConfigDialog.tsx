@@ -26,6 +26,7 @@ import {
 import { Slider } from "../ui/slider";
 import { Input } from "../ui/Input";
 import { Card, CardContent } from "../ui/card";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { useAIPlannerV2Store } from "../../store/aiPlannerV2Store";
 import { useConnectionsStore } from "../../store/connectionsStore";
 import { LLMProvider, LLMConnection } from "../../types/ai-planner";
@@ -148,6 +149,10 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
   const [customModel, setCustomModel] = useState("");
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
   const [editingConnection, setEditingConnection] = useState<LLMConnection | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; connection: LLMConnection | null }>({
+    open: false,
+    connection: null,
+  });
 
   // Load connections on mount
   useEffect(() => {
@@ -192,8 +197,13 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
   };
 
   const handleDeleteConnection = async (conn: LLMConnection) => {
-    if (confirm(`Delete connection "${conn.name}"?`)) {
-      await deleteConnection(conn.id);
+    setDeleteConfirm({ open: true, connection: conn });
+  };
+
+  const confirmDelete = async () => {
+    if (deleteConfirm.connection) {
+      await deleteConnection(deleteConfirm.connection.id);
+      setDeleteConfirm({ open: false, connection: null });
     }
   };
 
@@ -429,6 +439,17 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
         isOpen={showConnectionDialog}
         onClose={handleConnectionDialogClose}
         editingConnection={editingConnection}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteConfirm.open}
+        onOpenChange={(open) => !open && setDeleteConfirm({ open: false, connection: null })}
+        title="Delete Connection"
+        description={`Are you sure you want to delete the connection "${deleteConfirm.connection?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={confirmDelete}
       />
     </>
   );
