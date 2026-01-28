@@ -3,7 +3,7 @@
  * Modal for creating and editing LLM connections with provider-specific configurations
  */
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { X, Key, Globe, Loader2, CheckCircle, AlertCircle, Plug } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "../ui/select";
@@ -110,7 +110,32 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; latencyMs?: number } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Reset form
+  // Define resetForm first before useEffect
+  const resetForm = useCallback(() => {
+    setName("");
+    setProvider("openai");
+    setAzureEndpoint("");
+    setAzureDeployment("");
+    setAzureApiKey("");
+    setAzureApiVersion("2024-02-15-preview");
+    setAwsAccessKeyId("");
+    setAwsSecretAccessKey("");
+    setAwsRegion("us-east-1");
+    setAwsModelId("anthropic.claude-3-5-sonnet-20240620-v1:0");
+    setGcpProjectId("");
+    setGcpLocation("us-central1");
+    setGcpServiceAccountJson("");
+    setGcpModel("gemini-pro");
+    setBaseUrl("");
+    setModel("");
+    setApiKey("");
+    setOpenaiModel("gpt-4o");
+    setAnthropicModel("claude-3-5-sonnet-20241022");
+    setCustomName("");
+    setCustomHeaders("");
+  }, []);
+
+  // Reset form on open/edit
   useEffect(() => {
     if (!isOpen) return;
     
@@ -175,30 +200,6 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
     
     return () => clearTimeout(timer);
   }, [isOpen, editingConnection, resetForm]);
-
-  const resetForm = useCallback(() => {
-    setName("");
-    setProvider("openai");
-    setAzureEndpoint("");
-    setAzureDeployment("");
-    setAzureApiKey("");
-    setAzureApiVersion("2024-02-15-preview");
-    setAwsAccessKeyId("");
-    setAwsSecretAccessKey("");
-    setAwsRegion("us-east-1");
-    setAwsModelId("anthropic.claude-3-5-sonnet-20240620-v1:0");
-    setGcpProjectId("");
-    setGcpLocation("us-central1");
-    setGcpServiceAccountJson("");
-    setGcpModel("gemini-pro");
-    setBaseUrl("");
-    setModel("");
-    setApiKey("");
-    setOpenaiModel("gpt-4o");
-    setAnthropicModel("claude-3-5-sonnet-20241022");
-    setCustomName("");
-    setCustomHeaders("");
-  }, []);
 
   const handleProviderChange = useCallback((newProvider: LLMProvider) => {
     setProvider(newProvider);
