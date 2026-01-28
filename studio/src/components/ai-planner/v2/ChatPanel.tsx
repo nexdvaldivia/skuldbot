@@ -222,16 +222,16 @@ export function ChatPanel() {
               variant="outline"
               size="sm"
               onClick={() => {
-                if (confirm("¿Iniciar nueva conversación? Se perderá el chat actual.")) {
+                if (confirm("Start new conversation? Current chat will be lost.")) {
                   reset();
-                  toast.success("Nueva conversación", "Chat limpiado");
+                  toast.success("New Conversation", "Chat cleared");
                 }
               }}
               disabled={isGenerating || isRefining}
               className="flex items-center gap-2 h-8 px-3 text-xs font-medium text-neutral-600 hover:text-neutral-900"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>Nueva</span>
+              <span>New</span>
             </Button>
           )}
         </div>
@@ -328,12 +328,12 @@ export function ChatPanel() {
               <Card className="p-4 bg-white border-neutral-200">
                 <div className="flex items-center gap-2 text-neutral-500">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="text-sm">
-                    {agentMode === "ask" && "Pensando..."}
-                    {agentMode === "plan" && "Planeando enfoque..."}
-                    {agentMode === "generate" && "Generando workflow..."}
-                    {(!agentMode || agentMode === "idle" || agentMode === "refine") && "Procesando..."}
-                  </span>
+                <span className="text-sm">
+                  {agentMode === "ask" && "Thinking..."}
+                  {agentMode === "plan" && "Planning approach..."}
+                  {agentMode === "generate" && "Generating workflow..."}
+                  {(!agentMode || agentMode === "idle" || agentMode === "refine") && "Processing..."}
+                </span>
                 </div>
               </Card>
             </div>
