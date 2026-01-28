@@ -80,6 +80,7 @@ export function ChatPanel() {
 
     // Detect if this is a workflow request or just conversation
     const isWorkflowRequest = detectWorkflowIntent(input);
+    console.log(`💬 Input: "${input}" | Is Workflow: ${isWorkflowRequest}`);
 
     if (currentPlan) {
       // If we have a plan, this is refinement
