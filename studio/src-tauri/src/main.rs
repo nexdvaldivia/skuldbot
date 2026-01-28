@@ -2339,9 +2339,11 @@ struct Clarification {
     context: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Default)]
 struct ExecutablePlanResponse {
+    #[serde(default)]
     success: bool,
+    #[serde(default)]
     confidence: f64,  // 0.0 - 1.0
     #[serde(skip_serializing_if = "Option::is_none")]
     plan: Option<ExecutablePlan>,
@@ -2349,7 +2351,12 @@ struct ExecutablePlanResponse {
     error: Option<String>,
     #[serde(rename = "clarifyingQuestions", skip_serializing_if = "Option::is_none")]
     clarifying_questions: Option<Vec<String>>,
+    #[serde(default)]
     suggestions: Vec<String>,
+    #[serde(rename = "proposedSteps", skip_serializing_if = "Option::is_none", default)]
+    proposed_steps: Option<Vec<String>>, // For "plan" mode
+    #[serde(rename = "agentMode", skip_serializing_if = "Option::is_none", default)]
+    agent_mode: Option<String>, // "ask", "plan", or "generate"
 }
 
 #[derive(Debug, Serialize)]
@@ -4001,12 +4008,18 @@ async fn ai_generate_executable_plan(
     temperature: f64,
     base_url: Option<String>,
     api_key: Option<String>,
+    agent_mode: Option<String>, // "ask", "plan", "generate", or "refine"
+    conversation_history: Option<String>, // Previous messages for context
 ) -> Result<ExecutablePlanResponse, String> {
     println!("🤖 AI Generating EXECUTABLE plan for: {}", description);
     println!("   Provider: {}, Model: {}", provider, model);
     if let Some(ref url) = base_url {
         println!("   Base URL: {}", url);
     }
+
+    // Determine agent mode (like Cursor: ask → plan → generate)
+    let mode = agent_mode.as_deref().unwrap_or("generate");
+    println!("   Agent Mode: {}", mode);
 
     // Get API key from parameter or fall back to environment
     // For local/self-hosted (Ollama, vLLM, etc.), API key is optional
@@ -4032,18 +4045,107 @@ async fn ai_generate_executable_plan(
                         error: Some("No API key configured. Please add LLM connection in Settings.".to_string()),
                         clarifying_questions: None,
                         suggestions: vec![],
+                        proposed_steps: None,
+                        agent_mode: Some(mode.to_string()),
                     });
                 }
             }
         }
     };
 
-    // Enhanced prompt for executable workflows
-    let prompt = format!(
-        r#"Create a PRODUCTION-READY automation workflow for the following task:
+    // Add conversation history if provided
+    let history_context = if let Some(ref history) = conversation_history {
+        format!("\n\nCONVERSATION HISTORY:\n{}\n", history)
+    } else {
+        String::new()
+    };
+
+    // Build prompt based on agent mode
+    let prompt = match mode {
+        "ask" => {
+            // ASK MODE: Only ask clarifying questions
+            format!(
+                r#"You are SkuldBot's AI assistant helping to understand a workflow automation request.
+
+USER REQUEST:
+{}{}
+
+ROLE: Clarification Expert
+
+Your task is to ask 2-3 specific, actionable questions to:
+1. Understand the exact requirements
+2. Identify data sources, formats, and destinations
+3. Clarify business rules or conditions
+4. Determine error handling needs
+
+DO NOT generate a workflow yet. Only ask questions.
+
+RESPONSE FORMAT (JSON):
+{{
+  "goal": "Brief 1-sentence summary of what user wants",
+  "confidence": 0.3,
+  "assumptions": [],
+  "unknowns": [
+    {{"question": "What format is the input data?", "blocking": true, "context": "Need to determine if CSV, Excel, JSON, or database"}},
+    {{"question": "Where should results be saved?", "blocking": true, "context": "Output destination"}}
+  ],
+  "tasks": []
+}}
+
+Return ONLY the JSON object with your questions in the unknowns array."#,
+                description,
+                history_context
+            )
+        },
+        "plan" => {
+            // PLAN MODE: Propose approach in natural language
+            format!(
+                r#"You are SkuldBot's AI architect proposing an automation approach.
+
+USER REQUEST:
+{}{}
+
+ROLE: Solution Architect
+
+Your task is to:
+1. Summarize the goal clearly
+2. List your assumptions
+3. Propose a high-level approach (5-7 steps in plain English)
+4. Ask if user wants to proceed with workflow generation
+
+DO NOT generate technical workflow nodes yet. Just describe the approach.
+
+RESPONSE FORMAT (JSON):
+{{
+  "goal": "Clear 1-sentence goal",
+  "confidence": 0.8,
+  "assumptions": [
+    "Input files are in Excel format",
+    "Workflow runs on-demand, not scheduled"
+  ],
+  "proposedSteps": [
+    "Step 1: Monitor folder for new invoices",
+    "Step 2: Extract vendor and amount using OCR",
+    "Step 3: Validate against company policy rules",
+    "Step 4: Route for approval if over $5000",
+    "Step 5: Auto-approve and log if under $5000"
+  ],
+  "unknowns": [],
+  "tasks": []
+}}
+
+Return ONLY the JSON object with your proposed approach."#,
+                description,
+                history_context
+            )
+        },
+        _ => {
+            // GENERATE MODE: Create executable workflow (default)
+            format!(
+                r#"Create a PRODUCTION-READY automation workflow for the following task:
 
 TASK:
-{}
+{}{}
 
 REQUIREMENTS:
 1. The workflow MUST be executable without modifications
@@ -4085,8 +4187,11 @@ Return a JSON object with this structure:
 }}
 
 If confidence < 0.7, populate unknowns array with blocking questions."#,
-        description
-    );
+                description,
+                history_context
+            )
+        }
+    };
 
     // Build system prompt with dynamic node catalog
     let system_prompt = match build_ai_planner_prompt() {
@@ -4103,6 +4208,8 @@ If confidence < 0.7, populate unknowns array with blocking questions."#,
                 error: Some(format!("Failed to load node catalog: {}", e)),
                 clarifying_questions: None,
                 suggestions: vec![],
+                proposed_steps: None,
+                agent_mode: Some(mode.to_string()),
             });
         }
     };
@@ -4216,6 +4323,8 @@ If confidence < 0.7, populate unknowns array with blocking questions."#,
                             error: Some("LLM returned empty plan".to_string()),
                             clarifying_questions: None,
                             suggestions: vec!["Try rephrasing your request with more details".to_string()],
+                            proposed_steps: None,
+                            agent_mode: Some(mode.to_string()),
                         });
                     }
                     
@@ -4230,6 +4339,8 @@ If confidence < 0.7, populate unknowns array with blocking questions."#,
                                 error: Some(format!("Validation failed: {}", e)),
                                 clarifying_questions: None,
                                 suggestions: vec![],
+                                proposed_steps: None,
+                                agent_mode: Some(mode.to_string()),
                             });
                         }
                     };
@@ -4284,6 +4395,8 @@ If confidence < 0.7, populate unknowns array with blocking questions."#,
                         },
                         clarifying_questions,
                         suggestions,
+                        proposed_steps: None, // No proposed steps in generate mode
+                        agent_mode: Some(mode.to_string()),
                     })
                 }
                 Err(parse_err) => {
@@ -4311,6 +4424,8 @@ If confidence < 0.7, populate unknowns array with blocking questions."#,
                                 error: None,
                                 clarifying_questions: None,
                                 suggestions: vec!["Consider using the enhanced format in future requests".to_string()],
+                                proposed_steps: None,
+                                agent_mode: Some(mode.to_string()),
                             })
                         }
                         _ => {
@@ -4321,6 +4436,8 @@ If confidence < 0.7, populate unknowns array with blocking questions."#,
                                 error: Some(format!("Failed to parse LLM response: {}", parse_err)),
                                 clarifying_questions: None,
                                 suggestions: vec!["Try rephrasing your request".to_string()],
+                                proposed_steps: None,
+                                agent_mode: Some(mode.to_string()),
                             })
                         }
                     }
@@ -4336,6 +4453,8 @@ If confidence < 0.7, populate unknowns array with blocking questions."#,
                 error: Some(e),
                 clarifying_questions: None,
                 suggestions: vec![],
+                proposed_steps: None,
+                agent_mode: Some(mode.to_string()),
             })
         }
     }
