@@ -6,6 +6,7 @@ import { Label } from "./ui/label";
 import { Switch } from "./ui/switch";
 import { Button } from "./ui/Button";
 import { Textarea } from "./ui/textarea";
+import { ConfirmDialog } from "./ui/ConfirmDialog";
 import {
   Select,
   SelectContent,
@@ -272,6 +273,10 @@ export default function SettingsPanel() {
 
   const [hasChanges, setHasChanges] = useState(false);
   const [showAddSecret, setShowAddSecret] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; secretName: string | null }>({
+    open: false,
+    secretName: null,
+  });
 
   const [formData, setFormData] = useState({
     name: project?.project.name || "",
@@ -323,13 +328,19 @@ export default function SettingsPanel() {
   };
 
   const handleDeleteSecret = async (name: string) => {
-    if (confirm(`Delete secret "${name}"? This cannot be undone.`)) {
-      await deleteSecret(name);
+    setDeleteConfirm({ open: true, secretName: name });
+  };
+
+  const confirmDelete = async () => {
+    if (deleteConfirm.secretName) {
+      await deleteSecret(deleteConfirm.secretName);
+      setDeleteConfirm({ open: false, secretName: null });
     }
   };
 
   return (
-    <div className="flex-1 bg-slate-50 overflow-auto">
+    <>
+      <div className="flex-1 bg-slate-50 overflow-auto">
       <div className="max-w-3xl mx-auto p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -638,5 +649,17 @@ export default function SettingsPanel() {
         </div>
       </div>
     </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteConfirm.open}
+        onOpenChange={(open) => !open && setDeleteConfirm({ open: false, secretName: null })}
+        title="Delete Secret"
+        description={`Are you sure you want to delete the secret "${deleteConfirm.secretName}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={confirmDelete}
+      />
+    </>
   );
 }

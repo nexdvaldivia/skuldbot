@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
+import { useToastStore } from '../../store/toastStore';
 import {
   Activity,
   TrendingUp,
@@ -39,6 +40,7 @@ export const UsageDashboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState('current');
+  const toast = useToastStore();
 
   useEffect(() => {
     loadUsageData();
@@ -67,9 +69,9 @@ export const UsageDashboard: React.FC = () => {
       await invoke('export_usage_report', {
         period: usage?.period,
       });
-      alert('Usage report exported successfully');
+      toast.success("Report Exported", "Usage report exported successfully");
     } catch (err: any) {
-      alert(`Export failed: ${err.message}`);
+      toast.error("Export Failed", err.message || "Failed to export usage report");
     }
   };
 

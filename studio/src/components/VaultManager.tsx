@@ -192,7 +192,8 @@ export default function VaultManager() {
 
   // Unlocked state - show secrets management
   return (
-    <div className="flex-1 bg-slate-50 overflow-auto">
+    <>
+      <div className="flex-1 bg-slate-50 overflow-auto">
       <div className="max-w-3xl mx-auto p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -377,15 +378,16 @@ export default function VaultManager() {
       </div>
     </div>
 
-    {/* Delete Confirmation Dialog */}
-    <ConfirmDialog
-      open={deleteConfirm.open}
-      onOpenChange={(open) => !open && setDeleteConfirm({ open: false, secretName: null })}
-      title="Delete Secret"
-      description={`Are you sure you want to delete the secret "${deleteConfirm.secretName}"? This action cannot be undone.`}
-      confirmLabel="Delete"
-      variant="destructive"
-      onConfirm={confirmDelete}
-    />
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteConfirm.open}
+        onOpenChange={(open) => !open && setDeleteConfirm({ open: false, secretName: null })}
+        title="Delete Secret"
+        description={`Are you sure you want to delete the secret "${deleteConfirm.secretName}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={confirmDelete}
+      />
+    </>
   );
 }

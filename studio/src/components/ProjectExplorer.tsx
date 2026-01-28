@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useProjectStore } from "../store/projectStore";
 import { useTabsStore } from "../store/tabsStore";
 import { useNavigationStore } from "../store/navigationStore";
+import { ConfirmDialog } from "./ui/ConfirmDialog";
 import {
   ChevronDown,
   ChevronRight,
@@ -199,6 +200,10 @@ export default function ProjectExplorer() {
     settings: false,
   });
   const [showCreateBot, setShowCreateBot] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; botId: string | null }>({
+    open: false,
+    botId: null,
+  });
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -232,10 +237,15 @@ export default function ProjectExplorer() {
   };
 
   const handleDeleteBot = async (botId: string) => {
-    if (confirm("Are you sure you want to delete this bot?")) {
-      await deleteBot(botId);
-    }
+    setDeleteConfirm({ open: true, botId });
     setContextMenu(null);
+  };
+
+  const confirmDelete = async () => {
+    if (deleteConfirm.botId) {
+      await deleteBot(deleteConfirm.botId);
+      setDeleteConfirm({ open: false, botId: null });
+    }
   };
 
   const botsArray = Array.from(bots.values());
@@ -430,6 +440,17 @@ export default function ProjectExplorer() {
       <CreateBotDialog
         isOpen={showCreateBot}
         onClose={() => setShowCreateBot(false)}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteConfirm.open}
+        onOpenChange={(open) => !open && setDeleteConfirm({ open: false, botId: null })}
+        title="Delete Bot"
+        description="Are you sure you want to delete this bot? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={confirmDelete}
       />
     </div>
   );

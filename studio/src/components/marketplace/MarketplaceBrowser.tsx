@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
+import { useToastStore } from '../../store/toastStore';
 import {
   Search,
   Download,
@@ -47,6 +48,7 @@ export const MarketplaceBrowser: React.FC<MarketplaceBrowserProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedIndustry, setSelectedIndustry] = useState<string>('all');
+  const toast = useToastStore();
 
   const categories = [
     'all',
@@ -104,9 +106,9 @@ export const MarketplaceBrowser: React.FC<MarketplaceBrowserProps> = ({
       onBotInstall?.(bot);
 
       // Show success notification
-      alert(`Successfully subscribed to ${bot.name}`);
+      toast.success("Bot Subscribed", `Successfully subscribed to ${bot.name}`);
     } catch (err: any) {
-      alert(`Failed to subscribe: ${err.message}`);
+      toast.error("Subscription Failed", err.message || "Failed to subscribe to bot");
     } finally {
       setLoading(false);
     }

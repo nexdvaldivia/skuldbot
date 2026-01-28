@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { X, Key, CheckCircle, AlertCircle, Loader2, Shield, Sparkles, BarChart3 } from "lucide-react";
 import { Button } from "./ui/Button";
+import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { useLicenseStore, useLicenseStatus } from "../store/licenseStore";
 import { LicenseModule } from "../types/ai-planner";
 
@@ -54,6 +55,10 @@ export function LicenseDialog({ isOpen, onClose }: LicenseDialogProps) {
   const [licenseKey, setLicenseKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [deactivateConfirm, setDeactivateConfirm] = useState<{ open: boolean; module: LicenseModule | null }>({
+    open: false,
+    module: null,
+  });
 
   const handleActivate = async () => {
     if (!licenseKey.trim()) {
@@ -75,8 +80,13 @@ export function LicenseDialog({ isOpen, onClose }: LicenseDialogProps) {
   };
 
   const handleDeactivate = (module: LicenseModule) => {
-    if (confirm(`Are you sure you want to deactivate the ${MODULE_INFO[module].name} license?`)) {
-      deactivateLicense(module);
+    setDeactivateConfirm({ open: true, module });
+  };
+
+  const confirmDeactivate = () => {
+    if (deactivateConfirm.module) {
+      deactivateLicense(deactivateConfirm.module);
+      setDeactivateConfirm({ open: false, module: null });
     }
   };
 
@@ -91,7 +101,8 @@ export function LicenseDialog({ isOpen, onClose }: LicenseDialogProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+    <>
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
@@ -307,6 +318,18 @@ export function LicenseDialog({ isOpen, onClose }: LicenseDialogProps) {
         </div>
       </div>
     </div>
+
+      {/* Deactivate Confirmation Dialog */}
+      <ConfirmDialog
+        open={deactivateConfirm.open}
+        onOpenChange={(open) => !open && setDeactivateConfirm({ open: false, module: null })}
+        title="Deactivate License"
+        description={deactivateConfirm.module ? `Are you sure you want to deactivate the ${MODULE_INFO[deactivateConfirm.module].name} license?` : ""}
+        confirmLabel="Deactivate"
+        variant="destructive"
+        onConfirm={confirmDeactivate}
+      />
+    </>
   );
 }
 
