@@ -27,8 +27,8 @@ import { Slider } from "../ui/slider";
 import { Input } from "../ui/Input";
 import { Card, CardContent } from "../ui/card";
 import { useAIPlannerV2Store } from "../../store/aiPlannerV2Store";
-import { useConnectionsStore, LLMConnection, maskApiKey } from "../../store/connectionsStore";
-import { LLMProvider } from "../../types/ai-planner";
+import { useConnectionsStore } from "../../store/connectionsStore";
+import { LLMProvider, LLMConnection } from "../../types/ai-planner";
 import ConnectionDialog from "./ConnectionDialog";
 
 interface LLMConfigDialogProps {
@@ -178,8 +178,7 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
     setLLMConfig({
       provider: selectedConnection.provider,
       model: model === "custom" ? customModel : model,
-      apiKey: selectedConnection.apiKey,
-      baseUrl: selectedConnection.baseUrl,
+      // apiKey and baseUrl are now in config object
       temperature,
       connectionId: selectedConnection.id,
     });
@@ -309,7 +308,7 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
               {selectedConnection && (
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-slate-500">
-                    API Key: {maskApiKey(selectedConnection.apiKey)}
+                    Connected: {selectedConnection.name}
                   </p>
                   <div className="flex items-center gap-1">
                     {!selectedConnection.isDefault && (
@@ -429,7 +428,7 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
       <ConnectionDialog
         isOpen={showConnectionDialog}
         onClose={handleConnectionDialogClose}
-        editConnection={editingConnection}
+        editingConnection={editingConnection}
       />
     </>
   );

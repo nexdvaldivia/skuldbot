@@ -230,3 +230,133 @@ export interface AIPlannerV2State {
   setLLMConfig: (config: Partial<LLMConfig>) => void;
   reset: () => void;
 }
+
+// ============================================================
+// LLM Connection Manager Types (AI Planner - Design Time)
+// ============================================================
+
+export interface AzureFoundryConfig {
+  type: "azure-foundry";
+  endpoint: string;
+  deployment: string;
+  apiKey: string;
+  apiVersion?: string;
+}
+
+export interface AWSBedrockConfig {
+  type: "aws-bedrock";
+  accessKeyId: string;
+  secretAccessKey: string;
+  region: string;
+  modelId: string;
+}
+
+export interface VertexAIConfig {
+  type: "vertex-ai";
+  projectId: string;
+  location: string;
+  serviceAccountJson: string;
+  model: string;
+}
+
+export interface OllamaConfig {
+  type: "ollama";
+  baseUrl: string;
+  model: string;
+}
+
+export interface VLLMConfig {
+  type: "vllm";
+  baseUrl: string;
+  model: string;
+}
+
+export interface TGIConfig {
+  type: "tgi";
+  baseUrl: string;
+  model: string;
+}
+
+export interface LlamaCppConfig {
+  type: "llamacpp";
+  baseUrl: string;
+  model: string;
+}
+
+export interface LMStudioConfig {
+  type: "lmstudio";
+  baseUrl: string;
+  model: string;
+}
+
+export interface LocalAIConfig {
+  type: "localai";
+  baseUrl: string;
+  model: string;
+}
+
+export interface OpenAIConfig {
+  type: "openai";
+  apiKey: string;
+  baseUrl?: string;
+  model: string;
+}
+
+export interface AnthropicConfig {
+  type: "anthropic";
+  apiKey: string;
+  model: string;
+}
+
+export interface CustomConfig {
+  type: "custom";
+  name: string;
+  baseUrl: string;
+  apiKey?: string;
+  model: string;
+  headers?: Record<string, string>;
+}
+
+export type ProviderConfig =
+  | AzureFoundryConfig
+  | AWSBedrockConfig
+  | VertexAIConfig
+  | OllamaConfig
+  | VLLMConfig
+  | TGIConfig
+  | LlamaCppConfig
+  | LMStudioConfig
+  | LocalAIConfig
+  | OpenAIConfig
+  | AnthropicConfig
+  | CustomConfig;
+
+export interface LLMConnectionHealthStatus {
+  status: "healthy" | "degraded" | "down";
+  lastCheckedAt: string;
+  latencyMs?: number;
+  errorMessage?: string;
+}
+
+export interface LLMConnection {
+  id: string;
+  name: string;
+  provider: LLMProvider;
+  config: ProviderConfig;
+  isDefault: boolean;
+  lastUsedAt?: string;
+  healthStatus?: LLMConnectionHealthStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TestConnectionResult {
+  success: boolean;
+  latencyMs?: number;
+  message: string;
+  modelInfo?: {
+    name: string;
+    version?: string;
+    capabilities?: string[];
+  };
+}

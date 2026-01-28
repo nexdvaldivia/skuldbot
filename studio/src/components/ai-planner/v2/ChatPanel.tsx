@@ -4,12 +4,14 @@
  */
 
 import { useRef, useEffect } from "react";
-import { Send, Loader2, Bot, User } from "lucide-react";
+import { Send, Loader2, Bot, User, Link2, AlertCircle } from "lucide-react";
 import { Button } from "../../ui/Button";
 import { Textarea } from "../../ui/textarea";
 import { ScrollArea } from "../../ui/scroll-area";
 import { Card } from "../../ui/card";
 import { useAIPlannerV2Store } from "../../../store/aiPlannerV2Store";
+import { useConnectionsStore } from "../../../store/connectionsStore";
+import { useToastStore } from "../../../store/toastStore";
 
 export function ChatPanel() {
   const {
@@ -22,6 +24,15 @@ export function ChatPanel() {
     refineWithFeedback,
     currentPlan,
   } = useAIPlannerV2Store();
+  
+  const {
+    connections,
+    selectedConnectionId,
+    selectConnection,
+    getSelectedConnection,
+  } = useConnectionsStore();
+  
+  const toast = useToastStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -55,6 +66,13 @@ export function ChatPanel() {
   const handleSend = async () => {
     if (!userInput.trim() || isGenerating || isRefining) return;
 
+    // Check if connection is selected
+    const connection = getSelectedConnection();
+    if (!connection) {
+      toast.error("No LLM Connection", "Please select an LLM connection from the Connections tab");
+      return;
+    }
+
     const input = userInput.trim();
     setUserInput("");
 
@@ -73,9 +91,70 @@ export function ChatPanel() {
       handleSend();
     }
   };
+  
+  const selectedConnection = getSelectedConnection();
+  
+  const getProviderColor = (provider: string): string => {
+    const colors: Record<string, string> = {
+      "openai": "bg-emerald-100 text-emerald-700 border-emerald-300",
+      "anthropic": "bg-purple-100 text-purple-700 border-purple-300",
+      "azure-foundry": "bg-blue-100 text-blue-700 border-blue-300",
+      "ollama": "bg-indigo-100 text-indigo-700 border-indigo-300",
+    };
+    return colors[provider] || "bg-gray-100 text-gray-700 border-gray-300";
+  };
 
   return (
     <div className="flex flex-col h-full bg-neutral-50">
+      {/* Connection Status Header */}
+      {connections.length > 0 && (
+        <div className="px-6 py-3 bg-white border-b border-neutral-200">
+          <div className="flex items-center justify-between max-w-3xl mx-auto">
+            <div className="flex items-center gap-2 text-xs text-neutral-600">
+              <Link2 className="w-3.5 h-3.5" />
+              <span className="font-medium">LLM Connection:</span>
+            </div>
+            
+            {selectedConnection ? (
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedConnectionId || ""}
+                  onChange={(e) => selectConnection(e.target.value)}
+                  className={`
+                    text-xs font-medium px-2.5 py-1.5 rounded-md border transition-colors
+                    ${getProviderColor(selectedConnection.provider)}
+                    focus:outline-none focus:ring-2 focus:ring-primary-500
+                  `}
+                >
+                  {connections.map((conn) => (
+                    <option key={conn.id} value={conn.id}>
+                      {conn.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-amber-700 text-xs">
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>No connection selected</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {/* Warning if no connections */}
+      {connections.length === 0 && (
+        <div className="px-6 py-3 bg-amber-50 border-b border-amber-200">
+          <div className="flex items-center gap-2 text-xs text-amber-800 max-w-3xl mx-auto">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <p>
+              <span className="font-semibold">No LLM connection configured.</span> Go to the Connections tab to add one.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Messages */}
       <ScrollArea className="flex-1 p-6">
         <div ref={scrollRef} className="space-y-4 max-w-3xl mx-auto">

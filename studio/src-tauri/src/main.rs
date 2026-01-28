@@ -3,6 +3,7 @@
 
 mod protection;
 mod mcp;
+mod ai_planner;
 
 use std::process::Command;
 use std::path::PathBuf;
@@ -4458,6 +4459,108 @@ except Exception as e:
     }
 }
 
+// ============================================================
+// AI Planner - LLM Connection Management
+// ============================================================
+
+use ai_planner::connection_validator;
+use ai_planner::types::{LLMConnection, ProviderConfig, TestConnectionResult};
+use ai_planner::db::ConnectionsDb;
+
+// Global database instance
+static CONNECTIONS_DB: once_cell::sync::OnceCell<Mutex<ConnectionsDb>> = once_cell::sync::OnceCell::new();
+
+fn get_connections_db(app_handle: &tauri::AppHandle) -> Result<&'static Mutex<ConnectionsDb>, String> {
+    CONNECTIONS_DB.get_or_try_init(|| {
+        let app_dir = app_data_dir(&app_handle.config())
+            .ok_or_else(|| "Could not determine app data directory".to_string())?;
+        
+        fs::create_dir_all(&app_dir)
+            .map_err(|e| format!("Failed to create app data directory: {}", e))?;
+        
+        let db_path = app_dir.join("connections.db");
+        let db = ConnectionsDb::new(db_path.to_str().unwrap())
+            .map_err(|e| format!("Failed to initialize connections database: {}", e))?;
+        
+        Ok(Mutex::new(db))
+    })
+}
+
+#[tauri::command]
+async fn test_llm_connection_v2(
+    config: ProviderConfig
+) -> Result<TestConnectionResult, String> {
+    println!("🔌 Testing LLM connection...");
+    connection_validator::test_connection(config).await
+}
+
+#[tauri::command]
+async fn save_llm_connection(
+    connection: LLMConnection,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    println!("💾 Saving LLM connection: {}", connection.name);
+    
+    let db = get_connections_db(&app_handle)?;
+    let db = db.lock().map_err(|e| format!("Database lock error: {}", e))?;
+    
+    db.save_connection(&connection)
+        .map_err(|e| format!("Failed to save connection: {}", e))?;
+    
+    println!("✅ LLM connection saved to database");
+    Ok(())
+}
+
+#[tauri::command]
+async fn load_llm_connections(
+    app_handle: tauri::AppHandle,
+) -> Result<Vec<LLMConnection>, String> {
+    println!("📂 Loading LLM connections from database...");
+    
+    let db = get_connections_db(&app_handle)?;
+    let db = db.lock().map_err(|e| format!("Database lock error: {}", e))?;
+    
+    let connections = db.load_all_connections()
+        .map_err(|e| format!("Failed to load connections: {}", e))?;
+    
+    println!("✅ Loaded {} LLM connections", connections.len());
+    Ok(connections)
+}
+
+#[tauri::command]
+async fn delete_llm_connection(
+    connection_id: String,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    println!("🗑️  Deleting LLM connection: {}", connection_id);
+    
+    let db = get_connections_db(&app_handle)?;
+    let db = db.lock().map_err(|e| format!("Database lock error: {}", e))?;
+    
+    db.delete_connection(&connection_id)
+        .map_err(|e| format!("Failed to delete connection: {}", e))?;
+    
+    println!("✅ LLM connection deleted");
+    Ok(())
+}
+
+#[tauri::command]
+async fn set_default_llm_connection(
+    connection_id: String,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    println!("⭐ Setting default LLM connection: {}", connection_id);
+    
+    let db = get_connections_db(&app_handle)?;
+    let db = db.lock().map_err(|e| format!("Database lock error: {}", e))?;
+    
+    db.set_default_connection(&connection_id)
+        .map_err(|e| format!("Failed to set default connection: {}", e))?;
+    
+    println!("✅ Default connection updated");
+    Ok(())
+}
+
 fn kill_dev_server() {
     // Kill the Vite dev server on port 1420 when the app closes
     #[cfg(target_os = "macos")]
@@ -4553,6 +4656,12 @@ fn main() {
             load_connections,
             test_llm_connection,
             test_ms365_connection,
+            // AI Planner - LLM Connections (New)
+            test_llm_connection_v2,
+            save_llm_connection,
+            load_llm_connections,
+            delete_llm_connection,
+            set_default_llm_connection,
             // AI Planner commands
             ai_generate_plan,
             ai_refine_plan,

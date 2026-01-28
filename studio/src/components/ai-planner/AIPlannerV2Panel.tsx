@@ -4,12 +4,13 @@
  */
 
 import { useEffect } from "react";
-import { X, Bot, Sparkles, Settings } from "lucide-react";
+import { X, Bot, Sparkles, Settings, Link2 } from "lucide-react";
 import { Button } from "../ui/Button";
 import { useLicenseStore, useCanUseAIPlanner } from "../../store/licenseStore";
 import { ChatPanel } from "./v2/ChatPanel";
 import { PreviewPanel } from "./v2/PreviewPanel";
 import { ValidationPanel } from "./v2/ValidationPanel";
+import { ConnectionsPanel } from "./v2/ConnectionsPanel";
 import { LLMConfigDialog } from "./LLMConfigDialog";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
@@ -23,7 +24,7 @@ export function AIPlannerV2Panel({ isOpen, onClose }: AIPlannerV2PanelProps) {
   const canUseAI = useCanUseAIPlanner();
   const isStudioActivated = useLicenseStore((state) => state.isStudioActivated);
   const [showLLMConfig, setShowLLMConfig] = useState(false);
-  const [activeTab, setActiveTab] = useState<"chat" | "preview" | "validation">("chat");
+  const [activeTab, setActiveTab] = useState<"chat" | "preview" | "validation" | "connections">("chat");
 
   // Reset on close
   useEffect(() => {
@@ -55,6 +56,10 @@ export function AIPlannerV2Panel({ isOpen, onClose }: AIPlannerV2PanelProps) {
             break;
           case "3":
             setActiveTab("validation");
+            e.preventDefault();
+            break;
+          case "4":
+            setActiveTab("connections");
             e.preventDefault();
             break;
         }
@@ -197,6 +202,16 @@ export function AIPlannerV2Panel({ isOpen, onClose }: AIPlannerV2PanelProps) {
                       ⌘3
                     </kbd>
                   </TabsTrigger>
+                  <TabsTrigger 
+                    value="connections" 
+                    className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary-500 rounded-none px-4 h-12 text-sm font-medium"
+                  >
+                    <Link2 className="w-4 h-4 mr-2" />
+                    Connections
+                    <kbd className="ml-2 hidden sm:inline-flex h-5 px-1.5 rounded bg-neutral-100 text-[11px] font-medium text-neutral-600 border border-neutral-200">
+                      ⌘4
+                    </kbd>
+                  </TabsTrigger>
                 </TabsList>
               </div>
 
@@ -210,6 +225,9 @@ export function AIPlannerV2Panel({ isOpen, onClose }: AIPlannerV2PanelProps) {
                 </TabsContent>
                 <TabsContent value="validation" className="h-full m-0 p-0">
                   <ValidationPanel />
+                </TabsContent>
+                <TabsContent value="connections" className="h-full m-0 p-0">
+                  <ConnectionsPanel />
                 </TabsContent>
               </div>
             </Tabs>
