@@ -3,7 +3,7 @@
  * Modal for creating and editing LLM connections with provider-specific configurations
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { X, Key, Globe, Loader2, CheckCircle, AlertCircle, Plug } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "../ui/select";
@@ -112,7 +112,10 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
 
   // Reset form
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return;
+    
+    // Use setTimeout to defer heavy operations after render
+    const timer = setTimeout(() => {
       if (editingConnection) {
         setName(editingConnection.name);
         setProvider(editingConnection.provider);
@@ -168,10 +171,12 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
         resetForm();
       }
       setTestResult(null);
-    }
-  }, [isOpen, editingConnection]);
+    }, 0);
+    
+    return () => clearTimeout(timer);
+  }, [isOpen, editingConnection, resetForm]);
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setName("");
     setProvider("openai");
     setAzureEndpoint("");
@@ -193,15 +198,15 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
     setAnthropicModel("claude-3-5-sonnet-20241022");
     setCustomName("");
     setCustomHeaders("");
-  };
+  }, []);
 
-  const handleProviderChange = (newProvider: LLMProvider) => {
+  const handleProviderChange = useCallback((newProvider: LLMProvider) => {
     setProvider(newProvider);
     setTestResult(null);
 
     // Set defaults for self-hosted
     const defaults: Record<string, { url: string; model: string }> = {
-      ollama: { url: "http://localhost:11434", model: "llama3.2:latest" },
+      ollama: { url: "http://localhost:11434", model: "qwen2.5-coder:7b" },
       lmstudio: { url: "http://localhost:1234/v1", model: "local-model" },
       vllm: { url: "http://localhost:8000", model: "meta-llama/Llama-3.2-3B-Instruct" },
       tgi: { url: "http://localhost:8080", model: "mistralai/Mixtral-8x7B-Instruct-v0.1" },
@@ -213,7 +218,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
       setBaseUrl(defaults[newProvider].url);
       setModel(defaults[newProvider].model);
     }
-  };
+  }, []);
 
   const buildProviderConfig = (): ProviderConfig | null => {
     switch (provider) {
