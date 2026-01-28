@@ -24,7 +24,6 @@ export function ChatPanel() {
     generateExecutablePlan,
     refineWithFeedback,
     currentPlan,
-    addMessage,
     agentMode,
     setAgentMode,
   } = useAIPlannerV2Store();
@@ -95,43 +94,8 @@ export function ChatPanel() {
     // - Respond conversationally to greetings
     // - Ask clarifying questions when needed
     // - Generate workflows when it has enough info
+    console.log(`💬 Input: "${input}" | Mode: ${agentMode}`);
     await generateExecutablePlan(input);
-  };
-
-  // Helper to detect if user is requesting a workflow
-  const detectWorkflowIntent = (input: string): boolean => {
-    const lower = input.toLowerCase();
-    
-    // Simple greetings and short messages are NOT workflow requests
-    const greetings = ['hola', 'hello', 'hi', 'hey', 'buenos dias', 'good morning'];
-    if (greetings.includes(lower) || input.length < 15) {
-      return false;
-    }
-
-    // Keywords that suggest workflow intent
-    const workflowKeywords = [
-      'automat', 'workflow', 'bot', 'process', 'scrape', 'extract',
-      'download', 'upload', 'send email', 'schedule', 'trigger',
-      'crea', 'create', 'hacer', 'make', 'necesito', 'need',
-      'quiero', 'want', 'build', 'generar', 'generate'
-    ];
-
-    return workflowKeywords.some(keyword => lower.includes(keyword));
-  };
-
-  // Helper to get conversational response
-  const getConversationalResponse = (input: string): string => {
-    const lower = input.toLowerCase();
-    
-    if (lower.includes('hola') || lower.includes('hello') || lower.includes('hi')) {
-      return "¡Hola! 👋 Soy tu asistente de AI Planner. Puedo ayudarte a crear workflows de automatización.\n\n¿Qué te gustaría automatizar hoy? Por ejemplo:\n• Descargar facturas de Gmail\n• Extraer datos de PDFs\n• Crear un chatbot RAG\n• Automatizar reportes";
-    }
-    
-    if (lower.includes('que puedes hacer') || lower.includes('what can you do')) {
-      return "Puedo ayudarte a crear workflows de automatización production-ready:\n\n• **RPA**: Automatizar tareas en web/desktop\n• **Data**: Extraer, transformar, cargar datos\n• **AI**: Clasificar, extraer, resumir con LLMs\n• **Integrations**: Email, S3, DBs, APIs\n\nSimplemente descríbeme qué quieres automatizar y yo genero el workflow completo con validación y manejo de errores.";
-    }
-
-    return "No estoy seguro de entender. ¿Quieres que genere un workflow de automatización?\n\nSi es así, descríbeme en detalle qué proceso quieres automatizar. Por ejemplo: \"Descargar facturas diarias de Gmail y subirlas a S3\"";
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -346,7 +310,12 @@ export function ChatPanel() {
               <Card className="p-4 bg-white border-neutral-200">
                 <div className="flex items-center gap-2 text-neutral-500">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="text-sm">Generating workflow...</span>
+                  <span className="text-sm">
+                    {agentMode === "ask" && "Pensando..."}
+                    {agentMode === "plan" && "Planeando enfoque..."}
+                    {agentMode === "generate" && "Generando workflow..."}
+                    {(!agentMode || agentMode === "idle" || agentMode === "refine") && "Procesando..."}
+                  </span>
                 </div>
               </Card>
             </div>

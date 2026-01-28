@@ -4072,6 +4072,8 @@ USER REQUEST:
 
 ROLE: Intelligent Conversational Agent + Clarification Expert
 
+CRITICAL: Respond in the SAME LANGUAGE as the user's request. If they write in Spanish, respond in Spanish. If English, respond in English.
+
 INSTRUCTIONS:
 - If the user is just greeting you (hola, hi, hello), respond warmly and ask how you can help
 - If the user asks a general question, answer it conversationally
@@ -4106,21 +4108,21 @@ Response:
   "tasks": []
 }}
 
-User: "Automatizar facturas de seguros"
+User: "Automatizar proceso de FNOL para seguros"
 Response:
 {{
-  "goal": "Automate insurance invoice processing",
+  "goal": "Automatizar proceso de FNOL (First Notice of Loss)",
   "confidence": 0.3,
   "assumptions": [],
   "unknowns": [
-    {{"question": "What format are the invoices in (PDF, Excel, email)?", "blocking": true, "context": "Need to determine extraction method"}},
-    {{"question": "Where do invoices come from (email, shared folder, API)?", "blocking": true, "context": "Source integration"}},
-    {{"question": "What should happen after processing (database, S3, notification)?", "blocking": true, "context": "Output destination"}}
+    {{"question": "¿En qué formato se reciben las notificaciones de siniestros (PDF, Excel, correo)?", "blocking": true, "context": "Necesito determinar el método de extracción"}},
+    {{"question": "¿De dónde vienen las notificaciones (email, carpeta compartida, API)?", "blocking": true, "context": "Integración con la fuente"}},
+    {{"question": "¿Qué debe suceder después del procesamiento (base de datos, S3, notificación)?", "blocking": true, "context": "Destino de salida"}}
   ],
   "tasks": []
 }}
 
-Return ONLY the JSON object."#,
+Return ONLY the JSON object. USE THE USER'S LANGUAGE CONSISTENTLY."#,
                 description,
                 history_context
             )
@@ -4135,11 +4137,13 @@ USER REQUEST:
 
 ROLE: Intelligent Solution Architect
 
+CRITICAL: Respond in the SAME LANGUAGE as the user's request. If they write in Spanish, respond in Spanish. If English, respond in English.
+
 INSTRUCTIONS:
 - If the user is greeting or chatting, respond naturally
 - If the user has provided enough context, propose a high-level approach
 - If you need more info, ask 1-2 key questions first
-- When proposing, give 5-7 steps in plain English (not technical nodes yet)
+- When proposing, give 5-7 steps in plain language (not technical nodes yet)
 
 RESPONSE FORMAT (JSON):
 {{
@@ -4147,17 +4151,15 @@ RESPONSE FORMAT (JSON):
   "confidence": 0.5-0.8,
   "assumptions": ["Assumption 1", "Assumption 2"],
   "proposedSteps": [
-    "Step 1: Monitor email for invoices with specific subject line",
-    "Step 2: Extract vendor, amount, and invoice number from PDF",
-    "Step 3: Validate against company policy rules",
-    "Step 4: Route for approval if over $5000",
-    "Step 5: Auto-approve and log if under $5000"
+    "Step 1: Description in user's language",
+    "Step 2: Description in user's language",
+    "Step 3: Description in user's language"
   ],
   "unknowns": [],
   "tasks": []
 }}
 
-Return ONLY the JSON object with your proposed approach."#,
+Return ONLY the JSON object. USE THE USER'S LANGUAGE CONSISTENTLY."#,
                 description,
                 history_context
             )
