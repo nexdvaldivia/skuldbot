@@ -90,21 +90,12 @@ export function ChatPanel() {
     const isWorkflowRequest = detectWorkflowIntent(input);
     console.log(`💬 Input: "${input}" | Mode: ${agentMode} | Looks like workflow: ${isWorkflowRequest}`);
 
-    // If it's clearly NOT a workflow request (greeting, short message), just chat
-    if (!isWorkflowRequest) {
-      addMessage("user", input);
-      addMessage("assistant", getConversationalResponse(input));
-      return;
-    }
-
-    // If it looks like a workflow request, use the selected mode
-    if (agentMode === "ask" || agentMode === "plan" || agentMode === "generate") {
-      // User selected a mode AND it's a workflow request → generate with that mode
-      await generateExecutablePlan(input);
-    } else {
-      // Fallback: mode is idle/refine → use default generate
-      await generateExecutablePlan(input);
-    }
+    // Always call LLM with the selected mode - let the AI decide what to do
+    // The LLM is smart enough to:
+    // - Respond conversationally to greetings
+    // - Ask clarifying questions when needed
+    // - Generate workflows when it has enough info
+    await generateExecutablePlan(input);
   };
 
   // Helper to detect if user is requesting a workflow

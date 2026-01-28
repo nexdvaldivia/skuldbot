@@ -4063,69 +4063,92 @@ async fn ai_generate_executable_plan(
     // Build prompt based on agent mode
     let prompt = match mode {
         "ask" => {
-            // ASK MODE: Only ask clarifying questions
+            // ASK MODE: Conversational + ask clarifying questions when needed
             format!(
                 r#"You are SkuldBot's AI assistant helping to understand a workflow automation request.
 
 USER REQUEST:
 {}{}
 
-ROLE: Clarification Expert
+ROLE: Intelligent Conversational Agent + Clarification Expert
 
-Your task is to ask 2-3 specific, actionable questions to:
-1. Understand the exact requirements
-2. Identify data sources, formats, and destinations
-3. Clarify business rules or conditions
-4. Determine error handling needs
-
-DO NOT generate a workflow yet. Only ask questions.
+INSTRUCTIONS:
+- If the user is just greeting you (hola, hi, hello), respond warmly and ask how you can help
+- If the user asks a general question, answer it conversationally
+- If the user describes an automation need, ask 2-3 specific, actionable questions to clarify:
+  1. Data sources and formats
+  2. Output destinations
+  3. Business rules or conditions
+  4. Error handling requirements
 
 RESPONSE FORMAT (JSON):
 {{
-  "goal": "Brief 1-sentence summary of what user wants",
-  "confidence": 0.3,
+  "goal": "Brief 1-sentence summary (or 'Greeting' for casual chat)",
+  "confidence": 0.1-0.9,
   "assumptions": [],
   "unknowns": [
-    {{"question": "What format is the input data?", "blocking": true, "context": "Need to determine if CSV, Excel, JSON, or database"}},
-    {{"question": "Where should results be saved?", "blocking": true, "context": "Output destination"}}
+    {{"question": "Your question here?", "blocking": true, "context": "Why you need this info"}}
   ],
   "tasks": []
 }}
 
-Return ONLY the JSON object with your questions in the unknowns array."#,
+EXAMPLES:
+
+User: "hola"
+Response:
+{{
+  "goal": "Greeting",
+  "confidence": 0.1,
+  "assumptions": [],
+  "unknowns": [
+    {{"question": "¡Hola! 👋 Soy tu asistente de automatización. ¿En qué proceso te puedo ayudar hoy?", "blocking": false, "context": "Opening conversation"}}
+  ],
+  "tasks": []
+}}
+
+User: "Automatizar facturas de seguros"
+Response:
+{{
+  "goal": "Automate insurance invoice processing",
+  "confidence": 0.3,
+  "assumptions": [],
+  "unknowns": [
+    {{"question": "What format are the invoices in (PDF, Excel, email)?", "blocking": true, "context": "Need to determine extraction method"}},
+    {{"question": "Where do invoices come from (email, shared folder, API)?", "blocking": true, "context": "Source integration"}},
+    {{"question": "What should happen after processing (database, S3, notification)?", "blocking": true, "context": "Output destination"}}
+  ],
+  "tasks": []
+}}
+
+Return ONLY the JSON object."#,
                 description,
                 history_context
             )
         },
         "plan" => {
-            // PLAN MODE: Propose approach in natural language
+            // PLAN MODE: Conversational + propose approach when ready
             format!(
                 r#"You are SkuldBot's AI architect proposing an automation approach.
 
 USER REQUEST:
 {}{}
 
-ROLE: Solution Architect
+ROLE: Intelligent Solution Architect
 
-Your task is to:
-1. Summarize the goal clearly
-2. List your assumptions
-3. Propose a high-level approach (5-7 steps in plain English)
-4. Ask if user wants to proceed with workflow generation
-
-DO NOT generate technical workflow nodes yet. Just describe the approach.
+INSTRUCTIONS:
+- If the user is greeting or chatting, respond naturally
+- If the user has provided enough context, propose a high-level approach
+- If you need more info, ask 1-2 key questions first
+- When proposing, give 5-7 steps in plain English (not technical nodes yet)
 
 RESPONSE FORMAT (JSON):
 {{
   "goal": "Clear 1-sentence goal",
-  "confidence": 0.8,
-  "assumptions": [
-    "Input files are in Excel format",
-    "Workflow runs on-demand, not scheduled"
-  ],
+  "confidence": 0.5-0.8,
+  "assumptions": ["Assumption 1", "Assumption 2"],
   "proposedSteps": [
-    "Step 1: Monitor folder for new invoices",
-    "Step 2: Extract vendor and amount using OCR",
+    "Step 1: Monitor email for invoices with specific subject line",
+    "Step 2: Extract vendor, amount, and invoice number from PDF",
     "Step 3: Validate against company policy rules",
     "Step 4: Route for approval if over $5000",
     "Step 5: Auto-approve and log if under $5000"
