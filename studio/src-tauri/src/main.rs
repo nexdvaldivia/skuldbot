@@ -3586,9 +3586,21 @@ async fn call_openai_api(
 ) -> Result<String, String> {
     let client = reqwest::Client::new();
 
-    let url = base_url
-        .map(|u| format!("{}/chat/completions", u.trim_end_matches('/')))
-        .unwrap_or_else(|| "https://api.openai.com/v1/chat/completions".to_string());
+    // Construct URL based on whether it's a custom base_url or OpenAI
+    let url = match base_url {
+        Some(custom_url) => {
+            // For Ollama and other OpenAI-compatible APIs, use /v1/chat/completions
+            let trimmed = custom_url.trim_end_matches('/');
+            if trimmed.ends_with("/v1") {
+                format!("{}/chat/completions", trimmed)
+            } else {
+                format!("{}/v1/chat/completions", trimmed)
+            }
+        }
+        None => "https://api.openai.com/v1/chat/completions".to_string(),
+    };
+
+    println!("   Calling LLM API: {}", url);
 
     let request = OpenAIRequest {
         model: model.to_string(),
