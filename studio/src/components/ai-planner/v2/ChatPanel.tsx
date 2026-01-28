@@ -90,18 +90,20 @@ export function ChatPanel() {
     const isWorkflowRequest = detectWorkflowIntent(input);
     console.log(`💬 Input: "${input}" | Mode: ${agentMode} | Looks like workflow: ${isWorkflowRequest}`);
 
-    // Respect the selected agent mode
-    if (agentMode === "ask" || agentMode === "plan" || agentMode === "generate") {
-      // If user explicitly selected a mode, always call generateExecutablePlan
-      // The backend will use the appropriate prompt based on the mode
-      await generateExecutablePlan(input);
-    } else if (isWorkflowRequest) {
-      // Fallback: If mode is idle/refine and it looks like a workflow request
-      await generateExecutablePlan(input);
-    } else {
-      // Otherwise, just have a conversation (add to chat without generating)
+    // If it's clearly NOT a workflow request (greeting, short message), just chat
+    if (!isWorkflowRequest) {
       addMessage("user", input);
       addMessage("assistant", getConversationalResponse(input));
+      return;
+    }
+
+    // If it looks like a workflow request, use the selected mode
+    if (agentMode === "ask" || agentMode === "plan" || agentMode === "generate") {
+      // User selected a mode AND it's a workflow request → generate with that mode
+      await generateExecutablePlan(input);
+    } else {
+      // Fallback: mode is idle/refine → use default generate
+      await generateExecutablePlan(input);
     }
   };
 
