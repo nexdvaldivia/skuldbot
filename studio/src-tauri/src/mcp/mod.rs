@@ -6,9 +6,11 @@
 //! 
 //! Studio does NOT implement MCP servers - it only consumes them.
 
+// Allow unused code - MCP features will be enabled in future releases
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 pub mod client;
 pub mod types;
 
 // Re-exports for convenience
-pub use client::MCPClient;
-pub use types::{Tool, ToolCall, Resource, MCPError};

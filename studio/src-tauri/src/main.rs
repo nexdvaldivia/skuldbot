@@ -17,6 +17,7 @@ use uuid::Uuid;
 use rand::Rng;
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(dead_code)] // Legacy structure, kept for reference
 struct BotDSL {
     version: String,
     bot: BotInfo,
@@ -24,6 +25,7 @@ struct BotDSL {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(dead_code)] // Legacy structure, kept for reference
 struct BotInfo {
     id: String,
     name: String,
@@ -87,6 +89,7 @@ struct DebugSessionState {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(dead_code)] // Reserved for future debugging features
 struct DebugMessage {
     #[serde(rename = "type")]
     msg_type: String,
@@ -217,6 +220,7 @@ struct FileInfo {
 }
 
 #[derive(Debug, Serialize)]
+#[allow(dead_code)] // Reserved for future command execution features
 struct CommandResult {
     success: bool,
     message: String,
@@ -753,7 +757,7 @@ async fn debug_start(dsl: String, breakpoints: Vec<String>) -> Result<DebugComma
         .map_err(|e| format!("Failed to start debug process: {}", e))?;
 
     // Get handles
-    let stdin = child.stdin.take().ok_or("Failed to get stdin")?;
+    let _stdin = child.stdin.take().ok_or("Failed to get stdin")?; // Reserved for future input
     let stdout = child.stdout.take().ok_or("Failed to get stdout")?;
 
     // Wait for ready message
@@ -778,7 +782,7 @@ async fn debug_start(dsl: String, breakpoints: Vec<String>) -> Result<DebugComma
     std::fs::write(&dsl_file, &dsl).map_err(|e| e.to_string())?;
 
     // Create the start command
-    let start_cmd = serde_json::json!({
+    let _start_cmd = serde_json::json!({ // Reserved for future command protocol
         "command": "start",
         "dsl": serde_json::from_str::<serde_json::Value>(&dsl).unwrap_or(serde_json::json!({})),
         "breakpoints": breakpoints
@@ -3065,11 +3069,10 @@ fn validate_plan_node_types(plan: &[AIPlanStep]) -> Result<(), String> {
 
 /// Convert plan steps to complete DSL format
 fn plan_to_dsl(goal: &str, plan: &[AIPlanStep]) -> serde_json::Value {
-    use std::collections::HashMap;
+    
     
     // Generate nodes from plan steps
     let mut nodes: Vec<serde_json::Value> = Vec::new();
-    let mut prev_node_id: Option<String> = None;
     
     for (idx, step) in plan.iter().enumerate() {
         let node_id = step.id.clone().unwrap_or_else(|| format!("node-{}", idx));
@@ -3098,7 +3101,6 @@ fn plan_to_dsl(goal: &str, plan: &[AIPlanStep]) -> serde_json::Value {
         }
         
         nodes.push(node);
-        prev_node_id = Some(node_id);
     }
     
     // Generate bot DSL

@@ -103,6 +103,8 @@ impl ConnectionsDb {
         Ok(connections)
     }
     
+    /// Load a specific connection by ID (reserved for future features)
+    #[allow(dead_code)]
     pub fn load_connection(&self, id: &str) -> Result<Option<LLMConnection>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, name, provider, config_json, is_default, last_used_at, 
@@ -161,6 +163,8 @@ impl ConnectionsDb {
         Ok(())
     }
     
+    /// Update connection health status (reserved for future health checks)
+    #[allow(dead_code)]
     pub fn update_health_status(&self, id: &str, health_status_json: &str) -> Result<()> {
         self.conn.execute(
             "UPDATE llm_connections SET health_status_json = ?1, updated_at = ?2 WHERE id = ?3",
@@ -169,6 +173,8 @@ impl ConnectionsDb {
         Ok(())
     }
     
+    /// Update last used timestamp (reserved for usage analytics)
+    #[allow(dead_code)]
     pub fn update_last_used(&self, id: &str) -> Result<()> {
         self.conn.execute(
             "UPDATE llm_connections SET last_used_at = ?1 WHERE id = ?2",

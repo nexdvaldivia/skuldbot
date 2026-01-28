@@ -6,6 +6,10 @@
 //! - Anti-debugging measures
 //! - Encrypted configuration storage
 
+// Allow unused code - Protection features will be fully enabled in production
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
