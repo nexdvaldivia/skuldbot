@@ -207,7 +207,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
 
     // Set defaults for self-hosted
     const defaults: Record<string, { url: string; model: string }> = {
-      ollama: { url: "http://localhost:11434", model: "qwen2.5-coder:7b" },
+      ollama: { url: "http://localhost:11434", model: "qwen2.5:72b" },
       lmstudio: { url: "http://localhost:1234/v1", model: "local-model" },
       vllm: { url: "http://localhost:8000", model: "meta-llama/Llama-3.2-3B-Instruct" },
       tgi: { url: "http://localhost:8080", model: "mistralai/Mixtral-8x7B-Instruct-v0.1" },
