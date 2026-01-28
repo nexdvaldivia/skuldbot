@@ -29,7 +29,23 @@ export interface ConversationMessage {
   timestamp: string;
 }
 
-export type LLMProvider = "openai" | "anthropic" | "local";
+export type LLMProvider = 
+  // Cloud Managed (HIPAA with BAA)
+  | "azure-foundry"      // Azure AI Foundry
+  | "aws-bedrock"        // AWS Bedrock
+  | "vertex-ai"          // Google Vertex AI
+  // Cloud with BAA
+  | "openai"             // OpenAI (with BAA)
+  | "anthropic"          // Anthropic (with BAA)
+  // Self-Hosted (Full HIPAA Control)
+  | "ollama"             // Ollama
+  | "vllm"               // vLLM
+  | "tgi"                // Text Generation Inference
+  | "llamacpp"           // llama.cpp
+  | "lmstudio"           // LM Studio
+  | "localai"            // LocalAI
+  // Custom
+  | "custom";            // Any OpenAI-compatible API
 
 export interface LLMConfig {
   provider: LLMProvider;

@@ -5,7 +5,6 @@ import {
   Download,
   Star,
   DollarSign,
-  Filter,
   Tag,
   Building2,
   CheckCircle,

@@ -37,6 +37,22 @@ interface LLMConfigDialogProps {
 }
 
 const MODELS: Record<LLMProvider, { value: string; label: string }[]> = {
+  "azure-foundry": [
+    { value: "gpt-4", label: "GPT-4" },
+    { value: "gpt-4-turbo", label: "GPT-4 Turbo" },
+    { value: "llama-3-70b", label: "Llama 3 70B" },
+    { value: "phi-3", label: "Phi-3" },
+  ],
+  "aws-bedrock": [
+    { value: "claude-3-5-sonnet", label: "Claude 3.5 Sonnet" },
+    { value: "llama3-70b", label: "Llama 3 70B" },
+    { value: "mistral-large", label: "Mistral Large" },
+  ],
+  "vertex-ai": [
+    { value: "gemini-pro", label: "Gemini Pro" },
+    { value: "gemini-ultra", label: "Gemini Ultra" },
+    { value: "palm-2", label: "PaLM 2" },
+  ],
   openai: [
     { value: "gpt-4o", label: "GPT-4o (Recommended)" },
     { value: "gpt-4o-mini", label: "GPT-4o Mini (Faster)" },
@@ -53,7 +69,7 @@ const MODELS: Record<LLMProvider, { value: string; label: string }[]> = {
     { value: "claude-3-sonnet-20240229", label: "Claude 3 Sonnet" },
     { value: "claude-3-haiku-20240307", label: "Claude 3 Haiku (Faster)" },
   ],
-  local: [
+  ollama: [
     { value: "llama3.1", label: "Llama 3.1 (8B)" },
     { value: "llama3.1:70b", label: "Llama 3.1 (70B)" },
     { value: "llama3.2", label: "Llama 3.2" },
@@ -61,18 +77,59 @@ const MODELS: Record<LLMProvider, { value: string; label: string }[]> = {
     { value: "codellama", label: "CodeLlama" },
     { value: "custom", label: "Custom Model" },
   ],
+  vllm: [
+    { value: "meta-llama/Llama-3.1-70B", label: "Llama 3.1 70B" },
+    { value: "mistralai/Mixtral-8x7B", label: "Mixtral 8x7B" },
+  ],
+  tgi: [
+    { value: "meta-llama/Llama-3.1-70B", label: "Llama 3.1 70B" },
+    { value: "bigcode/starcoder2", label: "StarCoder 2" },
+  ],
+  llamacpp: [
+    { value: "llama-3-8b", label: "Llama 3 8B" },
+    { value: "mistral-7b", label: "Mistral 7B" },
+  ],
+  lmstudio: [
+    { value: "llama-3.1-8b", label: "Llama 3.1 8B" },
+    { value: "phi-3", label: "Phi-3" },
+  ],
+  localai: [
+    { value: "llama-3", label: "Llama 3" },
+    { value: "mistral", label: "Mistral" },
+  ],
+  custom: [
+    { value: "custom", label: "Enter model name manually" },
+  ],
 };
 
 const PROVIDER_LABELS: Record<LLMProvider, string> = {
+  "azure-foundry": "Azure AI Foundry",
+  "aws-bedrock": "AWS Bedrock",
+  "vertex-ai": "Google Vertex AI",
   openai: "OpenAI",
   anthropic: "Anthropic",
-  local: "Local",
+  ollama: "Ollama",
+  vllm: "vLLM",
+  tgi: "Text Gen Inference",
+  llamacpp: "llama.cpp",
+  lmstudio: "LM Studio",
+  localai: "LocalAI",
+  custom: "Custom",
 };
 
 const PROVIDER_COLORS: Record<LLMProvider, string> = {
+  "azure-foundry": "bg-blue-100 text-blue-700",
+  "aws-bedrock": "bg-orange-100 text-orange-700",
+  "vertex-ai": "bg-indigo-100 text-indigo-700",
   openai: "bg-green-100 text-green-700",
-  anthropic: "bg-orange-100 text-orange-700",
-  local: "bg-blue-100 text-blue-700",
+  anthropic: "bg-amber-100 text-amber-700",
+  ollama: "bg-purple-100 text-purple-700",
+  vllm: "bg-pink-100 text-pink-700",
+  tgi: "bg-cyan-100 text-cyan-700",
+  llamacpp: "bg-teal-100 text-teal-700",
+  lmstudio: "bg-violet-100 text-violet-700",
+  localai: "bg-lime-100 text-lime-700",
+  custom: "bg-slate-100 text-slate-700",
 };
 
 export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {

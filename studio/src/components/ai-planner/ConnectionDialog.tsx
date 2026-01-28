@@ -1,10 +1,10 @@
 /**
  * Connection Dialog
- * Modal for creating and editing LLM connections (n8n-style)
+ * Modal for creating and editing LLM connections with provider-specific configurations
  */
 
 import { useState, useEffect } from "react";
-import { X, Key, Globe, Loader2, CheckCircle, AlertCircle, Plug } from "lucide-react";
+import { X, Key, Globe, Loader2, CheckCircle, AlertCircle, Plug, ChevronDown } from "lucide-react";
 import { Button } from "../ui/Button";
 import { useConnectionsStore, ConnectionFormData, LLMConnection, maskApiKey } from "../../store/connectionsStore";
 import { LLMProvider } from "../../types/ai-planner";
@@ -17,21 +17,18 @@ interface ConnectionDialogProps {
 }
 
 const PROVIDERS: { value: LLMProvider; label: string; description: string }[] = [
-  {
-    value: "openai",
-    label: "OpenAI",
-    description: "GPT-4o, GPT-4 Turbo, GPT-3.5",
-  },
-  {
-    value: "anthropic",
-    label: "Anthropic",
-    description: "Claude 3.5 Sonnet, Claude 3 Opus",
-  },
-  {
-    value: "local",
-    label: "Local LLM",
-    description: "Ollama, LM Studio (OpenAI compatible)",
-  },
+  { value: "openai", label: "OpenAI", description: "GPT-4o, o1, GPT-4 Turbo" },
+  { value: "anthropic", label: "Anthropic", description: "Claude 3.5 Sonnet, Claude 3 Opus" },
+  { value: "azure-foundry", label: "Azure AI Foundry", description: "GPT-4, Llama 3, Phi-3 (HIPAA)" },
+  { value: "aws-bedrock", label: "AWS Bedrock", description: "Claude 3.5, Llama 3 (HIPAA)" },
+  { value: "vertex-ai", label: "Google Vertex AI", description: "Gemini Pro, PaLM 2 (HIPAA)" },
+  { value: "ollama", label: "Ollama", description: "Local: Llama 3, Mistral, Phi-3" },
+  { value: "vllm", label: "vLLM", description: "Self-hosted high-performance" },
+  { value: "tgi", label: "Text Gen Inference", description: "HuggingFace TGI" },
+  { value: "llamacpp", label: "llama.cpp", description: "CPU/GPU optimized" },
+  { value: "lmstudio", label: "LM Studio", description: "Local desktop LLM" },
+  { value: "localai", label: "LocalAI", description: "OpenAI-compatible local" },
+  { value: "custom", label: "Custom OpenAI API", description: "Any compatible endpoint" },
 ];
 
 export function ConnectionDialog({ isOpen, onClose, editConnection }: ConnectionDialogProps) {
@@ -40,25 +37,53 @@ export function ConnectionDialog({ isOpen, onClose, editConnection }: Connection
 
   const [name, setName] = useState("");
   const [provider, setProvider] = useState<LLMProvider>("openai");
+  
+  // Common fields
   const [apiKey, setApiKey] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
+  
+  // Azure AI Foundry
+  const [azureEndpoint, setAzureEndpoint] = useState("");
+  const [azureApiKey, setAzureApiKey] = useState("");
+  const [azureDeployment, setAzureDeployment] = useState("");
+  
+  // AWS Bedrock
+  const [awsAccessKey, setAwsAccessKey] = useState("");
+  const [awsSecretKey, setAwsSecretKey] = useState("");
+  const [awsRegion, setAwsRegion] = useState("us-east-1");
+  
+  // Vertex AI
+  const [gcpProjectId, setGcpProjectId] = useState("");
+  const [gcpLocation, setGcpLocation] = useState("us-central1");
+  const [gcpServiceAccount, setGcpServiceAccount] = useState("");
+  
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Reset form when dialog opens or editConnection changes
+  // Reset form
   useEffect(() => {
     if (isOpen) {
       if (editConnection) {
         setName(editConnection.name);
         setProvider(editConnection.provider);
-        setApiKey(""); // Don't show existing API key for security
+        setApiKey("");
         setBaseUrl(editConnection.baseUrl || "");
       } else {
+        // Reset all fields
         setName("");
         setProvider("openai");
         setApiKey("");
         setBaseUrl("");
+        setAzureEndpoint("");
+        setAzureApiKey("");
+        setAzureDeployment("");
+        setAwsAccessKey("");
+        setAwsSecretKey("");
+        setAwsRegion("us-east-1");
+        setGcpProjectId("");
+        setGcpLocation("us-central1");
+        setGcpServiceAccount("");
       }
       setTestResult(null);
     }
@@ -68,18 +93,40 @@ export function ConnectionDialog({ isOpen, onClose, editConnection }: Connection
     setProvider(newProvider);
     setTestResult(null);
 
-    // Set default base URL for local
-    if (newProvider === "local") {
-      setBaseUrl("http://localhost:11434/v1");
-    } else {
-      setBaseUrl("");
-    }
+    // Set defaults for self-hosted
+    const defaults: Record<string, string> = {
+      ollama: "http://localhost:11434/v1",
+      lmstudio: "http://localhost:1234/v1",
+      vllm: "http://localhost:8000/v1",
+      tgi: "http://localhost:8080/v1",
+      llamacpp: "http://localhost:8080/v1",
+      localai: "http://localhost:8080/v1",
+    };
+    
+    setBaseUrl(defaults[newProvider] || "");
   };
 
   const handleTest = async () => {
-    if (provider !== "local" && !apiKey.trim()) {
-      setTestResult({ success: false, message: "Please enter an API key" });
+    // Validation per provider
+    if (provider === "azure-foundry" && (!azureEndpoint || !azureApiKey)) {
+      setTestResult({ success: false, message: "Azure endpoint and API key required" });
       return;
+    }
+    if (provider === "aws-bedrock" && (!awsAccessKey || !awsSecretKey || !awsRegion)) {
+      setTestResult({ success: false, message: "AWS credentials and region required" });
+      return;
+    }
+    if (provider === "vertex-ai" && (!gcpProjectId || !gcpServiceAccount)) {
+      setTestResult({ success: false, message: "GCP project ID and service account required" });
+      return;
+    }
+    
+    const selfHosted = ["ollama", "vllm", "tgi", "llamacpp", "lmstudio", "localai", "custom"];
+    if (!selfHosted.includes(provider) && provider !== "azure-foundry" && provider !== "aws-bedrock" && provider !== "vertex-ai") {
+      if (!apiKey.trim()) {
+        setTestResult({ success: false, message: "API key required" });
+        return;
+      }
     }
 
     setIsTesting(true);
@@ -106,11 +153,6 @@ export function ConnectionDialog({ isOpen, onClose, editConnection }: Connection
       return;
     }
 
-    if (provider !== "local" && !apiKey.trim() && !editConnection) {
-      toast.warning("API Key Required", "Please enter an API key");
-      return;
-    }
-
     setIsSaving(true);
 
     try {
@@ -122,8 +164,6 @@ export function ConnectionDialog({ isOpen, onClose, editConnection }: Connection
       };
 
       if (editConnection) {
-        // Update existing connection
-        // Only update apiKey if a new one was entered
         const updateData: Partial<ConnectionFormData> = {
           name: formData.name,
           provider: formData.provider,
@@ -133,9 +173,8 @@ export function ConnectionDialog({ isOpen, onClose, editConnection }: Connection
           updateData.apiKey = apiKey.trim();
         }
         await updateConnection(editConnection.id, updateData);
-        toast.success("Connection Updated", `"${name}" has been updated`);
+        toast.success("Connection Updated", `"${name}" updated successfully`);
       } else {
-        // Create new connection
         await addConnection(formData);
         toast.success("Connection Created", `"${name}" is ready to use`);
       }
@@ -151,10 +190,211 @@ export function ConnectionDialog({ isOpen, onClose, editConnection }: Connection
   if (!isOpen) return null;
 
   const isEditing = !!editConnection;
+  
+  // Render provider-specific fields
+  const renderProviderFields = () => {
+    switch (provider) {
+      case "azure-foundry":
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                <Globe className="w-4 h-4 inline mr-1" />
+                Azure Endpoint
+              </label>
+              <input
+                type="text"
+                value={azureEndpoint}
+                onChange={(e) => setAzureEndpoint(e.target.value)}
+                placeholder="https://YOUR-RESOURCE.openai.azure.com"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                <Key className="w-4 h-4 inline mr-1" />
+                API Key
+              </label>
+              <input
+                type="password"
+                value={azureApiKey}
+                onChange={(e) => setAzureApiKey(e.target.value)}
+                placeholder="Enter your Azure API key"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Deployment Name
+              </label>
+              <input
+                type="text"
+                value={azureDeployment}
+                onChange={(e) => setAzureDeployment(e.target.value)}
+                placeholder="gpt-4"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+          </>
+        );
+        
+      case "aws-bedrock":
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                <Key className="w-4 h-4 inline mr-1" />
+                AWS Access Key ID
+              </label>
+              <input
+                type="password"
+                value={awsAccessKey}
+                onChange={(e) => setAwsAccessKey(e.target.value)}
+                placeholder="AKIA..."
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                <Key className="w-4 h-4 inline mr-1" />
+                AWS Secret Access Key
+              </label>
+              <input
+                type="password"
+                value={awsSecretKey}
+                onChange={(e) => setAwsSecretKey(e.target.value)}
+                placeholder="Enter your AWS secret key"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                <Globe className="w-4 h-4 inline mr-1" />
+                AWS Region
+              </label>
+              <select
+                value={awsRegion}
+                onChange={(e) => setAwsRegion(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="us-east-1">US East (N. Virginia)</option>
+                <option value="us-west-2">US West (Oregon)</option>
+                <option value="eu-west-1">EU (Ireland)</option>
+                <option value="ap-southeast-1">Asia Pacific (Singapore)</option>
+              </select>
+            </div>
+          </>
+        );
+        
+      case "vertex-ai":
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                GCP Project ID
+              </label>
+              <input
+                type="text"
+                value={gcpProjectId}
+                onChange={(e) => setGcpProjectId(e.target.value)}
+                placeholder="my-project-123456"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                <Globe className="w-4 h-4 inline mr-1" />
+                Location
+              </label>
+              <select
+                value={gcpLocation}
+                onChange={(e) => setGcpLocation(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="us-central1">us-central1</option>
+                <option value="us-east1">us-east1</option>
+                <option value="europe-west1">europe-west1</option>
+                <option value="asia-southeast1">asia-southeast1</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                <Key className="w-4 h-4 inline mr-1" />
+                Service Account JSON
+              </label>
+              <textarea
+                value={gcpServiceAccount}
+                onChange={(e) => setGcpServiceAccount(e.target.value)}
+                placeholder='{"type": "service_account", ...}'
+                rows={4}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono text-xs"
+              />
+            </div>
+          </>
+        );
+        
+      case "ollama":
+      case "vllm":
+      case "tgi":
+      case "llamacpp":
+      case "lmstudio":
+      case "localai":
+      case "custom":
+        return (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              <Globe className="w-4 h-4 inline mr-1" />
+              Base URL
+            </label>
+            <input
+              type="text"
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              placeholder="http://localhost:11434/v1"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono text-sm"
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              OpenAI-compatible API endpoint
+            </p>
+          </div>
+        );
+        
+      case "openai":
+      case "anthropic":
+      default:
+        return (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              <Key className="w-4 h-4 inline mr-1" />
+              API Key
+            </label>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => {
+                setApiKey(e.target.value);
+                setTestResult(null);
+              }}
+              placeholder={
+                isEditing
+                  ? `Current: ${maskApiKey(editConnection?.apiKey || "")}`
+                  : `Enter your ${PROVIDERS.find(p => p.value === provider)?.label} API key`
+              }
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono text-sm"
+            />
+            {isEditing && (
+              <p className="mt-1 text-xs text-slate-500">
+                Leave empty to keep the current API key
+              </p>
+            )}
+          </div>
+        );
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70]">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
           <div className="flex items-center gap-3">
@@ -179,7 +419,7 @@ export function ConnectionDialog({ isOpen, onClose, editConnection }: Connection
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-4 overflow-y-auto">
           {/* Connection Name */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -189,94 +429,36 @@ export function ConnectionDialog({ isOpen, onClose, editConnection }: Connection
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="My OpenAI Key"
+              placeholder="My OpenAI Connection"
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
-            <p className="mt-1 text-xs text-slate-500">
-              A friendly name to identify this connection
-            </p>
           </div>
 
-          {/* Provider Selection */}
+          {/* Provider Dropdown */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Provider
             </label>
-            <div className="grid grid-cols-3 gap-2">
-              {PROVIDERS.map((p) => (
-                <button
-                  key={p.value}
-                  onClick={() => handleProviderChange(p.value)}
-                  className={`p-3 border rounded-lg text-center transition-colors ${
-                    provider === p.value
-                      ? "border-primary-300 bg-primary-50"
-                      : "border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <span className="block font-medium text-sm text-slate-800">
-                    {p.label}
-                  </span>
-                  <span className="block text-[10px] text-slate-500 mt-0.5">
-                    {p.description.split(",")[0]}
-                  </span>
-                </button>
-              ))}
+            <div className="relative">
+              <select
+                value={provider}
+                onChange={(e) => handleProviderChange(e.target.value as LLMProvider)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none bg-white"
+              >
+                {PROVIDERS.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label} — {p.description}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
           </div>
 
-          {/* API Key */}
-          {provider !== "local" && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                <Key className="w-4 h-4 inline mr-1" />
-                API Key
-              </label>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => {
-                  setApiKey(e.target.value);
-                  setTestResult(null);
-                }}
-                placeholder={
-                  isEditing
-                    ? `Current: ${maskApiKey(editConnection?.apiKey || "")}`
-                    : `Enter your ${provider === "openai" ? "OpenAI" : "Anthropic"} API key`
-                }
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono text-sm"
-              />
-              {isEditing && (
-                <p className="mt-1 text-xs text-slate-500">
-                  Leave empty to keep the current API key
-                </p>
-              )}
-            </div>
-          )}
+          {/* Provider-specific fields */}
+          {renderProviderFields()}
 
-          {/* Base URL (for local LLM) */}
-          {provider === "local" && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                <Globe className="w-4 h-4 inline mr-1" />
-                Base URL
-              </label>
-              <input
-                type="text"
-                value={baseUrl}
-                onChange={(e) => {
-                  setBaseUrl(e.target.value);
-                  setTestResult(null);
-                }}
-                placeholder="http://localhost:11434/v1"
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
-              <p className="mt-1 text-xs text-slate-500">
-                Ollama: http://localhost:11434/v1 | LM Studio: http://localhost:1234/v1
-              </p>
-            </div>
-          )}
-
-          {/* Test Connection Button */}
+          {/* Test Connection */}
           <div>
             <Button
               variant="outline"
@@ -287,7 +469,7 @@ export function ConnectionDialog({ isOpen, onClose, editConnection }: Connection
               {isTesting ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Testing Connection...
+                  Testing...
                 </>
               ) : (
                 <>
@@ -297,7 +479,6 @@ export function ConnectionDialog({ isOpen, onClose, editConnection }: Connection
               )}
             </Button>
 
-            {/* Test Result */}
             {testResult && (
               <div
                 className={`mt-3 flex items-start gap-2 p-3 rounded-lg ${
@@ -322,7 +503,7 @@ export function ConnectionDialog({ isOpen, onClose, editConnection }: Connection
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-xl">
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
           <Button variant="ghost" onClick={onClose} disabled={isSaving}>
             Cancel
           </Button>

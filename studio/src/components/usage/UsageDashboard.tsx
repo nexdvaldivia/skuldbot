@@ -4,7 +4,6 @@ import {
   Activity,
   TrendingUp,
   DollarSign,
-  Calendar,
   AlertCircle,
   Loader2,
   Download,

@@ -31,7 +31,6 @@ export function ValidationPanel() {
   }
 
   const { valid, compilable, errors, warnings } = currentPlan.validation;
-  const _hasIssues = errors.length > 0 || warnings.length > 0;
 
   // Validation checks based on actual validation
   const validationChecks = [

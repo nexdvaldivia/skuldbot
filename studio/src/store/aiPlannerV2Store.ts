@@ -15,7 +15,7 @@ import {
 } from "../types/ai-planner";
 import { useToastStore } from "./toastStore";
 import { useLicenseStore } from "./licenseStore";
-import { FlowNode, FlowEdge } from "../types/flow";
+import { FlowNode, FlowEdge, NodeCategory } from "../types/flow";
 import { useFlowStore } from "./flowStore";
 
 // ============================================================
@@ -92,7 +92,7 @@ function tasksToFlowNodes(plan: ExecutablePlan): { nodes: FlowNode[]; edges: Flo
       data: {
         label: task.label,
         nodeType: task.nodeType,
-        category: task.nodeType.split('.')[0] || 'control',
+        category: (task.nodeType.split('.')[0] || 'control') as NodeCategory,
         config: task.config as Record<string, any>,
         description: task.description,
       },

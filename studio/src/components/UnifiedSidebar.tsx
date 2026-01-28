@@ -33,7 +33,7 @@ import { setDraggedNodeData, getDraggedNodeData, clearDraggedNodeData, setPendin
 import { useProjectStore } from "../store/projectStore";
 import { useTabsStore } from "../store/tabsStore";
 import { useNavigationStore } from "../store/navigationStore";
-import { useAIPlannerStore } from "../store/aiPlannerStore";
+import { useAIPlannerV2Store } from "../store/aiPlannerV2Store";
 import { useCanUseAIPlanner, useLicenseStatus } from "../store/licenseStore";
 import { LicenseDialog } from "./LicenseDialog";
 
@@ -50,7 +50,7 @@ type SidebarTab = "explorer" | "nodes" | "ai-planner";
 export default function UnifiedSidebar() {
   const { project } = useProjectStore();
   const [activeTab, setActiveTab] = useState<SidebarTab>(project ? "explorer" : "nodes");
-  const { openPanel } = useAIPlannerStore();
+  const { openPanel } = useAIPlannerV2Store();
   const canUseAI = useCanUseAIPlanner();
 
   // Switch to explorer when project opens

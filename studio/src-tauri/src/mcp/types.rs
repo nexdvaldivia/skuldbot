@@ -265,6 +265,9 @@ pub enum MCPError {
     #[error("IO error: {0}")]
     IoError(String),
     
+    #[error("Internal error: {0}")]
+    InternalError(String),
+    
     #[error("Not implemented: {0}")]
     NotImplemented(String),
 }

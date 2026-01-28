@@ -20,7 +20,7 @@ import DebugPanel from "./DebugPanel";
 import { AutoSaveManager } from "./AutoSaveManager";
 import { ToastContainer } from "./ui/ToastContainer";
 import { EngineSetupNotification } from "./EngineSetupNotification";
-import { AIPlannerPanel } from "./ai-planner";
+import { AIPlannerV2Wrapper } from "./ai-planner";
 import { useDebugStore } from "../store/debugStore";
 import { Bot, Bug, ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
@@ -196,7 +196,7 @@ export default function AppLayout() {
     return (
       <>
         <ProjectWorkspace />
-        <AIPlannerPanel />
+        <AIPlannerV2Wrapper />
         <ToastContainer />
         <EngineSetupNotification />
       </>
