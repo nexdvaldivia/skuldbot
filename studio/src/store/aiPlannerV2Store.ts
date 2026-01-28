@@ -15,6 +15,7 @@ import {
 } from "../types/ai-planner";
 import { useToastStore } from "./toastStore";
 import { useLicenseStore } from "./licenseStore";
+import { useConnectionsStore } from "./connectionsStore";
 import { FlowNode, FlowEdge, NodeCategory } from "../types/flow";
 import { useFlowStore } from "./flowStore";
 
@@ -206,6 +207,56 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
           return;
         }
 
+        // Get active connection from connectionsStore
+        const selectedConnection = useConnectionsStore.getState().getSelectedConnection();
+        
+        if (!selectedConnection) {
+          toast.error("No LLM Connection", "Please select an LLM connection in the Connections tab");
+          return;
+        }
+
+        // Extract provider info from connection
+        let provider = selectedConnection.provider;
+        let model = "";
+        let baseUrl: string | null = null;
+        let apiKey: string | null = null;
+
+        // Map connection config to invoke parameters
+        const config = selectedConnection.config;
+        switch (config.type) {
+          case "openai":
+            provider = "openai";
+            model = config.model;
+            apiKey = config.apiKey;
+            baseUrl = config.baseUrl || null;
+            break;
+          case "anthropic":
+            provider = "anthropic";
+            model = config.model;
+            apiKey = config.apiKey;
+            break;
+          case "ollama":
+          case "vllm":
+          case "tgi":
+          case "llamacpp":
+          case "lmstudio":
+          case "localai":
+            provider = "openai"; // Use OpenAI-compatible API
+            model = config.model;
+            baseUrl = config.baseUrl;
+            apiKey = null; // Local models don't need API key
+            break;
+          case "azure-foundry":
+            provider = "openai"; // Azure uses OpenAI API format
+            model = config.deployment;
+            baseUrl = `${config.endpoint}/openai/deployments/${config.deployment}`;
+            apiKey = config.apiKey;
+            break;
+          default:
+            toast.error("Unsupported Provider", `Provider ${config.type} is not yet supported for AI Planner`);
+            return;
+        }
+
         set({ isGenerating: true, error: null });
 
         // Add user message
@@ -213,15 +264,18 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
 
         try {
           console.log("🤖 Calling ai_generate_executable_plan...");
+          console.log(`   Connection: ${selectedConnection.name}`);
+          console.log(`   Provider: ${provider}, Model: ${model}`);
+          console.log(`   Base URL: ${baseUrl || "default"}`);
           
           // Call Tauri backend
           const response = await invoke<ExecutablePlanResponse>("ai_generate_executable_plan", {
             description,
-            provider: llmConfig.provider,
-            model: llmConfig.model,
+            provider,
+            model,
             temperature: llmConfig.temperature,
-            baseUrl: llmConfig.baseUrl || null,
-            apiKey: llmConfig.apiKey || null,
+            baseUrl,
+            apiKey,
           });
 
           console.log("📝 Response received:", response);
