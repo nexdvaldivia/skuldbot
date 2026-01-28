@@ -12,6 +12,7 @@ import { PreviewPanel } from "./v2/PreviewPanel";
 import { ValidationPanel } from "./v2/ValidationPanel";
 import { ConnectionsPanel } from "./v2/ConnectionsPanel";
 import { LLMConfigDialog } from "./LLMConfigDialog";
+import { LicenseDialog } from "../LicenseDialog";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
@@ -24,6 +25,7 @@ export function AIPlannerV2Panel({ isOpen, onClose }: AIPlannerV2PanelProps) {
   const canUseAI = useCanUseAIPlanner();
   const isStudioActivated = useLicenseStore((state) => state.isStudioActivated);
   const [showLLMConfig, setShowLLMConfig] = useState(false);
+  const [showLicenseDialog, setShowLicenseDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "preview" | "validation" | "connections">("chat");
 
   // Reset on close
@@ -93,7 +95,7 @@ export function AIPlannerV2Panel({ isOpen, onClose }: AIPlannerV2PanelProps) {
             {/* Title and subtitle */}
             <div>
               <h2 className="font-semibold text-neutral-900 text-base">
-                AI Planner V2
+                AI Planner
               </h2>
               <p className="text-xs text-neutral-500 font-medium">
                 Intelligent workflow generation with validation
@@ -133,7 +135,12 @@ export function AIPlannerV2Panel({ isOpen, onClose }: AIPlannerV2PanelProps) {
               SkuldBot Studio requires a license to use. Please activate your license
               to continue.
             </p>
-            <Button variant="outline" size="sm" className="border-amber-300 text-amber-900 hover:bg-amber-100">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="border-amber-300 text-amber-900 hover:bg-amber-100"
+              onClick={() => setShowLicenseDialog(true)}
+            >
               Activate License
             </Button>
           </div>
@@ -151,7 +158,7 @@ export function AIPlannerV2Panel({ isOpen, onClose }: AIPlannerV2PanelProps) {
                   Upgrade to SkuldAI
                 </h3>
                 <p className="text-sm text-primary-700 mb-3 leading-relaxed">
-                  AI Planner V2 is a premium feature that creates production-ready
+                  AI Planner is a premium feature that creates production-ready
                   automations with intelligent validation. Upgrade to unlock this feature.
                 </p>
                 <Button variant="default" size="sm" className="bg-primary-600 hover:bg-primary-700">
@@ -239,6 +246,12 @@ export function AIPlannerV2Panel({ isOpen, onClose }: AIPlannerV2PanelProps) {
       <LLMConfigDialog
         isOpen={showLLMConfig}
         onClose={() => setShowLLMConfig(false)}
+      />
+
+      {/* License Dialog */}
+      <LicenseDialog
+        isOpen={showLicenseDialog}
+        onClose={() => setShowLicenseDialog(false)}
       />
     </>
   );
