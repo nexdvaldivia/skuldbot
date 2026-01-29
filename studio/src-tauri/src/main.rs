@@ -4114,43 +4114,54 @@ Return ONLY JSON in user's language."#,
         _ => {
             // GENERATE MODE: Create executable workflow (default)
             format!(
-                r#"Create a PRODUCTION-READY automation workflow for the following task:
+                r#"You are SkuldBot's AI automation architect. Respond in the SAME LANGUAGE as the user.
 
-TASK:
+USER REQUEST:
 {}{}
 
-CRITICAL REQUIREMENTS:
-1. Use EXACT node types from catalog (e.g. "trigger.manual" NOT "node.trigger.manual")
-2. Node types format: "category.action" (NO "node." prefix!)
-3. Every node MUST have valid success/error paths
-4. Include proper error handling
-5. Use realistic config values
+FIRST: ANALYZE THE REQUEST TYPE
+- If this is a GREETING (hello, hi, hola, etc.) or GENERAL QUESTION: Respond conversationally, ask what they want to automate
+- If this is an AUTOMATION REQUEST: Generate a workflow
 
-VALID NODE TYPE EXAMPLES:
-✅ "trigger.manual" 
-✅ "http.request"
-✅ "json.parse"
-✅ "condition.if"
-❌ "node.http.request" (WRONG - no "node." prefix!)
-❌ "node.json.parse" (WRONG)
+FOR GREETINGS/QUESTIONS (no workflow needed):
+{{
+  "goal": "Conversation",
+  "confidence": 1.0,
+  "assumptions": [],
+  "unknowns": [{{"question": "Your conversational response here", "blocking": false}}],
+  "tasks": []
+}}
 
-SELF-VALIDATION:
-Before returning, verify:
-- All nodeType values match catalog exactly
-- No "node." prefix in any nodeType
-- No unreachable nodes
-- Complete error handling
+FOR AUTOMATION REQUESTS:
+Generate a PRODUCTION-READY workflow.
 
-If UNCERTAIN (< 70% confidence):
-- List specific clarifying questions
-- Identify blocking unknowns
+CRITICAL NODE TYPE RULES:
+- Use EXACT types from catalog: "category.action" format
+- NO invented types! Check catalog carefully.
+
+CORRECT NODE TYPES (from SkuldBot catalog):
+✅ "trigger.manual", "trigger.schedule", "trigger.webhook"
+✅ "api.http_request" (NOT "http.request"!)
+✅ "api.parse_json" (NOT "json.parse"!)
+✅ "control.if" (NOT "condition.if"!)
+✅ "control.loop"
+✅ "files.read", "files.write"
+✅ "data.transform", "data.filter"
+✅ "web.navigate", "web.click", "web.type"
+✅ "ai.model", "ai.agent"
+
+WRONG NODE TYPES (DO NOT USE):
+❌ "http.request" → Use "api.http_request"
+❌ "json.parse" → Use "api.parse_json"  
+❌ "condition.if" → Use "control.if"
+❌ "node.*" prefix → Never use "node." prefix
 
 RESPONSE FORMAT:
 {{
-  "goal": "Clear description",
+  "goal": "Clear description in user's language",
   "assumptions": ["Assumption 1"],
   "unknowns": [
-    {{"question": "What format?", "blocking": true, "context": "Need CSV vs Excel"}}
+    {{"question": "Clarifying question?", "blocking": true, "context": "Why needed"}}
   ],
   "confidence": 0.85,
   "tasks": [
@@ -4165,7 +4176,7 @@ RESPONSE FORMAT:
   ]
 }}
 
-If confidence < 0.7, populate unknowns with blocking questions."#,
+Return ONLY valid JSON. Use user's language for all text."#,
                 description,
                 history_context
             )
@@ -4355,15 +4366,32 @@ If confidence < 0.7, populate unknowns with blocking questions."#,
                         });
                     }
                     
-                    // In GENERATE mode, empty tasks is an error
+                    // In GENERATE mode, empty tasks with unknowns = conversational response (greeting detected)
                     if tasks.is_empty() {
+                        // If LLM provided unknowns/questions, it's a conversational response (greeting, need clarification)
+                        if !unknowns.is_empty() {
+                            println!("💬 GENERATE mode: LLM detected greeting/needs clarification");
+                            let clarifying_questions: Vec<String> = unknowns.iter().map(|u| u.question.clone()).collect();
+                            return Ok(ExecutablePlanResponse {
+                                success: true,
+                                confidence,
+                                plan: None,
+                                error: None,
+                                clarifying_questions: Some(clarifying_questions),
+                                suggestions: vec![],
+                                proposed_steps: None,
+                                agent_mode: Some("ask".to_string()), // Treat as ASK mode response
+                            });
+                        }
+                        
+                        // No tasks and no questions = error
                         return Ok(ExecutablePlanResponse {
                             success: false,
                             confidence: 0.0,
                             plan: None,
-                            error: Some("LLM returned empty plan in GENERATE mode".to_string()),
+                            error: Some("Could not generate workflow. Please describe what you want to automate.".to_string()),
                             clarifying_questions: None,
-                            suggestions: vec!["Try rephrasing your request with more details".to_string()],
+                            suggestions: vec!["Try describing a specific automation task".to_string()],
                             proposed_steps: None,
                             agent_mode: Some(mode.to_string()),
                         });
