@@ -575,7 +575,7 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
       name: "ai-planner-v2-storage",
       partialize: (state) => ({
         complexity: state.complexity,
-        agentMode: state.agentMode,
+        // agentMode NOT persisted - always start in "ask" mode
         planningContext: state.planningContext,
         llmConfig: state.llmConfig,
         conversation: state.conversation, // ← Guardar conversación
