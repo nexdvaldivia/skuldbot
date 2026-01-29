@@ -2929,11 +2929,12 @@ fn load_node_catalog() -> Result<String, String> {
 
     println!("📚 Loading node catalog from: {} using {}", engine_path.display(), python_cmd);
 
+    // Use compact format for 75% smaller prompt (3.5KB vs 14KB)
     let output = std::process::Command::new(&python_cmd)
         .arg("-m")
         .arg("skuldbot.cli.ai_catalog")
         .arg("--format")
-        .arg("text")
+        .arg("compact")
         .current_dir(&engine_path)
         .output()
         .map_err(|e| format!("Failed to run ai_catalog: {}", e))?;
