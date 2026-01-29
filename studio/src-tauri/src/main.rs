@@ -4172,49 +4172,63 @@ If confidence < 0.7, populate unknowns with blocking questions."#,
         }
     };
 
-    // Build system prompt with dynamic node catalog
-    let system_prompt = match build_ai_planner_prompt() {
-        Ok(p) => {
-            println!("✅ Loaded dynamic node catalog");
-            p
-        },
-        Err(e) => {
-            println!("⚠️  Failed to load node catalog: {}, using fallback", e);
-            return Ok(ExecutablePlanResponse {
-                success: false,
-                confidence: 0.0,
-                plan: None,
-                error: Some(format!("Failed to load node catalog: {}", e)),
-                clarifying_questions: None,
-                suggestions: vec![],
-                proposed_steps: None,
-                agent_mode: Some(mode.to_string()),
-            });
+    // Build system prompt - ONLY load node catalog for GENERATE mode
+    // ASK and PLAN modes don't need it (conversation only)
+    let system_prompt = if mode == "generate" {
+        // GENERATE mode: Need full node catalog for validation
+        match build_ai_planner_prompt() {
+            Ok(p) => {
+                println!("✅ Loaded dynamic node catalog (GENERATE mode)");
+                p
+            },
+            Err(e) => {
+                println!("⚠️  Failed to load node catalog: {}, using fallback", e);
+                return Ok(ExecutablePlanResponse {
+                    success: false,
+                    confidence: 0.0,
+                    plan: None,
+                    error: Some(format!("Failed to load node catalog: {}", e)),
+                    clarifying_questions: None,
+                    suggestions: vec![],
+                    proposed_steps: None,
+                    agent_mode: Some(mode.to_string()),
+                });
+            }
         }
+    } else {
+        // ASK/PLAN mode: Lightweight prompt, no catalog needed
+        println!("💬 Using lightweight prompt (ASK/PLAN mode - no catalog)");
+        "You are SkuldBot's AI assistant for RPA automation. Help users plan their automations.".to_string()
     };
     
-    // Initialize MCP Client for enhanced context (optional)
-    let mcp_client = mcp::client::MCPClient::new();
-    let mcp_context = mcp_client.get_context_for_planner().await;
-    
-    // Combine system prompt with MCP context
-    let enhanced_system_prompt = if !mcp_context.is_empty() {
-        let tools_result = mcp_client.list_tools().await;
-        let resources_result = mcp_client.list_resources().await;
-        let tools_count = tools_result.as_ref().map(|t| t.len()).unwrap_or(0);
-        let resources_count = resources_result.as_ref().map(|r| r.len()).unwrap_or(0);
+    // Only load MCP context for GENERATE mode (adds overhead)
+    let enhanced_system_prompt = if mode == "generate" {
+        // Initialize MCP Client for enhanced context (optional)
+        let mcp_client = mcp::client::MCPClient::new();
+        let mcp_context = mcp_client.get_context_for_planner().await;
         
-        println!("✅ MCP Context added ({} tools, {} resources)", 
-            tools_count,
-            resources_count
-        );
-        format!("{}\n\n{}\n\n{}", 
-            system_prompt,
-            "## MCP CAPABILITIES\n\nYou have access to Model Context Protocol tools and resources that provide additional capabilities and context:",
-            mcp_context
-        )
+        // Combine system prompt with MCP context
+        if !mcp_context.is_empty() {
+            let tools_result = mcp_client.list_tools().await;
+            let resources_result = mcp_client.list_resources().await;
+            let tools_count = tools_result.as_ref().map(|t| t.len()).unwrap_or(0);
+            let resources_count = resources_result.as_ref().map(|r| r.len()).unwrap_or(0);
+            
+            println!("✅ MCP Context added ({} tools, {} resources)", 
+                tools_count,
+                resources_count
+            );
+            format!("{}\n\n{}\n\n{}", 
+                system_prompt,
+                "## MCP CAPABILITIES\n\nYou have access to Model Context Protocol tools and resources that provide additional capabilities and context:",
+                mcp_context
+            )
+        } else {
+            println!("⚠️  No MCP servers configured (Studio running standalone)");
+            system_prompt
+        }
     } else {
-        println!("⚠️  No MCP servers configured (Studio running standalone)");
+        // ASK/PLAN mode: Skip MCP entirely for speed
         system_prompt
     };
 
