@@ -4139,22 +4139,26 @@ CRITICAL NODE TYPE RULES:
 - Use EXACT types from catalog: "category.action" format
 - NO invented types! Check catalog carefully.
 
-CORRECT NODE TYPES (from SkuldBot catalog):
-✅ "trigger.manual", "trigger.schedule", "trigger.webhook"
-✅ "api.http_request" (NOT "http.request"!)
-✅ "api.parse_json" (NOT "json.parse"!)
-✅ "control.if" (NOT "condition.if"!)
-✅ "control.loop"
-✅ "files.read", "files.write"
-✅ "data.transform", "data.filter"
-✅ "web.navigate", "web.click", "web.type"
-✅ "ai.model", "ai.agent"
+CORRECT NODE TYPES (verified from SkuldBot catalog):
+✅ Triggers: "trigger.manual", "trigger.schedule", "trigger.webhook", "trigger.form"
+✅ API: "api.http_request", "api.rest_get", "api.rest_post", "api.parse_json", "api.graphql"
+✅ Control: "control.if", "control.loop", "control.switch", "control.try_catch", "control.wait"
+✅ Files: "files.read", "files.write", "files.list", "files.copy", "files.delete"
+✅ Web: "web.open_browser", "web.navigate", "web.click", "web.type", "web.get_text"
+✅ AI: "ai.model", "ai.agent", "ai.embeddings", "ai.llm_prompt", "ai.extract_data"
+✅ Database: "database.connect", "database.query", "database.insert", "database.update"
+✅ Excel: "excel.open", "excel.read_range", "excel.write_range", "excel.filter"
+✅ Logging: "logging.log", "logging.audit", "logging.notification"
 
-WRONG NODE TYPES (DO NOT USE):
+WRONG NODE TYPES (DO NOT USE - these don't exist!):
 ❌ "http.request" → Use "api.http_request"
 ❌ "json.parse" → Use "api.parse_json"  
 ❌ "condition.if" → Use "control.if"
+❌ "condition.*" → Use "control.*"
+❌ "data.transform" → Does NOT exist
+❌ "data.filter" → Does NOT exist (use "excel.filter" for Excel)
 ❌ "node.*" prefix → Never use "node." prefix
+❌ "error.handler" → Use "control.try_catch"
 
 RESPONSE FORMAT:
 {{
