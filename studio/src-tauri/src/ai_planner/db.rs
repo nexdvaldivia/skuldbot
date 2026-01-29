@@ -1,5 +1,8 @@
 // LLM Connections Database
 // SQLite storage for LLM connection metadata
+//
+// SECURITY: API keys and secrets are stored in the Vault (OS keyring), NOT here.
+// This database only stores non-sensitive metadata and configuration.
 
 use rusqlite::{Connection, params};
 use anyhow::Result;
@@ -15,6 +18,7 @@ impl ConnectionsDb {
         let conn = Connection::open(db_path)?;
         
         // Create tables if they don't exist
+        // NOTE: config_json contains SANITIZED config (no secrets)
         conn.execute(
             "CREATE TABLE IF NOT EXISTS llm_connections (
                 id TEXT PRIMARY KEY,
@@ -39,9 +43,14 @@ impl ConnectionsDb {
         Ok(Self { conn })
     }
     
+    /// Save connection metadata to SQLite.
+    /// IMPORTANT: This expects a SANITIZED connection (secrets replaced with placeholders).
+    /// Secrets must be stored separately in the Vault.
     pub fn save_connection(&self, connection: &LLMConnection) -> Result<()> {
-        // Serialize config and health_status to JSON
-        let config_json = serde_json::to_string(&connection.config)?;
+        // Sanitize config before saving - remove all secrets
+        let sanitized_config = connection.config.sanitize_for_storage();
+        let config_json = serde_json::to_string(&sanitized_config)?;
+        
         let health_status_json = connection.health_status
             .as_ref()
             .map(|h| serde_json::to_string(h).ok())

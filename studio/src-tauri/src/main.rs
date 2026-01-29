@@ -4721,20 +4721,68 @@ async fn test_llm_connection_v2(
     connection_validator::test_connection(config).await
 }
 
+// ==================== LLM SECRETS KEYRING FUNCTIONS ====================
+// SECURITY: LLM API keys are stored in the OS keyring, NOT in SQLite
+// SQLite only stores non-sensitive metadata
+
+const LLM_KEYRING_SERVICE: &str = "skuldbot-studio-llm";
+
+/// Get keyring entry for an LLM secret
+fn llm_keyring_entry(secret_key: &str) -> Result<keyring::Entry, String> {
+    keyring::Entry::new(LLM_KEYRING_SERVICE, secret_key)
+        .map_err(|e| format!("Keyring error: {}", e))
+}
+
+/// Save an LLM secret to the OS keyring
+fn save_llm_secret(secret_key: &str, secret_value: &str) -> Result<(), String> {
+    let entry = llm_keyring_entry(secret_key)?;
+    entry
+        .set_password(secret_value)
+        .map_err(|e| format!("Failed to save LLM secret: {}", e))
+}
+
+/// Load an LLM secret from the OS keyring
+fn load_llm_secret(secret_key: &str) -> Result<Option<String>, String> {
+    let entry = llm_keyring_entry(secret_key)?;
+    match entry.get_password() {
+        Ok(password) => Ok(Some(password)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(format!("Failed to load LLM secret: {}", e)),
+    }
+}
+
+/// Delete an LLM secret from the OS keyring
+fn delete_llm_secret(secret_key: &str) -> Result<(), String> {
+    let entry = llm_keyring_entry(secret_key)?;
+    match entry.delete_password() {
+        Ok(()) => Ok(()),
+        Err(keyring::Error::NoEntry) => Ok(()), // Already deleted
+        Err(e) => Err(format!("Failed to delete LLM secret: {}", e)),
+    }
+}
+
 #[tauri::command]
 async fn save_llm_connection(
     connection: LLMConnection,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    println!("💾 Saving LLM connection: {}", connection.name);
+    println!("💾 Saving LLM connection: {} (provider: {})", connection.name, connection.provider);
     
+    // Step 1: Extract secrets from config and save to keyring
+    let secrets = connection.config.extract_secrets(&connection.id);
+    for (key, value) in &secrets {
+        save_llm_secret(key, value)?;
+        println!("  🔐 Secret stored in keyring: {}", key);
+    }
+    
+    // Step 2: Save sanitized connection to SQLite (secrets replaced with placeholders)
     let db = get_connections_db(&app_handle)?;
     let db = db.lock().map_err(|e| format!("Database lock error: {}", e))?;
     
     db.save_connection(&connection)
         .map_err(|e| format!("Failed to save connection: {}", e))?;
     
-    println!("✅ LLM connection saved to database");
+    println!("✅ LLM connection saved (secrets in keyring, metadata in SQLite)");
     Ok(())
 }
 
@@ -4747,27 +4795,55 @@ async fn load_llm_connections(
     let db = get_connections_db(&app_handle)?;
     let db = db.lock().map_err(|e| format!("Database lock error: {}", e))?;
     
-    let connections = db.load_all_connections()
+    let mut connections = db.load_all_connections()
         .map_err(|e| format!("Failed to load connections: {}", e))?;
     
-    println!("✅ Loaded {} LLM connections", connections.len());
+    // Restore secrets from keyring for each connection
+    for connection in &mut connections {
+        let vault_keys = ai_planner::types::ProviderConfig::get_vault_keys(
+            &connection.id, 
+            &connection.provider
+        );
+        
+        let mut secrets = std::collections::HashMap::new();
+        for key in vault_keys {
+            if let Ok(Some(value)) = load_llm_secret(&key) {
+                secrets.insert(key, value);
+            }
+        }
+        
+        if !secrets.is_empty() {
+            connection.config.restore_secrets(&connection.id, &secrets);
+        }
+    }
+    
+    println!("✅ Loaded {} LLM connections (secrets restored from keyring)", connections.len());
     Ok(connections)
 }
 
 #[tauri::command]
 async fn delete_llm_connection(
     connection_id: String,
+    provider: String,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    println!("🗑️  Deleting LLM connection: {}", connection_id);
+    println!("🗑️  Deleting LLM connection: {} (provider: {})", connection_id, provider);
     
+    // Step 1: Delete secrets from keyring
+    let vault_keys = ai_planner::types::ProviderConfig::get_vault_keys(&connection_id, &provider);
+    for key in vault_keys {
+        delete_llm_secret(&key)?;
+        println!("  🔓 Secret deleted from keyring: {}", key);
+    }
+    
+    // Step 2: Delete metadata from SQLite
     let db = get_connections_db(&app_handle)?;
     let db = db.lock().map_err(|e| format!("Database lock error: {}", e))?;
     
     db.delete_connection(&connection_id)
         .map_err(|e| format!("Failed to delete connection: {}", e))?;
     
-    println!("✅ LLM connection deleted");
+    println!("✅ LLM connection deleted (secrets and metadata removed)");
     Ok(())
 }
 

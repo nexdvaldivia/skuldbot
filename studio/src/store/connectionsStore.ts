@@ -165,11 +165,15 @@ export const useConnectionsStore = create<ConnectionsStoreState>()(
       deleteConnection: async (id: string) => {
         const { connections, selectedConnectionId } = get();
 
+        // Get provider before deleting (needed for keyring cleanup)
+        const connectionToDelete = connections.find((conn) => conn.id === id);
+        const provider = connectionToDelete?.provider || "unknown";
+        
         const updatedConnections = connections.filter((conn) => conn.id !== id);
 
-        // Delete from Tauri secure storage
+        // Delete from Tauri secure storage (SQLite + keyring)
         try {
-          await invoke("delete_llm_connection", { connectionId: id });
+          await invoke("delete_llm_connection", { connectionId: id, provider });
         } catch (error) {
           console.error("Failed to delete connection:", error);
         }
