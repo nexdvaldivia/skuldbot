@@ -25,7 +25,7 @@ def escape_for_robot(text: str) -> str:
     return text.replace('\r\n', '\\n').replace('\n', '\\n').replace('\r', '\\n')
 
 
-def transform_variable_syntax(text: str, node_id_map: dict = None) -> str:
+def transform_variable_syntax(text, node_id_map: dict = None) -> str:
     """
     Transform Studio variable syntax to Robot Framework syntax.
 
@@ -37,6 +37,15 @@ def transform_variable_syntax(text: str, node_id_map: dict = None) -> str:
         ${formData.name} -> ${formData}[name]
         ${LAST_ERROR} -> ${LAST_ERROR}  (global vars unchanged)
     """
+    # Handle non-string inputs (e.g., dicts from config)
+    if text is None:
+        return ''
+    if isinstance(text, dict):
+        # Convert dict to JSON string
+        return json.dumps(text)
+    if not isinstance(text, str):
+        return str(text)
+    
     # Pattern to match ${...} expressions
     pattern = r'\$\{([^}]+)\}'
 

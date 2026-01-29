@@ -3240,6 +3240,7 @@ fn test_compile_dsl(dsl: &serde_json::Value) -> Result<bool, String> {
 import sys
 sys.path.insert(0, '{}')
 import json
+import traceback
 from skuldbot.compiler import Compiler
 
 with open('{}', 'r') as f:
@@ -3250,7 +3251,8 @@ try:
     package = compiler.compile(dsl)
     print('COMPILE_SUCCESS')
 except Exception as e:
-    print('COMPILE_FAILED:', str(e))
+    print('COMPILE_FAILED:', str(e), file=sys.stderr)
+    traceback.print_exc(file=sys.stderr)
     sys.exit(1)
 "#,
             engine_path.display(),
@@ -3263,16 +3265,31 @@ except Exception as e:
     let _ = std::fs::remove_file(&dsl_file);
     let _ = std::fs::remove_dir_all(&output_dir);
     
-    if output.status.success() {
-        let output_str = String::from_utf8_lossy(&output.stdout);
-        if output_str.contains("COMPILE_SUCCESS") {
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    
+    println!("🔧 Compile test stdout: {}", stdout.trim());
+    if !stderr.is_empty() {
+        println!("🔧 Compile test stderr: {}", stderr.trim());
+    }
+    
+    if output.status.success() && stdout.contains("COMPILE_SUCCESS") {
+        Ok(true)
     } else {
-        let error = String::from_utf8_lossy(&output.stderr);
-        Err(format!("Compilation test failed: {}", error))
+        // Get the most useful error message
+        let error_msg = if !stderr.is_empty() {
+            // Extract just the error message, not full traceback
+            stderr.lines()
+                .find(|line| line.contains("COMPILE_FAILED:") || line.contains("Error:") || line.contains("Exception:"))
+                .unwrap_or(&stderr)
+                .to_string()
+        } else if !stdout.is_empty() {
+            stdout.to_string()
+        } else {
+            "Unknown compilation error (no output)".to_string()
+        };
+        
+        Err(format!("DSL compilation failed: {}", error_msg.trim()))
     }
 }
 
