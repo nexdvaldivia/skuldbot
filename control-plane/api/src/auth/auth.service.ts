@@ -1,19 +1,16 @@
 import {
   Injectable,
   UnauthorizedException,
-  ConflictException,
   NotFoundException,
-  Inject,
-  Logger,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as argon2 from 'argon2';
-import { User, UserRole, UserStatus } from '../users/entities/user.entity';
-import { EmailProvider } from '../common/interfaces/integration.interface';
-import { EMAIL_PROVIDER } from '../integrations/email/email.module';
+import { User, UserStatus } from '../users/entities/user.entity';
+import { getUserGrantedPermissions, getUserRoleNames } from '../common/authz/permissions';
 import {
   LoginDto,
   RegisterDto,
@@ -25,21 +22,17 @@ import { JwtPayload } from './strategies/jwt.strategy';
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    @Inject(EMAIL_PROVIDER)
-    private readonly emailProvider: EmailProvider,
   ) {}
 
   async login(dto: LoginDto): Promise<AuthResponseDto> {
     const user = await this.userRepository.findOne({
       where: { email: dto.email },
-      relations: ['client'],
+      relations: ['client', 'roles', 'roles.permissions'],
     });
 
     if (!user || !user.passwordHash) {
@@ -63,32 +56,12 @@ export class AuthService {
     return this.generateTokens(user);
   }
 
-  async register(dto: RegisterDto): Promise<AuthResponseDto> {
-    const existing = await this.userRepository.findOne({
-      where: { email: dto.email },
+  async register(_dto: RegisterDto): Promise<AuthResponseDto> {
+    throw new ForbiddenException({
+      code: 'SELF_REGISTRATION_DISABLED',
+      message:
+        'Self-registration is disabled. Accounts must be created by an administrator.',
     });
-
-    if (existing) {
-      throw new ConflictException('User with this email already exists');
-    }
-
-    const passwordHash = await argon2.hash(dto.password);
-
-    const user = this.userRepository.create({
-      email: dto.email,
-      passwordHash,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      role: UserRole.CLIENT_USER,
-      status: UserStatus.PENDING,
-    });
-
-    const saved = await this.userRepository.save(user);
-
-    // TODO: Send verification email
-    this.logger.log(`New user registered: ${saved.email}`);
-
-    return this.generateTokens(saved);
   }
 
   async refreshToken(refreshToken: string): Promise<AuthResponseDto> {
@@ -99,7 +72,7 @@ export class AuthService {
 
       const user = await this.userRepository.findOne({
         where: { id: payload.sub },
-        relations: ['client'],
+        relations: ['client', 'roles', 'roles.permissions'],
       });
 
       if (!user || user.status !== UserStatus.ACTIVE) {
@@ -112,78 +85,26 @@ export class AuthService {
     }
   }
 
-  async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
-    const user = await this.userRepository.findOne({
-      where: { email: dto.email },
+  async forgotPassword(_dto: ForgotPasswordDto): Promise<{ message: string }> {
+    throw new ForbiddenException({
+      code: 'PASSWORD_RECOVERY_DISABLED',
+      message:
+        'Password recovery is disabled. Contact your administrator for credential reset.',
     });
-
-    if (!user) {
-      // Don't reveal if user exists
-      return { message: 'If the email exists, a reset link will be sent' };
-    }
-
-    // Generate reset token
-    const resetToken = this.jwtService.sign(
-      { sub: user.id, type: 'reset' } as object,
-      {
-        secret: this.configService.get<string>('JWT_SECRET'),
-        expiresIn: 3600, // 1 hour
-      },
-    );
-
-    // Send reset email
-    if (this.emailProvider.isConfigured()) {
-      try {
-        const resetUrl = `${this.configService.get<string>('APP_URL')}/reset-password?token=${resetToken}`;
-        await this.emailProvider.send({
-          to: user.email,
-          subject: 'Reset your password - Skuld Control Plane',
-          html: `
-            <h2>Reset your password</h2>
-            <p>Click the link below to reset your password:</p>
-            <a href="${resetUrl}">Reset Password</a>
-            <p>This link will expire in 1 hour.</p>
-          `,
-        });
-      } catch (error) {
-        this.logger.error('Failed to send reset email', error);
-      }
-    }
-
-    return { message: 'If the email exists, a reset link will be sent' };
   }
 
-  async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
-    try {
-      const payload = this.jwtService.verify<{ sub: string; type: string }>(dto.token, {
-        secret: this.configService.get<string>('JWT_SECRET'),
-      });
-
-      if (payload.type !== 'reset') {
-        throw new UnauthorizedException('Invalid reset token');
-      }
-
-      const user = await this.userRepository.findOne({
-        where: { id: payload.sub },
-      });
-
-      if (!user) {
-        throw new NotFoundException('User not found');
-      }
-
-      user.passwordHash = await argon2.hash(dto.newPassword);
-      await this.userRepository.save(user);
-
-      return { message: 'Password reset successfully' };
-    } catch {
-      throw new UnauthorizedException('Invalid or expired reset token');
-    }
+  async resetPassword(_dto: ResetPasswordDto): Promise<{ message: string }> {
+    throw new ForbiddenException({
+      code: 'PASSWORD_RECOVERY_DISABLED',
+      message:
+        'Password reset via self-service is disabled. Contact your administrator.',
+    });
   }
 
   async getProfile(userId: string): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      relations: ['client'],
+      relations: ['client', 'roles', 'roles.permissions'],
     });
 
     if (!user) {
@@ -221,7 +142,9 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
+        roles: getUserRoleNames(user),
         clientId: user.clientId,
+        permissions: getUserGrantedPermissions(user),
       },
     };
   }

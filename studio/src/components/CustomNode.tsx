@@ -191,11 +191,8 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
 
   // MS365 connection nodes
   const isMS365Connection = data.nodeType === "ms365.connection";
-  // HACK: Treat all MS365 nodes as triggers to force the connection handle to appear
-  // This bypasses any issues with the new 'needsMS365Connection' variable not being picked up
+  // MS365 consumer nodes require the connection input handle.
   const isMS365Trigger = (data.nodeType === "trigger.ms365_email" || data.category === "ms365") && !isMS365Connection;
-
-  // Keep this for compatibility but it's now redundant with the hack above
   const needsMS365Connection = isMS365Trigger;
 
   // Storage Provider connection nodes
@@ -219,7 +216,7 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
   const { toggleBreakpoint, runSingleNode, sessionState } = useDebugStore();
   const { isCurrentNode, hasBreakpoint, isDebugging, status, output, error, isPinned } = useNodeDebugState(id);
 
-  // Get execution timing and item count for n8n-style display
+  // Get execution timing and item count for flow-style display
   const nodeExecution = sessionState?.nodeExecutions?.[id];
   const executionDuration = nodeExecution?.startTime && nodeExecution?.endTime
     ? ((nodeExecution.endTime - nodeExecution.startTime) / 1000).toFixed(1)
@@ -379,7 +376,7 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
         </div>
       )}
 
-      {/* Pinned Data indicator (n8n-style) - top right corner */}
+      {/* Pinned Data indicator (flow-style) - top right corner */}
       {isPinned && (
         <div
           className="absolute -top-2 right-6 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm flex items-center gap-0.5 z-10"
@@ -609,7 +606,7 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
         </div>
       </div>
 
-      {/* n8n-style execution info badge - shows after execution */}
+      {/* flow-style execution info badge - shows after execution */}
       {(status === "success" || status === "error") && (itemCount !== null || executionDuration !== null) && (
         <div className={`flex items-center gap-2 px-3 py-1.5 text-[10px] border-t rounded-b-xl ${
           status === "success" 

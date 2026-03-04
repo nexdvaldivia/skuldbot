@@ -1,6 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
+import type { StorageService } from '../../storage/storage.interface';
+import { STORAGE_SERVICE } from '../../storage/storage.interface';
 
 /**
  * Custody Event - Single entry in chain of custody
@@ -50,10 +52,24 @@ export interface CustodyChain {
 export class CustodyService {
   private readonly logger = new Logger(CustodyService.name);
 
-  // In-memory cache for chains (in production, this would be in database)
+  // In-memory cache for hot chains; source of truth is storage.
   private chains: Map<string, CustodyChain> = new Map();
+  private readonly bucket: string;
+  private readonly chainPrefix: string;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    @Inject(STORAGE_SERVICE) private readonly storageService: StorageService,
+  ) {
+    this.bucket = this.configService.get<string>(
+      'storage.evidenceBucket',
+      'skuldbot-evidence',
+    );
+    this.chainPrefix = this.configService.get<string>(
+      'evidence.custody.prefix',
+      'evidence-custody',
+    );
+  }
 
   /**
    * Initialize a new chain of custody for an evidence pack.
@@ -67,6 +83,11 @@ export class CustodyService {
       details?: Record<string, unknown>;
     },
   ): Promise<CustodyChain> {
+    const existing = await this.loadChain(packId);
+    if (existing && existing.events.length > 0) {
+      return existing;
+    }
+
     const timestamp = new Date().toISOString();
 
     const event: CustodyEvent = {
@@ -92,6 +113,7 @@ export class CustodyService {
     };
 
     this.chains.set(packId, chain);
+    await this.persistChain(chain);
 
     this.logger.log(`Chain of custody initialized for pack ${packId}`);
 
@@ -110,7 +132,7 @@ export class CustodyService {
       details?: Record<string, unknown>;
     },
   ): Promise<CustodyEvent> {
-    const chain = this.chains.get(packId);
+    const chain = await this.loadChain(packId);
 
     if (!chain) {
       // Initialize chain if it doesn't exist
@@ -136,6 +158,9 @@ export class CustodyService {
 
     chain.events.push(event);
     chain.lastEventAt = timestamp;
+    chain.chainValid = true;
+    this.chains.set(packId, chain);
+    await this.persistChain(chain);
 
     this.logger.debug(`Custody event added to pack ${packId}: ${event.action}`);
 
@@ -146,7 +171,7 @@ export class CustodyService {
    * Get the chain of custody for an evidence pack.
    */
   async getChain(packId: string): Promise<CustodyChain> {
-    const chain = this.chains.get(packId);
+    const chain = await this.loadChain(packId);
 
     if (!chain) {
       // Return empty chain
@@ -161,6 +186,7 @@ export class CustodyService {
 
     // Verify chain integrity before returning
     chain.chainValid = await this.verifyChain(packId);
+    await this.persistChain(chain);
 
     return chain;
   }
@@ -169,7 +195,7 @@ export class CustodyService {
    * Verify the integrity of a chain of custody.
    */
   async verifyChain(packId: string): Promise<boolean> {
-    const chain = this.chains.get(packId);
+    const chain = await this.loadChain(packId);
 
     if (!chain || chain.events.length === 0) {
       return true; // Empty chain is valid
@@ -181,20 +207,26 @@ export class CustodyService {
       // Verify event hash
       const expectedHash = this.hashEvent({ ...event, eventHash: '' });
       if (event.eventHash !== expectedHash) {
-        this.logger.warn(`Chain verification failed: event ${event.eventId} hash mismatch`);
+        this.logger.warn(
+          `Chain verification failed: event ${event.eventId} hash mismatch`,
+        );
         return false;
       }
 
       // Verify link to previous event
       if (i === 0) {
         if (event.previousEventHash !== null) {
-          this.logger.warn(`Chain verification failed: first event has previous hash`);
+          this.logger.warn(
+            `Chain verification failed: first event has previous hash`,
+          );
           return false;
         }
       } else {
         const previousEvent = chain.events[i - 1];
         if (event.previousEventHash !== previousEvent.eventHash) {
-          this.logger.warn(`Chain verification failed: event ${event.eventId} link broken`);
+          this.logger.warn(
+            `Chain verification failed: event ${event.eventId} link broken`,
+          );
           return false;
         }
       }
@@ -259,6 +291,49 @@ export class CustodyService {
   // ─────────────────────────────────────────────────────────────────
   // Private Helper Methods
   // ─────────────────────────────────────────────────────────────────
+
+  private async loadChain(packId: string): Promise<CustodyChain | null> {
+    const cached = this.chains.get(packId);
+    if (cached) {
+      return cached;
+    }
+
+    const storageKey = this.getStorageKey(packId);
+    const exists = await this.storageService.exists(this.bucket, storageKey);
+    if (!exists) {
+      return null;
+    }
+
+    try {
+      const raw = await this.storageService.download(this.bucket, storageKey);
+      const chain = JSON.parse(raw.toString('utf-8')) as CustodyChain;
+      this.chains.set(packId, chain);
+      return chain;
+    } catch (error) {
+      this.logger.warn(
+        `Failed to load custody chain for pack ${packId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return null;
+    }
+  }
+
+  private async persistChain(chain: CustodyChain): Promise<void> {
+    const storageKey = this.getStorageKey(chain.packId);
+    await this.storageService.upload(
+      this.bucket,
+      storageKey,
+      Buffer.from(JSON.stringify(chain, null, 2), 'utf-8'),
+      {
+        contentType: 'application/json',
+      },
+    );
+  }
+
+  private getStorageKey(packId: string): string {
+    return `${this.chainPrefix}/${packId}.json`;
+  }
 
   private generateEventId(): string {
     const timestamp = Date.now().toString(36);

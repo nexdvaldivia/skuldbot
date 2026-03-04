@@ -23,7 +23,7 @@ export interface ProjectManifest {
 }
 
 export interface ProjectSettings {
-  defaultBrowser?: "chromium" | "firefox" | "webkit";
+  defaultBrowser?: "chromium" | "firefox" | "edge" | "webkit";
   defaultHeadless?: boolean;
   logLevel?: "DEBUG" | "INFO" | "WARN" | "ERROR";
   autoSave?: {

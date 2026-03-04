@@ -4,6 +4,7 @@ import { MarketplaceService } from './marketplace.service';
 import { MarketplaceController } from './marketplace.controller';
 import { MarketplaceBot, BotVersion } from './entities/marketplace-bot.entity';
 import { Partner } from './entities/partner.entity';
+import { MarketplaceSubscription } from './entities/marketplace-subscription.entity';
 
 /**
  * Marketplace Module
@@ -27,7 +28,14 @@ import { Partner } from './entities/partner.entity';
  * - Web marketing site shows public catalog
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([MarketplaceBot, BotVersion, Partner])],
+  imports: [
+    TypeOrmModule.forFeature([
+      MarketplaceBot,
+      BotVersion,
+      Partner,
+      MarketplaceSubscription,
+    ]),
+  ],
   controllers: [MarketplaceController],
   providers: [MarketplaceService],
   exports: [MarketplaceService],

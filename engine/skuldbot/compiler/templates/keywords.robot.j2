@@ -2,6 +2,7 @@
 Documentation     Keywords helper para el bot
 Library           Collections
 Library           OperatingSystem
+Library           String
 
 *** Keywords ***
 Load Manifest
@@ -37,3 +38,291 @@ Get Node Config
         RETURN    ${empty_config}
     END
 
+Normalize Node Envelope
+    [Arguments]    ${node_id}    ${node_type}    ${node_state}
+    [Documentation]    Normaliza la salida del nodo a envelope canónico (items/json/binary/meta/errors)
+
+    ${normalized}=    Evaluate    __import__('skuldbot.libs.runtime_envelope', fromlist=['normalize_node_envelope']).normalize_node_envelope($node_state, $node_id, $node_type)
+    RETURN    ${normalized}
+
+Build Node Input Envelope
+    [Arguments]    ${current_node_id}    ${current_node_type}    ${previous_node_id}    ${previous_branch}    ${previous_node_state}
+    [Documentation]    Construye envelope de entrada para el nodo actual usando la salida del nodo previo
+
+    ${normalized}=    Evaluate    __import__('skuldbot.libs.runtime_envelope', fromlist=['build_node_input_envelope']).build_node_input_envelope($current_node_id, $current_node_type, $previous_node_id, $previous_branch, $previous_node_state)
+    RETURN    ${normalized}
+
+Normalize Browser Name
+    [Arguments]    ${browser}
+    [Documentation]    Normaliza alias de browser a valores canónicos: chromium/firefox/edge/webkit
+
+    ${value}=    Convert To String    ${browser}
+    ${value}=    Strip String    ${value}
+    ${value}=    Convert To Lower Case    ${value}
+    ${value}=    Replace String    ${value}    _    -
+
+    IF    '${value}' == '' or '${value}' == 'auto'
+        RETURN    chromium
+    ELSE IF    '${value}' == 'chromium' or '${value}' == 'chrome' or '${value}' == 'google-chrome' or '${value}' == 'google chrome'
+        RETURN    chromium
+    ELSE IF    '${value}' == 'firefox' or '${value}' == 'ff'
+        RETURN    firefox
+    ELSE IF    '${value}' == 'edge' or '${value}' == 'msedge' or '${value}' == 'microsoft-edge' or '${value}' == 'microsoft edge'
+        RETURN    edge
+    ELSE IF    '${value}' == 'webkit' or '${value}' == 'safari'
+        RETURN    webkit
+    END
+
+    Fail    Unsupported browser '${browser}'. Allowed: chromium, firefox, edge, webkit
+
+Resolve Selenium Browser Name
+    [Arguments]    ${browser}
+    [Documentation]    Convierte browser canónico a nombre de Selenium
+
+    ${normalized}=    Normalize Browser Name    ${browser}
+    ${platform}=    Evaluate    __import__('platform').system().lower()
+
+    IF    '${normalized}' == 'chromium'
+        RETURN    chrome
+    ELSE IF    '${normalized}' == 'firefox'
+        RETURN    firefox
+    ELSE IF    '${normalized}' == 'edge'
+        RETURN    edge
+    ELSE IF    '${normalized}' == 'webkit'
+        IF    '${platform}' == 'darwin'
+            RETURN    safari
+        END
+        Fail    WebKit/Safari is only supported on macOS
+    END
+
+    Fail    Could not resolve Selenium browser for '${browser}'
+
+Resolve WebDriver Name
+    [Arguments]    ${selenium_browser}
+    [Documentation]    Convierte browser de Selenium al nombre de WebDriver
+
+    IF    '${selenium_browser}' == 'chrome'
+        RETURN    Chrome
+    ELSE IF    '${selenium_browser}' == 'firefox'
+        RETURN    Firefox
+    ELSE IF    '${selenium_browser}' == 'edge'
+        RETURN    Edge
+    ELSE IF    '${selenium_browser}' == 'safari'
+        RETURN    Safari
+    END
+
+    Fail    Unsupported Selenium browser '${selenium_browser}' for WebDriver
+
+Build WebDriver Options
+    [Arguments]    ${selenium_browser}    ${headless}
+    [Documentation]    Construye opciones de WebDriver para modo headless estricto
+
+    ${is_headless}=    Convert To Boolean    ${headless}
+    IF    not ${is_headless}
+        RETURN    ${NONE}
+    END
+
+    IF    '${selenium_browser}' == 'chrome'
+        ${options}=    Evaluate    __import__('selenium.webdriver').webdriver.ChromeOptions()
+        Call Method    ${options}    add_argument    --headless=new
+        Call Method    ${options}    add_argument    --disable-gpu
+        Call Method    ${options}    add_argument    --no-sandbox
+        RETURN    ${options}
+    ELSE IF    '${selenium_browser}' == 'edge'
+        ${options}=    Evaluate    __import__('selenium.webdriver').webdriver.EdgeOptions()
+        Call Method    ${options}    add_argument    --headless=new
+        Call Method    ${options}    add_argument    --disable-gpu
+        Call Method    ${options}    add_argument    --no-sandbox
+        RETURN    ${options}
+    ELSE IF    '${selenium_browser}' == 'firefox'
+        ${options}=    Evaluate    __import__('selenium.webdriver').webdriver.FirefoxOptions()
+        Call Method    ${options}    add_argument    -headless
+        RETURN    ${options}
+    ELSE IF    '${selenium_browser}' == 'safari'
+        Fail    Safari/WebKit does not support headless mode in Selenium
+    END
+
+    RETURN    ${NONE}
+
+Open Browser Strict
+    [Arguments]    ${url}    ${selenium_browser}    ${headless}=${FALSE}
+    [Documentation]    Abre navegador estricto sin fallback implícito
+
+    ${webdriver_name}=    Resolve WebDriver Name    ${selenium_browser}
+    ${options}=    Build WebDriver Options    ${selenium_browser}    ${headless}
+    ${has_options}=    Evaluate    $options is not None
+
+    IF    ${has_options}
+        Create Webdriver    ${webdriver_name}    options=${options}
+    ELSE
+        Create Webdriver    ${webdriver_name}
+    END
+
+    Go To    ${url}
+
+Resolve Browser Candidates
+    [Arguments]    ${requested_browser}    ${allow_fallback}=${FALSE}    ${fallback_order}=auto
+    [Documentation]    Resuelve orden de intento de browsers para política enterprise
+
+    ${requested}=    Normalize Browser Name    ${requested_browser}
+    @{candidates}=    Create List    ${requested}
+
+    IF    not ${allow_fallback}
+        RETURN    ${candidates}
+    END
+
+    ${platform}=    Evaluate    __import__('platform').system().lower()
+    ${fallback_raw}=    Convert To String    ${fallback_order}
+    ${fallback_raw}=    Strip String    ${fallback_raw}
+    ${has_custom_order}=    Evaluate    len($fallback_raw) > 0 and $fallback_raw.lower() != 'auto'
+
+    IF    ${has_custom_order}
+        ${parse_status}    ${parsed_order}=    Run Keyword And Ignore Error
+        ...    Evaluate    __import__('json').loads($fallback_raw) if $fallback_raw.startswith('[') else [p.strip() for p in $fallback_raw.split(',') if p.strip()]
+        IF    '${parse_status}' == 'PASS'
+            FOR    ${entry}    IN    @{parsed_order}
+                ${normalized}=    Normalize Browser Name    ${entry}
+                Append To List    ${candidates}    ${normalized}
+            END
+        ELSE
+            Log    Invalid fallback_order '${fallback_order}', using platform defaults    level=WARN
+        END
+    ELSE
+        IF    '${platform}' == 'windows'
+            Extend List    ${candidates}    edge    chromium    firefox
+        ELSE IF    '${platform}' == 'darwin'
+            Extend List    ${candidates}    chromium    firefox    webkit
+        ELSE
+            Extend List    ${candidates}    chromium    firefox
+        END
+    END
+
+    ${deduped}=    Evaluate    list(dict.fromkeys([str(x) for x in $candidates]))
+    RETURN    ${deduped}
+
+Detect Browser From User Agent
+    [Arguments]    ${user_agent}    ${fallback_browser}
+    [Documentation]    Detecta browser canónico desde user agent
+
+    ${fallback}=    Normalize Browser Name    ${fallback_browser}
+    ${ua}=    Convert To String    ${user_agent}
+    ${ua}=    Convert To Lower Case    ${ua}
+
+    IF    'edg/' in '${ua}' or 'edge/' in '${ua}'
+        RETURN    edge
+    ELSE IF    'firefox' in '${ua}'
+        RETURN    firefox
+    ELSE IF    'chrome/' in '${ua}' and 'edg/' not in '${ua}'
+        RETURN    chromium
+    ELSE IF    'safari/' in '${ua}' and 'chrome/' not in '${ua}'
+        RETURN    webkit
+    END
+
+    RETURN    ${fallback}
+
+Open Browser Enterprise
+    [Arguments]    ${url}    ${browser}=chromium    ${headless}=${FALSE}    ${allow_fallback}=${FALSE}    ${fallback_order}=auto
+    [Documentation]    Abre browser con política enterprise: estricto por defecto y fallback opcional explícito
+
+    ${requested}=    Normalize Browser Name    ${browser}
+    ${candidate_list}=    Resolve Browser Candidates    ${requested}    ${allow_fallback}    ${fallback_order}
+    ${opened}=    Set Variable    ${FALSE}
+    ${opened_candidate}=    Set Variable    ${EMPTY}
+
+    FOR    ${candidate}    IN    @{candidate_list}
+        ${resolve_status}    ${selenium_browser}=    Run Keyword And Ignore Error    Resolve Selenium Browser Name    ${candidate}
+        IF    '${resolve_status}' != 'PASS'
+            Log    Skipping browser candidate '${candidate}': ${selenium_browser}    level=WARN
+            CONTINUE
+        END
+
+        ${open_status}=    Run Keyword And Return Status
+        ...    Open Browser Strict
+        ...    ${url}
+        ...    ${selenium_browser}
+        ...    ${headless}
+        IF    ${open_status}
+            ${opened}=    Set Variable    ${TRUE}
+            ${opened_candidate}=    Set Variable    ${candidate}
+            BREAK
+        ELSE
+            Run Keyword And Ignore Error    Close All Browsers
+        END
+    END
+
+    IF    not ${opened}
+        Fail    Could not open browser. requested=${requested}, candidates=${candidate_list}
+    END
+
+    ${actual}=    Set Variable    ${opened_candidate}
+    ${ua_status}    ${user_agent}=    Run Keyword And Ignore Error    Execute JavaScript    return navigator.userAgent
+    IF    '${ua_status}' == 'PASS'
+        ${actual}=    Detect Browser From User Agent    ${user_agent}    ${opened_candidate}
+    END
+
+    ${fallback_used}=    Evaluate    $actual != $requested
+    IF    not ${allow_fallback} and ${fallback_used}
+        Run Keyword And Ignore Error    Close All Browsers
+        Fail    Browser mismatch. requested=${requested}, actual=${actual}. Fallback is disabled.
+    END
+
+    ${selenium_resolved}=    Resolve Selenium Browser Name    ${actual}
+    RETURN    ${actual}    ${selenium_resolved}    ${fallback_used}
+
+Debug Breakpoint Gate
+    [Arguments]    ${node_id}    ${node_type}
+    [Documentation]    Gate cooperativo para debug en vivo (step/continue + breakpoints)
+
+    ${session_dir}=    Get Environment Variable    SKULDBOT_DEBUG_SESSION_DIR    ${EMPTY}
+    IF    '${session_dir}' == ''
+        RETURN
+    END
+
+    ${breakpoints_raw}=    Get Environment Variable    SKULDBOT_DEBUG_BREAKPOINTS    []
+    ${bp_parse_status}    ${breakpoints_data}=    Run Keyword And Ignore Error
+    ...    Evaluate    __import__('json').loads($breakpoints_raw) if isinstance($breakpoints_raw, str) and $breakpoints_raw.strip() else []
+    IF    '${bp_parse_status}' == 'PASS'
+        ${breakpoints}=    Evaluate    set(str(x) for x in $breakpoints_data) if isinstance($breakpoints_data, (list, tuple, set)) else set()
+    ELSE
+        ${breakpoints}=    Evaluate    set()
+    END
+
+    ${mode_file}=    Set Variable    ${session_dir}/mode
+    ${stop_file}=    Set Variable    ${session_dir}/stop.token
+    ${mode}=    Set Variable    continue
+    ${mode_exists}=    Run Keyword And Return Status    File Should Exist    ${mode_file}
+    IF    ${mode_exists}
+        ${mode}=    Get File    ${mode_file}
+        ${mode}=    Strip String    ${mode}
+        ${mode}=    Convert To Lower Case    ${mode}
+    END
+
+    ${breakpoint_hit}=    Evaluate    $node_id in $breakpoints
+    ${should_pause}=    Set Variable    ${FALSE}
+    IF    '${mode}' == 'step'
+        ${should_pause}=    Set Variable    ${TRUE}
+    ELSE IF    '${mode}' == 'continue' and ${breakpoint_hit}
+        ${should_pause}=    Set Variable    ${TRUE}
+    END
+
+    IF    not ${should_pause}
+        RETURN
+    END
+
+    Log    DEBUG_PAUSED:${node_id}:${node_type}    console=yes
+
+    WHILE    ${TRUE}
+        ${stop_requested}=    Run Keyword And Return Status    File Should Exist    ${stop_file}
+        IF    ${stop_requested}
+            Fail    Debug stop requested
+        END
+
+        ${continue_file}=    Set Variable    ${session_dir}/continue.token
+        ${continue_exists}=    Run Keyword And Return Status    File Should Exist    ${continue_file}
+        IF    ${continue_exists}
+            Remove File    ${continue_file}
+            RETURN
+        END
+
+        Sleep    0.15s
+    END

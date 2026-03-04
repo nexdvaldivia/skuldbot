@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
 import { useToastStore } from '../../store/toastStore';
 import {
@@ -42,11 +42,7 @@ export const UsageDashboard: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('current');
   const toast = useToastStore();
 
-  useEffect(() => {
-    loadUsageData();
-  }, [selectedPeriod]);
-
-  const loadUsageData = async () => {
+  const loadUsageData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -62,7 +58,11 @@ export const UsageDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedPeriod]);
+
+  useEffect(() => {
+    loadUsageData();
+  }, [loadUsageData]);
 
   const exportReport = async () => {
     try {
@@ -305,4 +305,3 @@ export const UsageDashboard: React.FC = () => {
     </div>
   );
 };
-

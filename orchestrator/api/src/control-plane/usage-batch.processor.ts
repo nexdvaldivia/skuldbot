@@ -2,7 +2,9 @@ import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'crypto';
 import type { UsageBatch } from './usage-reporter.service';
+import { buildFleetAuthHeaders } from './fleet-auth.util';
 
 /**
  * Usage Batch Processor
@@ -33,14 +35,23 @@ export class UsageBatchProcessor extends WorkerHost {
     }
 
     try {
+      const traceId = randomUUID();
+      const fleetHeaders = buildFleetAuthHeaders(
+        this.configService,
+        batch.orchestratorId,
+        batch.tenantId,
+        traceId,
+      );
+
       const response = await fetch(`${controlPlaneUrl}/api/usage/ingest`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-License-Key': this.configService.get<string>('LICENSE_KEY', ''),
           'X-Api-Key': this.configService.get<string>('CONTROL_PLANE_API_KEY', ''),
-          'X-Orchestrator-Id': batch.orchestratorId,
           'X-Batch-Id': batch.batchId,
+          'X-Tenant-Id': batch.tenantId,
+          ...fleetHeaders,
         },
         body: JSON.stringify({
           batchId: batch.batchId,
@@ -62,7 +73,7 @@ export class UsageBatchProcessor extends WorkerHost {
       if (response.ok) {
         const result = await response.json();
         this.logger.log(
-          `Usage batch ${batch.batchId} sent successfully: ${result.processedCount || batch.events.length} events`,
+          `Usage batch ${batch.batchId} sent successfully: ${result.processedCount || batch.events.length} events (trace=${result.traceId || traceId})`,
         );
         return { status: 'success', eventCount: batch.events.length };
       }

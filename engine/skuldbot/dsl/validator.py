@@ -2,7 +2,8 @@
 DSL Validator
 """
 
-from typing import Dict, List, Set, Optional
+import re
+from typing import Any, Dict, List, Set, Optional
 from skuldbot.dsl.models import BotDefinition, NodeDefinition
 
 
@@ -21,6 +22,39 @@ class DSLValidator:
     # These nodes don't participate in execution flow, they provide configuration
     # via visual connections (e.g., AI Model -> AI Agent, MS365 Connection -> Email Trigger)
     CONFIG_NODES = {"ai.model", "ai.embeddings", "ms365.connection", "vectordb.memory"}
+    # Fields that normally carry credentials/secrets and must not be plaintext in DSL.
+    SENSITIVE_EXACT_KEYS = {
+        "password",
+        "passphrase",
+        "api_key",
+        "apikey",
+        "client_secret",
+        "secret_key",
+        "secret_access_key",
+        "aws_secret_key",
+        "aws_access_key",
+        "access_key_id",
+        "access_token",
+        "refresh_token",
+        "token",
+        "auth_token",
+        "private_key",
+        "service_account_json",
+        "credentials_json",
+        "connection_string",
+        "account_key",
+        "sas_token",
+        "security_token",
+        "azure_speech_key",
+        "auth_value",
+    }
+    # Keys that contain the word "secret" but are not secret values.
+    NON_SECRET_KEYS = {
+        "secrets",
+        "secret_name",
+        "secret_names",
+        "secrets_path",
+    }
 
     def __init__(self):
         self.errors: List[str] = []
@@ -49,10 +83,12 @@ class DSLValidator:
             raise ValidationError(f"Schema error: {str(e)}")
 
         # Additional validations
+        self._validate_unique_node_labels(bot)
         self._validate_node_references(bot)
         self._validate_no_cycles(bot)
         self._validate_reachability(bot)
         self._validate_ai_configurations(bot)
+        self._validate_secret_references(bot)
 
         if self.errors:
             raise ValidationError("Validation errors found", self.errors)
@@ -62,6 +98,31 @@ class DSLValidator:
     def get_warnings(self) -> List[str]:
         """Returns warnings from the last validation"""
         return self.warnings
+
+    def _validate_unique_node_labels(self, bot: BotDefinition) -> None:
+        """Validates that node labels are unique (case-insensitive)."""
+        labels: Dict[str, Dict[str, List[str] | str]] = {}
+
+        for node in bot.nodes:
+            if not node.label:
+                continue
+            normalized = node.label.strip().lower()
+            if not normalized:
+                continue
+            if normalized not in labels:
+                labels[normalized] = {"label": node.label.strip(), "node_ids": []}
+            labels[normalized]["node_ids"].append(node.id)
+
+        for entry in labels.values():
+            display_label = entry["label"]
+            node_ids = entry["node_ids"]
+            if len(node_ids) <= 1:
+                continue
+            self.errors.append(
+                "Duplicate node label "
+                f"'{display_label}' in nodes {', '.join(node_ids)}. "
+                "Node labels must be unique to avoid ambiguous variable references."
+            )
 
     def _validate_node_references(self, bot: BotDefinition) -> None:
         """Validates that all node references exist"""
@@ -278,3 +339,136 @@ class DSLValidator:
                         f"Embeddings '{node_label}': Ollama requires base_url."
                     )
 
+    def _is_sensitive_key(self, key: str) -> bool:
+        """Returns True if a config key is likely to contain credentials/secrets."""
+        # Normalize camelCase/PascalCase to snake_case first (apiKey -> api_key).
+        normalized = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", key).strip().lower()
+        if not normalized or normalized in self.NON_SECRET_KEYS:
+            return False
+        if normalized in self.SENSITIVE_EXACT_KEYS:
+            return True
+
+        # Common suffixes for secret values.
+        return normalized.endswith((
+            "_password",
+            "_passphrase",
+            "_api_key",
+            "_client_secret",
+            "_secret_key",
+            "_secret",
+            "_token",
+            "_private_key",
+        ))
+
+    @staticmethod
+    def _is_secure_secret_reference(value: str) -> bool:
+        """
+        Returns True when the value appears to be a runtime reference
+        (vault/env/variable expression) instead of plaintext.
+        """
+        if not isinstance(value, str):
+            return False
+
+        candidate = value.strip()
+        if not candidate:
+            return False
+
+        # Canonical references.
+        if "${vault." in candidate or "${env." in candidate:
+            return True
+        # n8n-style authoring references may still exist in some payloads.
+        if "{{$vault." in candidate or "{{$env." in candidate:
+            return True
+        # Legacy variable expressions (e.g. ${OPENAI_API_KEY}) are runtime-bound.
+        if re.fullmatch(r"\$\{[^}]+\}", candidate):
+            return True
+        if re.fullmatch(r"\{\{[^}]+\}\}", candidate):
+            return True
+
+        return False
+
+    def _scan_plaintext_secrets(
+        self,
+        payload: Any,
+        context_label: str,
+        path_prefix: str = "",
+    ) -> None:
+        """
+        Recursively scans dictionaries/lists and emits validation errors
+        when sensitive fields contain plaintext values.
+        """
+        if isinstance(payload, dict):
+            for key, value in payload.items():
+                if not isinstance(key, str):
+                    continue
+
+                current_path = f"{path_prefix}.{key}" if path_prefix else key
+
+                # Recurse first so nested issues are reported with full path.
+                if isinstance(value, (dict, list)):
+                    self._scan_plaintext_secrets(value, context_label, current_path)
+
+                if not self._is_sensitive_key(key):
+                    continue
+
+                # Empty values are handled by required-field validation.
+                if value is None:
+                    continue
+                if isinstance(value, str) and not value.strip():
+                    continue
+
+                if isinstance(value, str) and self._is_secure_secret_reference(value):
+                    continue
+
+                self.errors.append(
+                    f"{context_label}: sensitive field '{current_path}' contains plaintext data. "
+                    "Use a secure runtime reference like ${vault.secret_name} or ${env.SECRET_NAME}."
+                )
+
+        elif isinstance(payload, list):
+            for idx, item in enumerate(payload):
+                current_path = f"{path_prefix}[{idx}]"
+                if isinstance(item, (dict, list)):
+                    self._scan_plaintext_secrets(item, context_label, current_path)
+
+    def _validate_secret_references(self, bot: BotDefinition) -> None:
+        """
+        Enforces that sensitive fields in node configs are passed by secure
+        references (vault/env/variables), not plaintext.
+        """
+        for node in bot.nodes:
+            node_label = node.label or node.id
+
+            if node.config:
+                self._scan_plaintext_secrets(
+                    node.config,
+                    context_label=f"Node '{node_label}'",
+                )
+
+            if node.model_config_:
+                self._scan_plaintext_secrets(
+                    node.model_config_.model_dump(exclude_none=True),
+                    context_label=f"AI model config for node '{node_label}'",
+                    path_prefix="model_config_",
+                )
+
+            if node.embeddings:
+                self._scan_plaintext_secrets(
+                    node.embeddings.model_dump(exclude_none=True),
+                    context_label=f"Embeddings config for node '{node_label}'",
+                    path_prefix="embeddings",
+                )
+
+            if node.memory:
+                self._scan_plaintext_secrets(
+                    node.memory.model_dump(exclude_none=True),
+                    context_label=f"Memory config for node '{node_label}'",
+                    path_prefix="memory",
+                )
+
+            if node.connection_config:
+                self._scan_plaintext_secrets(
+                    node.connection_config,
+                    context_label=f"Connection config for node '{node_label}'",
+                    path_prefix="connection_config",
+                )

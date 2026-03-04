@@ -78,22 +78,49 @@ export class ControlPlaneClient {
     feature: string,
     context?: Record<string, any>,
   ): Promise<any> {
-    return await this.callTool('validate_license_feature', {
+    const response = await this.callTool('check_feature_access', {
       tenantId: this.tenantId,
       feature,
       context,
     });
+
+    return {
+      ...response,
+      allowed:
+        response?.allowed ??
+        response?.hasAccess ??
+        false,
+    };
   }
 
   /**
    * Check entitlement
    */
   async checkEntitlement(resourceType: string, requestedCount: number): Promise<any> {
-    return await this.callTool('check_entitlement', {
+    const limits = await this.callTool('get_license_limits', {
       tenantId: this.tenantId,
+    });
+
+    const limitMap: Record<string, number | undefined> = {
+      runners: limits?.maxRunners,
+      studios: limits?.maxStudios,
+      workflows: limits?.maxWorkflows,
+      executions_per_month: limits?.maxExecutionsPerMonth,
+      nodes: limits?.maxNodes,
+    };
+
+    const limit = limitMap[resourceType];
+    const unlimited = limit === -1;
+    const allowed =
+      unlimited || typeof limit !== 'number' ? true : requestedCount <= limit;
+
+    return {
+      allowed,
       resourceType,
       requestedCount,
-    });
+      limit: typeof limit === 'number' ? limit : null,
+      source: 'get_license_limits',
+    };
   }
 
   /**
@@ -105,9 +132,11 @@ export class ControlPlaneClient {
     industry?: string;
     limit?: number;
   }): Promise<any> {
-    return await this.callTool('search_marketplace', {
+    return await this.callTool('search_marketplace_bots', {
       tenantId: this.tenantId,
-      ...query,
+      query: query.searchQuery,
+      category: query.category ?? query.industry,
+      limit: query.limit,
     });
   }
 
@@ -138,7 +167,7 @@ export class ControlPlaneClient {
     return await this.callTool('subscribe_to_bot', {
       tenantId: this.tenantId,
       botId,
-      pricingTier,
+      pricingPlan: pricingTier,
     });
   }
 

@@ -1,13 +1,17 @@
 // AI Planner Types
 // Types for the AI-powered RPA planning assistant
 
-// Connection types for AI nodes (model, embeddings, memory, tools)
-export interface AIConnection {
-  from: string;               // ID or label of source node
-  to: string;                 // ID or label of target node
-  type: "model" | "embeddings" | "memory" | "tool";
-  toolName?: string;          // For tool connections
-  toolDescription?: string;   // For tool connections
+export interface PlanStepOutputs {
+  success?: string;           // Node ID or END
+  error?: string;             // Node ID or END
+}
+
+export interface PlanStepConnections {
+  model?: string;             // Source model node ID
+  tools?: string[];           // Source tool node IDs
+  memory?: string;            // Source memory node ID
+  embeddings?: string;        // Source embeddings node ID
+  connection?: string;        // Source service-connection node ID
 }
 
 export interface PlanStep {
@@ -16,10 +20,10 @@ export interface PlanStep {
   label: string;              // Human-readable name
   description: string;        // What this step does
   config: Record<string, unknown>; // Pre-filled configuration
+  outputs?: PlanStepOutputs;  // Explicit success/error routes
+  connections?: PlanStepConnections; // Canonical node-to-node connection refs
   reasoning?: string;         // AI's reasoning for this step
   isManual?: boolean;         // User-added vs AI-generated
-  // AI-specific connections (for embeddings→memory→agent patterns)
-  aiConnections?: AIConnection[];
 }
 
 export interface ConversationMessage {
@@ -55,6 +59,8 @@ export interface LLMConfig {
   baseUrl?: string;           // For local LLMs (Ollama, LM Studio)
   temperature: number;
   connectionId?: string;      // Reference to saved connection
+  localAskPlanTimeoutSec?: number;   // Timeout for local Ask/Plan mode
+  localGenerateTimeoutSec?: number;  // Timeout for local Generate mode
 }
 
 export type PlannerPhase = "input" | "plan" | "refining";
@@ -242,7 +248,14 @@ export interface AIPlannerV2State {
   closePanel: () => void;
   setMode: (complexity: PlannerComplexity) => void;
   setUserInput: (input: string) => void;
-  generateExecutablePlan: (description: string) => Promise<void>;
+  generateExecutablePlan: (
+    description: string,
+    options?: {
+      forceMode?: PlannerAgentMode;
+      displayMessage?: string;
+      skipUserMessage?: boolean;
+    }
+  ) => Promise<void>;
   refineWithFeedback: (feedback: string) => Promise<void>;
   askClarification: (question: string) => Promise<void>;
   validatePlan: () => Promise<void>;

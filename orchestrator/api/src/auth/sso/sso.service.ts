@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -243,38 +244,10 @@ export class SsoService {
   ): Promise<{ success: boolean; message: string; details?: any }> {
     try {
       if (dto.protocol === SsoProtocol.SAML && dto.saml) {
-        // Test SAML: Validate certificate format
-        const cert = dto.saml.idp.certificate;
-        if (!cert.includes('-----BEGIN CERTIFICATE-----')) {
-          return {
-            success: false,
-            message: 'Invalid certificate format. Must be PEM encoded.',
-          };
-        }
-
-        // Test IdP SSO URL reachability
-        try {
-          const response = await fetch(dto.saml.idp.ssoUrl, { method: 'HEAD' });
-          if (!response.ok && response.status !== 405) {
-            return {
-              success: false,
-              message: `IdP SSO URL is not reachable: ${response.status}`,
-            };
-          }
-        } catch (error: any) {
-          return {
-            success: false,
-            message: `Cannot reach IdP: ${error.message}`,
-          };
-        }
-
         return {
-          success: true,
-          message: 'SAML configuration appears valid.',
-          details: {
-            entityId: dto.saml.idp.entityId,
-            ssoUrl: dto.saml.idp.ssoUrl,
-          },
+          success: false,
+          message:
+            'SAML is temporarily unavailable in this build. Use OIDC providers (Azure Entra ID, Google Workspace, Okta, Auth0, Keycloak, AWS Cognito).',
         };
       } else if (dto.protocol === SsoProtocol.OIDC && dto.oidc) {
         // Test OIDC: Fetch discovery document
@@ -333,6 +306,7 @@ export class SsoService {
   }
 
   async getSamlMetadata(tenantId: string): Promise<SsoMetadataResponseDto> {
+    this.assertSamlAvailability();
     const tenant = await this.getTenantSsoInfo(tenantId);
 
     if (!tenant.ssoConfig) {
@@ -357,6 +331,7 @@ export class SsoService {
   }
 
   async getPublicSamlMetadata(tenantSlug: string): Promise<string> {
+    this.assertSamlAvailability();
     const tenant = await this.getTenantSsoInfoBySlug(tenantSlug);
 
     if (!tenant.ssoEnabled || !tenant.ssoConfig) {
@@ -375,6 +350,7 @@ export class SsoService {
     tenantSlug: string,
     returnUrl?: string,
   ): Promise<string> {
+    this.assertSamlAvailability();
     const tenant = await this.getTenantSsoInfoBySlug(tenantSlug);
 
     if (!tenant.ssoEnabled || !tenant.ssoConfig) {
@@ -409,6 +385,7 @@ export class SsoService {
     refreshToken: string;
     returnUrl?: string;
   }> {
+    this.assertSamlAvailability();
     // In production, this would use passport-saml to validate the response
     // For now, we'll assume the MultiTenantSamlStrategy handles validation
 
@@ -422,6 +399,7 @@ export class SsoService {
     tenantSlug: string,
     sessionIndex?: string,
   ): Promise<string | null> {
+    this.assertSamlAvailability();
     const tenant = await this.getTenantSsoInfoBySlug(tenantSlug);
 
     if (!tenant.ssoEnabled || !tenant.ssoConfig) {
@@ -597,6 +575,14 @@ export class SsoService {
       resourceType: 'sso_config',
       resourceId: tenantId,
       metadata: { event, ...details },
+    });
+  }
+
+  private assertSamlAvailability(): void {
+    throw new ServiceUnavailableException({
+      code: 'SAML_TEMPORARILY_UNAVAILABLE',
+      message:
+        'SAML is temporarily unavailable in this build. Use OIDC providers (Azure Entra ID, Google Workspace, Okta, Auth0, Keycloak, AWS Cognito).',
     });
   }
 

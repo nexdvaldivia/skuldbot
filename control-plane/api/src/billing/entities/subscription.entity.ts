@@ -41,7 +41,7 @@ export class TenantSubscription {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   tenantId: string;
 
   @Column()
@@ -157,11 +157,11 @@ export class PaymentHistory {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   subscriptionId: string;
 
   // Stripe References

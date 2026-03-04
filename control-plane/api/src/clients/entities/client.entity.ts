@@ -8,20 +8,6 @@ import {
 } from 'typeorm';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 
-export enum ClientPlan {
-  FREE = 'free',
-  STARTER = 'starter',
-  PROFESSIONAL = 'professional',
-  ENTERPRISE = 'enterprise',
-}
-
-export enum ClientStatus {
-  ACTIVE = 'active',
-  SUSPENDED = 'suspended',
-  PENDING = 'pending',
-  CANCELED = 'canceled',
-}
-
 @Entity('clients')
 export class Client {
   @PrimaryGeneratedColumn('uuid')
@@ -33,11 +19,11 @@ export class Client {
   @Column({ unique: true })
   slug: string;
 
-  @Column({ type: 'enum', enum: ClientPlan, default: ClientPlan.FREE })
-  plan: ClientPlan;
+  @Column({ type: 'varchar', length: 80, default: 'free' })
+  plan: string;
 
-  @Column({ type: 'enum', enum: ClientStatus, default: ClientStatus.PENDING })
-  status: ClientStatus;
+  @Column({ type: 'varchar', length: 80, default: 'pending' })
+  status: string;
 
   @Column({ name: 'billing_email' })
   billingEmail: string;

@@ -25,15 +25,24 @@ def escape_for_robot(text: str) -> str:
     return text.replace('\r\n', '\\n').replace('\n', '\\n').replace('\r', '\\n')
 
 
-def transform_variable_syntax(text, node_id_map: dict = None) -> str:
+def sanitize_node_identifier(node_id: str) -> str:
+    """
+    Normalize node IDs to Robot-safe identifier segments.
+
+    Keeps only [A-Za-z0-9_] and replaces everything else with "_".
+    """
+    if not isinstance(node_id, str):
+        node_id = str(node_id) if node_id is not None else ""
+    return re.sub(r"[^A-Za-z0-9_]", "_", node_id)
+
+
+def transform_variable_syntax(text) -> str:
     """
     Transform Studio variable syntax to Robot Framework syntax.
 
     Examples:
-        ${Form Trigger.formData.name} -> ${formData}[name]
-        ${Node Label.output} -> ${NODE_node_id}[output]
-        ${Node Label.error} -> ${NODE_node_id}[error]
-        ${Node Label.data} -> ${NODE_node_id}[data]
+        ${node:web.open_browser-1|output} -> ${NODE_web_open_browser_1}[output]
+        ${node:excel.read_range-1|rows[i].amount} -> ${NODE_excel_read_range_1}[rows][i][amount]
         ${formData.name} -> ${formData}[name]
         ${LAST_ERROR} -> ${LAST_ERROR}  (global vars unchanged)
     """
@@ -46,6 +55,22 @@ def transform_variable_syntax(text, node_id_map: dict = None) -> str:
     if not isinstance(text, str):
         return str(text)
     
+    def path_to_accessors(path: str) -> str:
+        """
+        Convert dot/bracket paths to Robot Framework dict accessors.
+        Example: "row[i].name" -> "[row][i][name]"
+        """
+        if not path:
+            return ""
+
+        normalized = path.strip()
+        if normalized.startswith('.'):
+            normalized = normalized[1:]
+
+        tokens = re.findall(r'([^\.\[\]]+)|\[([^\]]+)\]', normalized)
+        parts = [token_a or token_b for token_a, token_b in tokens if (token_a or token_b)]
+        return ''.join(f'[{p}]' for p in parts)
+
     # Pattern to match ${...} expressions
     pattern = r'\$\{([^}]+)\}'
 
@@ -59,31 +84,23 @@ def transform_variable_syntax(text, node_id_map: dict = None) -> str:
         if content in global_vars:
             return f'${{{content}}}'
 
+        # Canonical Studio syntax (node-id based):
+        # ${node:<node_id>|<path>}
+        if content.startswith('node:') and '|' in content:
+            node_id, path = content[5:].split('|', 1)
+            node_id = node_id.strip()
+            path = path.strip()
+
+            node_var_name = f'NODE_{sanitize_node_identifier(node_id)}'
+            accessors = path_to_accessors(path)
+            return f'${{{node_var_name}}}{accessors}'
+
         # Split by dots
         parts = content.split('.')
 
         if len(parts) == 1:
             # Simple variable like ${myVar}
             return f'${{{content}}}'
-
-        # Check if first part looks like a node label (contains spaces or has node-like patterns)
-        first_part = parts[0]
-        is_node_reference = ' ' in first_part or first_part in ['Form Trigger', 'Form', 'Trigger']
-
-        if is_node_reference and len(parts) >= 2:
-            # This is a node reference like ${Node Label.output} or ${Node Label.error}
-            node_label = first_part
-            field_parts = parts[1:]
-
-            # If we have a node_id_map, convert label to node_id
-            if node_id_map and node_label in node_id_map:
-                node_id = node_id_map[node_label]
-                node_var_name = f'NODE_{node_id.replace("-", "_")}'
-                accessors = ''.join(f'[{p}]' for p in field_parts)
-                return f'${{{node_var_name}}}{accessors}'
-            else:
-                # Fallback: use remaining parts as before
-                parts = field_parts
 
         if len(parts) == 0:
             return match.group(0)  # Return original if nothing left
@@ -94,7 +111,7 @@ def transform_variable_syntax(text, node_id_map: dict = None) -> str:
 
         # Convert formData.field.subfield to ${formData}[field][subfield]
         base_var = parts[0]
-        accessors = ''.join(f'[{p}]' for p in parts[1:])
+        accessors = path_to_accessors('.'.join(parts[1:]))
         return f'${{{base_var}}}{accessors}'
 
     return re.sub(pattern, replace_var, text)
@@ -132,7 +149,6 @@ class Compiler:
     def __init__(self, options: Optional[CompilerOptions] = None):
         self.options = options or CompilerOptions()
         self.validator = DSLValidator()
-        self._node_id_map: dict = {}  # Maps node labels to node IDs
 
         # Setup Jinja2 para templates
         self.jinja_env = Environment(
@@ -142,10 +158,11 @@ class Compiler:
             lstrip_blocks=True,
         )
         # Register custom filters for variable syntax transformation
-        # Note: we wrap the filter to use the instance's node_id_map
-        self.jinja_env.filters['transform_vars'] = lambda text: escape_for_robot(transform_variable_syntax(text, self._node_id_map))
+        self.jinja_env.filters['transform_vars'] = lambda text: escape_for_robot(transform_variable_syntax(text))
         # Filter to escape newlines without variable transformation
         self.jinja_env.filters['escape_newlines'] = escape_for_robot
+        # Normalize node IDs for Robot keyword/variable names.
+        self.jinja_env.filters['node_id_safe'] = sanitize_node_identifier
 
     def compile(self, dsl: Dict[str, Any]) -> BotPackage:
         """
@@ -237,12 +254,6 @@ class Compiler:
 
     def _generate_main_robot(self, bot_def: BotDefinition) -> str:
         """Genera main.robot"""
-        # Build node label -> ID map for variable transformation
-        self._node_id_map = {}
-        for node in bot_def.nodes:
-            if node.label:
-                self._node_id_map[node.label] = node.id
-
         template = self.jinja_env.get_template("main_v2.robot.j2")
         return template.render(bot=bot_def)
 
@@ -309,4 +320,3 @@ class Compiler:
             if var_def.type == "credential":
                 return True
         return False
-

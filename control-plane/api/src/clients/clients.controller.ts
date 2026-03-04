@@ -19,28 +19,34 @@ import {
 } from './dto/client.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { RequirePermissions } from '../common/decorators/permissions.decorator';
+import { CP_PERMISSIONS } from '../common/authz/permissions';
 import { UserRole } from '../users/entities/user.entity';
 
 @Controller('clients')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
   @Get()
   @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
+  @RequirePermissions(CP_PERMISSIONS.CLIENTS_READ)
   async findAll(): Promise<ClientResponseDto[]> {
     return this.clientsService.findAll();
   }
 
   @Get(':id')
   @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT, UserRole.CLIENT_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.CLIENTS_READ)
   async findOne(@Param('id') id: string): Promise<ClientDetailResponseDto> {
     return this.clientsService.findOne(id);
   }
 
   @Post()
   @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.CLIENTS_WRITE)
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateClientDto): Promise<ClientDetailResponseDto> {
     return this.clientsService.create(dto);
@@ -48,6 +54,7 @@ export class ClientsController {
 
   @Patch(':id')
   @Roles(UserRole.SKULD_ADMIN, UserRole.CLIENT_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.CLIENTS_WRITE)
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateClientDto,
@@ -57,6 +64,7 @@ export class ClientsController {
 
   @Delete(':id')
   @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.CLIENTS_DELETE)
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string): Promise<void> {
     return this.clientsService.delete(id);
@@ -64,12 +72,14 @@ export class ClientsController {
 
   @Post(':id/activate')
   @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.CLIENTS_WRITE)
   async activate(@Param('id') id: string): Promise<ClientDetailResponseDto> {
     return this.clientsService.activate(id);
   }
 
   @Post(':id/suspend')
   @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.CLIENTS_WRITE)
   async suspend(@Param('id') id: string): Promise<ClientDetailResponseDto> {
     return this.clientsService.suspend(id);
   }

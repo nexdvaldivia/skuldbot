@@ -534,3 +534,4 @@ Issues menores: 3 (warnings)
 *Archivos revisados: 25+*  
 *Líneas de código verificadas: 6,000+*
 
+

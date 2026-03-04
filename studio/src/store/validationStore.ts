@@ -25,6 +25,22 @@ interface ValidationState {
   hasWarnings: () => boolean;
 }
 
+const isSecureSecretReference = (value: unknown): boolean => {
+  if (typeof value !== "string") return false;
+  const candidate = value.trim();
+  if (!candidate) return false;
+
+  // Preferred enterprise-safe references.
+  if (candidate.includes("${vault.") || candidate.includes("${env.")) return true;
+  // Authoring/n8n-style references still accepted.
+  if (candidate.includes("{{$vault.") || candidate.includes("{{$env.")) return true;
+  // Runtime variable references (e.g. ${OPENAI_API_KEY}) are non-plaintext.
+  if (/^\$\{[^}]+\}$/.test(candidate)) return true;
+  if (/^\{\{[^}]+\}\}$/.test(candidate)) return true;
+
+  return false;
+};
+
 // Validation rules
 const validateNodes = (nodes: FlowNode[], edges: FlowEdge[]): ValidationIssue[] => {
   const issues: ValidationIssue[] = [];
@@ -93,6 +109,29 @@ const validateNodes = (nodes: FlowNode[], edges: FlowEdge[]): ValidationIssue[] 
       message: "No trigger node found. A Manual Trigger will be added automatically.",
     });
   }
+
+  // Labels are used in variable expressions; duplicates create ambiguous references.
+  const labelsByNormalized = new Map<string, { label: string; nodeIds: string[] }>();
+  nodes.forEach((node) => {
+    const label = node.data.label?.trim();
+    if (!label) return;
+    const key = label.toLowerCase();
+    const current = labelsByNormalized.get(key) || { label, nodeIds: [] };
+    current.nodeIds.push(node.id);
+    labelsByNormalized.set(key, current);
+  });
+
+  labelsByNormalized.forEach(({ label, nodeIds }) => {
+    if (nodeIds.length <= 1) return;
+    nodeIds.forEach((nodeId) => {
+      issues.push({
+        id: `duplicate-label-${nodeId}`,
+        nodeId,
+        severity: "error",
+        message: `Duplicate node label "${label}". Use unique node names for stable variable references.`,
+      });
+    });
+  });
 
   // Check each node
   nodes.forEach((node) => {
@@ -374,7 +413,7 @@ const validateNodes = (nodes: FlowNode[], edges: FlowEdge[]): ValidationIssue[] 
         }
         break;
 
-      case "trigger.form":
+      case "trigger.form": {
         const fields = config.fields || [];
         if (fields.length === 0) {
           issues.push({
@@ -386,6 +425,7 @@ const validateNodes = (nodes: FlowNode[], edges: FlowEdge[]): ValidationIssue[] 
           });
         }
         break;
+      }
 
       case "control.if":
         if (!config.condition) {
@@ -699,6 +739,24 @@ const validateNodes = (nodes: FlowNode[], edges: FlowEdge[]): ValidationIssue[] 
             field: field.name,
           });
         }
+      });
+
+      // Enterprise guardrail: sensitive fields must be secure references, not plaintext.
+      template.configSchema.forEach((field) => {
+        const isSensitiveField = field.type === "password" || field.secret === true;
+        if (!isSensitiveField) return;
+
+        const fieldValue = config[field.name];
+        if (isMissingValue(fieldValue)) return;
+        if (isSecureSecretReference(fieldValue)) return;
+
+        issues.push({
+          id: `${node.id}-${field.name}-secure-ref`,
+          nodeId: node.id,
+          severity: "error",
+          message: `${field.label || field.name} must use a secure reference (\${vault.secret_name} or \${env.SECRET_NAME}), not plaintext.`,
+          field: field.name,
+        });
       });
     }
   });

@@ -11,6 +11,8 @@ interface NodeSearchDialogProps {
   onClose: () => void;
 }
 
+const EMPTY_NODES: FlowNode[] = [];
+
 export default function NodeSearchDialog({ isOpen, onClose }: NodeSearchDialogProps) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -26,7 +28,7 @@ export default function NodeSearchDialog({ isOpen, onClose }: NodeSearchDialogPr
   const activeBot = isProjectMode
     ? projectStore.bots.get(projectStore.activeBotId || "")
     : null;
-  const nodes = isProjectMode ? (activeBot?.nodes || []) : flowStore.nodes;
+  const nodes = isProjectMode ? (activeBot?.nodes ?? EMPTY_NODES) : flowStore.nodes;
 
   // Filter nodes based on search query
   const filteredNodes = useMemo(() => {
@@ -214,37 +216,4 @@ export default function NodeSearchDialog({ isOpen, onClose }: NodeSearchDialogPr
       </div>
     </div>
   );
-}
-
-// Hook for managing search dialog state
-export function useNodeSearch() {
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl/Cmd + F to open search
-      if ((e.ctrlKey || e.metaKey) && e.key === "f") {
-        const target = e.target as HTMLElement;
-        const isTyping =
-          target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.getAttribute("contenteditable") === "true";
-
-        // Allow search if not in an input that needs the find functionality
-        if (!isTyping) {
-          e.preventDefault();
-          setIsSearchOpen(true);
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  return {
-    isSearchOpen,
-    openSearch: () => setIsSearchOpen(true),
-    closeSearch: () => setIsSearchOpen(false),
-  };
 }

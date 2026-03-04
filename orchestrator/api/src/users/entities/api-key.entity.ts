@@ -63,11 +63,11 @@ export class ApiKey {
   id: string;
 
   /** Tenant ID from license */
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   userId: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
@@ -178,11 +178,11 @@ export class RefreshToken {
   id: string;
 
   /** Tenant ID from license */
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   userId: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
@@ -244,11 +244,11 @@ export class Session {
   id: string;
 
   /** Tenant ID from license */
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   userId: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
@@ -276,7 +276,7 @@ export class Session {
   @Column({ default: false })
   isImpersonation: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   impersonatorId: string;
 
   // Alias for backwards compatibility (impersonatedBy = impersonatorId)
@@ -288,7 +288,7 @@ export class Session {
     this.impersonatorId = value;
   }
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   refreshTokenId: string; // Reference to the current refresh token
 
   @Column({ type: 'timestamp' })

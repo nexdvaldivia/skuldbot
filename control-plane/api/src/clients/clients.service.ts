@@ -2,12 +2,13 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
   Inject,
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Client, ClientStatus } from './entities/client.entity';
+import { Client } from './entities/client.entity';
 import {
   CreateClientDto,
   UpdateClientDto,
@@ -16,6 +17,11 @@ import {
 } from './dto/client.dto';
 import { PaymentProvider } from '../common/interfaces/integration.interface';
 import { PAYMENT_PROVIDER } from '../integrations/payment/payment.module';
+import { LookupsService } from '../lookups/lookups.service';
+import {
+  LOOKUP_DOMAIN_CLIENT_PLAN,
+  LOOKUP_DOMAIN_CLIENT_STATUS,
+} from '../lookups/lookups.constants';
 
 @Injectable()
 export class ClientsService {
@@ -26,6 +32,7 @@ export class ClientsService {
     private readonly clientRepository: Repository<Client>,
     @Inject(PAYMENT_PROVIDER)
     private readonly paymentProvider: PaymentProvider,
+    private readonly lookupsService: LookupsService,
   ) {}
 
   async findAll(): Promise<ClientResponseDto[]> {
@@ -72,9 +79,24 @@ export class ClientsService {
       throw new ConflictException('Client with this name or slug already exists');
     }
 
+    const plan = dto.plan
+      ? dto.plan.trim().toLowerCase()
+      : await this.lookupsService.getDefaultCode(LOOKUP_DOMAIN_CLIENT_PLAN, 'free');
+    await this.lookupsService.assertActiveCode(
+      LOOKUP_DOMAIN_CLIENT_PLAN,
+      plan,
+      `Invalid client plan "${dto.plan}"`,
+    );
+
+    const status = await this.lookupsService.getDefaultCode(
+      LOOKUP_DOMAIN_CLIENT_STATUS,
+      'pending',
+    );
+
     const client = this.clientRepository.create({
       ...dto,
-      status: ClientStatus.PENDING,
+      plan,
+      status,
     });
 
     // Create Stripe customer if payment provider is configured
@@ -104,6 +126,26 @@ export class ClientsService {
 
     if (!client) {
       throw new NotFoundException(`Client with ID ${id} not found`);
+    }
+
+    if (dto.plan) {
+      const normalizedPlan = dto.plan.trim().toLowerCase();
+      await this.lookupsService.assertActiveCode(
+        LOOKUP_DOMAIN_CLIENT_PLAN,
+        normalizedPlan,
+        `Invalid client plan "${dto.plan}"`,
+      );
+      dto.plan = normalizedPlan;
+    }
+
+    if (dto.status) {
+      const normalizedStatus = dto.status.trim().toLowerCase();
+      await this.lookupsService.assertActiveCode(
+        LOOKUP_DOMAIN_CLIENT_STATUS,
+        normalizedStatus,
+        `Invalid client status "${dto.status}"`,
+      );
+      dto.status = normalizedStatus;
     }
 
     // Update Stripe customer if email changed
@@ -161,7 +203,8 @@ export class ClientsService {
       throw new NotFoundException(`Client with ID ${id} not found`);
     }
 
-    client.status = ClientStatus.ACTIVE;
+    const activeStatus = await this.resolveRequiredStatus('active');
+    client.status = activeStatus;
     const saved = await this.clientRepository.save(client);
     return this.toDetailDto(saved);
   }
@@ -176,9 +219,25 @@ export class ClientsService {
       throw new NotFoundException(`Client with ID ${id} not found`);
     }
 
-    client.status = ClientStatus.SUSPENDED;
+    const suspendedStatus = await this.resolveRequiredStatus('suspended');
+    client.status = suspendedStatus;
     const saved = await this.clientRepository.save(client);
     return this.toDetailDto(saved);
+  }
+
+  private async resolveRequiredStatus(code: string): Promise<string> {
+    const normalized = code.trim().toLowerCase();
+    try {
+      await this.lookupsService.assertActiveCode(
+        LOOKUP_DOMAIN_CLIENT_STATUS,
+        normalized,
+      );
+      return normalized;
+    } catch {
+      throw new BadRequestException(
+        `Required status "${normalized}" is not active in lookup domain ${LOOKUP_DOMAIN_CLIENT_STATUS}`,
+      );
+    }
   }
 
   private toResponseDto(client: Client): ClientResponseDto {

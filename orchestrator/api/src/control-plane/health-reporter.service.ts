@@ -1,7 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { randomUUID } from 'crypto';
 import { LicenseService } from '../license/license.service';
+import { buildFleetAuthHeaders } from './fleet-auth.util';
 
 /**
  * Health Status
@@ -297,16 +299,41 @@ export class HealthReporterService {
    */
   private async sendReport(report: HealthReport, controlPlaneUrl: string): Promise<void> {
     const licenseKey = this.configService.get<string>('LICENSE_KEY', '');
+    const apiKey = this.configService.get<string>('CONTROL_PLANE_API_KEY', '');
+    const fleetHeaders = buildFleetAuthHeaders(
+      this.configService,
+      this.orchestratorId,
+      this.licenseService.getTenantId(),
+      randomUUID(),
+    );
 
-    await fetch(`${controlPlaneUrl}/api/orchestrators/health`, {
+    const response = await fetch(`${controlPlaneUrl}/api/orchestrators/heartbeat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-License-Key': licenseKey,
-        'X-Orchestrator-Id': this.orchestratorId,
+        'X-Api-Key': apiKey,
+        ...fleetHeaders,
       },
-      body: JSON.stringify(report),
+      body: JSON.stringify({
+        orchestratorId: this.orchestratorId,
+        timestamp: report.timestamp.toISOString(),
+        metrics: {
+          overallStatus: report.overallStatus,
+          activeRuns: report.application.activeRuns,
+          queuedRuns: report.application.queuedRuns,
+          connectedRunners: report.application.connectedRunners,
+          queueDepth: report.application.queueDepth,
+          memoryPercentUsed: report.system.memory.percentUsed,
+          cpuLoadAvg1m: report.system.cpu.loadAvg[0] ?? null,
+        },
+        healthReport: report,
+      }),
     });
+
+    if (!response.ok) {
+      throw new Error(`Control-Plane heartbeat endpoint returned ${response.status}`);
+    }
 
     this.logger.debug(`Health report sent: ${report.overallStatus}`);
   }

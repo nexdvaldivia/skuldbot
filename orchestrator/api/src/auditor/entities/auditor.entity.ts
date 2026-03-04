@@ -73,7 +73,7 @@ export class Auditor {
   id: string;
 
   /** Tenant ID (organization) this auditor has access to */
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
@@ -142,7 +142,7 @@ export class Auditor {
   @JoinColumn({ name: 'createdById' })
   createdBy: User | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   createdById: string | null;
 
   @CreateDateColumn()
@@ -230,11 +230,11 @@ export class AuditorAccessLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   auditorId: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   tenantId: string;
 
   /** Action performed */

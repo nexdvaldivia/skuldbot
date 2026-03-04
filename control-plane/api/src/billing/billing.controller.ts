@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Post,
   Get,
@@ -11,6 +12,7 @@ import {
   UnauthorizedException,
   ConflictException,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { BillingService } from './billing.service';
 import type { UsageBatchDto } from './billing.service';
 
@@ -52,8 +54,17 @@ export class BillingController {
     @Headers('x-api-key') apiKey: string,
     @Headers('x-orchestrator-id') orchestratorId: string,
     @Headers('x-batch-id') batchId: string,
+    @Headers('x-tenant-id') tenantIdHeader: string,
+    @Headers('x-trace-id') traceIdHeader: string,
     @Body() batch: UsageBatchDto,
-  ): Promise<{ processedCount: number; batchId: string }> {
+  ): Promise<{
+    processedCount: number;
+    duplicateEventCount: number;
+    batchId: string;
+    traceId: string;
+  }> {
+    const traceId = traceIdHeader?.trim() || randomUUID();
+
     // Validate authentication
     // In production, would validate license key and API key
     if (!licenseKey && !apiKey) {
@@ -64,10 +75,29 @@ export class BillingController {
       throw new UnauthorizedException('Missing orchestrator ID');
     }
 
+    if (!batch || typeof batch !== 'object') {
+      throw new BadRequestException('Request body is required');
+    }
+
+    if (!batchId?.trim()) {
+      throw new BadRequestException('Missing batch ID');
+    }
+
+    if (tenantIdHeader?.trim() && tenantIdHeader !== batch.tenantId) {
+      throw new BadRequestException(
+        'x-tenant-id header does not match batch.tenantId',
+      );
+    }
+
+    if (batchId !== batch.batchId) {
+      throw new BadRequestException('x-batch-id header does not match batch.batchId');
+    }
+
     try {
       const result = await this.billingService.ingestUsageBatch(
         orchestratorId,
         batch,
+        { traceId },
       );
 
       if (result.duplicateBatch) {
@@ -76,7 +106,9 @@ export class BillingController {
 
       return {
         processedCount: result.processedCount,
+        duplicateEventCount: result.duplicateEventCount,
         batchId: batch.batchId,
+        traceId,
       };
     } catch (error) {
       if (error instanceof ConflictException) {

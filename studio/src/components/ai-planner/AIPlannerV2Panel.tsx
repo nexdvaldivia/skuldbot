@@ -1,11 +1,12 @@
 /**
  * AI Planner V2 Panel - Executable Workflows
- * Interactive 3-panel layout for intelligent automation generation
+ * Conversational workflow generation with switchable workspace panels
  */
 
 import { useEffect } from "react";
-import { X, Bot, Sparkles, Settings, Link2 } from "lucide-react";
+import { X, Bot, Sparkles, Settings, MessageSquare, Eye, ShieldCheck, Link2, type LucideIcon } from "lucide-react";
 import { Button } from "../ui/Button";
+import { Badge } from "../ui/Badge";
 import { useLicenseStore, useCanUseAIPlanner } from "../../store/licenseStore";
 import { ChatPanel } from "./v2/ChatPanel";
 import { PreviewPanel } from "./v2/PreviewPanel";
@@ -14,19 +15,59 @@ import { ConnectionsPanel } from "./v2/ConnectionsPanel";
 import { LLMConfigDialog } from "./LLMConfigDialog";
 import { LicenseDialog } from "../LicenseDialog";
 import { useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "../ui/select";
 
 interface AIPlannerV2PanelProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+type PlannerPanelTab = "chat" | "preview" | "validation" | "connections";
+
+const PANEL_OPTIONS: Array<{
+  value: PlannerPanelTab;
+  label: string;
+  shortcut: string;
+  description: string;
+  icon: LucideIcon;
+}> = [
+  {
+    value: "chat",
+    label: "Chat",
+    shortcut: "⌘1",
+    description: "Conversación y planificación",
+    icon: MessageSquare,
+  },
+  {
+    value: "preview",
+    label: "Preview",
+    shortcut: "⌘2",
+    description: "Vista del workflow generado",
+    icon: Eye,
+  },
+  {
+    value: "validation",
+    label: "Validation",
+    shortcut: "⌘3",
+    description: "Chequeos y problemas del plan",
+    icon: ShieldCheck,
+  },
+  {
+    value: "connections",
+    label: "Connections",
+    shortcut: "⌘4",
+    description: "Conexiones LLM y proveedores",
+    icon: Link2,
+  },
+];
+
 export function AIPlannerV2Panel({ isOpen, onClose }: AIPlannerV2PanelProps) {
   const canUseAI = useCanUseAIPlanner();
   const isStudioActivated = useLicenseStore((state) => state.isStudioActivated);
   const [showLLMConfig, setShowLLMConfig] = useState(false);
   const [showLicenseDialog, setShowLicenseDialog] = useState(false);
-  const [activeTab, setActiveTab] = useState<"chat" | "preview" | "validation" | "connections">("chat");
+  const [activeTab, setActiveTab] = useState<PlannerPanelTab>("chat");
+  const activePanel = PANEL_OPTIONS.find((option) => option.value === activeTab) || PANEL_OPTIONS[0];
 
   // Reset on close
   useEffect(() => {
@@ -82,7 +123,7 @@ export function AIPlannerV2Panel({ isOpen, onClose }: AIPlannerV2PanelProps) {
         onClick={onClose}
       />
 
-      {/* Panel - Wider for 3-panel layout */}
+      {/* Panel */}
       <div className="fixed right-0 top-0 h-full w-[900px] max-w-[90vw] bg-white shadow-2xl z-50 flex flex-col animate-slide-in-right">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200">
@@ -169,75 +210,83 @@ export function AIPlannerV2Panel({ isOpen, onClose }: AIPlannerV2PanelProps) {
           </div>
         )}
 
-        {/* Main Content - 3 Panel Layout */}
-        {(canUseAI || true) && ( // TODO: Remove || true for production
-          <div className="flex-1 overflow-hidden">
-            <Tabs 
-              value={activeTab} 
-              onValueChange={(v) => setActiveTab(v as typeof activeTab)}
-              className="flex flex-col h-full"
-            >
-              {/* Tab Navigation */}
-              <div className="border-b border-neutral-200 px-6">
-                <TabsList className="h-12 w-full justify-start bg-transparent p-0">
-                  <TabsTrigger 
-                    value="chat" 
-                    className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary-500 rounded-none px-4 h-12 text-sm font-medium"
-                  >
-                    <Bot className="w-4 h-4 mr-2" />
-                    Chat
-                    <kbd className="ml-2 hidden sm:inline-flex h-5 px-1.5 rounded bg-neutral-100 text-[11px] font-medium text-neutral-600 border border-neutral-200">
-                      ⌘1
-                    </kbd>
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="preview" 
-                    className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary-500 rounded-none px-4 h-12 text-sm font-medium"
-                  >
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Preview
-                    <kbd className="ml-2 hidden sm:inline-flex h-5 px-1.5 rounded bg-neutral-100 text-[11px] font-medium text-neutral-600 border border-neutral-200">
-                      ⌘2
-                    </kbd>
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="validation" 
-                    className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary-500 rounded-none px-4 h-12 text-sm font-medium"
-                  >
-                    Validation
-                    <kbd className="ml-2 hidden sm:inline-flex h-5 px-1.5 rounded bg-neutral-100 text-[11px] font-medium text-neutral-600 border border-neutral-200">
-                      ⌘3
-                    </kbd>
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="connections" 
-                    className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary-500 rounded-none px-4 h-12 text-sm font-medium"
-                  >
-                    <Link2 className="w-4 h-4 mr-2" />
-                    Connections
-                    <kbd className="ml-2 hidden sm:inline-flex h-5 px-1.5 rounded bg-neutral-100 text-[11px] font-medium text-neutral-600 border border-neutral-200">
-                      ⌘4
-                    </kbd>
-                  </TabsTrigger>
-                </TabsList>
-              </div>
+        {/* Main Content */}
+        {canUseAI && (
+          <div className="flex flex-col flex-1 overflow-hidden">
+            {/* View Selector */}
+            <div className="border-b border-neutral-200 bg-gradient-to-r from-neutral-50 via-white to-neutral-50 px-6 py-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <Badge
+                  variant="outline"
+                  className="border-neutral-300 bg-white text-neutral-700 font-semibold uppercase tracking-wide"
+                >
+                  Workspace
+                </Badge>
 
-              {/* Tab Content */}
-              <div className="flex-1 overflow-hidden">
-                <TabsContent value="chat" className="h-full m-0 p-0">
-                  <ChatPanel />
-                </TabsContent>
-                <TabsContent value="preview" className="h-full m-0 p-0">
-                  <PreviewPanel />
-                </TabsContent>
-                <TabsContent value="validation" className="h-full m-0 p-0">
-                  <ValidationPanel />
-                </TabsContent>
-                <TabsContent value="connections" className="h-full m-0 p-0">
-                  <ConnectionsPanel />
-                </TabsContent>
+                <Select
+                  value={activeTab}
+                  onValueChange={(value) => setActiveTab(value as PlannerPanelTab)}
+                >
+                  <SelectTrigger className="h-11 w-[320px] max-w-full border-neutral-300 bg-white shadow-sm hover:border-neutral-400 focus:ring-primary-200">
+                    <div className="flex items-center gap-2 min-w-0 text-left">
+                      <div className="w-7 h-7 rounded-md bg-primary-50 border border-primary-100 flex items-center justify-center flex-shrink-0">
+                        <activePanel.icon className="w-3.5 h-3.5 text-primary-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-neutral-900 truncate">
+                          {activePanel.label}
+                        </div>
+                        <div className="text-xs text-neutral-500 truncate">
+                          {activePanel.description}
+                        </div>
+                      </div>
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent className="w-[320px]">
+                    {PANEL_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value} className="py-2">
+                        <div className="flex items-center justify-between gap-4 w-full">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <option.icon className="w-4 h-4 text-neutral-500 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-neutral-900 truncate">{option.label}</div>
+                              <div className="text-xs text-neutral-500 truncate">{option.description}</div>
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] border-neutral-300 text-neutral-500">
+                            {option.shortcut}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="ml-auto flex items-center gap-1.5">
+                  {PANEL_OPTIONS.map((option) => (
+                    <Badge
+                      key={option.value}
+                      variant="outline"
+                      className={
+                        option.value === activeTab
+                          ? "border-primary-200 bg-primary-50 text-primary-700"
+                          : "border-neutral-300 bg-white text-neutral-500"
+                      }
+                    >
+                      {option.shortcut}
+                    </Badge>
+                  ))}
+                </div>
               </div>
-            </Tabs>
+            </div>
+
+            {/* Panel Content */}
+            <div className="flex-1 overflow-hidden">
+              {activeTab === "chat" && <ChatPanel />}
+              {activeTab === "preview" && <PreviewPanel />}
+              {activeTab === "validation" && <ValidationPanel />}
+              {activeTab === "connections" && <ConnectionsPanel />}
+            </div>
           </div>
         )}
       </div>
@@ -258,4 +307,3 @@ export function AIPlannerV2Panel({ isOpen, onClose }: AIPlannerV2PanelProps) {
 }
 
 export default AIPlannerV2Panel;
-

@@ -311,7 +311,7 @@ export default function SettingsPanel() {
     await updateProjectSettings({
       name: formData.name,
       description: formData.description,
-      defaultBrowser: formData.defaultBrowser as "chromium" | "firefox" | "webkit",
+      defaultBrowser: formData.defaultBrowser as "chromium" | "firefox" | "edge" | "webkit",
       defaultHeadless: formData.defaultHeadless,
       autoSaveEnabled: formData.autoSaveEnabled,
       autoSaveInterval: formData.autoSaveInterval,
@@ -546,6 +546,12 @@ export default function SettingsPanel() {
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-orange-500" />
                         Firefox
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="edge">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-cyan-500" />
+                        Edge
                       </div>
                     </SelectItem>
                     <SelectItem value="webkit">

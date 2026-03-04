@@ -4,11 +4,15 @@ import { useValidationStore, ValidationIssue } from "../store/validationStore";
 import { useProjectStore } from "../store/projectStore";
 import { useNavigationStore } from "../store/navigationStore";
 import { useFlowStore } from "../store/flowStore";
+import { FlowEdge, FlowNode } from "../types/flow";
 import { cn } from "../lib/utils";
 
 interface ProblemsPanelProps {
   className?: string;
 }
+
+const EMPTY_NODES: FlowNode[] = [];
+const EMPTY_EDGES: FlowEdge[] = [];
 
 export default function ProblemsPanel({ className }: ProblemsPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -22,8 +26,8 @@ export default function ProblemsPanel({ className }: ProblemsPanelProps) {
   const activeBot = isProjectMode
     ? projectStore.bots.get(projectStore.activeBotId || "")
     : null;
-  const nodes = isProjectMode ? (activeBot?.nodes || []) : flowStore.nodes;
-  const edges = isProjectMode ? (activeBot?.edges || []) : flowStore.edges;
+  const nodes = isProjectMode ? (activeBot?.nodes ?? EMPTY_NODES) : flowStore.nodes;
+  const edges = isProjectMode ? (activeBot?.edges ?? EMPTY_EDGES) : flowStore.edges;
 
   // Auto-validate when nodes/edges change
   useEffect(() => {

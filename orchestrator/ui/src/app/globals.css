@@ -1,65 +1,52 @@
-@import url('https://rsms.me/inter/inter.css');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /* Background & Foreground - Slate Blue tinted */
-    --background: 210 20% 98%;
-    --foreground: 215 25% 17%;
-
-    /* Card - Slightly warmer white */
-    --card: 210 20% 99%;
-    --card-foreground: 215 25% 17%;
-
-    /* Popover */
+    /* Core surfaces */
+    --background: 0 0% 100%;
+    --foreground: 240 6% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 6% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 17%;
+    --popover-foreground: 240 6% 10%;
 
-    /* Primary - Jade Green (#00A36C) */
-    --primary: 156 100% 32%;
+    /* Skuld brand emerald */
+    --primary: 158 64% 52%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Slate tinted */
-    --secondary: 210 18% 96%;
-    --secondary-foreground: 215 20% 25%;
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 6% 10%;
 
-    /* Muted - Soft slate */
-    --muted: 210 18% 95%;
-    --muted-foreground: 215 15% 50%;
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
 
-    /* Accent - Light slate blue */
-    --accent: 210 18% 94%;
-    --accent-foreground: 215 20% 25%;
+    --accent: 149 80% 90%;
+    --accent-foreground: 164 86% 16%;
 
-    /* Destructive */
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive-foreground: 0 0% 100%;
 
-    /* Success */
-    --success: 142 76% 36%;
+    --success: 158 64% 52%;
     --success-foreground: 0 0% 100%;
 
-    /* Warning */
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    /* Border & Input - Soft slate borders */
-    --border: 214 20% 88%;
-    --input: 214 20% 88%;
-    --ring: 156 100% 32%;
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 158 64% 52%;
 
     --radius: 0.5rem;
 
-    /* Sidebar - Dark theme */
-    --sidebar-background: 215 28% 12%;
-    --sidebar-foreground: 210 20% 90%;
-    --sidebar-border: 215 20% 18%;
-    --sidebar-muted: 215 15% 50%;
-    --sidebar-accent: 215 20% 18%;
-    --sidebar-primary: 156 100% 32%;
+    /* Sidebar aligned with Control Plane */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 240 6% 10%;
+    --sidebar-border: 240 6% 90%;
+    --sidebar-muted: 240 4% 46%;
+    --sidebar-accent: 149 80% 90%;
+    --sidebar-primary: 158 64% 52%;
   }
 
   * {
@@ -67,15 +54,14 @@
   }
 
   html {
-    font-family: 'Inter var', 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-family: 'Montserrat', 'Inter var', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-zinc-50 text-foreground;
   }
 }
 
@@ -100,8 +86,8 @@
 
 /* Selection */
 ::selection {
-  background: hsl(var(--primary) / 0.15);
-  color: hsl(var(--primary));
+  background: rgb(53 211 153 / 0.2);
+  color: #064e3b;
 }
 
 /* Status indicators */
@@ -114,7 +100,7 @@
 
 .status-online {
   background-color: hsl(var(--success));
-  box-shadow: 0 0 0 3px hsl(var(--success) / 0.2);
+  box-shadow: 0 0 0 3px rgb(53 211 153 / 0.2);
 }
 
 .status-offline {

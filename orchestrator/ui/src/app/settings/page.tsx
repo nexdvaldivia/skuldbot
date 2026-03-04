@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { useSettings, useSsoConfig, useUpdateSettings } from '@/hooks/use-api';
+import { useToast } from '@/hooks/use-toast';
 import {
-  Settings,
   Building2,
   Shield,
   Bell,
@@ -67,13 +69,55 @@ const settingsSections: SettingsSection[] = [
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState('organization');
   const [orgName, setOrgName] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [orgSlug, setOrgSlug] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
+  const { toast } = useToast();
+  const { data, isLoading, isError, error } = useSettings();
+  const {
+    data: ssoConfig,
+    isLoading: isSsoLoading,
+    isError: isSsoError,
+    error: ssoError,
+    refetch: refetchSsoConfig,
+  } = useSsoConfig();
+  const updateSettings = useUpdateSettings();
+
+  useEffect(() => {
+    if (!data) return;
+    setOrgName(data.organizationName || '');
+    setOrgSlug(data.organizationSlug || '');
+    setLogoUrl(data.logoUrl || '');
+  }, [data]);
 
   const handleSave = async () => {
-    setSaving(true);
-    // TODO: Save settings to API
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setSaving(false);
+    try {
+      await updateSettings.mutateAsync({
+        organizationName: orgName,
+        organizationSlug: orgSlug,
+        logoUrl,
+      });
+
+      toast({
+        title: 'Settings saved',
+        description: 'Organization settings were updated successfully.',
+      });
+    } catch (saveError) {
+      toast({
+        title: 'Save failed',
+        description:
+          saveError instanceof Error ? saveError.message : 'Unable to save settings.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleFeatureClick = (title: string, description?: string) => {
+    toast({
+      title,
+      description:
+        description ||
+        'This setting is managed by tenant security policy.',
+    });
   };
 
   return (
@@ -83,6 +127,16 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold">Settings</h1>
         <p className="text-muted-foreground">Manage your organization settings and preferences</p>
       </div>
+
+      {isError && (
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-destructive">
+              {error instanceof Error ? error.message : 'Unable to load settings.'}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex gap-6">
         {/* Sidebar Navigation */}
@@ -131,6 +185,7 @@ export default function SettingsPage() {
                     placeholder="Enter organization name"
                     value={orgName}
                     onChange={(e) => setOrgName(e.target.value)}
+                    disabled={isLoading || updateSettings.isPending}
                   />
                 </div>
 
@@ -139,11 +194,12 @@ export default function SettingsPage() {
                   <Input
                     id="org-slug"
                     placeholder="my-organization"
-                    disabled
-                    className="bg-muted"
+                    value={orgSlug}
+                    onChange={(e) => setOrgSlug(e.target.value)}
+                    disabled={isLoading || updateSettings.isPending}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Used in URLs and API endpoints. Contact support to change.
+                    Used in URLs and runtime metadata.
                   </p>
                 </div>
 
@@ -155,18 +211,26 @@ export default function SettingsPage() {
                     <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center">
                       <Palette className="h-8 w-8 text-muted-foreground" />
                     </div>
-                    <Button variant="outline" size="sm">
-                      Upload Logo
-                    </Button>
+                    <div className="flex-1 space-y-2">
+                      <Input
+                        placeholder="https://cdn.example.com/logo.svg"
+                        value={logoUrl}
+                        onChange={(e) => setLogoUrl(e.target.value)}
+                        disabled={isLoading || updateSettings.isPending}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Store your logo in a secure object storage bucket and paste the URL.
+                      </p>
+                    </div>
                   </div>
                 </div>
 
                 <Separator />
 
                 <div className="flex justify-end">
-                  <Button onClick={handleSave} disabled={saving}>
+                  <Button onClick={handleSave} disabled={isLoading || updateSettings.isPending}>
                     <Save className="h-4 w-4 mr-2" />
-                    {saving ? 'Saving...' : 'Save Changes'}
+                    {updateSettings.isPending ? 'Saving...' : 'Save Changes'}
                   </Button>
                 </div>
               </CardContent>
@@ -186,6 +250,18 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-4 p-4 rounded-lg border">
+                    <div>
+                      <p className="font-medium">Account Provisioning Policy</p>
+                      <p className="text-sm text-muted-foreground">
+                        End users cannot self-register or reset passwords. User onboarding and credential reset are admin-only actions.
+                      </p>
+                    </div>
+                    <Button asChild variant="outline" size="sm">
+                      <Link href="/users">Manage Users</Link>
+                    </Button>
+                  </div>
+
                   <div className="flex items-center justify-between p-4 rounded-lg border">
                     <div>
                       <p className="font-medium">Two-Factor Authentication</p>
@@ -193,7 +269,7 @@ export default function SettingsPage() {
                         Require 2FA for all users in your organization
                       </p>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => handleFeatureClick('2FA settings')}>
                       Configure
                     </Button>
                   </div>
@@ -202,11 +278,21 @@ export default function SettingsPage() {
                     <div>
                       <p className="font-medium">Single Sign-On (SSO)</p>
                       <p className="text-sm text-muted-foreground">
-                        Configure SAML or OIDC authentication
+                        {isSsoLoading && 'Loading SSO configuration...'}
+                        {isSsoError &&
+                          `Unable to load SSO config: ${
+                            ssoError instanceof Error ? ssoError.message : 'unknown error'
+                          }`}
+                        {!isSsoLoading &&
+                          !isSsoError &&
+                          ssoConfig &&
+                          (ssoConfig.enabled
+                            ? `Enabled via ${ssoConfig.protocol?.toUpperCase() || 'SSO'}${ssoConfig.provider ? ` (${ssoConfig.provider})` : ''}${ssoConfig.enforced ? ' · enforced' : ''}.`
+                            : 'Disabled. Configure and enforce from Control Plane tenant security.')}
                       </p>
                     </div>
-                    <Button variant="outline" size="sm">
-                      Setup SSO
+                    <Button variant="outline" size="sm" onClick={() => void refetchSsoConfig()}>
+                      Refresh
                     </Button>
                   </div>
 
@@ -217,7 +303,7 @@ export default function SettingsPage() {
                         Set maximum session duration
                       </p>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => handleFeatureClick('Session timeout')}>
                       Configure
                     </Button>
                   </div>
@@ -229,7 +315,7 @@ export default function SettingsPage() {
                         Restrict access to specific IP addresses
                       </p>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => handleFeatureClick('IP allowlist')}>
                       Manage IPs
                     </Button>
                   </div>
@@ -258,7 +344,7 @@ export default function SettingsPage() {
                         Get notified when bot runs fail
                       </p>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => handleFeatureClick('Failure notifications')}>
                       Configure
                     </Button>
                   </div>
@@ -270,7 +356,7 @@ export default function SettingsPage() {
                         Alerts when runners go offline or come online
                       </p>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => handleFeatureClick('Runner notifications')}>
                       Configure
                     </Button>
                   </div>
@@ -282,7 +368,7 @@ export default function SettingsPage() {
                         Send notifications to external services
                       </p>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => handleFeatureClick('Webhook notifications')}>
                       Add Webhook
                     </Button>
                   </div>
@@ -309,7 +395,7 @@ export default function SettingsPage() {
                   <p className="text-muted-foreground mb-4 max-w-sm">
                     Create API keys to authenticate external applications and scripts.
                   </p>
-                  <Button>
+                  <Button onClick={() => handleFeatureClick('API key management')}>
                     Create API Key
                   </Button>
                 </div>
@@ -337,7 +423,7 @@ export default function SettingsPage() {
                         AWS S3, Azure Blob, or local storage
                       </p>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => handleFeatureClick('Storage provider')}>
                       Configure
                     </Button>
                   </div>
@@ -349,7 +435,7 @@ export default function SettingsPage() {
                         How long to keep execution artifacts and logs
                       </p>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => handleFeatureClick('Retention policy')}>
                       Set Policy
                     </Button>
                   </div>
@@ -376,7 +462,7 @@ export default function SettingsPage() {
                   <p className="text-muted-foreground mb-4 max-w-sm">
                     Connect Slack, Teams, or other tools to receive notifications and trigger bots.
                   </p>
-                  <Button>
+                  <Button onClick={() => handleFeatureClick('Integrations catalog')}>
                     Browse Integrations
                   </Button>
                 </div>

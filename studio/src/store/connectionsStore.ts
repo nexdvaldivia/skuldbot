@@ -1,6 +1,6 @@
 /**
  * Connections Store
- * Manages LLM connections (n8n-style credentials) for AI Planner
+ * Manages LLM connections (flow-style credentials) for AI Planner
  */
 
 import { create } from "zustand";

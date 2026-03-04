@@ -1,6 +1,14 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  Logger,
+  OnModuleInit,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'crypto';
 import { LicenseService } from '../license/license.service';
+import { buildFleetAuthHeaders } from '../control-plane/fleet-auth.util';
 
 /**
  * Subscription Status from Control-Plane
@@ -32,178 +40,173 @@ export interface SubscriptionStatus {
 export class BillingEnforcementService implements OnModuleInit {
   private readonly logger = new Logger(BillingEnforcementService.name);
 
-  // Cache subscription status to reduce Control-Plane API calls
-  private statusCache = new Map<
-    string,
-    { status: SubscriptionStatus; cachedAt: number }
-  >();
-  private readonly cacheTtlMs = 5 * 60 * 1000; // 5 minutes
-
-  // For offline mode / Control-Plane unavailable
-  private lastKnownStatus = new Map<string, SubscriptionStatus>();
-
   constructor(
     private readonly configService: ConfigService,
     private readonly licenseService: LicenseService,
   ) {}
 
   async onModuleInit() {
-    // Pre-fetch tenant status on startup
+    // Warm up Control-Plane enforcement connectivity on startup.
     const tenantId = this.licenseService.getTenantId();
     if (tenantId) {
-      await this.refreshStatus(tenantId);
+      try {
+        await this.checkQuota(tenantId, 'runs_per_month', 0);
+      } catch (error) {
+        if (this.shouldFailClosed()) {
+          this.logger.error(
+            `Enforcement warm-up failed for tenant ${tenantId}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        } else {
+          this.logger.warn(
+            `Enforcement warm-up warning: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      }
     }
   }
 
-  /**
-   * Check if a bot can be executed for the current tenant
-   *
-   * Called by the Dispatcher/RunsService before starting a bot execution
-   *
-   * @returns true if bot can run, throws error if blocked
-   */
-  async canExecuteBot(botId?: string): Promise<{
+  async canExecuteBot(_botId?: string): Promise<{
     allowed: boolean;
     reason?: string;
     gracePeriodEnds?: Date;
   }> {
     const tenantId = this.licenseService.getTenantId();
-
     if (!tenantId) {
-      // No tenant ID = local development mode, allow execution
-      this.logger.debug('No tenant ID, allowing execution (development mode)');
       return { allowed: true };
     }
 
-    const status = await this.getSubscriptionStatus(tenantId);
-
-    if (status.canRun) {
-      return { allowed: true };
-    }
-
-    // Execution blocked
-    this.logger.warn(
-      `Bot execution blocked for tenant ${tenantId}: ${status.reason}`,
-    );
-
-    return {
-      allowed: false,
-      reason: status.reason || 'Subscription inactive',
-      gracePeriodEnds: status.gracePeriodEnds
-        ? new Date(status.gracePeriodEnds)
-        : undefined,
-    };
-  }
-
-  /**
-   * Get subscription status for a tenant
-   *
-   * Uses cache to minimize Control-Plane API calls
-   */
-  async getSubscriptionStatus(tenantId: string): Promise<SubscriptionStatus> {
-    // Check cache
-    const cached = this.statusCache.get(tenantId);
-    if (cached && Date.now() - cached.cachedAt < this.cacheTtlMs) {
-      return cached.status;
-    }
-
-    // Fetch from Control-Plane
     try {
-      const status = await this.fetchStatusFromControlPlane(tenantId);
-
-      // Update caches
-      this.statusCache.set(tenantId, { status, cachedAt: Date.now() });
-      this.lastKnownStatus.set(tenantId, status);
-
-      return status;
-    } catch (error) {
-      this.logger.error(
-        `Failed to fetch subscription status from Control-Plane: ${error}`,
+      const entitlement = await this.checkEntitlement(
+        tenantId,
+        'concurrent_runs',
+        1,
       );
-
-      // Fall back to last known status
-      const lastKnown = this.lastKnownStatus.get(tenantId);
-      if (lastKnown) {
-        this.logger.warn(
-          `Using last known status for tenant ${tenantId}: ${lastKnown.status}`,
-        );
-        return lastKnown;
+      if (!entitlement.allowed) {
+        return { allowed: false, reason: entitlement.reason };
       }
 
-      // If we've never successfully fetched, allow execution
-      // (fail open to avoid blocking legitimate tenants)
+      const quota = await this.checkQuota(tenantId, 'runs_per_month', 1);
+      if (!quota.allowed) {
+        return { allowed: false, reason: quota.reason };
+      }
+
+      return { allowed: true };
+    } catch (error) {
+      if (this.shouldFailClosed()) {
+        return {
+          allowed: false,
+          reason:
+            error instanceof Error
+              ? error.message
+              : 'Control-Plane enforcement unavailable',
+        };
+      }
+
       this.logger.warn(
-        `No known status for tenant ${tenantId}, allowing execution`,
+        `Fail-open canExecuteBot due to enforcement error: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
       );
-      return {
-        canRun: true,
-        status: 'active',
-        reason: 'Control-Plane unavailable, allowing execution',
-      };
+      return { allowed: true };
     }
   }
 
-  /**
-   * Fetch subscription status from Control-Plane API
-   */
-  private async fetchStatusFromControlPlane(
+  async checkEntitlement(
     tenantId: string,
-  ): Promise<SubscriptionStatus> {
-    const controlPlaneUrl = this.configService.get<string>('CONTROL_PLANE_URL');
-
-    if (!controlPlaneUrl) {
-      // No Control-Plane configured = development mode
-      return {
-        canRun: true,
-        status: 'active',
-        reason: 'No Control-Plane configured',
-      };
-    }
-
-    const response = await fetch(
-      `${controlPlaneUrl}/api/subscriptions/${tenantId}/can-run`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-License-Key': this.configService.get<string>('LICENSE_KEY', ''),
-          'X-Api-Key': this.configService.get<string>('CONTROL_PLANE_API_KEY', ''),
-        },
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(`Control-Plane returned ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    return {
-      canRun: data.canRun,
-      status: data.status,
-      reason: data.reason,
-      gracePeriodEnds: data.gracePeriodEnds,
+    resourceType: string,
+    requestedCount: number,
+  ): Promise<{
+    allowed: boolean;
+    reason: string;
+    state: 'normal' | 'approaching' | 'at_limit' | 'grace' | 'blocked';
+    limit: number | null;
+    projectedUsage: number;
+  }> {
+    const payload = {
+      tenantId,
+      resourceType,
+      requestedCount,
     };
+
+    const result = await this.requestControlPlane<{
+      allowed: boolean;
+      reason: string;
+      state: 'normal' | 'approaching' | 'at_limit' | 'grace' | 'blocked';
+      limit: number | null;
+      projectedUsage: number;
+    }>('/api/entitlements/check', tenantId, 'POST', payload);
+
+    if (!result.allowed) {
+      throw new ForbiddenException(result.reason || 'Entitlement denied');
+    }
+
+    return result;
   }
 
-  /**
-   * Force refresh the subscription status
-   *
-   * Called when we receive a webhook indicating status change
-   */
-  async refreshStatus(tenantId: string): Promise<SubscriptionStatus> {
-    // Clear cache to force refresh
-    this.statusCache.delete(tenantId);
-    return this.getSubscriptionStatus(tenantId);
+  async checkQuota(
+    tenantId: string,
+    resourceType: string,
+    requestedAmount: number,
+  ): Promise<{
+    allowed: boolean;
+    reason: string;
+    state: 'normal' | 'approaching' | 'at_limit' | 'grace' | 'blocked';
+    limit: number | null;
+    projectedUsage: number;
+  }> {
+    const payload = {
+      tenantId,
+      resourceType,
+      requestedAmount,
+    };
+
+    const result = await this.requestControlPlane<{
+      allowed: boolean;
+      reason: string;
+      state: 'normal' | 'approaching' | 'at_limit' | 'grace' | 'blocked';
+      limit: number | null;
+      projectedUsage: number;
+    }>('/api/quota/check', tenantId, 'POST', payload);
+
+    if (!result.allowed) {
+      throw new ForbiddenException(result.reason || 'Quota denied');
+    }
+
+    return result;
   }
 
-  /**
-   * Invalidate cache for a tenant
-   *
-   * Called when we know status has changed (e.g., payment received)
-   */
-  invalidateCache(tenantId: string): void {
-    this.statusCache.delete(tenantId);
+  async consumeQuota(
+    tenantId: string,
+    resourceType: string,
+    amount: number,
+  ): Promise<{
+    consumed: boolean;
+    allowed: boolean;
+    reason: string;
+    state: 'normal' | 'approaching' | 'at_limit' | 'grace' | 'blocked';
+  }> {
+    const payload = {
+      tenantId,
+      resourceType,
+      amount,
+    };
+
+    const result = await this.requestControlPlane<{
+      consumed: boolean;
+      allowed: boolean;
+      reason: string;
+      state: 'normal' | 'approaching' | 'at_limit' | 'grace' | 'blocked';
+    }>('/api/quota/consume', tenantId, 'POST', payload);
+
+    if (!result.allowed || !result.consumed) {
+      throw new ForbiddenException(result.reason || 'Quota consume denied');
+    }
+
+    return result;
   }
 
   /**
@@ -228,6 +231,80 @@ export class BillingEnforcementService implements OnModuleInit {
 
       default:
         return status.reason || 'Subscription inactive';
+    }
+  }
+
+  private shouldFailClosed(): boolean {
+    const configured = this.configService.get<string | boolean>(
+      'ENFORCEMENT_FAIL_CLOSED',
+      true,
+    );
+    if (typeof configured === 'boolean') {
+      return configured;
+    }
+    return configured.toLowerCase() !== 'false';
+  }
+
+  private getControlPlaneUrl(): string | null {
+    const url = this.configService.get<string>('CONTROL_PLANE_URL', '').trim();
+    return url.length > 0 ? url : null;
+  }
+
+  private getOrchestratorId(): string {
+    return this.configService.get<string>(
+      'ORCHESTRATOR_ID',
+      'orchestrator-local',
+    );
+  }
+
+  private async requestControlPlane<T>(
+    path: string,
+    tenantId: string,
+    method: 'GET' | 'POST',
+    body?: Record<string, unknown>,
+  ): Promise<T> {
+    const controlPlaneUrl = this.getControlPlaneUrl();
+    if (!controlPlaneUrl) {
+      throw new ServiceUnavailableException(
+        'CONTROL_PLANE_URL is not configured',
+      );
+    }
+
+    const traceId = randomUUID();
+    const fleetHeaders = buildFleetAuthHeaders(
+      this.configService,
+      this.getOrchestratorId(),
+      tenantId,
+      traceId,
+    );
+    const response = await fetch(`${controlPlaneUrl}${path}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-License-Key': this.configService.get<string>('LICENSE_KEY', ''),
+        'X-Api-Key': this.configService.get<string>('CONTROL_PLANE_API_KEY', ''),
+        ...fleetHeaders,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    const text = await response.text();
+    if (!response.ok) {
+      throw new ServiceUnavailableException(
+        `Control-Plane ${method} ${path} failed (${response.status}): ${text || response.statusText}`,
+      );
+    }
+
+    if (!text) {
+      return {} as T;
+    }
+
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new ServiceUnavailableException(
+        `Control-Plane ${method} ${path} returned non-JSON payload`,
+      );
     }
   }
 }

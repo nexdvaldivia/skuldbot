@@ -7,6 +7,7 @@ import { Run, RunStatus } from '../runs/entities/run.entity';
 import { BotVersion } from '../bots/entities/bot.entity';
 import { RunnerGateway } from '../websocket/runner.gateway';
 import { QUEUE_DEFAULT } from './dispatch.service';
+import { CredentialsService } from '../credentials/credentials.service';
 
 /**
  * Job payload from queue
@@ -35,6 +36,7 @@ interface RunJobPayload {
 @Processor(QUEUE_DEFAULT)
 export class RunsProcessor extends WorkerHost {
   private readonly logger = new Logger(RunsProcessor.name);
+  private static readonly SYSTEM_RUNNER_ID = '00000000-0000-0000-0000-000000000000';
 
   // Track jobs waiting for runners
   private pendingAssignments = new Map<
@@ -55,6 +57,7 @@ export class RunsProcessor extends WorkerHost {
     private readonly versionRepository: Repository<BotVersion>,
     @Inject(forwardRef(() => RunnerGateway))
     private readonly runnerGateway: RunnerGateway,
+    private readonly credentialsService: CredentialsService,
   ) {
     super();
   }
@@ -100,7 +103,12 @@ export class RunsProcessor extends WorkerHost {
       }
 
       // Resolve secrets (fetch from vault)
-      const secrets = await this.resolveSecrets(tenantId, version.compiledPlan);
+      const secrets = await this.resolveSecrets(
+        tenantId,
+        runId,
+        version.botId,
+        version.compiledPlan,
+      );
 
       // Create job assignment for runner
       const jobAssignment = {
@@ -231,17 +239,122 @@ export class RunsProcessor extends WorkerHost {
    * Resolve secrets for a bot execution
    */
   private async resolveSecrets(
-    _tenantId: string,
-    _compiledPlan: Record<string, unknown>,
+    tenantId: string,
+    runId: string,
+    botId: string,
+    compiledPlan: Record<string, unknown>,
   ): Promise<Record<string, string>> {
-    // In production, this would:
-    // 1. Parse compiledPlan to find secret references (${vault.xxx})
-    // 2. Fetch secrets from vault service
-    // 3. Return encrypted secrets for transit to runner
+    const credentialKeys = this.extractCredentialKeys(compiledPlan);
+    if (credentialKeys.length === 0) {
+      return {};
+    }
 
-    // For now, return empty object
-    // TODO: Integrate with VaultService
-    return {};
+    const result = await this.credentialsService.fetchCredentialsBulk(tenantId, {
+      runnerId: RunsProcessor.SYSTEM_RUNNER_ID,
+      runId,
+      botId,
+      credentialKeys,
+    });
+
+    const errorKeys = Object.keys(result.errors);
+    if (errorKeys.length > 0) {
+      const sample = errorKeys.slice(0, 5).join(', ');
+      throw new Error(
+        `Credential resolution failed for keys: ${sample}${errorKeys.length > 5 ? '...' : ''}`,
+      );
+    }
+
+    const secrets: Record<string, string> = {};
+    for (const [key, credential] of Object.entries(result.credentials)) {
+      const value = credential?.value;
+      if (value === null || value === undefined) {
+        continue;
+      }
+
+      if (
+        typeof value === 'object' &&
+        value !== null &&
+        'value' in value &&
+        typeof (value as Record<string, unknown>).value === 'string'
+      ) {
+        secrets[key] = (value as { value: string }).value;
+        continue;
+      }
+
+      secrets[key] = JSON.stringify(value);
+    }
+
+    return secrets;
+  }
+
+  private extractCredentialKeys(
+    compiledPlan: Record<string, unknown>,
+  ): string[] {
+    const keys = new Set<string>();
+    const queue: unknown[] = [compiledPlan];
+    const seen = new Set<unknown>();
+
+    while (queue.length > 0) {
+      const current = queue.pop();
+      if (!current || typeof current !== 'object') {
+        continue;
+      }
+      if (seen.has(current)) {
+        continue;
+      }
+      seen.add(current);
+
+      if (Array.isArray(current)) {
+        current.forEach((item) => queue.push(item));
+        continue;
+      }
+
+      for (const [entryKey, entryValue] of Object.entries(current)) {
+        if (
+          entryKey === 'credentialRef' &&
+          typeof entryValue === 'string'
+        ) {
+          const normalized = entryValue.trim();
+          if (normalized) {
+            keys.add(normalized);
+          }
+        }
+
+        if (typeof entryValue === 'string') {
+          this.extractCredentialKeysFromText(entryValue).forEach((key) =>
+            keys.add(key),
+          );
+        } else if (entryValue && typeof entryValue === 'object') {
+          queue.push(entryValue);
+        }
+      }
+    }
+
+    return Array.from(keys);
+  }
+
+  private extractCredentialKeysFromText(value: string): string[] {
+    const keys = new Set<string>();
+
+    const templateRegex = /\$\{\s*vault\.([a-z][a-z0-9_]*)\s*}/gi;
+    let match = templateRegex.exec(value);
+    while (match) {
+      if (match[1]) {
+        keys.add(match[1]);
+      }
+      match = templateRegex.exec(value);
+    }
+
+    const uriRegex = /vault:\/\/([a-z][a-z0-9_]*)/gi;
+    match = uriRegex.exec(value);
+    while (match) {
+      if (match[1]) {
+        keys.add(match[1]);
+      }
+      match = uriRegex.exec(value);
+    }
+
+    return Array.from(keys);
   }
 
   /**

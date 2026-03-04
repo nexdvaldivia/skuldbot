@@ -1,0 +1,475 @@
+openapi: 3.0.3
+info:
+  title: SkuldBot Control Plane - Fleet and Usage API
+  version: 1.0.0
+  description: |
+    Contract for Control Plane communication with tenant Orchestrators.
+
+    Scope:
+    - Fleet lifecycle: register, heartbeat, health, deregister.
+    - Usage ingestion: batch ingest with idempotency by event_id.
+
+servers:
+  - url: https://control-plane.skuld.ai
+    description: Production
+  - url: https://staging-control-plane.skuld.ai
+    description: Staging
+  - url: http://localhost:3000
+    description: Local development
+
+tags:
+  - name: fleet
+    description: Orchestrator fleet lifecycle
+  - name: usage
+    description: Usage ingestion from orchestrators
+
+paths:
+  /api/orchestrators/register:
+    post:
+      tags: [fleet]
+      summary: Register or refresh orchestrator registration
+      security:
+        - FleetTokenHeader: []
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrchestratorIdHeader'
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/TraceIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterOrchestratorRequest'
+      responses:
+        '201':
+          description: Registration accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterOrchestratorResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/orchestrators/heartbeat:
+    post:
+      tags: [fleet]
+      summary: Report orchestrator heartbeat and health snapshot
+      security:
+        - FleetTokenHeader: []
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrchestratorIdHeader'
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/TraceIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeartbeatRequest'
+      responses:
+        '201':
+          description: Heartbeat accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeartbeatResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/orchestrators/deregister:
+    post:
+      tags: [fleet]
+      summary: Deregister orchestrator instance
+      security:
+        - FleetTokenHeader: []
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrchestratorIdHeader'
+        - $ref: '#/components/parameters/TraceIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeregisterRequest'
+      responses:
+        '201':
+          description: Deregistration accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeregisterResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/orchestrators/{id}/health:
+    get:
+      tags: [fleet]
+      summary: Get orchestrator health (operator endpoint)
+      security:
+        - JwtAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Health details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrchestratorHealth'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/usage/ingest:
+    post:
+      tags: [usage]
+      summary: Ingest usage batch from orchestrator
+      description: |
+        Idempotency:
+        - Batch-level: unique by (`orchestrator_id`, `batch_id`).
+        - Event-level: unique by (`orchestrator_id`, `event_id`).
+      parameters:
+        - $ref: '#/components/parameters/LicenseKeyHeader'
+        - $ref: '#/components/parameters/ApiKeyHeader'
+        - $ref: '#/components/parameters/OrchestratorIdHeader'
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/BatchIdHeader'
+        - $ref: '#/components/parameters/TraceIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsageBatchRequest'
+      responses:
+        '200':
+          description: Batch processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageBatchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Duplicate batch already processed
+
+components:
+  securitySchemes:
+    FleetTokenHeader:
+      type: apiKey
+      in: header
+      name: x-orchestrator-token
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    JwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    LicenseKeyHeader:
+      name: x-license-key
+      in: header
+      required: false
+      schema:
+        type: string
+    ApiKeyHeader:
+      name: x-api-key
+      in: header
+      required: false
+      schema:
+        type: string
+    OrchestratorIdHeader:
+      name: x-orchestrator-id
+      in: header
+      required: true
+      schema:
+        type: string
+    TenantIdHeader:
+      name: x-tenant-id
+      in: header
+      required: false
+      schema:
+        type: string
+    BatchIdHeader:
+      name: x-batch-id
+      in: header
+      required: true
+      schema:
+        type: string
+    TraceIdHeader:
+      name: x-trace-id
+      in: header
+      required: false
+      schema:
+        type: string
+
+  schemas:
+    RegisterOrchestratorRequest:
+      type: object
+      required: [orchestratorId]
+      properties:
+        orchestratorId:
+          type: string
+        tenantId:
+          type: string
+          nullable: true
+        version:
+          type: string
+        capabilities:
+          type: object
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+
+    RegisterOrchestratorResponse:
+      type: object
+      required:
+        - orchestratorId
+        - status
+        - registeredAt
+        - traceId
+        - serverTime
+        - controlPlaneVersion
+        - heartbeatIntervalSeconds
+        - heartbeatStaleAfterSeconds
+      properties:
+        orchestratorId:
+          type: string
+        status:
+          type: string
+          enum: [registered, active, degraded, offline, deregistered, error]
+        tenantId:
+          type: string
+          nullable: true
+        registeredAt:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
+        controlPlaneVersion:
+          type: string
+        heartbeatIntervalSeconds:
+          type: integer
+        heartbeatStaleAfterSeconds:
+          type: integer
+
+    HeartbeatRequest:
+      type: object
+      required: [orchestratorId]
+      properties:
+        orchestratorId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        metrics:
+          type: object
+          additionalProperties: true
+        healthReport:
+          type: object
+          additionalProperties: true
+
+    HeartbeatResponse:
+      type: object
+      required:
+        - accepted
+        - orchestratorId
+        - status
+        - traceId
+        - serverTime
+        - heartbeatStaleAfterSeconds
+      properties:
+        accepted:
+          type: boolean
+        orchestratorId:
+          type: string
+        status:
+          type: string
+          enum: [registered, active, degraded, offline, deregistered, error]
+        traceId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
+        heartbeatStaleAfterSeconds:
+          type: integer
+
+    DeregisterRequest:
+      type: object
+      required: [orchestratorId]
+      properties:
+        orchestratorId:
+          type: string
+        reason:
+          type: string
+
+    DeregisterResponse:
+      type: object
+      required: [accepted, orchestratorId, status, traceId]
+      properties:
+        accepted:
+          type: boolean
+        orchestratorId:
+          type: string
+        status:
+          type: string
+          enum: [deregistered]
+        traceId:
+          type: string
+
+    OrchestratorHealth:
+      type: object
+      required:
+        - orchestratorId
+        - status
+        - stale
+        - staleThresholdSeconds
+        - registeredAt
+        - serverTime
+      properties:
+        orchestratorId:
+          type: string
+        tenantId:
+          type: string
+          nullable: true
+        version:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [registered, active, degraded, offline, deregistered, error]
+        stale:
+          type: boolean
+        staleThresholdSeconds:
+          type: integer
+        registeredAt:
+          type: string
+          format: date-time
+        lastHeartbeatAt:
+          type: string
+          format: date-time
+          nullable: true
+        deregisteredAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastMetrics:
+          type: object
+          additionalProperties: true
+        lastHealthReport:
+          type: object
+          additionalProperties: true
+          nullable: true
+        lastSeenIp:
+          type: string
+          nullable: true
+        serverTime:
+          type: string
+          format: date-time
+
+    UsageEvent:
+      type: object
+      required: [id, metric, quantity, occurredAt]
+      properties:
+        id:
+          type: string
+        metric:
+          type: string
+        quantity:
+          type: number
+        occurredAt:
+          type: string
+          format: date-time
+        botId:
+          type: string
+        runId:
+          type: string
+        installationId:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+
+    UsageBatchRequest:
+      type: object
+      required: [batchId, tenantId, events, sentAt]
+      properties:
+        batchId:
+          type: string
+        tenantId:
+          type: string
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsageEvent'
+        sentAt:
+          type: string
+          format: date-time
+
+    UsageBatchResponse:
+      type: object
+      required: [processedCount, duplicateEventCount, batchId, traceId]
+      properties:
+        processedCount:
+          type: integer
+        duplicateEventCount:
+          type: integer
+        batchId:
+          type: string
+        traceId:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+        message:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        error:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

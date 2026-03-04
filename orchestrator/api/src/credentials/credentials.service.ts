@@ -6,6 +6,7 @@ import {
   ForbiddenException,
   ConflictException,
 } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, Like, LessThan, MoreThan, Between } from 'typeorm';
 import {
@@ -112,6 +113,7 @@ export class CredentialsService {
     let encryptedData: string | null = null;
     let encryptionKeyId: string | null = null;
     let vaultReference: string | null = null;
+    let vaultConfig: string | null = null;
 
     const vaultProvider = dto.vaultProvider || VaultProvider.INTERNAL;
 
@@ -119,9 +121,34 @@ export class CredentialsService {
       encryptedData = this.encryptionService.encryptCredentialValue(dto.value);
       encryptionKeyId = this.encryptionService.getCurrentKeyId();
     } else {
-      // External vault - store reference only
-      vaultReference = dto.vaultReference || null;
-      // TODO: Integrate with external vault provider
+      if (!dto.vaultReference?.trim()) {
+        throw new BadRequestException(
+          'vaultReference is required for external vault credentials',
+        );
+      }
+      if (!dto.vaultConnectionId) {
+        throw new BadRequestException(
+          'vaultConnectionId is required for external vault credentials',
+        );
+      }
+
+      const vaultConnection = await this.vaultConnectionRepository.findOne({
+        where: {
+          id: dto.vaultConnectionId,
+          tenantId,
+          provider: vaultProvider,
+          isActive: true,
+        },
+      });
+
+      if (!vaultConnection) {
+        throw new NotFoundException(
+          `Active vault connection not found: ${dto.vaultConnectionId}`,
+        );
+      }
+
+      vaultReference = dto.vaultReference.trim();
+      vaultConfig = vaultConnection.encryptedConfig;
     }
 
     // Create credential entity
@@ -138,7 +165,18 @@ export class CredentialsService {
       encryptedData,
       encryptionKeyId,
       labels: dto.labels || {},
-      metadata: dto.metadata || {},
+      metadata: {
+        ...(dto.metadata || {}),
+        ...(vaultProvider !== VaultProvider.INTERNAL && dto.vaultConnectionId
+          ? {
+              custom: {
+                ...(dto.metadata?.custom || {}),
+                vaultConnectionId: dto.vaultConnectionId,
+              },
+            }
+          : {}),
+      },
+      vaultConfig,
       allowedBotIds: dto.allowedBotIds || [],
       allowedEnvironments: dto.allowedEnvironments || [],
       expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
@@ -770,33 +808,624 @@ export class CredentialsService {
   private async fetchFromExternalVault(
     credential: Credential,
   ): Promise<Record<string, any>> {
-    // TODO: Implement external vault integrations
-    switch (credential.vaultProvider) {
-      case VaultProvider.HASHICORP_VAULT:
-        throw new BadRequestException(
-          'HashiCorp Vault integration not yet implemented',
-        );
-
-      case VaultProvider.AWS_SECRETS_MANAGER:
-        throw new BadRequestException(
-          'AWS Secrets Manager integration not yet implemented',
-        );
-
-      case VaultProvider.AZURE_KEY_VAULT:
-        throw new BadRequestException(
-          'Azure Key Vault integration not yet implemented',
-        );
-
-      case VaultProvider.GCP_SECRET_MANAGER:
-        throw new BadRequestException(
-          'GCP Secret Manager integration not yet implemented',
-        );
-
-      default:
-        throw new BadRequestException(
-          `Unsupported vault provider: ${credential.vaultProvider}`,
-        );
+    if (!credential.vaultReference?.trim()) {
+      throw new BadRequestException(
+        `Credential '${credential.key}' has no vaultReference`,
+      );
     }
+
+    const config = await this.getDecryptedVaultConfig(credential);
+    const vaultReference = credential.vaultReference.trim();
+
+    try {
+      switch (credential.vaultProvider) {
+        case VaultProvider.HASHICORP_VAULT:
+          return this.fetchFromHashicorpVault(vaultReference, config);
+
+        case VaultProvider.AWS_SECRETS_MANAGER:
+          return this.fetchFromAwsSecretsManager(vaultReference, config);
+
+        case VaultProvider.AZURE_KEY_VAULT:
+          return this.fetchFromAzureKeyVault(vaultReference, config);
+
+        case VaultProvider.GCP_SECRET_MANAGER:
+          return this.fetchFromGcpSecretManager(vaultReference, config);
+
+        default:
+          throw new BadRequestException(
+            `Unsupported vault provider: ${credential.vaultProvider}`,
+          );
+      }
+    } catch (error) {
+      const message = this.sanitizeVaultError(error);
+      this.logger.warn(
+        `External vault fetch failed for credential ${credential.id}: ${message}`,
+      );
+      throw new BadRequestException(message);
+    }
+  }
+
+  private async getDecryptedVaultConfig(
+    credential: Credential,
+  ): Promise<Record<string, any>> {
+    if (credential.vaultConfig) {
+      return this.encryptionService.decryptCredentialValue(credential.vaultConfig);
+    }
+
+    const vaultConnectionId = this.extractVaultConnectionId(credential);
+    if (!vaultConnectionId) {
+      throw new BadRequestException(
+        `Credential '${credential.key}' has no vault connection config`,
+      );
+    }
+
+    const connection = await this.vaultConnectionRepository.findOne({
+      where: {
+        id: vaultConnectionId,
+        tenantId: credential.tenantId,
+        provider: credential.vaultProvider,
+        isActive: true,
+      },
+    });
+
+    if (!connection) {
+      throw new NotFoundException(
+        `Active vault connection not found: ${vaultConnectionId}`,
+      );
+    }
+
+    return this.encryptionService.decryptCredentialValue(connection.encryptedConfig);
+  }
+
+  private async fetchFromHashicorpVault(
+    vaultReference: string,
+    config: Record<string, any>,
+  ): Promise<Record<string, any>> {
+    const address = this.readRequiredString(config, 'address');
+    const token = this.readRequiredString(config, 'token');
+    const namespace = this.readOptionalString(config, 'namespace');
+    const { path, field } = this.parseVaultReference(vaultReference);
+
+    const url = `${address.replace(/\/+$/, '')}/v1/${path.replace(/^\/+/, '')}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-Vault-Token': token,
+        ...(namespace ? { 'X-Vault-Namespace': namespace } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(
+        `HashiCorp Vault request failed (${response.status}): ${this.compactErrorBody(body)}`,
+      );
+    }
+
+    const payload = (await response.json()) as Record<string, any>;
+    const secretData = this.extractHashicorpSecretData(payload);
+    return this.selectSecretField(secretData, field);
+  }
+
+  private async fetchFromAwsSecretsManager(
+    vaultReference: string,
+    config: Record<string, any>,
+  ): Promise<Record<string, any>> {
+    const payload = {
+      SecretId: vaultReference,
+      VersionStage: this.readOptionalString(config, 'versionStage'),
+    };
+
+    const response = await this.awsSecretsManagerRequest(
+      config,
+      'secretsmanager.GetSecretValue',
+      payload,
+    );
+
+    if (typeof response.SecretString === 'string') {
+      return this.parseSecretValue(response.SecretString);
+    }
+
+    if (typeof response.SecretBinary === 'string') {
+      const decoded = Buffer.from(response.SecretBinary, 'base64').toString('utf8');
+      return this.parseSecretValue(decoded);
+    }
+
+    throw new Error('AWS Secrets Manager returned empty secret payload');
+  }
+
+  private async fetchFromAzureKeyVault(
+    vaultReference: string,
+    config: Record<string, any>,
+  ): Promise<Record<string, any>> {
+    const vaultUrl = this.readRequiredString(config, 'vaultUrl').replace(/\/+$/, '');
+    const accessToken = await this.getAzureAccessToken(config);
+    const { secretName, version } = this.parseAzureSecretReference(vaultReference);
+
+    const endpoint = `${vaultUrl}/secrets/${encodeURIComponent(secretName)}${
+      version ? `/${encodeURIComponent(version)}` : ''
+    }?api-version=7.4`;
+
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(
+        `Azure Key Vault request failed (${response.status}): ${this.compactErrorBody(body)}`,
+      );
+    }
+
+    const payload = (await response.json()) as { value?: string };
+    if (typeof payload.value !== 'string') {
+      throw new Error('Azure Key Vault returned no secret value');
+    }
+
+    return this.parseSecretValue(payload.value);
+  }
+
+  private async fetchFromGcpSecretManager(
+    vaultReference: string,
+    config: Record<string, any>,
+  ): Promise<Record<string, any>> {
+    const accessToken = await this.getGcpAccessToken(config);
+    const projectId = this.readOptionalString(config, 'projectId');
+    const secretResource = this.resolveGcpSecretResource(vaultReference, projectId);
+    const endpoint = `https://secretmanager.googleapis.com/v1/${secretResource}:access`;
+
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(
+        `GCP Secret Manager request failed (${response.status}): ${this.compactErrorBody(body)}`,
+      );
+    }
+
+    const payload = (await response.json()) as {
+      payload?: { data?: string };
+    };
+    const encoded = payload.payload?.data;
+    if (!encoded) {
+      throw new Error('GCP Secret Manager returned no payload data');
+    }
+
+    const decoded = Buffer.from(encoded, 'base64').toString('utf8');
+    return this.parseSecretValue(decoded);
+  }
+
+  private extractHashicorpSecretData(payload: Record<string, any>): Record<string, any> {
+    const kvV2Data = payload?.data?.data;
+    if (kvV2Data && typeof kvV2Data === 'object') {
+      return kvV2Data;
+    }
+
+    const kvV1Data = payload?.data;
+    if (kvV1Data && typeof kvV1Data === 'object') {
+      return kvV1Data;
+    }
+
+    throw new Error('HashiCorp Vault response has no secret data');
+  }
+
+  private parseVaultReference(reference: string): { path: string; field?: string } {
+    const [pathPart, fieldPart] = reference.split('#');
+    if (!pathPart?.trim()) {
+      throw new Error('vaultReference path is empty');
+    }
+
+    return {
+      path: pathPart.trim(),
+      field: fieldPart?.trim() || undefined,
+    };
+  }
+
+  private parseAzureSecretReference(
+    reference: string,
+  ): { secretName: string; version?: string } {
+    const normalized = reference.trim().replace(/^\/+/, '');
+    if (!normalized) {
+      throw new Error('vaultReference is empty');
+    }
+
+    if (normalized.startsWith('https://')) {
+      const url = new URL(normalized);
+      const pathParts = url.pathname.split('/').filter(Boolean);
+      if (pathParts[0] !== 'secrets' || !pathParts[1]) {
+        throw new Error('Invalid Azure Key Vault secret URL');
+      }
+      return {
+        secretName: pathParts[1],
+        version: pathParts[2],
+      };
+    }
+
+    const parts = normalized.split('/').filter(Boolean);
+    return {
+      secretName: parts[0],
+      version: parts[1],
+    };
+  }
+
+  private resolveGcpSecretResource(
+    reference: string,
+    projectId?: string,
+  ): string {
+    const normalized = reference.trim().replace(/^\/+/, '');
+    if (!normalized) {
+      throw new Error('vaultReference is empty');
+    }
+
+    if (normalized.startsWith('projects/')) {
+      return normalized.includes('/versions/')
+        ? normalized
+        : `${normalized}/versions/latest`;
+    }
+
+    if (!projectId) {
+      throw new Error(
+        'projectId is required in vault config when using short GCP secret references',
+      );
+    }
+
+    if (normalized.includes('/versions/')) {
+      return `projects/${projectId}/${normalized}`;
+    }
+
+    return `projects/${projectId}/secrets/${normalized}/versions/latest`;
+  }
+
+  private async awsSecretsManagerRequest(
+    config: Record<string, any>,
+    target: string,
+    payload: Record<string, any>,
+  ): Promise<Record<string, any>> {
+    const region = this.readRequiredString(config, 'region');
+    const endpoint =
+      this.readOptionalString(config, 'endpoint') ||
+      `https://secretsmanager.${region}.amazonaws.com`;
+    const url = new URL(endpoint);
+
+    const accessKeyId =
+      this.readOptionalString(config, 'accessKeyId') ||
+      process.env.AWS_ACCESS_KEY_ID;
+    const secretAccessKey =
+      this.readOptionalString(config, 'secretAccessKey') ||
+      process.env.AWS_SECRET_ACCESS_KEY;
+    const sessionToken =
+      this.readOptionalString(config, 'sessionToken') ||
+      process.env.AWS_SESSION_TOKEN;
+
+    if (!accessKeyId || !secretAccessKey) {
+      throw new Error(
+        'AWS credentials are required (accessKeyId/secretAccessKey)',
+      );
+    }
+
+    const body = JSON.stringify(
+      Object.fromEntries(
+        Object.entries(payload).filter(([, value]) => value !== undefined),
+      ),
+    );
+
+    const amzDate = this.formatAwsAmzDate(new Date());
+    const dateStamp = amzDate.slice(0, 8);
+    const canonicalUri = url.pathname || '/';
+    const canonicalQueryString = '';
+    const payloadHash = this.sha256Hex(body);
+
+    const baseHeaders: Record<string, string> = {
+      'content-type': 'application/x-amz-json-1.1',
+      host: url.host,
+      'x-amz-date': amzDate,
+      'x-amz-target': target,
+    };
+    if (sessionToken) {
+      baseHeaders['x-amz-security-token'] = sessionToken;
+    }
+
+    const signedHeaderKeys = Object.keys(baseHeaders).sort();
+    const canonicalHeaders = signedHeaderKeys
+      .map((key) => `${key}:${baseHeaders[key]}`)
+      .join('\n');
+    const signedHeaders = signedHeaderKeys.join(';');
+    const canonicalRequest = [
+      'POST',
+      canonicalUri,
+      canonicalQueryString,
+      `${canonicalHeaders}\n`,
+      signedHeaders,
+      payloadHash,
+    ].join('\n');
+
+    const credentialScope = `${dateStamp}/${region}/secretsmanager/aws4_request`;
+    const stringToSign = [
+      'AWS4-HMAC-SHA256',
+      amzDate,
+      credentialScope,
+      this.sha256Hex(canonicalRequest),
+    ].join('\n');
+
+    const signingKey = this.getAwsSignatureKey(
+      secretAccessKey,
+      dateStamp,
+      region,
+      'secretsmanager',
+    );
+    const signature = crypto
+      .createHmac('sha256', signingKey)
+      .update(stringToSign, 'utf8')
+      .digest('hex');
+
+    const authorization = [
+      `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${credentialScope}`,
+      `SignedHeaders=${signedHeaders}`,
+      `Signature=${signature}`,
+    ].join(', ');
+
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-amz-json-1.1',
+        'X-Amz-Date': amzDate,
+        'X-Amz-Target': target,
+        ...(sessionToken ? { 'X-Amz-Security-Token': sessionToken } : {}),
+        Authorization: authorization,
+      },
+      body,
+    });
+
+    const text = await response.text();
+    const parsed = text ? this.safeJsonParse(text) : {};
+    if (!response.ok) {
+      throw new Error(
+        `AWS Secrets Manager request failed (${response.status}): ${this.compactErrorBody(text)}`,
+      );
+    }
+
+    if (!parsed || typeof parsed !== 'object') {
+      return {};
+    }
+
+    return parsed as Record<string, any>;
+  }
+
+  private async getAzureAccessToken(config: Record<string, any>): Promise<string> {
+    const directAccessToken = this.readOptionalString(config, 'accessToken');
+    if (directAccessToken) {
+      return directAccessToken;
+    }
+
+    const tenantId = this.readRequiredString(config, 'tenantId');
+    const clientId = this.readRequiredString(config, 'clientId');
+    const clientSecret = this.readRequiredString(config, 'clientSecret');
+    const authorityHost =
+      this.readOptionalString(config, 'authorityHost') ||
+      'https://login.microsoftonline.com';
+    const tokenUrl = `${authorityHost.replace(/\/+$/, '')}/${tenantId}/oauth2/v2.0/token`;
+
+    const response = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: clientId,
+        client_secret: clientSecret,
+        scope: 'https://vault.azure.net/.default',
+      }).toString(),
+    });
+
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(
+        `Azure token request failed (${response.status}): ${this.compactErrorBody(text)}`,
+      );
+    }
+
+    const payload = this.safeJsonParse(text) as { access_token?: string } | null;
+    if (!payload?.access_token) {
+      throw new Error('Azure token response missing access_token');
+    }
+
+    return payload.access_token;
+  }
+
+  private async getGcpAccessToken(config: Record<string, any>): Promise<string> {
+    const directAccessToken = this.readOptionalString(config, 'accessToken');
+    if (directAccessToken) {
+      return directAccessToken;
+    }
+
+    const clientEmail = this.readRequiredString(config, 'clientEmail');
+    const privateKey = this.readRequiredString(config, 'privateKey').replace(
+      /\\n/g,
+      '\n',
+    );
+    const tokenUri =
+      this.readOptionalString(config, 'tokenUri') ||
+      'https://oauth2.googleapis.com/token';
+    const now = Math.floor(Date.now() / 1000);
+
+    const jwtHeader = this.base64UrlEncode(
+      JSON.stringify({ alg: 'RS256', typ: 'JWT' }),
+    );
+    const jwtPayload = this.base64UrlEncode(
+      JSON.stringify({
+        iss: clientEmail,
+        scope: 'https://www.googleapis.com/auth/cloud-platform',
+        aud: tokenUri,
+        iat: now,
+        exp: now + 3600,
+      }),
+    );
+    const unsignedToken = `${jwtHeader}.${jwtPayload}`;
+    const signer = crypto.createSign('RSA-SHA256');
+    signer.update(unsignedToken);
+    signer.end();
+    const signature = signer.sign(privateKey);
+    const assertion = `${unsignedToken}.${this.base64UrlEncode(signature)}`;
+
+    const response = await fetch(tokenUri, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion,
+      }).toString(),
+    });
+
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(
+        `GCP token request failed (${response.status}): ${this.compactErrorBody(text)}`,
+      );
+    }
+
+    const payload = this.safeJsonParse(text) as { access_token?: string } | null;
+    if (!payload?.access_token) {
+      throw new Error('GCP token response missing access_token');
+    }
+
+    return payload.access_token;
+  }
+
+  private parseSecretValue(secretValue: string): Record<string, any> {
+    const trimmed = secretValue.trim();
+    if (!trimmed) {
+      return { value: '' };
+    }
+
+    const parsed = this.safeJsonParse(trimmed);
+    if (parsed && typeof parsed === 'object') {
+      return parsed as Record<string, any>;
+    }
+
+    return { value: secretValue };
+  }
+
+  private selectSecretField(
+    secretData: Record<string, any>,
+    field?: string,
+  ): Record<string, any> {
+    if (!field) {
+      return secretData;
+    }
+
+    if (!(field in secretData)) {
+      throw new Error(`Secret field '${field}' not found in vault payload`);
+    }
+
+    return { [field]: secretData[field] };
+  }
+
+  private formatAwsAmzDate(date: Date): string {
+    return date.toISOString().replace(/[:-]|\.\d{3}/g, '');
+  }
+
+  private sha256Hex(value: string): string {
+    return crypto.createHash('sha256').update(value, 'utf8').digest('hex');
+  }
+
+  private getAwsSignatureKey(
+    secretAccessKey: string,
+    dateStamp: string,
+    regionName: string,
+    serviceName: string,
+  ): Buffer {
+    const kDate = crypto
+      .createHmac('sha256', `AWS4${secretAccessKey}`)
+      .update(dateStamp, 'utf8')
+      .digest();
+    const kRegion = crypto
+      .createHmac('sha256', kDate)
+      .update(regionName, 'utf8')
+      .digest();
+    const kService = crypto
+      .createHmac('sha256', kRegion)
+      .update(serviceName, 'utf8')
+      .digest();
+    return crypto
+      .createHmac('sha256', kService)
+      .update('aws4_request', 'utf8')
+      .digest();
+  }
+
+  private base64UrlEncode(input: string | Buffer): string {
+    return Buffer.from(input)
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+  }
+
+  private extractVaultConnectionId(credential: Credential): string | null {
+    const maybeId = credential.metadata?.custom?.['vaultConnectionId'];
+    if (typeof maybeId !== 'string' || !maybeId.trim()) {
+      return null;
+    }
+    return maybeId.trim();
+  }
+
+  private readRequiredString(config: Record<string, any>, key: string): string {
+    const value = this.readOptionalString(config, key);
+    if (!value) {
+      throw new Error(`Missing required vault config field: ${key}`);
+    }
+    return value;
+  }
+
+  private readOptionalString(
+    config: Record<string, any>,
+    key: string,
+  ): string | undefined {
+    const value = config?.[key];
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+    const trimmed = value.trim();
+    return trimmed ? trimmed : undefined;
+  }
+
+  private safeJsonParse(value: string): unknown {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+
+  private compactErrorBody(body: string): string {
+    const normalized = body.replace(/\s+/g, ' ').trim();
+    if (!normalized) {
+      return 'empty response body';
+    }
+
+    return normalized.slice(0, 400);
+  }
+
+  private sanitizeVaultError(error: unknown): string {
+    if (!(error instanceof Error)) {
+      return 'Vault provider request failed';
+    }
+
+    return error.message
+      .replace(/(client_secret|secretAccessKey|privateKey|token)=([^&\s]+)/gi, '$1=***')
+      .replace(/"client_secret"\s*:\s*"[^"]+"/gi, '"client_secret":"***"')
+      .replace(/"privateKey"\s*:\s*"[^"]+"/gi, '"privateKey":"***"')
+      .replace(/"token"\s*:\s*"[^"]+"/gi, '"token":"***"');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1190,6 +1819,13 @@ export class CredentialsService {
     userId: string,
     dto: CreateVaultConnectionDto,
   ): Promise<VaultConnectionDto> {
+    const missingKeys = this.getMissingVaultConfigKeys(dto.provider, dto.config);
+    if (missingKeys.length > 0) {
+      throw new BadRequestException(
+        `Missing required vault config fields for ${dto.provider}: ${missingKeys.join(', ')}`,
+      );
+    }
+
     // Encrypt connection config
     const encryptedConfig = this.encryptionService.encryptCredentialValue(
       dto.config,
@@ -1235,21 +1871,235 @@ export class CredentialsService {
       throw new NotFoundException(`Vault connection not found: ${connectionId}`);
     }
 
-    // TODO: Implement actual vault connection testing
-    return {
-      success: false,
-      message: 'Vault connection testing not yet implemented',
-    };
+    const config = this.encryptionService.decryptCredentialValue(
+      connection.encryptedConfig,
+    );
+    const missingKeys = this.getMissingVaultConfigKeys(connection.provider, config);
+    if (missingKeys.length > 0) {
+      return {
+        success: false,
+        message: `Missing required config fields: ${missingKeys.join(', ')}`,
+      };
+    }
+
+    try {
+      const message = await this.performVaultConnectivityCheck(
+        connection.provider,
+        config,
+      );
+
+      const previousHealth = connection.healthCheck || { enabled: true };
+      connection.lastConnectedAt = new Date();
+      connection.lastError = null;
+      connection.healthCheck = {
+        ...previousHealth,
+        enabled:
+          previousHealth.enabled === undefined ? true : previousHealth.enabled,
+        lastCheckAt: new Date(),
+        lastCheckSuccess: true,
+      };
+
+      await this.vaultConnectionRepository.save(connection);
+
+      return {
+        success: true,
+        message,
+      };
+    } catch (error) {
+      const sanitizedError = this.sanitizeVaultError(error);
+      const previousHealth = connection.healthCheck || { enabled: true };
+      connection.lastError = sanitizedError;
+      connection.healthCheck = {
+        ...previousHealth,
+        enabled:
+          previousHealth.enabled === undefined ? true : previousHealth.enabled,
+        lastCheckAt: new Date(),
+        lastCheckSuccess: false,
+      };
+
+      await this.vaultConnectionRepository.save(connection);
+
+      return {
+        success: false,
+        message: sanitizedError,
+      };
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // PRIVATE HELPERS
   // ═══════════════════════════════════════════════════════════════════════════
 
+  private async performVaultConnectivityCheck(
+    provider: VaultProvider,
+    config: Record<string, any>,
+  ): Promise<string> {
+    switch (provider) {
+      case VaultProvider.HASHICORP_VAULT:
+        return this.testHashicorpVaultConnection(config);
+      case VaultProvider.AWS_SECRETS_MANAGER:
+        return this.testAwsSecretsManagerConnection(config);
+      case VaultProvider.AZURE_KEY_VAULT:
+        return this.testAzureKeyVaultConnection(config);
+      case VaultProvider.GCP_SECRET_MANAGER:
+        return this.testGcpSecretManagerConnection(config);
+      default:
+        throw new Error(`Unsupported vault provider: ${provider}`);
+    }
+  }
+
+  private async testHashicorpVaultConnection(
+    config: Record<string, any>,
+  ): Promise<string> {
+    const address = this.readRequiredString(config, 'address');
+    const token = this.readRequiredString(config, 'token');
+    const namespace = this.readOptionalString(config, 'namespace');
+    const endpoint = `${address.replace(/\/+$/, '')}/v1/sys/health`;
+
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'X-Vault-Token': token,
+        ...(namespace ? { 'X-Vault-Namespace': namespace } : {}),
+      },
+    });
+
+    if (![200, 429, 472, 473].includes(response.status)) {
+      const body = await response.text();
+      throw new Error(
+        `HashiCorp Vault health check failed (${response.status}): ${this.compactErrorBody(body)}`,
+      );
+    }
+
+    return 'HashiCorp Vault connection verified successfully.';
+  }
+
+  private async testAwsSecretsManagerConnection(
+    config: Record<string, any>,
+  ): Promise<string> {
+    await this.awsSecretsManagerRequest(
+      config,
+      'secretsmanager.ListSecrets',
+      { MaxResults: 1 },
+    );
+    return 'AWS Secrets Manager connection verified successfully.';
+  }
+
+  private async testAzureKeyVaultConnection(
+    config: Record<string, any>,
+  ): Promise<string> {
+    const vaultUrl = this.readRequiredString(config, 'vaultUrl').replace(/\/+$/, '');
+    const accessToken = await this.getAzureAccessToken(config);
+    const endpoint = `${vaultUrl}/secrets?api-version=7.4&maxresults=1`;
+
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(
+        `Azure Key Vault health check failed (${response.status}): ${this.compactErrorBody(body)}`,
+      );
+    }
+
+    return 'Azure Key Vault connection verified successfully.';
+  }
+
+  private async testGcpSecretManagerConnection(
+    config: Record<string, any>,
+  ): Promise<string> {
+    const projectId = this.readRequiredString(config, 'projectId');
+    const accessToken = await this.getGcpAccessToken(config);
+    const endpoint = `https://secretmanager.googleapis.com/v1/projects/${projectId}/secrets?pageSize=1`;
+
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(
+        `GCP Secret Manager health check failed (${response.status}): ${this.compactErrorBody(body)}`,
+      );
+    }
+
+    return 'GCP Secret Manager connection verified successfully.';
+  }
+
   private calculateNextRotation(intervalDays: number): Date {
     const nextRotation = new Date();
     nextRotation.setDate(nextRotation.getDate() + intervalDays);
     return nextRotation;
+  }
+
+  private getMissingVaultConfigKeys(
+    provider: VaultProvider,
+    config: Record<string, any>,
+  ): string[] {
+    const hasValue = (key: string): boolean => {
+      const value = config?.[key];
+      if (value === null || value === undefined) return false;
+      if (typeof value === 'string' && value.trim().length === 0) return false;
+      return true;
+    };
+
+    if (provider === VaultProvider.HASHICORP_VAULT) {
+      return ['address', 'token'].filter((key) => !hasValue(key));
+    }
+
+    if (provider === VaultProvider.AWS_SECRETS_MANAGER) {
+      const missing: string[] = [];
+      if (!hasValue('region')) {
+        missing.push('region');
+      }
+      const hasInlineCredentials = hasValue('accessKeyId') && hasValue('secretAccessKey');
+      const hasEnvironmentCredentials = Boolean(
+        process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY,
+      );
+      if (!hasInlineCredentials && !hasEnvironmentCredentials) {
+        missing.push('accessKeyId', 'secretAccessKey');
+      }
+      return missing;
+    }
+
+    if (provider === VaultProvider.AZURE_KEY_VAULT) {
+      const missing: string[] = [];
+      if (!hasValue('vaultUrl')) {
+        missing.push('vaultUrl');
+      }
+      if (!hasValue('accessToken')) {
+        ['tenantId', 'clientId', 'clientSecret'].forEach((key) => {
+          if (!hasValue(key)) {
+            missing.push(key);
+          }
+        });
+      }
+      return missing;
+    }
+
+    if (provider === VaultProvider.GCP_SECRET_MANAGER) {
+      const missing: string[] = [];
+      if (!hasValue('projectId')) {
+        missing.push('projectId');
+      }
+      if (!hasValue('accessToken')) {
+        ['clientEmail', 'privateKey'].forEach((key) => {
+          if (!hasValue(key)) {
+            missing.push(key);
+          }
+        });
+      }
+      return missing;
+    }
+
+    return [];
   }
 
   private async logAccess(

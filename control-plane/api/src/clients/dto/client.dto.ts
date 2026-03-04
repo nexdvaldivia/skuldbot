@@ -1,14 +1,12 @@
 import {
   IsString,
   IsEmail,
-  IsEnum,
   IsOptional,
   IsNotEmpty,
   MinLength,
   MaxLength,
   Matches,
 } from 'class-validator';
-import { ClientPlan, ClientStatus } from '../entities/client.entity';
 
 export class CreateClientDto {
   @IsString()
@@ -29,9 +27,10 @@ export class CreateClientDto {
   @IsEmail()
   billingEmail: string;
 
-  @IsEnum(ClientPlan)
+  @IsString()
   @IsOptional()
-  plan?: ClientPlan;
+  @MaxLength(80)
+  plan?: string;
 }
 
 export class UpdateClientDto {
@@ -45,21 +44,23 @@ export class UpdateClientDto {
   @IsOptional()
   billingEmail?: string;
 
-  @IsEnum(ClientPlan)
+  @IsString()
   @IsOptional()
-  plan?: ClientPlan;
+  @MaxLength(80)
+  plan?: string;
 
-  @IsEnum(ClientStatus)
+  @IsString()
   @IsOptional()
-  status?: ClientStatus;
+  @MaxLength(80)
+  status?: string;
 }
 
 export class ClientResponseDto {
   id: string;
   name: string;
   slug: string;
-  plan: ClientPlan;
-  status: ClientStatus;
+  plan: string;
+  status: string;
   billingEmail: string;
   tenantsCount: number;
   createdAt: Date;

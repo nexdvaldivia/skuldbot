@@ -129,7 +129,7 @@ export function AIPlannerPanel() {
           )}
 
           {/* Main Content */}
-          {(canUseAI || true) && ( // TODO: Remove || true for production
+          {canUseAI && (
             <>
               {/* Input Phase */}
               {currentPhase === "input" && (

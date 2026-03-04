@@ -30,7 +30,7 @@ export class RevenueShareRecord {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   partnerId: string;
 
@@ -138,7 +138,7 @@ export class PartnerPayout {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   partnerId: string;
 

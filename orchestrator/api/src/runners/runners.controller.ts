@@ -28,6 +28,18 @@ import {
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { TenantId } from '../common/decorators/current-tenant.decorator';
+import { Audit } from '../common/interceptors/audit.interceptor';
+import { AuditAction, AuditCategory } from '../audit/entities/audit-log.entity';
+
+type RunnerAuditRequest = {
+  params?: { runnerId?: string };
+  body?: { runId?: string; eventType?: string };
+};
+
+type RunnerAuditResponse = {
+  id?: string;
+  name?: string;
+};
 
 /**
  * Admin controller for managing runners (used by Orchestrator UI)
@@ -41,6 +53,13 @@ export class RunnersController {
    * Register a new runner
    */
   @Post('register')
+  @Audit({
+    category: AuditCategory.RUNNER,
+    action: AuditAction.CREATE,
+    resourceType: 'runner',
+    getResourceId: (_req, response: RunnerAuditResponse) => response.id,
+    getResourceName: (_req, response: RunnerAuditResponse) => response.name,
+  })
   register(
     @TenantId() tenantId: string,
     @Body() dto: RegisterRunnerDto,
@@ -78,6 +97,12 @@ export class RunnersController {
    * Update a runner
    */
   @Put(':runnerId')
+  @Audit({
+    category: AuditCategory.RUNNER,
+    action: AuditAction.UPDATE,
+    resourceType: 'runner',
+    getResourceId: (req: RunnerAuditRequest) => req.params?.runnerId,
+  })
   update(
     @TenantId() tenantId: string,
     @Param('runnerId') runnerId: string,
@@ -91,6 +116,12 @@ export class RunnersController {
    */
   @Delete(':runnerId')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @Audit({
+    category: AuditCategory.RUNNER,
+    action: AuditAction.DELETE,
+    resourceType: 'runner',
+    getResourceId: (req: RunnerAuditRequest) => req.params?.runnerId,
+  })
   remove(@TenantId() tenantId: string, @Param('runnerId') runnerId: string) {
     return this.runnersService.remove(tenantId, runnerId);
   }
@@ -99,6 +130,12 @@ export class RunnersController {
    * Regenerate API key for a runner
    */
   @Post(':runnerId/regenerate-key')
+  @Audit({
+    category: AuditCategory.SECURITY,
+    action: AuditAction.REGENERATE,
+    resourceType: 'runner',
+    getResourceId: (req: RunnerAuditRequest) => req.params?.runnerId,
+  })
   regenerateApiKey(
     @TenantId() tenantId: string,
     @Param('runnerId') runnerId: string,
@@ -136,6 +173,12 @@ export class RunnerAgentController {
    * Claim a job
    */
   @Post('jobs/claim')
+  @Audit({
+    category: AuditCategory.EXECUTION,
+    action: AuditAction.ASSIGN,
+    resourceType: 'run',
+    getResourceId: (req: RunnerAuditRequest) => req.body?.runId,
+  })
   claimJob(@CurrentRunner() runner: Runner, @Body() dto: ClaimJobDto) {
     return this.runnersService.claimJob(runner, dto.runId);
   }
@@ -144,6 +187,15 @@ export class RunnerAgentController {
    * Report progress on a step
    */
   @Post('progress')
+  @Audit({
+    category: AuditCategory.EXECUTION,
+    action: AuditAction.UPDATE,
+    resourceType: 'run',
+    getResourceId: (req: RunnerAuditRequest) => req.body?.runId,
+    // Record only error progress events to avoid excessive audit volume.
+    skipAudit: (req: RunnerAuditRequest) =>
+      req.body?.eventType !== 'step_error',
+  })
   reportProgress(
     @CurrentRunner() runner: Runner,
     @Body() dto: ReportProgressDto,
@@ -164,6 +216,12 @@ export class RunnerAgentController {
    * Complete a run
    */
   @Post('complete')
+  @Audit({
+    category: AuditCategory.EXECUTION,
+    action: AuditAction.EXECUTE,
+    resourceType: 'run',
+    getResourceId: (req: RunnerAuditRequest) => req.body?.runId,
+  })
   completeRun(@CurrentRunner() runner: Runner, @Body() dto: CompleteRunDto) {
     return this.runnersService.completeRun(runner, dto);
   }

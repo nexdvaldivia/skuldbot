@@ -1,4 +1,15 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { MoreThanOrEqual, Repository } from 'typeorm';
+import { BillingService } from '../../billing/billing.service';
+import { SubscriptionService } from '../../billing/subscription.service';
+import { MarketplaceService } from '../../marketplace/marketplace.service';
+import { UsageRecord } from '../../billing/entities/usage-record.entity';
+import {
+  RunnerHeartbeatEntity,
+  RunnerRuntimeStatus,
+  RunnerType,
+} from '../entities/runner-heartbeat.entity';
 import {
   Tool,
   Resource,
@@ -10,21 +21,25 @@ import {
   UsageMetrics,
 } from '../types/mcp.types';
 
-/**
- * Metering MCP Server
- * 
- * Tracks usage metrics and calculates costs in real-time.
- * CRITICAL for billing calculation with "whichever is greater" model.
- */
+type BotPricingSnapshot = {
+  usageRates: Record<string, number>;
+  monthlyMinimum: number;
+};
+
 @Injectable()
 export class MeteringServer {
-  // In-memory storage for demo (should be database in production)
-  private usageData: Map<string, CurrentUsage> = new Map();
-  private activeRunners: Map<string, RunnerHeartbeat> = new Map();
+  private static readonly ACTIVE_RUNNER_WINDOW_MS = 5 * 60 * 1000;
 
-  /**
-   * Get all tools provided by this server
-   */
+  constructor(
+    private readonly billingService: BillingService,
+    private readonly subscriptionService: SubscriptionService,
+    private readonly marketplaceService: MarketplaceService,
+    @InjectRepository(UsageRecord)
+    private readonly usageRecordRepository: Repository<UsageRecord>,
+    @InjectRepository(RunnerHeartbeatEntity)
+    private readonly heartbeatRepository: Repository<RunnerHeartbeatEntity>,
+  ) {}
+
   getTools(): Tool[] {
     return [
       {
@@ -33,17 +48,12 @@ export class MeteringServer {
         inputSchema: {
           type: 'object',
           properties: {
-            tenantId: {
+            tenantId: { type: 'string', description: 'Tenant ID' },
+            botId: { type: 'string', description: 'Bot ID' },
+            executionId: { type: 'string', description: 'Unique execution ID' },
+            orchestratorId: {
               type: 'string',
-              description: 'Tenant ID',
-            },
-            botId: {
-              type: 'string',
-              description: 'Bot ID',
-            },
-            executionId: {
-              type: 'string',
-              description: 'Unique execution ID',
+              description: 'Orchestrator instance ID',
             },
             startTime: {
               type: 'string',
@@ -90,14 +100,8 @@ export class MeteringServer {
         inputSchema: {
           type: 'object',
           properties: {
-            tenantId: {
-              type: 'string',
-              description: 'Tenant ID',
-            },
-            botId: {
-              type: 'string',
-              description: 'Bot ID',
-            },
+            tenantId: { type: 'string', description: 'Tenant ID' },
+            botId: { type: 'string', description: 'Bot ID' },
           },
           required: ['tenantId', 'botId'],
         },
@@ -110,14 +114,8 @@ export class MeteringServer {
         inputSchema: {
           type: 'object',
           properties: {
-            tenantId: {
-              type: 'string',
-              description: 'Tenant ID',
-            },
-            period: {
-              type: 'string',
-              description: 'Billing period (YYYY-MM)',
-            },
+            tenantId: { type: 'string', description: 'Tenant ID' },
+            period: { type: 'string', description: 'Billing period (YYYY-MM)' },
           },
           required: ['tenantId'],
         },
@@ -130,14 +128,9 @@ export class MeteringServer {
         inputSchema: {
           type: 'object',
           properties: {
-            tenantId: {
-              type: 'string',
-              description: 'Tenant ID',
-            },
-            runnerId: {
-              type: 'string',
-              description: 'Runner ID',
-            },
+            tenantId: { type: 'string', description: 'Tenant ID' },
+            runnerId: { type: 'string', description: 'Runner ID' },
+            orchestratorId: { type: 'string', description: 'Orchestrator ID' },
             type: {
               type: 'string',
               enum: ['attended', 'unattended'],
@@ -160,10 +153,7 @@ export class MeteringServer {
         inputSchema: {
           type: 'object',
           properties: {
-            tenantId: {
-              type: 'string',
-              description: 'Tenant ID',
-            },
+            tenantId: { type: 'string', description: 'Tenant ID' },
           },
           required: ['tenantId'],
         },
@@ -177,14 +167,8 @@ export class MeteringServer {
         inputSchema: {
           type: 'object',
           properties: {
-            tenantId: {
-              type: 'string',
-              description: 'Tenant ID',
-            },
-            period: {
-              type: 'string',
-              description: 'Billing period (YYYY-MM)',
-            },
+            tenantId: { type: 'string', description: 'Tenant ID' },
+            period: { type: 'string', description: 'Billing period (YYYY-MM)' },
           },
           required: ['tenantId', 'period'],
         },
@@ -194,9 +178,6 @@ export class MeteringServer {
     ];
   }
 
-  /**
-   * Get all resources provided by this server
-   */
   getResources(): Resource[] {
     return [
       {
@@ -230,9 +211,6 @@ export class MeteringServer {
     ];
   }
 
-  /**
-   * Execute a tool
-   */
   async executeTool(toolCall: {
     name: string;
     arguments: Record<string, any>;
@@ -240,32 +218,28 @@ export class MeteringServer {
     try {
       switch (toolCall.name) {
         case 'report_bot_execution':
-          return await this.reportBotExecution(toolCall.arguments);
-
+          return await this.reportBotExecution(toolCall.arguments as BotExecution);
         case 'get_current_usage':
           return await this.getCurrentUsage(
             toolCall.arguments.tenantId,
             toolCall.arguments.botId,
           );
-
         case 'get_tenant_usage_summary':
           return await this.getTenantUsageSummary(
             toolCall.arguments.tenantId,
             toolCall.arguments.period,
           );
-
         case 'report_runner_heartbeat':
-          return await this.reportRunnerHeartbeat(toolCall.arguments);
-
+          return await this.reportRunnerHeartbeat(
+            toolCall.arguments as RunnerHeartbeat & { orchestratorId?: string },
+          );
         case 'get_active_runners':
           return await this.getActiveRunners(toolCall.arguments.tenantId);
-
         case 'reset_usage_metrics':
           return await this.resetUsageMetrics(
             toolCall.arguments.tenantId,
             toolCall.arguments.period,
           );
-
         default:
           return {
             success: false,
@@ -275,136 +249,97 @@ export class MeteringServer {
     } catch (error) {
       return {
         success: false,
-        error: error.message || 'Tool execution failed',
+        error: error instanceof Error ? error.message : 'Tool execution failed',
       };
     }
   }
 
-  /**
-   * Read a resource
-   */
   async readResource(uri: string): Promise<ResourceContent> {
-    // metering://tenant/{tenantId}/current-period
     const currentPeriodMatch = uri.match(
       /metering:\/\/tenant\/([^/]+)\/current-period/,
     );
     if (currentPeriodMatch) {
-      return await this.getCurrentPeriodResource(currentPeriodMatch[1]);
+      return this.getCurrentPeriodResource(currentPeriodMatch[1]);
     }
 
-    // metering://tenant/{tenantId}/bots/{botId}/usage
     const botUsageMatch = uri.match(
       /metering:\/\/tenant\/([^/]+)\/bots\/([^/]+)\/usage/,
     );
     if (botUsageMatch) {
-      return await this.getBotUsageResource(
-        botUsageMatch[1],
-        botUsageMatch[2],
-      );
+      return this.getBotUsageResource(botUsageMatch[1], botUsageMatch[2]);
     }
 
-    // metering://tenant/{tenantId}/runners/active
     const runnersMatch = uri.match(
       /metering:\/\/tenant\/([^/]+)\/runners\/active/,
     );
     if (runnersMatch) {
-      return await this.getActiveRunnersResource(runnersMatch[1]);
+      return this.getActiveRunnersResource(runnersMatch[1]);
     }
 
-    // metering://tenant/{tenantId}/projected-bill
     const projectedMatch = uri.match(
       /metering:\/\/tenant\/([^/]+)\/projected-bill/,
     );
     if (projectedMatch) {
-      return await this.getProjectedBillResource(projectedMatch[1]);
+      return this.getProjectedBillResource(projectedMatch[1]);
     }
 
     throw new Error(`Unknown resource URI: ${uri}`);
   }
 
-  // ============================================================
-  // Tool Implementations
-  // ============================================================
-
   private async reportBotExecution(
-    execution: BotExecution,
+    execution: BotExecution & { orchestratorId?: string },
   ): Promise<ToolResult> {
-    const { tenantId, botId, metrics } = execution;
-    const period = new Date().toISOString().slice(0, 7); // YYYY-MM
-
-    // Get or create usage record
-    const usageKey = `${tenantId}:${botId}:${period}`;
-    let usage = this.usageData.get(usageKey);
-
-    if (!usage) {
-      usage = {
-        tenantId,
-        botId,
-        period,
-        usage: {
-          metrics: {},
-          costs: {
-            usageBased: 0,
-            callBased: 0,
-            monthlyMinimum: 0,
-            charged: 0,
-          },
-        },
-        projectedMonthly: 0,
-        minimumCommitment: 0,
-        willBeBilled: 0,
-      };
+    this.assertUuid(execution.tenantId, 'tenantId');
+    this.assertUuid(execution.botId, 'botId');
+    if (!execution.executionId?.trim()) {
+      throw new Error('executionId is required');
     }
 
-    // Accumulate metrics
-    for (const [key, value] of Object.entries(metrics)) {
-      if (value !== undefined) {
-        usage.usage.metrics[key] =
-          (usage.usage.metrics[key] || 0) + (value as number);
-      }
+    const endTime = new Date(execution.endTime);
+    if (Number.isNaN(endTime.getTime())) {
+      throw new Error('Invalid endTime');
     }
 
-    // Calculate costs based on bot pricing
-    // TODO: Get actual pricing from database
-    const pricing = await this.getBotPricing(botId);
-
-    if (pricing.model === 'hybrid') {
-      // FNOL Bot example: $3/claim, $0.75/call, $4K minimum
-      const claimsCompleted = usage.usage.metrics.claimsCompleted || 0;
-      const apiCalls = usage.usage.metrics.apiCalls || 0;
-
-      usage.usage.costs.usageBased = claimsCompleted * (pricing.perUsageRate || 0);
-      usage.usage.costs.callBased = apiCalls * (pricing.perCallRate || 0);
-      usage.usage.costs.monthlyMinimum = pricing.monthlyMinimum || 0;
-
-      // Calculate "whichever is greater"
-      usage.usage.costs.charged = Math.max(
-        usage.usage.costs.usageBased,
-        usage.usage.costs.callBased,
-        usage.usage.costs.monthlyMinimum,
-      );
+    const metricEntries = Object.entries(execution.metrics ?? {}).filter(
+      ([, quantity]) => Number.isFinite(quantity as number),
+    );
+    if (metricEntries.length === 0) {
+      throw new Error('At least one numeric metric is required');
     }
 
-    usage.projectedMonthly = usage.usage.costs.charged;
-    usage.minimumCommitment = pricing.monthlyMinimum || 0;
-    usage.willBeBilled = Math.max(
-      usage.projectedMonthly,
-      usage.minimumCommitment,
+    const batch = {
+      batchId: `mcp:${execution.executionId}`,
+      tenantId: execution.tenantId,
+      events: metricEntries.map(([metric, quantity]) => ({
+        id: `${execution.executionId}:${metric}`,
+        metric,
+        quantity: Number(quantity),
+        occurredAt: endTime.toISOString(),
+        botId: execution.botId,
+        installationId: execution.botId,
+      })),
+      sentAt: new Date().toISOString(),
+    };
+
+    const ingest = await this.billingService.ingestUsageBatch(
+      execution.orchestratorId ?? 'mcp-metering',
+      batch,
     );
 
-    // Store updated usage
-    this.usageData.set(usageKey, usage);
-
-    // TODO: Also persist to database
-    // await this.usageRepository.upsert(usage);
+    const period = this.getPeriodFromDate(endTime);
+    const currentUsage = await this.buildCurrentUsageSnapshot(
+      execution.tenantId,
+      execution.botId,
+      period,
+    );
 
     return {
       success: true,
       result: {
         executionId: execution.executionId,
         recorded: true,
-        currentUsage: usage,
-        message: `Execution recorded. Current cost: $${usage.usage.costs.charged.toFixed(2)}`,
+        ingest,
+        currentUsage,
       },
     };
   }
@@ -413,33 +348,13 @@ export class MeteringServer {
     tenantId: string,
     botId: string,
   ): Promise<ToolResult> {
-    const period = new Date().toISOString().slice(0, 7);
-    const usageKey = `${tenantId}:${botId}:${period}`;
-    const usage = this.usageData.get(usageKey);
-
-    if (!usage) {
-      return {
-        success: true,
-        result: {
-          tenantId,
-          botId,
-          period,
-          usage: {
-            metrics: {},
-            costs: {
-              usageBased: 0,
-              callBased: 0,
-              monthlyMinimum: 0,
-              charged: 0,
-            },
-          },
-          projectedMonthly: 0,
-          minimumCommitment: 0,
-          willBeBilled: 0,
-          message: 'No usage recorded yet for this period',
-        },
-      };
-    }
+    this.assertUuid(tenantId, 'tenantId');
+    this.assertUuid(botId, 'botId');
+    const usage = await this.buildCurrentUsageSnapshot(
+      tenantId,
+      botId,
+      this.getCurrentPeriod(),
+    );
 
     return {
       success: true,
@@ -451,89 +366,122 @@ export class MeteringServer {
     tenantId: string,
     period?: string,
   ): Promise<ToolResult> {
-    const currentPeriod = period || new Date().toISOString().slice(0, 7);
+    this.assertUuid(tenantId, 'tenantId');
+    const targetPeriod = period?.trim() || this.getCurrentPeriod();
+    this.assertPeriod(targetPeriod);
 
-    // Find all usage records for this tenant in this period
-    const tenantUsage: CurrentUsage[] = [];
-    for (const [key, usage] of this.usageData.entries()) {
-      if (key.startsWith(`${tenantId}:`) && usage.period === currentPeriod) {
-        tenantUsage.push(usage);
-      }
-    }
+    const usageRecords = await this.usageRecordRepository.find({
+      where: { tenantId, period: targetPeriod },
+    });
 
-    const totalCost = tenantUsage.reduce(
-      (sum, usage) => sum + usage.willBeBilled,
+    const botIds = [...new Set(usageRecords.map((record) => record.botId).filter(Boolean))];
+    const botUsage = await Promise.all(
+      botIds.map((botId) =>
+        this.buildCurrentUsageSnapshot(tenantId, botId as string, targetPeriod),
+      ),
+    );
+
+    const totalBotCost = botUsage.reduce(
+      (sum, usage) => sum + Number(usage.willBeBilled ?? 0),
       0,
     );
+
+    const totalClaimsCompleted = usageRecords.reduce((sum, record) => {
+      const normalized = this.normalizeMetric(record.metric);
+      return normalized === 'claimscompleted'
+        ? sum + Number(record.quantity)
+        : sum;
+    }, 0);
+
+    const totalApiCalls = usageRecords.reduce((sum, record) => {
+      const normalized = this.normalizeMetric(record.metric);
+      return normalized === 'apicalls' ? sum + Number(record.quantity) : sum;
+    }, 0);
 
     return {
       success: true,
       result: {
         tenantId,
-        period: currentPeriod,
-        botUsage: tenantUsage,
-        totalBotCost: totalCost,
+        period: targetPeriod,
+        botUsage,
+        totalBotCost,
         summary: {
-          totalBots: tenantUsage.length,
-          totalClaimsCompleted: tenantUsage.reduce(
-            (sum, u) => sum + (u.usage.metrics.claimsCompleted || 0),
-            0,
-          ),
-          totalApiCalls: tenantUsage.reduce(
-            (sum, u) => sum + (u.usage.metrics.apiCalls || 0),
-            0,
-          ),
+          totalBots: botUsage.length,
+          totalClaimsCompleted,
+          totalApiCalls,
         },
       },
     };
   }
 
   private async reportRunnerHeartbeat(
-    heartbeat: RunnerHeartbeat,
+    heartbeat: RunnerHeartbeat & { orchestratorId?: string },
   ): Promise<ToolResult> {
-    const key = `${heartbeat.tenantId}:${heartbeat.runnerId}`;
-    this.activeRunners.set(key, {
-      ...heartbeat,
-      timestamp: new Date().toISOString(),
+    this.assertUuid(heartbeat.tenantId, 'tenantId');
+    this.assertUuid(heartbeat.runnerId, 'runnerId');
+
+    const existing = await this.heartbeatRepository.findOne({
+      where: {
+        tenantId: heartbeat.tenantId,
+        runnerId: heartbeat.runnerId,
+      },
     });
 
-    // TODO: Also persist to database
-    // await this.runnerHeartbeatRepository.upsert(heartbeat);
+    const now = new Date();
+    const entity = existing ?? this.heartbeatRepository.create();
+    entity.tenantId = heartbeat.tenantId;
+    entity.runnerId = heartbeat.runnerId;
+    entity.orchestratorId = heartbeat.orchestratorId;
+    entity.type = this.normalizeRunnerType(heartbeat.type);
+    entity.status = this.normalizeRunnerStatus(heartbeat.status);
+    entity.heartbeatAt = now;
+
+    await this.heartbeatRepository.save(entity);
 
     return {
       success: true,
       result: {
         recorded: true,
         runnerId: heartbeat.runnerId,
-        status: heartbeat.status || 'active',
+        status: entity.status,
+        timestamp: entity.heartbeatAt.toISOString(),
       },
     };
   }
 
   private async getActiveRunners(tenantId: string): Promise<ToolResult> {
-    const now = Date.now();
-    const activeRunners: RunnerHeartbeat[] = [];
+    this.assertUuid(tenantId, 'tenantId');
+    const minHeartbeatAt = new Date(
+      Date.now() - MeteringServer.ACTIVE_RUNNER_WINDOW_MS,
+    );
 
-    // Find runners for this tenant with recent heartbeat (< 5 minutes)
-    for (const [key, runner] of this.activeRunners.entries()) {
-      if (key.startsWith(`${tenantId}:`)) {
-        const heartbeatAge = now - new Date(runner.timestamp).getTime();
-        if (heartbeatAge < 5 * 60 * 1000) {
-          // 5 minutes
-          activeRunners.push(runner);
-        }
-      }
-    }
+    const activeRunners = await this.heartbeatRepository.find({
+      where: {
+        tenantId,
+        heartbeatAt: MoreThanOrEqual(minHeartbeatAt),
+      },
+      order: { heartbeatAt: 'DESC' },
+    });
 
     return {
       success: true,
       result: {
         tenantId,
-        activeRunners,
+        activeRunners: activeRunners.map((runner) => ({
+          tenantId: runner.tenantId,
+          runnerId: runner.runnerId,
+          type: runner.type,
+          status: runner.status,
+          timestamp: runner.heartbeatAt.toISOString(),
+          orchestratorId: runner.orchestratorId ?? null,
+        })),
         totalActive: activeRunners.length,
-        attended: activeRunners.filter((r) => r.type === 'attended').length,
-        unattended: activeRunners.filter((r) => r.type === 'unattended')
-          .length,
+        attended: activeRunners.filter(
+          (runner) => runner.type === RunnerType.ATTENDED,
+        ).length,
+        unattended: activeRunners.filter(
+          (runner) => runner.type === RunnerType.UNATTENDED,
+        ).length,
       },
     };
   }
@@ -542,35 +490,28 @@ export class MeteringServer {
     tenantId: string,
     period: string,
   ): Promise<ToolResult> {
-    // Reset all usage for this tenant in this period
-    let resetCount = 0;
-    for (const key of this.usageData.keys()) {
-      if (key.startsWith(`${tenantId}:`) && key.endsWith(`:${period}`)) {
-        this.usageData.delete(key);
-        resetCount++;
-      }
-    }
+    this.assertUuid(tenantId, 'tenantId');
+    this.assertPeriod(period);
+
+    const deleteResult = await this.usageRecordRepository.delete({
+      tenantId,
+      period,
+    });
 
     return {
       success: true,
       result: {
         tenantId,
         period,
-        resetCount,
-        message: `Reset ${resetCount} usage records`,
+        resetCount: deleteResult.affected ?? 0,
       },
     };
   }
-
-  // ============================================================
-  // Resource Implementations
-  // ============================================================
 
   private async getCurrentPeriodResource(
     tenantId: string,
   ): Promise<ResourceContent> {
     const summary = await this.getTenantUsageSummary(tenantId);
-
     return {
       uri: `metering://tenant/${tenantId}/current-period`,
       content: JSON.stringify(summary.result, null, 2),
@@ -583,7 +524,6 @@ export class MeteringServer {
     botId: string,
   ): Promise<ResourceContent> {
     const usage = await this.getCurrentUsage(tenantId, botId);
-
     return {
       uri: `metering://tenant/${tenantId}/bots/${botId}/usage`,
       content: JSON.stringify(usage.result, null, 2),
@@ -595,7 +535,6 @@ export class MeteringServer {
     tenantId: string,
   ): Promise<ResourceContent> {
     const runners = await this.getActiveRunners(tenantId);
-
     return {
       uri: `metering://tenant/${tenantId}/runners/active`,
       content: JSON.stringify(runners.result, null, 2),
@@ -607,24 +546,26 @@ export class MeteringServer {
     tenantId: string,
   ): Promise<ResourceContent> {
     const summary = await this.getTenantUsageSummary(tenantId);
-    const runners = await this.getActiveRunners(tenantId);
+    const activeRunners = await this.getActiveRunners(tenantId);
+    const subscription = await this.subscriptionService.getSubscription(tenantId);
 
-    // Calculate runner costs
-    const runnerCost =
-      runners.result.attended * 50 + runners.result.unattended * 200;
+    const subscriptionBase = Number(subscription?.monthlyAmount ?? 0);
+    const botCosts = Number(summary.result?.totalBotCost ?? 0);
+    const runnerCosts = 0;
+    const subtotal = botCosts + runnerCosts + subscriptionBase;
+    const tax = 0;
 
     const projectedBill = {
       tenantId,
-      period: new Date().toISOString().slice(0, 7),
-      botCosts: summary.result.totalBotCost,
-      runnerCosts: runnerCost,
-      orchestratorLicense: 500,
-      studioLicenses: 300,
-      subtotal:
-        summary.result.totalBotCost + runnerCost + 500 + 300,
-      tax: (summary.result.totalBotCost + runnerCost + 500 + 300) * 0.1,
-      total:
-        (summary.result.totalBotCost + runnerCost + 500 + 300) * 1.1,
+      period: this.getCurrentPeriod(),
+      botCosts,
+      runnerCosts,
+      subscriptionBase,
+      activeRunners: activeRunners.result?.totalActive ?? 0,
+      subtotal,
+      tax,
+      total: subtotal + tax,
+      currency: subscription?.currency ?? 'USD',
     };
 
     return {
@@ -634,30 +575,151 @@ export class MeteringServer {
     };
   }
 
-  // ============================================================
-  // Helper Methods
-  // ============================================================
+  private async buildCurrentUsageSnapshot(
+    tenantId: string,
+    botId: string,
+    period: string,
+  ): Promise<CurrentUsage & { message?: string }> {
+    const records = await this.usageRecordRepository.find({
+      where: { tenantId, botId, period },
+    });
 
-  private async getBotPricing(botId: string): Promise<any> {
-    // TODO: Get from database
-    // For now, return FNOL bot pricing
-    if (botId === 'fnol-bot-v1') {
-      return {
-        model: 'hybrid',
-        perUsageRate: 3.0,
-        perCallRate: 0.75,
-        monthlyMinimum: 4000.0,
-        currency: 'USD',
-        billingCycle: 'monthly',
-      };
+    const metrics: UsageMetrics = {};
+    for (const record of records) {
+      metrics[record.metric] = (metrics[record.metric] || 0) + Number(record.quantity);
     }
 
+    const pricing = await this.resolveBotPricing(botId);
+    const costs = this.computeCosts(metrics, pricing, records);
+
+    const snapshot: CurrentUsage & { message?: string } = {
+      tenantId,
+      botId,
+      period,
+      usage: {
+        metrics,
+        costs,
+      },
+      projectedMonthly: costs.charged,
+      minimumCommitment: pricing.monthlyMinimum,
+      willBeBilled: Math.max(costs.charged, pricing.monthlyMinimum),
+    };
+
+    if (records.length === 0) {
+      snapshot.message = 'No usage recorded yet for this period';
+    }
+
+    return snapshot;
+  }
+
+  private async resolveBotPricing(botId: string): Promise<BotPricingSnapshot> {
+    try {
+      const bot = await this.marketplaceService.getBotById(botId);
+      const usageRates: Record<string, number> = {};
+      for (const metric of bot.pricing?.usageMetrics ?? []) {
+        usageRates[this.normalizeMetric(metric.metric)] = Number(
+          metric.pricePerUnit ?? 0,
+        );
+      }
+
+      return {
+        usageRates,
+        monthlyMinimum: Number(
+          bot.pricing?.minimumMonthly ?? bot.pricing?.monthlyBase ?? 0,
+        ),
+      };
+    } catch {
+      return {
+        usageRates: {},
+        monthlyMinimum: 0,
+      };
+    }
+  }
+
+  private computeCosts(
+    metrics: UsageMetrics,
+    pricing: BotPricingSnapshot,
+    records: UsageRecord[],
+  ): CurrentUsage['usage']['costs'] {
+    let usageBased = 0;
+    let callBased = 0;
+
+    for (const [metricName, quantity] of Object.entries(metrics)) {
+      const normalizedMetric = this.normalizeMetric(metricName);
+      const rate = Number(pricing.usageRates[normalizedMetric] ?? 0);
+      const amount = Number(quantity ?? 0) * rate;
+      usageBased += amount;
+      if (normalizedMetric.includes('call') || normalizedMetric.includes('api')) {
+        callBased += amount;
+      }
+    }
+
+    if (usageBased === 0) {
+      usageBased = records.reduce(
+        (sum, record) => sum + Number(record.totalAmount ?? 0),
+        0,
+      );
+    }
+
+    const charged = Math.max(usageBased, callBased, pricing.monthlyMinimum);
+
     return {
-      model: 'monthly',
-      monthlyMinimum: 500.0,
-      currency: 'USD',
-      billingCycle: 'monthly',
+      usageBased,
+      callBased,
+      monthlyMinimum: pricing.monthlyMinimum,
+      charged,
     };
   }
-}
 
+  private normalizeMetric(metric: string): string {
+    return metric.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+  }
+
+  private normalizeRunnerType(type?: string): RunnerType {
+    if (type === RunnerType.ATTENDED) {
+      return RunnerType.ATTENDED;
+    }
+    if (type === RunnerType.UNATTENDED) {
+      return RunnerType.UNATTENDED;
+    }
+    throw new Error(`Invalid runner type: ${type}`);
+  }
+
+  private normalizeRunnerStatus(status?: string): RunnerRuntimeStatus {
+    if (!status) {
+      return RunnerRuntimeStatus.ACTIVE;
+    }
+    if (status === RunnerRuntimeStatus.ACTIVE) {
+      return RunnerRuntimeStatus.ACTIVE;
+    }
+    if (status === RunnerRuntimeStatus.IDLE) {
+      return RunnerRuntimeStatus.IDLE;
+    }
+    if (status === RunnerRuntimeStatus.ERROR) {
+      return RunnerRuntimeStatus.ERROR;
+    }
+    throw new Error(`Invalid runner status: ${status}`);
+  }
+
+  private assertPeriod(period: string): void {
+    if (!/^\d{4}-\d{2}$/.test(period)) {
+      throw new Error(`Invalid period format: ${period}`);
+    }
+  }
+
+  private assertUuid(value: string, fieldName: string): void {
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(value ?? '')) {
+      throw new Error(`${fieldName} must be a valid UUID`);
+    }
+  }
+
+  private getCurrentPeriod(): string {
+    return this.getPeriodFromDate(new Date());
+  }
+
+  private getPeriodFromDate(date: Date): string {
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
+}

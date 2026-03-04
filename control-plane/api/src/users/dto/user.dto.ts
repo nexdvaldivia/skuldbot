@@ -4,6 +4,7 @@ import {
   IsEnum,
   IsOptional,
   IsUUID,
+  IsArray,
   MinLength,
   MaxLength,
 } from 'class-validator';
@@ -34,6 +35,11 @@ export class CreateUserDto {
   @IsUUID()
   @IsOptional()
   clientId?: string;
+
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  @IsOptional()
+  roleIds?: string[];
 }
 
 export class UpdateUserDto {
@@ -56,6 +62,11 @@ export class UpdateUserDto {
   @IsEnum(UserStatus)
   @IsOptional()
   status?: UserStatus;
+
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  @IsOptional()
+  roleIds?: string[];
 }
 
 export class UserResponseDto {
@@ -64,6 +75,11 @@ export class UserResponseDto {
   firstName: string;
   lastName: string;
   role: UserRole;
+  roles?: Array<{
+    id: string;
+    name: string;
+    displayName: string;
+  }>;
   status: UserStatus;
   clientId: string | null;
   clientName: string | null;

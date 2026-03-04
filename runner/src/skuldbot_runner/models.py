@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Mapping
 
 from pydantic import BaseModel, Field
 
@@ -14,8 +14,13 @@ class RunStatus(str, Enum):
     QUEUED = "queued"
     RUNNING = "running"
     SUCCESS = "success"
+    SUCCEEDED = "succeeded"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
+    @property
+    def is_success(self) -> bool:
+        return self in {RunStatus.SUCCESS, RunStatus.SUCCEEDED}
 
 
 class StepStatus(str, Enum):
@@ -71,6 +76,31 @@ class RegisterResponse(BaseModel):
     name: str
     tenant_id: str
 
+    @classmethod
+    def from_api_payload(cls, payload: Mapping[str, Any]) -> "RegisterResponse":
+        """
+        Supports both formats:
+        - Legacy: {id, api_key, tenant_id, ...}
+        - Current orchestrator: {runner: {id, tenantId, ...}, apiKey}
+        """
+        runner_payload = payload.get("runner")
+        if isinstance(runner_payload, Mapping):
+            return cls(
+                id=str(runner_payload.get("id", "")),
+                api_key=str(payload.get("apiKey", payload.get("api_key", ""))),
+                name=str(runner_payload.get("name", "")),
+                tenant_id=str(
+                    runner_payload.get("tenantId", runner_payload.get("tenant_id", ""))
+                ),
+            )
+
+        return cls(
+            id=str(payload.get("id", "")),
+            api_key=str(payload.get("apiKey", payload.get("api_key", ""))),
+            name=str(payload.get("name", "")),
+            tenant_id=str(payload.get("tenantId", payload.get("tenant_id", ""))),
+        )
+
 
 # ============================================
 # Heartbeat
@@ -89,7 +119,20 @@ class HeartbeatResponse(BaseModel):
     """Heartbeat response."""
 
     acknowledged: bool
-    server_time: datetime
+    pending_jobs: int | None = None
+    server_time: datetime | None = None
+
+    @classmethod
+    def from_api_payload(cls, payload: Mapping[str, Any]) -> "HeartbeatResponse":
+        return cls(
+            acknowledged=bool(payload.get("acknowledged", False)),
+            pending_jobs=(
+                int(payload["pendingJobs"])
+                if payload.get("pendingJobs") is not None
+                else None
+            ),
+            server_time=payload.get("serverTime", payload.get("server_time")),
+        )
 
 
 # ============================================
@@ -97,16 +140,86 @@ class HeartbeatResponse(BaseModel):
 # ============================================
 
 
+def _parse_datetime(value: Any) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str) and value:
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return datetime.utcnow()
+    return datetime.utcnow()
+
+
 class Job(BaseModel):
     """A job (run) to be executed."""
 
     id: str
-    bot_id: str
-    bot_version_id: str
-    bot_name: str
-    package_url: str  # URL to download bot package
+    bot_id: str = ""
+    bot_version_id: str = ""
+    bot_name: str = "unknown-bot"
+    package_url: str | None = None
+    plan: dict[str, Any] | None = None
     inputs: dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    @classmethod
+    def from_api_payload(cls, payload: Mapping[str, Any]) -> "Job":
+        """
+        Supports both formats:
+        - Legacy runner: {id, bot_name, package_url, ...}
+        - Current orchestrator: {runId, botVersionId, inputs, queuedAt} or claim payload with plan
+        """
+        run_id = payload.get("id") or payload.get("runId")
+        if not run_id:
+            raise ValueError("Invalid job payload: missing id/runId")
+
+        plan = payload.get("plan")
+        run_meta = plan.get("run", {}) if isinstance(plan, Mapping) else {}
+
+        created_at = (
+            payload.get("created_at")
+            or payload.get("createdAt")
+            or payload.get("queuedAt")
+        )
+        inputs = payload.get("inputs", {})
+        if not isinstance(inputs, Mapping):
+            inputs = {}
+
+        bot_id = (
+            payload.get("bot_id")
+            or payload.get("botId")
+            or run_meta.get("botId")
+            or ""
+        )
+        bot_version_id = (
+            payload.get("bot_version_id")
+            or payload.get("botVersionId")
+            or run_meta.get("botVersion")
+            or ""
+        )
+        bot_name = (
+            payload.get("bot_name")
+            or payload.get("botName")
+            or payload.get("name")
+            or bot_id
+            or "unknown-bot"
+        )
+
+        return cls(
+            id=str(run_id),
+            bot_id=str(bot_id),
+            bot_version_id=str(bot_version_id),
+            bot_name=str(bot_name),
+            package_url=(
+                payload.get("package_url")
+                or payload.get("packageUrl")
+                or payload.get("botPackageUrl")
+            ),
+            plan=plan if isinstance(plan, Mapping) else None,
+            inputs=dict(inputs),
+            created_at=_parse_datetime(created_at),
+        )
 
 
 class ClaimResponse(BaseModel):
@@ -115,6 +228,16 @@ class ClaimResponse(BaseModel):
     success: bool
     job: Job | None = None
     message: str | None = None
+
+    @classmethod
+    def from_api_payload(cls, payload: Mapping[str, Any]) -> "ClaimResponse":
+        raw_job = payload.get("job")
+        job = Job.from_api_payload(raw_job) if isinstance(raw_job, Mapping) else None
+        return cls(
+            success=bool(payload.get("success", False)),
+            job=job,
+            message=payload.get("message"),
+        )
 
 
 # ============================================
@@ -133,6 +256,7 @@ class StepProgress(BaseModel):
     completed_at: datetime | None = None
     output: Any | None = None
     error: str | None = None
+    run_id: str | None = None
 
 
 class ProgressReport(BaseModel):

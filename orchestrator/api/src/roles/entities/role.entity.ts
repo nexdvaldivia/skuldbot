@@ -36,7 +36,7 @@ export class Role {
   id: string;
 
   /** Tenant ID from license */
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
@@ -77,7 +77,19 @@ export class Role {
 
   // Helper to check if role has a specific permission
   hasPermission(permissionName: string): boolean {
-    return this.permissions?.some((p) => p.name === permissionName);
+    const requiredResource = permissionName.split(':')[0];
+
+    return this.permissions?.some((p) => {
+      if (p.name === '*' || p.name === permissionName) {
+        return true;
+      }
+
+      if (!requiredResource) {
+        return false;
+      }
+
+      return p.name === `${requiredResource}:*`;
+    });
   }
 }
 

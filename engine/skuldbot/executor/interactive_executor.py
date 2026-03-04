@@ -8,11 +8,19 @@ It maintains state between steps and communicates via JSON commands.
 import json
 import sys
 import time
+import re
 from enum import Enum
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Set
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
+
+
+def _sanitize_node_identifier(node_id: str) -> str:
+    """Normalize node IDs for NODE_<id> debug variable keys."""
+    if not isinstance(node_id, str):
+        node_id = str(node_id) if node_id is not None else ""
+    return re.sub(r"[^A-Za-z0-9_]", "_", node_id)
 
 
 class DebugState(Enum):
@@ -234,6 +242,8 @@ class InteractiveExecutor:
             }
 
             # Update global variables
+            safe_node_id = _sanitize_node_identifier(node_id)
+            self.session.global_variables[f"NODE_{safe_node_id}"] = node_exec.variables
             self.session.global_variables[f"NODE_{node_id}"] = node_exec.variables
 
             # Emit node completed

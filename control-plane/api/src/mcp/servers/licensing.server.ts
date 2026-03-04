@@ -1,11 +1,26 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { LicensesService } from '../../licenses/licenses.service';
+import { UsersService } from '../../users/users.service';
+import { TenantsService } from '../../tenants/tenants.service';
+import { MarketplaceService } from '../../marketplace/marketplace.service';
+import { LookupsService } from '../../lookups/lookups.service';
+import { LOOKUP_DOMAIN_LICENSE_TYPE } from '../../lookups/lookups.constants';
 import {
   Tool,
   Resource,
   ToolResult,
   ResourceContent,
-  LicenseInfo,
 } from '../types/mcp.types';
+
+type FeatureBag = Record<string, unknown>;
+
+const FEATURE_ACCESS_KEYS: Record<string, string[]> = {
+  marketplace: ['marketplace', 'allowMarketplace'],
+  custom_nodes: ['customNodes', 'custom_nodes', 'allowCustomNodes'],
+  ai_planner: ['aiAssistant', 'ai_planner', 'allowAIPlanner'],
+  compliance_tools: ['auditLog', 'compliance_tools', 'allowComplianceTools'],
+  api_access: ['apiAccess', 'api_access'],
+};
 
 /**
  * Licensing MCP Server
@@ -15,6 +30,16 @@ import {
  */
 @Injectable()
 export class LicensingServer {
+  private readonly logger = new Logger(LicensingServer.name);
+
+  constructor(
+    private readonly licensesService: LicensesService,
+    private readonly usersService: UsersService,
+    private readonly tenantsService: TenantsService,
+    private readonly marketplaceService: MarketplaceService,
+    private readonly lookupsService: LookupsService,
+  ) {}
+
   /**
    * Get all tools provided by this server
    */
@@ -224,6 +249,10 @@ export class LicensingServer {
    * Read a resource
    */
   async readResource(uri: string): Promise<ResourceContent> {
+    if (uri === 'licenses://features') {
+      return this.getFeaturesResource();
+    }
+
     // Parse URI: licenses://tenant/{tenantId}/orchestrator
     const match = uri.match(/licenses:\/\/tenant\/([^/]+)\/(.+)/);
     if (!match) {
@@ -246,9 +275,6 @@ export class LicensingServer {
         return await this.getLimitsResource(tenantId);
 
       default:
-        if (uri === 'licenses://features') {
-          return await this.getFeaturesResource();
-        }
         throw new Error(`Unknown resource type: ${resourceType}`);
     }
   }
@@ -261,18 +287,24 @@ export class LicensingServer {
     tenantId: string,
     orchestratorId: string,
   ): Promise<ToolResult> {
-    // TODO: Query database for license
-    // For now, return mock data
-    const isValid = true; // await this.licenseService.validateOrchestrator(...)
+    const tenantStatus = await this.licensesService.getTenantStatus(tenantId);
+    const limitsResult = await this.getLicenseLimits(tenantId);
+    const limits = limitsResult.success ? limitsResult.result : null;
 
     return {
       success: true,
       result: {
-        valid: isValid,
-        tier: 'professional',
-        expiresAt: '2026-12-31T23:59:59Z',
-        maxRunners: 10,
-        maxStudios: 5,
+        valid: tenantStatus.isActive,
+        tier: tenantStatus.type,
+        expiresAt: tenantStatus.validUntil,
+        orchestratorId,
+        tenantId,
+        maxRunners: limits?.maxRunners ?? null,
+        maxStudios: limits?.maxStudios ?? null,
+        licenseStatus: tenantStatus.status,
+        reason: tenantStatus.isActive
+          ? 'Orchestrator license is active.'
+          : 'License missing or inactive.',
       },
     };
   }
@@ -281,16 +313,39 @@ export class LicensingServer {
     userId: string,
     studioId: string,
   ): Promise<ToolResult> {
-    // TODO: Query database
-    const isValid = true;
+    const tenantId = await this.resolveTenantIdForUser(userId);
+    if (!tenantId) {
+      return {
+        success: true,
+        result: {
+          valid: false,
+          userId,
+          studioId,
+          tenantId: null,
+          tier: null,
+          expiresAt: null,
+          features: [],
+          reason: 'User is not mapped to a tenant.',
+        },
+      };
+    }
+
+    const tenantStatus = await this.licensesService.getTenantStatus(tenantId);
+    const features = this.normalizeFeatures(tenantStatus.features);
 
     return {
       success: true,
       result: {
-        valid: isValid,
-        tier: 'pro',
-        expiresAt: '2026-12-31T23:59:59Z',
-        features: ['marketplace', 'ai_planner', 'custom_nodes'],
+        valid: tenantStatus.isActive,
+        userId,
+        studioId,
+        tenantId,
+        tier: tenantStatus.type,
+        expiresAt: tenantStatus.validUntil,
+        features: this.listEnabledFeatures(features),
+        reason: tenantStatus.isActive
+          ? 'Studio access allowed by active tenant license.'
+          : 'Tenant license is inactive.',
       },
     };
   }
@@ -299,39 +354,117 @@ export class LicensingServer {
     tenantId: string,
     botId: string,
   ): Promise<ToolResult> {
-    // TODO: Check if tenant has subscribed to this bot
-    const hasAccess = true;
-
-    return {
-      success: true,
-      result: {
-        hasAccess,
-        subscription: {
+    const tenantStatus = await this.licensesService.getTenantStatus(tenantId);
+    if (!tenantStatus.isActive) {
+      return {
+        success: true,
+        result: {
+          hasAccess: false,
+          allowed: false,
           botId,
-          subscribedAt: '2026-01-01T00:00:00Z',
-          pricingModel: 'hybrid',
-          status: 'active',
+          tenantId,
+          reason: 'Tenant license is inactive.',
+          subscription: null,
         },
-      },
-    };
+      };
+    }
+
+    const featureCheck = await this.checkFeatureAccess(tenantId, 'marketplace');
+    if (!featureCheck.success || !featureCheck.result?.hasAccess) {
+      return {
+        success: true,
+        result: {
+          hasAccess: false,
+          allowed: false,
+          botId,
+          tenantId,
+          reason: 'Marketplace capability is not enabled for this tenant license.',
+          subscription: null,
+        },
+      };
+    }
+
+    try {
+      const bot = await this.marketplaceService.getBotById(botId);
+      return {
+        success: true,
+        result: {
+          hasAccess: true,
+          allowed: true,
+          botId,
+          tenantId,
+          reason: 'Tenant license allows marketplace bots.',
+          subscription: {
+            status: 'eligible',
+            botId,
+            botSlug: bot.slug,
+            pricingModel: bot.pricingModel,
+          },
+        },
+      };
+    } catch (error) {
+      return {
+        success: true,
+        result: {
+          hasAccess: false,
+          allowed: false,
+          botId,
+          tenantId,
+          reason:
+            error instanceof Error
+              ? `Marketplace bot not available: ${error.message}`
+              : 'Marketplace bot not available.',
+          subscription: null,
+        },
+      };
+    }
   }
 
   private async getLicenseLimits(tenantId: string): Promise<ToolResult> {
-    // TODO: Get from database based on license tier
+    const tenantStatus = await this.licensesService.getTenantStatus(tenantId);
+    const features = this.normalizeFeatures(tenantStatus.features);
+
+    const maxBots = this.readNumberFeature(features, ['maxBots', 'max_bots']);
+    const maxRunners = this.readNumberFeature(features, ['maxRunners', 'max_runners']);
+    const maxConcurrentRuns = this.readNumberFeature(features, [
+      'maxConcurrentRuns',
+      'max_concurrent_runs',
+    ]);
+    const maxRunsPerMonth = this.readNumberFeature(features, [
+      'maxRunsPerMonth',
+      'max_runs_per_month',
+      'maxExecutionsPerMonth',
+    ]);
+    const maxStudios = this.readNumberFeature(features, ['maxStudios', 'max_studios']);
+    const maxDevelopers = this.readNumberFeature(features, ['maxDevelopers', 'max_developers']);
+
+    const result = {
+      tenantId,
+      licenseType: tenantStatus.type,
+      licenseStatus: tenantStatus.status,
+      isActive: tenantStatus.isActive,
+      maxNodes: maxBots,
+      maxWorkflows: maxBots,
+      maxExecutionsPerMonth: maxRunsPerMonth,
+      maxRunners,
+      maxStudios,
+      maxDevelopers,
+      maxConcurrentRuns,
+      maxBots,
+      maxRunsPerMonth,
+      allowMarketplace: this.readBooleanFeature(features, FEATURE_ACCESS_KEYS.marketplace),
+      allowCustomNodes: this.readBooleanFeature(features, FEATURE_ACCESS_KEYS.custom_nodes),
+      allowAIPlanner: this.readBooleanFeature(features, FEATURE_ACCESS_KEYS.ai_planner),
+      allowComplianceTools: this.readBooleanFeature(
+        features,
+        FEATURE_ACCESS_KEYS.compliance_tools,
+      ),
+      allowApiAccess: this.readBooleanFeature(features, FEATURE_ACCESS_KEYS.api_access),
+    };
+
     return {
       success: true,
-      result: {
-        maxNodes: 279,
-        maxWorkflows: 100,
-        maxExecutionsPerMonth: 10000,
-        maxRunners: 10,
-        maxStudios: 5,
-        maxDevelopers: 5,
-        allowMarketplace: true,
-        allowCustomNodes: true,
-        allowAIPlanner: true,
-        allowComplianceTools: true,
-      },
+      result,
     };
   }
 
@@ -339,16 +472,25 @@ export class LicensingServer {
     tenantId: string,
     feature: string,
   ): Promise<ToolResult> {
-    // TODO: Check license tier and feature availability
-    const hasAccess = true;
+    const normalizedFeature = feature.trim().toLowerCase();
+    const tenantStatus = await this.licensesService.getTenantStatus(tenantId);
+    const features = this.normalizeFeatures(tenantStatus.features);
+
+    const featureKeys = FEATURE_ACCESS_KEYS[normalizedFeature] ?? [normalizedFeature];
+    const hasAccess = tenantStatus.isActive && this.readBooleanFeature(features, featureKeys);
 
     return {
       success: true,
       result: {
         hasAccess,
-        feature,
-        requiredTier: 'professional',
-        currentTier: 'professional',
+        allowed: hasAccess,
+        feature: normalizedFeature,
+        requiredTier: this.requiredTierForFeature(normalizedFeature),
+        currentTier: tenantStatus.type,
+        tenantId,
+        reason: hasAccess
+          ? 'Feature enabled by tenant license.'
+          : 'Feature not enabled or tenant license inactive.',
       },
     };
   }
@@ -360,20 +502,24 @@ export class LicensingServer {
   private async getOrchestratorLicenseResource(
     tenantId: string,
   ): Promise<ResourceContent> {
-    // TODO: Get from database
-    const license = {
-      tenantId,
-      tier: 'professional',
-      status: 'active',
-      expiresAt: '2026-12-31T23:59:59Z',
-      maxRunners: 10,
-      maxStudios: 5,
-      features: ['marketplace', 'compliance', 'audit'],
-    };
+    const tenantStatus = await this.licensesService.getTenantStatus(tenantId);
+    const limitsResult = await this.getLicenseLimits(tenantId);
 
     return {
       uri: `licenses://tenant/${tenantId}/orchestrator`,
-      content: JSON.stringify(license, null, 2),
+      content: JSON.stringify(
+        {
+          tenantId,
+          status: tenantStatus.status,
+          tier: tenantStatus.type,
+          isActive: tenantStatus.isActive,
+          validFrom: tenantStatus.validFrom,
+          validUntil: tenantStatus.validUntil,
+          limits: limitsResult.success ? limitsResult.result : null,
+        },
+        null,
+        2,
+      ),
       mimeType: 'application/json',
     };
   }
@@ -381,23 +527,23 @@ export class LicensingServer {
   private async getStudioLicensesResource(
     tenantId: string,
   ): Promise<ResourceContent> {
-    // TODO: Get from database
-    const licenses = [
-      {
-        userId: 'user-1',
-        tier: 'pro',
-        expiresAt: '2026-12-31T23:59:59Z',
-      },
-      {
-        userId: 'user-2',
-        tier: 'enterprise',
-        expiresAt: '2026-12-31T23:59:59Z',
-      },
-    ];
+    const tenantStatus = await this.licensesService.getTenantStatus(tenantId);
+    const limitsResult = await this.getLicenseLimits(tenantId);
 
     return {
       uri: `licenses://tenant/${tenantId}/studios`,
-      content: JSON.stringify(licenses, null, 2),
+      content: JSON.stringify(
+        {
+          tenantId,
+          mode: 'tenant_entitlement',
+          licenseStatus: tenantStatus.status,
+          isActive: tenantStatus.isActive,
+          maxStudios: limitsResult.result?.maxStudios ?? null,
+          note: 'Studio access is enforced at tenant license level.',
+        },
+        null,
+        2,
+      ),
       mimeType: 'application/json',
     };
   }
@@ -405,73 +551,165 @@ export class LicensingServer {
   private async getRunnerLicensesResource(
     tenantId: string,
   ): Promise<ResourceContent> {
-    // TODO: Get from database
-    const runners = [
-      {
-        runnerId: 'runner-1',
-        type: 'attended',
-        status: 'active',
-        costPerMonth: 50,
-      },
-      {
-        runnerId: 'runner-2',
-        type: 'unattended',
-        status: 'active',
-        costPerMonth: 200,
-      },
-    ];
+    const tenantStatus = await this.licensesService.getTenantStatus(tenantId);
+    const limitsResult = await this.getLicenseLimits(tenantId);
 
     return {
       uri: `licenses://tenant/${tenantId}/runners`,
-      content: JSON.stringify(runners, null, 2),
+      content: JSON.stringify(
+        {
+          tenantId,
+          licenseStatus: tenantStatus.status,
+          isActive: tenantStatus.isActive,
+          maxRunners: limitsResult.result?.maxRunners ?? null,
+          maxConcurrentRuns: limitsResult.result?.maxConcurrentRuns ?? null,
+        },
+        null,
+        2,
+      ),
       mimeType: 'application/json',
     };
   }
 
   private async getLimitsResource(tenantId: string): Promise<ResourceContent> {
-    // TODO: Calculate based on license tier
-    const limits = {
-      maxNodes: 279,
-      maxWorkflows: 100,
-      maxExecutionsPerMonth: 10000,
-      maxRunners: 10,
-      maxStudios: 5,
-    };
+    const limits = await this.getLicenseLimits(tenantId);
 
     return {
       uri: `licenses://tenant/${tenantId}/limits`,
-      content: JSON.stringify(limits, null, 2),
+      content: JSON.stringify(limits.result, null, 2),
       mimeType: 'application/json',
     };
   }
 
   private async getFeaturesResource(): Promise<ResourceContent> {
-    const features = {
-      free: ['basic_nodes', 'local_execution'],
-      professional: [
-        'basic_nodes',
-        'local_execution',
-        'marketplace',
-        'ai_planner',
-        'compliance_tools',
-      ],
-      enterprise: [
-        'basic_nodes',
-        'local_execution',
-        'marketplace',
-        'ai_planner',
-        'compliance_tools',
-        'custom_nodes',
-        'api_access',
-        'priority_support',
-      ],
-    };
+    const featuresByTier: Record<string, string[]> = {};
+    const licenseTypes = await this.lookupsService.listValuesByDomainCode(
+      LOOKUP_DOMAIN_LICENSE_TYPE,
+    );
+
+    for (const licenseType of licenseTypes) {
+      if (!licenseType.isActive) {
+        continue;
+      }
+
+      try {
+        const template = await this.licensesService.getLicenseTemplate(licenseType.code);
+        featuresByTier[licenseType.code] = this.listEnabledFeatures(
+          template.features as unknown as FeatureBag,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Could not resolve license template for "${licenseType.code}": ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
 
     return {
       uri: 'licenses://features',
-      content: JSON.stringify(features, null, 2),
+      content: JSON.stringify(featuresByTier, null, 2),
       mimeType: 'application/json',
     };
   }
-}
 
+  private normalizeFeatures(features: unknown): FeatureBag {
+    if (!features || typeof features !== 'object') {
+      return {};
+    }
+    return features as FeatureBag;
+  }
+
+  private readBooleanFeature(features: FeatureBag, keys: string[]): boolean {
+    for (const key of keys) {
+      const value = features[key];
+      if (typeof value === 'boolean') {
+        return value;
+      }
+      if (typeof value === 'number') {
+        return value > 0;
+      }
+      if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (normalized === 'true') {
+          return true;
+        }
+        if (normalized === 'false') {
+          return false;
+        }
+      }
+    }
+    return false;
+  }
+
+  private readNumberFeature(
+    features: FeatureBag,
+    keys: string[],
+  ): number | null {
+    for (const key of keys) {
+      const value = features[key];
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+      }
+      if (typeof value === 'string') {
+        const parsed = Number.parseFloat(value);
+        if (Number.isFinite(parsed)) {
+          return parsed;
+        }
+      }
+    }
+    return null;
+  }
+
+  private listEnabledFeatures(features: FeatureBag): string[] {
+    const enabled: string[] = [];
+
+    for (const [key, value] of Object.entries(features)) {
+      if (typeof value === 'boolean' && value) {
+        enabled.push(key);
+      } else if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+        enabled.push(key);
+      }
+    }
+
+    return enabled.sort((a, b) => a.localeCompare(b));
+  }
+
+  private requiredTierForFeature(feature: string): string {
+    switch (feature) {
+      case 'api_access':
+      case 'custom_nodes':
+        return 'enterprise';
+      case 'marketplace':
+      case 'ai_planner':
+      case 'compliance_tools':
+        return 'professional';
+      default:
+        return 'any';
+    }
+  }
+
+  private async resolveTenantIdForUser(userId: string): Promise<string | null> {
+    try {
+      const user = await this.usersService.findOne(userId);
+      if (!user.clientId) {
+        return null;
+      }
+
+      const tenants = await this.tenantsService.findAll(user.clientId);
+      if (tenants.length === 0) {
+        return null;
+      }
+
+      const activeTenant = tenants.find((tenant) => tenant.status === 'active');
+      return (activeTenant ?? tenants[0]).id;
+    } catch (error) {
+      this.logger.warn(
+        `Failed to resolve tenant for user ${userId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return null;
+    }
+  }
+}

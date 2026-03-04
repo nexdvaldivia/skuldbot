@@ -2,21 +2,37 @@ import {
   Controller,
   Get,
   Post,
-  Put,
   Param,
   Query,
   Body,
   UseGuards,
   HttpCode,
   HttpStatus,
-  NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 
-import { EvidencePackService, EvidenceManifest, CustodyEvent } from './evidence-pack.service';
-import { AttestationService, ComplianceFramework, AttestationRecord } from './attestation/attestation.service';
-import { RetentionService, RetentionPolicy } from './retention/retention.service';
+import {
+  EvidencePackService,
+  EvidenceManifest,
+  CustodyEvent,
+  CanonicalRunHashVerification,
+  EvidenceRetentionEnforcementResult,
+} from './evidence-pack.service';
+import {
+  AttestationService,
+  ComplianceFramework,
+  AttestationRecord,
+} from './attestation/attestation.service';
+import {
+  RetentionService,
+  RetentionPolicy,
+} from './retention/retention.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CurrentTenant } from '../common/decorators/current-tenant.decorator';
@@ -124,6 +140,20 @@ export class EvidenceController {
     return this.evidencePackService.verifySignature(tenantId, packId);
   }
 
+  @Post(':packId/verify/canonical-run-hash')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify canonical run hash' })
+  @ApiResponse({
+    status: 200,
+    description: 'Canonical hash verification result',
+  })
+  async verifyCanonicalRunHash(
+    @CurrentTenant() tenantId: string,
+    @Param('packId') packId: string,
+  ): Promise<CanonicalRunHashVerification> {
+    return this.evidencePackService.verifyCanonicalRunHash(tenantId, packId);
+  }
+
   // ─────────────────────────────────────────────────────────────────
   // Chain of Custody Endpoints
   // ─────────────────────────────────────────────────────────────────
@@ -136,6 +166,23 @@ export class EvidenceController {
     @Param('packId') packId: string,
   ): Promise<{ events: CustodyEvent[]; chainValid: boolean }> {
     return this.evidencePackService.getChainOfCustody(tenantId, packId);
+  }
+
+  @Get(':packId/export')
+  @ApiOperation({ summary: 'Controlled export bundle for auditors' })
+  @ApiResponse({ status: 200, description: 'Evidence export bundle' })
+  async exportForAuditor(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: { id: string },
+    @Param('packId') packId: string,
+    @Query('includeDownloadUrls') includeDownloadUrls?: string,
+    @Query('expiresInSeconds') expiresInSeconds?: number,
+  ) {
+    return this.evidencePackService.exportForAuditor(tenantId, packId, {
+      requestedBy: user.id,
+      includeDownloadUrls: includeDownloadUrls === 'true',
+      expiresInSeconds: expiresInSeconds ? Number(expiresInSeconds) : undefined,
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -202,7 +249,10 @@ export class EvidenceController {
     }
 
     // Get manifest to evaluate
-    const manifest = await this.evidencePackService.getManifest(tenantId, packId);
+    const manifest = await this.evidencePackService.getManifest(
+      tenantId,
+      packId,
+    );
 
     // Generate attestation based on manifest contents
     return this.attestationService.generateAttestation({
@@ -231,5 +281,15 @@ export class EvidenceController {
   @ApiResponse({ status: 200, description: 'List of retention policies' })
   async getRetentionPolicies(): Promise<RetentionPolicy[]> {
     return this.retentionService.getPolicies();
+  }
+
+  @Post('retention/enforce')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Run retention enforcement now' })
+  @ApiResponse({ status: 200, description: 'Retention enforcement result' })
+  async enforceRetentionNow(
+    @CurrentTenant() tenantId: string,
+  ): Promise<EvidenceRetentionEnforcementResult> {
+    return this.evidencePackService.enforceRetentionForTenant(tenantId);
   }
 }

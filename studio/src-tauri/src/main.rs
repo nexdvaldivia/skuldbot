@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use rand::Rng;
+use std::time::Duration;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[allow(dead_code)] // Legacy structure, kept for reference
@@ -45,6 +46,8 @@ struct ExecutionResult {
     message: String,
     output: Option<String>,
     logs: Vec<String>,
+    #[serde(rename = "evidencePackPath")]
+    evidence_pack_path: Option<String>,
 }
 
 // ============================================================
@@ -63,6 +66,8 @@ struct DebugNodeExecution {
     start_time: Option<f64>,
     #[serde(rename = "endTime")]
     end_time: Option<f64>,
+    #[serde(default)]
+    input: Option<serde_json::Value>,
     output: Option<serde_json::Value>,
     error: Option<String>,
     variables: serde_json::Value,
@@ -86,6 +91,12 @@ struct DebugSessionState {
     start_time: f64,
     #[serde(rename = "pausedAtBreakpoint")]
     paused_at_breakpoint: bool,
+    #[serde(rename = "traceOrder", default)]
+    trace_order: Vec<String>,
+    #[serde(rename = "traceCursor", default)]
+    trace_cursor: usize,
+    #[serde(rename = "traceNodeSnapshots", default)]
+    trace_node_snapshots: std::collections::HashMap<String, DebugNodeExecution>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -107,18 +118,27 @@ struct DebugCommandResult {
     last_event: Option<serde_json::Value>,
 }
 
-// Global debug process handle
+// Process handles
 use std::sync::Arc;
 use tokio::sync::Mutex as TokioMutex;
 use std::process::{Child, Stdio};
 use std::io::{BufRead, BufReader, Write};
 
-static DEBUG_PROCESS: Lazy<Arc<TokioMutex<Option<Child>>>> = Lazy::new(|| Arc::new(TokioMutex::new(None)));
-
 // Global run_bot process handle (for cancellation)
 // Store the PID so we can kill the process tree
 static RUN_BOT_PROCESS: Lazy<Arc<TokioMutex<Option<Child>>>> = Lazy::new(|| Arc::new(TokioMutex::new(None)));
 static RUN_BOT_PID: Lazy<Arc<TokioMutex<Option<u32>>>> = Lazy::new(|| Arc::new(TokioMutex::new(None)));
+
+struct LiveDebugRuntime {
+    child: Child,
+    session_dir: PathBuf,
+    log_file: PathBuf,
+    consumed_log_lines: usize,
+    session: DebugSessionState,
+}
+
+static LIVE_DEBUG_RUNTIME: Lazy<Arc<TokioMutex<Option<LiveDebugRuntime>>>> =
+    Lazy::new(|| Arc::new(TokioMutex::new(None)));
 
 // ============================================================
 // Vault Session State
@@ -436,11 +456,11 @@ async fn compile_dsl(dsl: String) -> Result<CompileResult, String> {
     
     // Create a temporary file with the DSL
     let temp_dir = std::env::temp_dir();
-    let dsl_file = temp_dir.join("bot_dsl.json");
+    let dsl_file = temp_dir.join(format!("bot_dsl_{}.json", Uuid::new_v4()));
     std::fs::write(&dsl_file, &dsl).map_err(|e| e.to_string())?;
     
     // Run the compiler
-    let output = Command::new(&python_exe)
+    let output_result = Command::new(&python_exe)
         .arg("-c")
         .arg(format!(
             r#"
@@ -468,7 +488,9 @@ print(str(bot_dir))
             temp_dir.join("bots").display()
         ))
         .output()
-        .map_err(|e| format!("Failed to execute Python: {}", e))?;
+        .map_err(|e| format!("Failed to execute Python: {}", e));
+    let _ = std::fs::remove_file(&dsl_file);
+    let output = output_result?;
     
     if output.status.success() {
         let bot_path = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -496,7 +518,7 @@ async fn run_bot(dsl: String) -> Result<ExecutionResult, String> {
 
     // Create a temporary file with the DSL
     let temp_dir = std::env::temp_dir();
-    let dsl_file = temp_dir.join("bot_run_dsl.json");
+    let dsl_file = temp_dir.join(format!("bot_run_dsl_{}.json", Uuid::new_v4()));
     std::fs::write(&dsl_file, &dsl).map_err(|e| e.to_string())?;
 
     // Build the Python command
@@ -519,6 +541,16 @@ from skuldbot.dsl.validator import ValidationError
 with open('{}', 'r') as f:
     dsl = json.load(f)
 
+# Build compliance context from Studio UI metadata
+hipaa_masking_overrides = []
+for node in dsl.get('nodes', []):
+    config = node.get('config') or {{}}
+    if config.get('__ui_data_masking_enabled') is False:
+        node_id = node.get('id', '')
+        node_type = node.get('type', '')
+        node_label = node.get('label', node_id)
+        hipaa_masking_overrides.append((node_id, node_type, node_label))
+
 try:
     # Compile
     compiler = Compiler()
@@ -538,6 +570,35 @@ main_skb = Path(bot_dir) / "main.skb"
 output_path = Path(bot_dir) / "output"
 output_path.mkdir(exist_ok=True)
 
+# Optional evidence writer for local Studio runs
+evidence_writer = None
+evidence_pack_path = None
+try:
+    from skuldbot.evidence import EvidencePackWriter
+    import uuid
+
+    bot_info = dsl.get('bot') or {{}}
+    evidence_writer = EvidencePackWriter(
+        execution_id=str(uuid.uuid4()),
+        bot_id=bot_info.get('id', 'studio-local'),
+        bot_name=bot_info.get('name', 'Studio Local Run'),
+        tenant_id='studio-local',
+        environment='development',
+    )
+    evidence_writer.add_log('INFO', 'Studio execution started')
+    for node_id, node_type, node_label in hipaa_masking_overrides:
+        evidence_writer.add_log(
+            'WARN',
+            f"HIPAA output masking disabled in Studio for node '{{node_label}}'",
+            node_id=node_id,
+            node_type=node_type,
+            event_type='hipaa_masking_override',
+            masking_enabled=False,
+            source='studio.node_config_panel',
+        )
+except Exception as e:
+    print(f'WARN: Evidence writer unavailable: {{e}}')
+
 # Get robot executable
 python_dir = Path(sys.executable).parent
 robot_exe = str(python_dir / "robot") if (python_dir / "robot").exists() else "robot"
@@ -554,11 +615,24 @@ result = subprocess.run(
 for line in result.stdout.split('\n'):
     if line.strip():
         print(line)
+        if evidence_writer:
+            evidence_writer.add_log('INFO', line)
 
 print('STATUS:', 'success' if result.returncode == 0 else 'failed')
 print('SUCCESS:', result.returncode == 0)
 if result.stderr:
     print('STDERR:', result.stderr)
+    if evidence_writer:
+        evidence_writer.add_log('ERROR', result.stderr)
+
+if evidence_writer:
+    try:
+        evidence_dir = output_path / 'evidence'
+        evidence_dir.mkdir(exist_ok=True)
+        evidence_pack_path = evidence_writer.save(str(evidence_dir))
+        print('EVIDENCE_PACK_PATH:', evidence_pack_path)
+    except Exception as e:
+        print(f'WARN: Failed to save evidence pack: {{e}}')
 "#,
         engine_path.display(),
         dsl_file.display(),
@@ -590,7 +664,10 @@ if result.stderr:
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("Failed to spawn Python process: {}", e))?;
+        .map_err(|e| {
+            let _ = std::fs::remove_file(&dsl_file);
+            format!("Failed to spawn Python process: {}", e)
+        })?;
 
     // Store the PID for killing the process tree
     let child_pid = child.id();
@@ -642,11 +719,19 @@ if result.stderr:
     };
 
     let success = exit_status.map(|s| s.success()).unwrap_or(false);
+    let evidence_pack_path = stdout_content
+        .lines()
+        .find_map(|line| {
+            line.strip_prefix("EVIDENCE_PACK_PATH:")
+                .map(|value| value.trim().to_string())
+        })
+        .filter(|value| !value.is_empty());
 
     println!("📝 Output: {}", stdout_content);
     if !stderr_content.is_empty() {
         println!("⚠️  Stderr: {}", stderr_content);
     }
+    let _ = std::fs::remove_file(&dsl_file);
 
     if success {
         Ok(ExecutionResult {
@@ -654,6 +739,7 @@ if result.stderr:
             message: "Bot executed successfully".to_string(),
             output: Some(stdout_content.clone()),
             logs: stdout_content.lines().map(|s| s.to_string()).collect(),
+            evidence_pack_path,
         })
     } else {
         // Check if it was cancelled
@@ -729,325 +815,561 @@ async fn stop_bot() -> Result<bool, String> {
 // Debug Commands (Interactive Debugging with Breakpoints)
 // ============================================================
 
+fn unix_now_seconds() -> f64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs_f64())
+        .unwrap_or(0.0)
+}
+
+const LIVE_DEBUG_WAIT_TIMEOUT_MIN_MS: u64 = 1_000;
+const LIVE_DEBUG_WAIT_TIMEOUT_MAX_MS: u64 = 900_000;
+const LIVE_DEBUG_WAIT_TIMEOUT_DEFAULT_MS: u64 = 180_000;
+
+fn resolve_live_debug_timeout(timeout_ms: Option<u64>) -> Duration {
+    let bounded = timeout_ms
+        .unwrap_or(LIVE_DEBUG_WAIT_TIMEOUT_DEFAULT_MS)
+        .clamp(
+            LIVE_DEBUG_WAIT_TIMEOUT_MIN_MS,
+            LIVE_DEBUG_WAIT_TIMEOUT_MAX_MS,
+        );
+    Duration::from_millis(bounded)
+}
+
+fn parse_runtime_node_payload(log_line: &str, prefix: &str) -> Option<(String, serde_json::Value)> {
+    let idx = log_line.find(prefix)?;
+    let raw = log_line.get(idx + prefix.len()..)?.trim();
+    if raw.is_empty() {
+        return None;
+    }
+    let mut parts = raw.splitn(2, ':');
+    let node_id = parts.next()?.trim();
+    let payload_raw = parts.next()?.trim();
+    if node_id.is_empty() || payload_raw.is_empty() {
+        return None;
+    }
+    let payload = serde_json::from_str::<serde_json::Value>(payload_raw)
+        .unwrap_or_else(|_| serde_json::Value::String(payload_raw.to_string()));
+    Some((node_id.to_string(), payload))
+}
+
+fn pending_debug_exec(node_id: &str, node_type: &str, label: &str) -> DebugNodeExecution {
+    DebugNodeExecution {
+        node_id: node_id.to_string(),
+        node_type: node_type.to_string(),
+        label: label.to_string(),
+        status: "pending".to_string(),
+        start_time: None,
+        end_time: None,
+        input: None,
+        output: None,
+        error: None,
+        variables: serde_json::json!({}),
+    }
+}
+
+fn ensure_variable_object(exec: &mut DebugNodeExecution) -> &mut serde_json::Map<String, serde_json::Value> {
+    if !exec.variables.is_object() {
+        exec.variables = serde_json::json!({});
+    }
+    exec.variables
+        .as_object_mut()
+        .expect("variables must be object")
+}
+
+fn build_live_debug_session(
+    dsl_json: &serde_json::Value,
+    breakpoints: Vec<String>,
+    session_id: &str,
+) -> DebugSessionState {
+    let mut execution_order: Vec<String> = Vec::new();
+    let mut node_executions: std::collections::HashMap<String, DebugNodeExecution> =
+        std::collections::HashMap::new();
+
+    if let Some(nodes) = dsl_json.get("nodes").and_then(|v| v.as_array()) {
+        for node in nodes {
+            let Some(node_id) = node.get("id").and_then(|v| v.as_str()) else {
+                continue;
+            };
+            let node_id = node_id.trim();
+            if node_id.is_empty() {
+                continue;
+            }
+            let node_type = node
+                .get("type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+            let label = node
+                .get("label")
+                .and_then(|v| v.as_str())
+                .unwrap_or(node_id);
+            execution_order.push(node_id.to_string());
+            node_executions.insert(
+                node_id.to_string(),
+                pending_debug_exec(node_id, node_type, label),
+            );
+        }
+    }
+
+    let start_node = dsl_json
+        .get("start_node")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .or_else(|| execution_order.first().cloned());
+
+    DebugSessionState {
+        session_id: session_id.to_string(),
+        state: "running".to_string(),
+        current_node_id: start_node,
+        breakpoints,
+        execution_order,
+        node_executions,
+        global_variables: serde_json::json!({}),
+        start_time: unix_now_seconds(),
+        paused_at_breakpoint: false,
+        trace_order: Vec::new(),
+        trace_cursor: 0,
+        trace_node_snapshots: std::collections::HashMap::new(),
+    }
+}
+
+fn parse_debug_marker(log_line: &str, prefix: &str) -> Option<(String, String)> {
+    let idx = log_line.find(prefix)?;
+    let raw = log_line.get(idx + prefix.len()..)?.trim();
+    let mut parts = raw.splitn(2, ':');
+    let node_id = parts.next()?.trim();
+    let node_type = parts.next().unwrap_or("unknown").trim();
+    if node_id.is_empty() {
+        return None;
+    }
+    Some((node_id.to_string(), node_type.to_string()))
+}
+
+fn get_or_create_node_execution<'a>(
+    session: &'a mut DebugSessionState,
+    node_id: &str,
+    node_type_hint: Option<&str>,
+) -> &'a mut DebugNodeExecution {
+    if !session.node_executions.contains_key(node_id) {
+        let node_type = node_type_hint.unwrap_or("unknown");
+        session.node_executions.insert(
+            node_id.to_string(),
+            pending_debug_exec(node_id, node_type, node_id),
+        );
+        session.execution_order.push(node_id.to_string());
+    }
+    session
+        .node_executions
+        .get_mut(node_id)
+        .expect("node execution must exist")
+}
+
+fn recompute_live_global_variables(session: &mut DebugSessionState) {
+    let mut globals = serde_json::Map::new();
+    let mut last_error: Option<(String, String, String)> = None;
+
+    for node_id in &session.execution_order {
+        if let Some(node_exec) = session.node_executions.get(node_id) {
+            if node_exec.status == "pending" {
+                continue;
+            }
+            globals.insert(
+                format!("NODE_{}", node_id.replace('-', "_")),
+                node_exec.variables.clone(),
+            );
+            if node_exec.status == "error" {
+                last_error = Some((
+                    node_exec.error.clone().unwrap_or_default(),
+                    node_id.clone(),
+                    node_exec.node_type.clone(),
+                ));
+            }
+        }
+    }
+
+    if let Some((msg, node_id, node_type)) = last_error {
+        globals.insert("LAST_ERROR".to_string(), serde_json::Value::String(msg));
+        globals.insert("LAST_ERROR_NODE".to_string(), serde_json::Value::String(node_id));
+        globals.insert("LAST_ERROR_TYPE".to_string(), serde_json::Value::String(node_type));
+    }
+    session.global_variables = serde_json::Value::Object(globals);
+}
+
+fn read_new_runtime_log_lines(runtime: &mut LiveDebugRuntime) -> Vec<String> {
+    let content = fs::read_to_string(&runtime.log_file).unwrap_or_default();
+    let lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+    if runtime.consumed_log_lines >= lines.len() {
+        runtime.consumed_log_lines = lines.len();
+        return Vec::new();
+    }
+    let new_lines = lines[runtime.consumed_log_lines..].to_vec();
+    runtime.consumed_log_lines = lines.len();
+    new_lines
+}
+
+fn apply_live_log_lines(session: &mut DebugSessionState, lines: &[String]) {
+    for line in lines {
+        if let Some((node_id, node_type)) = parse_debug_marker(line, "DEBUG_NODE_START:") {
+            let entry = get_or_create_node_execution(session, &node_id, Some(&node_type));
+            if entry.start_time.is_none() {
+                entry.start_time = Some(unix_now_seconds());
+            }
+            if entry.status == "pending" {
+                entry.status = "running".to_string();
+            }
+            session.current_node_id = Some(node_id);
+            session.state = "running".to_string();
+            session.paused_at_breakpoint = false;
+            continue;
+        }
+
+        if let Some((node_id, node_type)) = parse_debug_marker(line, "DEBUG_PAUSED:") {
+            let entry = get_or_create_node_execution(session, &node_id, Some(&node_type));
+            if entry.start_time.is_none() {
+                entry.start_time = Some(unix_now_seconds());
+            }
+            if entry.status == "pending" {
+                entry.status = "running".to_string();
+            }
+            session.current_node_id = Some(node_id);
+            session.state = "paused".to_string();
+            session.paused_at_breakpoint = true;
+            continue;
+        }
+
+        if let Some((node_id, payload)) = parse_runtime_node_payload(line, "NODE_INPUT:") {
+            let entry = get_or_create_node_execution(session, &node_id, None);
+            if entry.start_time.is_none() {
+                entry.start_time = Some(unix_now_seconds());
+            }
+            entry.input = Some(payload.clone());
+            if entry.status == "pending" {
+                entry.status = "running".to_string();
+            }
+            let vars = ensure_variable_object(entry);
+            vars.insert("input".to_string(), payload);
+            continue;
+        }
+
+        if let Some((node_id, payload)) = parse_runtime_node_payload(line, "NODE_ENVELOPE:") {
+            let entry = get_or_create_node_execution(session, &node_id, None);
+            if entry.start_time.is_none() {
+                entry.start_time = Some(unix_now_seconds());
+            }
+            entry.end_time = Some(unix_now_seconds());
+            entry.output = Some(payload.clone());
+            let status = payload
+                .get("meta")
+                .and_then(|m| m.get("status"))
+                .and_then(|s| s.as_str())
+                .unwrap_or("success")
+                .to_string();
+            entry.status = status.clone();
+            if status == "error" {
+                let err = payload
+                    .get("errors")
+                    .and_then(|e| e.as_array())
+                    .and_then(|arr| arr.first())
+                    .and_then(|first| first.get("message"))
+                    .and_then(|m| m.as_str())
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "Node execution failed".to_string());
+                entry.error = Some(err);
+            } else {
+                entry.error = None;
+            }
+            let error_val = entry
+                .error
+                .clone()
+                .map(serde_json::Value::String)
+                .unwrap_or(serde_json::Value::Null);
+            let vars = ensure_variable_object(entry);
+            vars.insert("output".to_string(), payload);
+            vars.insert("status".to_string(), serde_json::Value::String(status));
+            vars.insert("error".to_string(), error_val);
+            continue;
+        }
+
+        if line.contains("Bot completed successfully") {
+            session.state = "completed".to_string();
+            session.current_node_id = None;
+            session.paused_at_breakpoint = false;
+            continue;
+        }
+
+        if line.contains("Bot failed:") {
+            session.state = "error".to_string();
+            session.paused_at_breakpoint = false;
+            continue;
+        }
+    }
+
+    recompute_live_global_variables(session);
+}
+
+fn write_debug_control_file(session_dir: &PathBuf, name: &str, content: &str) -> Result<(), String> {
+    let file = session_dir.join(name);
+    fs::write(file, content).map_err(|e| format!("Failed to write debug control file: {}", e))
+}
+
+async fn wait_for_live_debug_state(
+    runtime: &mut LiveDebugRuntime,
+    timeout: Duration,
+) -> Result<bool, String> {
+    let deadline = std::time::Instant::now() + timeout;
+    let mut timed_out = false;
+
+    loop {
+        let lines = read_new_runtime_log_lines(runtime);
+        if !lines.is_empty() {
+            apply_live_log_lines(&mut runtime.session, &lines);
+        }
+        if runtime.session.state == "paused"
+            || runtime.session.state == "completed"
+            || runtime.session.state == "error"
+        {
+            break;
+        }
+        if let Some(status) = runtime
+            .child
+            .try_wait()
+            .map_err(|e| format!("Failed to inspect debug process status: {}", e))?
+        {
+            runtime.session.state = if status.success() {
+                "completed".to_string()
+            } else {
+                "error".to_string()
+            };
+            runtime.session.current_node_id = None;
+            runtime.session.paused_at_breakpoint = false;
+            break;
+        }
+        if std::time::Instant::now() >= deadline {
+            timed_out = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(120)).await;
+    }
+
+    Ok(timed_out)
+}
+
 /// Start an interactive debug session
 #[tauri::command]
-async fn debug_start(dsl: String, breakpoints: Vec<String>) -> Result<DebugCommandResult, String> {
-    println!("🐛 Starting debug session with {} breakpoints", breakpoints.len());
+async fn debug_start(
+    dsl: String,
+    breakpoints: Vec<String>,
+    timeout_ms: Option<u64>,
+) -> Result<DebugCommandResult, String> {
+    println!(
+        "🐛 Starting live debug session with {} breakpoints",
+        breakpoints.len()
+    );
 
-    let engine_path = get_engine_path();
-    let python_exe = get_python_executable();
+    let dsl_json: serde_json::Value =
+        serde_json::from_str(&dsl).map_err(|e| format!("Invalid DSL payload: {}", e))?;
 
-    // Kill any existing debug process
+    let compile_result = compile_dsl(dsl.clone()).await?;
+    let bot_path = compile_result
+        .bot_path
+        .ok_or("Compiler did not return bot path".to_string())?;
+    let bot_dir = PathBuf::from(bot_path);
+    let main_skb = bot_dir.join("main.skb");
+    if !main_skb.exists() {
+        return Err("Compiled bot does not contain main.skb".to_string());
+    }
+
     {
-        let mut process_guard = DEBUG_PROCESS.lock().await;
-        if let Some(mut child) = process_guard.take() {
-            let _ = child.kill();
+        let mut guard = LIVE_DEBUG_RUNTIME.lock().await;
+        if let Some(mut runtime) = guard.take() {
+            let _ = write_debug_control_file(&runtime.session_dir, "stop.token", "1");
+            let _ = runtime.child.kill();
+            let _ = runtime.child.wait();
+            let _ = fs::remove_dir_all(runtime.session_dir);
         }
     }
 
-    // Start the interactive executor
-    let mut child = Command::new(&python_exe)
-        .arg("-m")
-        .arg("skuldbot.executor.interactive_executor")
-        .current_dir(&engine_path)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+    let session_id = Uuid::new_v4().to_string();
+    let session_dir = std::env::temp_dir().join(format!("skuldbot_live_debug_{}", session_id));
+    fs::create_dir_all(&session_dir)
+        .map_err(|e| format!("Failed to create debug session dir: {}", e))?;
+    write_debug_control_file(&session_dir, "mode", "step")?;
+
+    let log_file = session_dir.join("run.log");
+    let log_out = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_file)
+        .map_err(|e| format!("Failed to open debug log file: {}", e))?;
+    let log_err = log_out
+        .try_clone()
+        .map_err(|e| format!("Failed to clone debug log file handle: {}", e))?;
+
+    let output_dir = bot_dir.join("output_debug");
+    fs::create_dir_all(&output_dir)
+        .map_err(|e| format!("Failed to create debug output dir: {}", e))?;
+
+    let python_exe = get_python_executable();
+    let python_path = PathBuf::from(&python_exe);
+    let robot_exe = if python_path.is_absolute() {
+        let candidate = python_path
+            .parent()
+            .map(|p| p.join("robot"))
+            .ok_or("Invalid python executable path".to_string())?;
+        if candidate.exists() {
+            candidate.to_string_lossy().to_string()
+        } else {
+            "robot".to_string()
+        }
+    } else {
+        "robot".to_string()
+    };
+
+    let breakpoints_json =
+        serde_json::to_string(&breakpoints).map_err(|e| format!("Breakpoints serialize error: {}", e))?;
+
+    let child = Command::new(&robot_exe)
+        .arg("--extension")
+        .arg("skb")
+        .arg("--loglevel")
+        .arg("DEBUG")
+        .arg("--outputdir")
+        .arg(output_dir.to_string_lossy().to_string())
+        .arg("--consolecolors")
+        .arg("off")
+        .arg(main_skb.to_string_lossy().to_string())
+        .current_dir(&bot_dir)
+        .env(
+            "SKULDBOT_DEBUG_SESSION_DIR",
+            session_dir.to_string_lossy().to_string(),
+        )
+        .env("SKULDBOT_DEBUG_BREAKPOINTS", breakpoints_json)
+        .stdout(Stdio::from(log_out))
+        .stderr(Stdio::from(log_err))
         .spawn()
-        .map_err(|e| format!("Failed to start debug process: {}", e))?;
+        .map_err(|e| format!("Failed to spawn live debug process: {}", e))?;
 
-    // Get handles
-    let _stdin = child.stdin.take().ok_or("Failed to get stdin")?; // Reserved for future input
-    let stdout = child.stdout.take().ok_or("Failed to get stdout")?;
+    let mut runtime = LiveDebugRuntime {
+        child,
+        session_dir: session_dir.clone(),
+        log_file: log_file.clone(),
+        consumed_log_lines: 0,
+        session: build_live_debug_session(&dsl_json, breakpoints, &session_id),
+    };
 
-    // Wait for ready message
-    let reader = BufReader::new(stdout);
-    let mut lines = reader.lines();
+    let timeout = resolve_live_debug_timeout(timeout_ms);
+    let timed_out = wait_for_live_debug_state(&mut runtime, timeout).await?;
 
-    // Read the ready message
-    if let Some(Ok(line)) = lines.next() {
-        println!("🐛 Debug executor: {}", line);
-    }
-
-    // Store the child process (we need to recreate stdin/stdout)
-    // Since we consumed them, we need a different approach
-    // Let's use a simpler synchronous approach for now
-
-    // Re-spawn with fresh handles
-    drop(child);
-
-    // Use a simpler approach: spawn, send command, read response, done
-    let temp_dir = std::env::temp_dir();
-    let dsl_file = temp_dir.join("debug_dsl.json");
-    std::fs::write(&dsl_file, &dsl).map_err(|e| e.to_string())?;
-
-    // Create the start command
-    let _start_cmd = serde_json::json!({ // Reserved for future command protocol
-        "command": "start",
-        "dsl": serde_json::from_str::<serde_json::Value>(&dsl).unwrap_or(serde_json::json!({})),
-        "breakpoints": breakpoints
-    });
-
-    let output = Command::new(&python_exe)
-        .arg("-c")
-        .arg(format!(
-            r#"
-import sys
-sys.path.insert(0, '{}')
-import json
-from skuldbot.executor.interactive_executor import InteractiveExecutor
-
-with open('{}', 'r') as f:
-    dsl = json.load(f)
-
-executor = InteractiveExecutor()
-executor.start(dsl, {})
-
-# Get final state
-if executor.session:
-    print(json.dumps({{"type": "state", "session": executor.session.to_dict()}}))
-"#,
-            engine_path.display(),
-            dsl_file.display(),
-            serde_json::to_string(&breakpoints).unwrap_or("[]".to_string())
-        ))
-        .output()
-        .map_err(|e| format!("Failed to start debug: {}", e))?;
-
-    let stdout_str = String::from_utf8_lossy(&output.stdout);
-    println!("🐛 Debug start output: {}", stdout_str);
-
-    // Parse the last JSON line (the state)
-    let mut session_state: Option<DebugSessionState> = None;
-    let mut last_event: Option<serde_json::Value> = None;
-
-    for line in stdout_str.lines() {
-        if let Ok(msg) = serde_json::from_str::<serde_json::Value>(line) {
-            if msg.get("type").and_then(|t| t.as_str()) == Some("state") {
-                if let Some(session) = msg.get("session") {
-                    session_state = serde_json::from_value(session.clone()).ok();
-                }
-            }
-            last_event = Some(msg);
-        }
+    let session_state = runtime.session.clone();
+    {
+        let mut guard = LIVE_DEBUG_RUNTIME.lock().await;
+        *guard = Some(runtime);
     }
 
     Ok(DebugCommandResult {
-        success: session_state.is_some(),
-        message: if session_state.is_some() { Some("Debug session started".to_string()) } else { Some("Failed to start".to_string()) },
-        session_state,
-        last_event,
+        success: true,
+        message: Some(if timed_out {
+            "Live debug session started (waiting for first pause/event)".to_string()
+        } else {
+            "Live debug session started".to_string()
+        }),
+        session_state: Some(session_state.clone()),
+        last_event: Some(serde_json::json!({
+            "type": if session_state.state == "paused" { "paused" } else { "state" },
+            "nodeId": session_state.current_node_id,
+            "state": session_state.state,
+        })),
     })
 }
 
 /// Execute a single step in the debug session
 #[tauri::command]
-async fn debug_step(session_state_json: String) -> Result<DebugCommandResult, String> {
-    println!("🐛 Debug step");
+async fn debug_step(
+    session_state_json: String,
+    timeout_ms: Option<u64>,
+) -> Result<DebugCommandResult, String> {
+    let _ = session_state_json;
+    println!("🐛 Debug step (live mode)");
 
-    let engine_path = get_engine_path();
-    let python_exe = get_python_executable();
+    let mut guard = LIVE_DEBUG_RUNTIME.lock().await;
+    let Some(runtime) = guard.as_mut() else {
+        return Ok(DebugCommandResult {
+            success: false,
+            message: Some("No active live debug session".to_string()),
+            session_state: None,
+            last_event: Some(serde_json::json!({"type":"error","message":"No active session"})),
+        });
+    };
 
-    let output = Command::new(&python_exe)
-        .arg("-c")
-        .arg(format!(
-            r#"
-import sys
-sys.path.insert(0, '{}')
-import json
-from skuldbot.executor.interactive_executor import InteractiveExecutor, DebugSession, DebugState, NodeStatus, NodeExecution
+    write_debug_control_file(&runtime.session_dir, "mode", "step")?;
+    write_debug_control_file(&runtime.session_dir, "continue.token", "1")?;
+    runtime.session.state = "running".to_string();
+    runtime.session.paused_at_breakpoint = false;
 
-# Restore session from JSON
-session_data = json.loads('{}')
-
-executor = InteractiveExecutor()
-
-# Rebuild DSL node map from execution order and node executions
-# We need to pass DSL separately for node definitions
-# For now, create a minimal session
-
-# Create a fresh executor and step through
-# This is a simplified version - in production we'd persist the full state
-
-executor.session = DebugSession(
-    session_id=session_data.get('sessionId', ''),
-    state=DebugState(session_data.get('state', 'paused')),
-    current_node_id=session_data.get('currentNodeId'),
-    breakpoints=set(session_data.get('breakpoints', [])),
-    execution_order=session_data.get('executionOrder', []),
-    node_executions={{}},
-    global_variables=session_data.get('globalVariables', {{}}),
-    start_time=session_data.get('startTime', 0),
-    paused_at_breakpoint=session_data.get('pausedAtBreakpoint', False),
-)
-
-# Rebuild node executions
-for node_id, node_data in session_data.get('nodeExecutions', {{}}).items():
-    executor.session.node_executions[node_id] = NodeExecution(
-        node_id=node_data.get('nodeId', node_id),
-        node_type=node_data.get('nodeType', 'unknown'),
-        label=node_data.get('label', node_id),
-        status=NodeStatus(node_data.get('status', 'pending')),
-        start_time=node_data.get('startTime'),
-        end_time=node_data.get('endTime'),
-        output=node_data.get('output'),
-        error=node_data.get('error'),
-        variables=node_data.get('variables', {{}}),
-    )
-
-# Build minimal node map for execution
-executor._node_map = {{}}
-for node_id in executor.session.execution_order:
-    node_exec = executor.session.node_executions.get(node_id)
-    if node_exec:
-        executor._node_map[node_id] = {{
-            'id': node_id,
-            'type': node_exec.node_type,
-            'label': node_exec.label,
-            'config': {{}},
-            'outputs': {{'success': '', 'error': ''}}
-        }}
-
-# Execute step
-executor.step()
-
-# Output final state
-if executor.session:
-    print(json.dumps({{"type": "state", "session": executor.session.to_dict()}}))
-"#,
-            engine_path.display(),
-            session_state_json.replace("'", "\\'").replace("\n", "\\n")
-        ))
-        .output()
-        .map_err(|e| format!("Failed to execute step: {}", e))?;
-
-    let stdout_str = String::from_utf8_lossy(&output.stdout);
-    let stderr_str = String::from_utf8_lossy(&output.stderr);
-
-    println!("🐛 Debug step output: {}", stdout_str);
-    if !stderr_str.is_empty() {
-        println!("🐛 Debug step stderr: {}", stderr_str);
-    }
-
-    // Parse response
-    let mut session_state: Option<DebugSessionState> = None;
-    let mut last_event: Option<serde_json::Value> = None;
-
-    for line in stdout_str.lines() {
-        if let Ok(msg) = serde_json::from_str::<serde_json::Value>(line) {
-            if msg.get("type").and_then(|t| t.as_str()) == Some("state") {
-                if let Some(session) = msg.get("session") {
-                    session_state = serde_json::from_value(session.clone()).ok();
-                }
-            }
-            last_event = Some(msg);
-        }
-    }
+    let timeout = resolve_live_debug_timeout(timeout_ms);
+    let timed_out = wait_for_live_debug_state(runtime, timeout).await?;
 
     Ok(DebugCommandResult {
-        success: session_state.is_some(),
-        message: Some("Step executed".to_string()),
-        session_state,
-        last_event,
+        success: true,
+        message: Some(if timed_out && runtime.session.state == "running" {
+            "Step still running (timeout window reached)".to_string()
+        } else {
+            "Step executed".to_string()
+        }),
+        session_state: Some(runtime.session.clone()),
+        last_event: Some(serde_json::json!({
+            "type": runtime.session.state,
+            "nodeId": runtime.session.current_node_id,
+        })),
     })
 }
 
 /// Continue execution until next breakpoint or completion
 #[tauri::command]
-async fn debug_continue(session_state_json: String) -> Result<DebugCommandResult, String> {
-    println!("🐛 Debug continue");
+async fn debug_continue(
+    session_state_json: String,
+    timeout_ms: Option<u64>,
+) -> Result<DebugCommandResult, String> {
+    let _ = session_state_json;
+    println!("🐛 Debug continue (live mode)");
 
-    let engine_path = get_engine_path();
-    let python_exe = get_python_executable();
+    let mut guard = LIVE_DEBUG_RUNTIME.lock().await;
+    let Some(runtime) = guard.as_mut() else {
+        return Ok(DebugCommandResult {
+            success: false,
+            message: Some("No active live debug session".to_string()),
+            session_state: None,
+            last_event: Some(serde_json::json!({"type":"error","message":"No active session"})),
+        });
+    };
 
-    let output = Command::new(&python_exe)
-        .arg("-c")
-        .arg(format!(
-            r#"
-import sys
-sys.path.insert(0, '{}')
-import json
-from skuldbot.executor.interactive_executor import InteractiveExecutor, DebugSession, DebugState, NodeStatus, NodeExecution
+    write_debug_control_file(&runtime.session_dir, "mode", "continue")?;
+    write_debug_control_file(&runtime.session_dir, "continue.token", "1")?;
+    runtime.session.state = "running".to_string();
+    runtime.session.paused_at_breakpoint = false;
 
-# Restore session from JSON
-session_data = json.loads('{}')
+    let timeout = resolve_live_debug_timeout(timeout_ms);
+    let timed_out = wait_for_live_debug_state(runtime, timeout).await?;
 
-executor = InteractiveExecutor()
-
-executor.session = DebugSession(
-    session_id=session_data.get('sessionId', ''),
-    state=DebugState(session_data.get('state', 'paused')),
-    current_node_id=session_data.get('currentNodeId'),
-    breakpoints=set(session_data.get('breakpoints', [])),
-    execution_order=session_data.get('executionOrder', []),
-    node_executions={{}},
-    global_variables=session_data.get('globalVariables', {{}}),
-    start_time=session_data.get('startTime', 0),
-    paused_at_breakpoint=session_data.get('pausedAtBreakpoint', False),
-)
-
-# Rebuild node executions
-for node_id, node_data in session_data.get('nodeExecutions', {{}}).items():
-    executor.session.node_executions[node_id] = NodeExecution(
-        node_id=node_data.get('nodeId', node_id),
-        node_type=node_data.get('nodeType', 'unknown'),
-        label=node_data.get('label', node_id),
-        status=NodeStatus(node_data.get('status', 'pending')),
-        start_time=node_data.get('startTime'),
-        end_time=node_data.get('endTime'),
-        output=node_data.get('output'),
-        error=node_data.get('error'),
-        variables=node_data.get('variables', {{}}),
-    )
-
-# Build minimal node map
-executor._node_map = {{}}
-for node_id in executor.session.execution_order:
-    node_exec = executor.session.node_executions.get(node_id)
-    if node_exec:
-        executor._node_map[node_id] = {{
-            'id': node_id,
-            'type': node_exec.node_type,
-            'label': node_exec.label,
-            'config': {{}},
-            'outputs': {{'success': '', 'error': ''}}
-        }}
-
-# Continue execution
-executor.continue_execution()
-
-# Output final state
-if executor.session:
-    print(json.dumps({{"type": "state", "session": executor.session.to_dict()}}))
-"#,
-            engine_path.display(),
-            session_state_json.replace("'", "\\'").replace("\n", "\\n")
-        ))
-        .output()
-        .map_err(|e| format!("Failed to continue: {}", e))?;
-
-    let stdout_str = String::from_utf8_lossy(&output.stdout);
-
-    // Parse response
-    let mut session_state: Option<DebugSessionState> = None;
-    let mut last_event: Option<serde_json::Value> = None;
-
-    for line in stdout_str.lines() {
-        if let Ok(msg) = serde_json::from_str::<serde_json::Value>(line) {
-            if msg.get("type").and_then(|t| t.as_str()) == Some("state") {
-                if let Some(session) = msg.get("session") {
-                    session_state = serde_json::from_value(session.clone()).ok();
-                }
-            }
-            last_event = Some(msg);
-        }
-    }
+    let message = match runtime.session.state.as_str() {
+        "paused" => "Paused at breakpoint",
+        "completed" => "Execution completed",
+        "error" => "Execution failed",
+        _ => "Execution running",
+    };
 
     Ok(DebugCommandResult {
-        success: session_state.is_some(),
-        message: Some("Continued".to_string()),
-        session_state,
-        last_event,
+        success: true,
+        message: Some(if timed_out && runtime.session.state == "running" {
+            "Execution still running (timeout window reached)".to_string()
+        } else {
+            message.to_string()
+        }),
+        session_state: Some(runtime.session.clone()),
+        last_event: Some(serde_json::json!({
+            "type": runtime.session.state,
+            "nodeId": runtime.session.current_node_id,
+        })),
     })
 }
 
@@ -1056,12 +1378,12 @@ if executor.session:
 async fn debug_stop() -> Result<DebugCommandResult, String> {
     println!("🐛 Debug stop");
 
-    // Kill any running debug process
-    {
-        let mut process_guard = DEBUG_PROCESS.lock().await;
-        if let Some(mut child) = process_guard.take() {
-            let _ = child.kill();
-        }
+    let mut guard = LIVE_DEBUG_RUNTIME.lock().await;
+    if let Some(mut runtime) = guard.take() {
+        let _ = write_debug_control_file(&runtime.session_dir, "stop.token", "1");
+        let _ = runtime.child.kill();
+        let _ = runtime.child.wait();
+        let _ = fs::remove_dir_all(runtime.session_dir);
     }
 
     Ok(DebugCommandResult {
@@ -1072,24 +1394,66 @@ async fn debug_stop() -> Result<DebugCommandResult, String> {
     })
 }
 
+/// Request pause for live debug session (applies at next node boundary)
+#[tauri::command]
+async fn debug_pause() -> Result<DebugCommandResult, String> {
+    println!("🐛 Debug pause request");
+
+    let mut guard = LIVE_DEBUG_RUNTIME.lock().await;
+    let Some(runtime) = guard.as_mut() else {
+        return Ok(DebugCommandResult {
+            success: false,
+            message: Some("No active live debug session".to_string()),
+            session_state: None,
+            last_event: Some(serde_json::json!({"type":"error","message":"No active session"})),
+        });
+    };
+
+    write_debug_control_file(&runtime.session_dir, "mode", "step")?;
+    let is_already_paused = runtime.session.state == "paused";
+
+    Ok(DebugCommandResult {
+        success: true,
+        message: Some(if is_already_paused {
+            "Execution already paused".to_string()
+        } else {
+            "Pause requested (will pause at next node boundary)".to_string()
+        }),
+        session_state: Some(runtime.session.clone()),
+        last_event: Some(serde_json::json!({
+            "type": if is_already_paused { "paused" } else { "pause_requested" },
+            "nodeId": runtime.session.current_node_id,
+        })),
+    })
+}
+
 /// Get variables for a node
 #[tauri::command]
 async fn debug_get_variables(session_state_json: String, node_id: Option<String>) -> Result<serde_json::Value, String> {
     println!("🐛 Debug get variables for {:?}", node_id);
 
-    // Parse session state and extract variables
-    let session: serde_json::Value = serde_json::from_str(&session_state_json)
+    let guard = LIVE_DEBUG_RUNTIME.lock().await;
+    if let Some(runtime) = guard.as_ref() {
+        if let Some(nid) = node_id.as_ref() {
+            if let Some(node_exec) = runtime.session.node_executions.get(nid) {
+                return Ok(node_exec.variables.clone());
+            }
+            return Ok(serde_json::json!({}));
+        }
+        return Ok(runtime.session.global_variables.clone());
+    }
+    drop(guard);
+
+    let session: DebugSessionState = serde_json::from_str(&session_state_json)
         .map_err(|e| format!("Invalid session state: {}", e))?;
 
     if let Some(nid) = node_id {
-        // Get specific node variables
-        if let Some(node_exec) = session.get("nodeExecutions").and_then(|ne| ne.get(&nid)) {
-            return Ok(node_exec.get("variables").cloned().unwrap_or(serde_json::json!({})));
+        if let Some(node_exec) = session.node_executions.get(&nid) {
+            return Ok(node_exec.variables.clone());
         }
         Ok(serde_json::json!({}))
     } else {
-        // Get global variables
-        Ok(session.get("globalVariables").cloned().unwrap_or(serde_json::json!({})))
+        Ok(session.global_variables)
     }
 }
 
@@ -1101,10 +1465,10 @@ async fn validate_dsl(dsl: String) -> Result<bool, String> {
     let python_exe = get_python_executable();
     
     let temp_dir = std::env::temp_dir();
-    let dsl_file = temp_dir.join("bot_validate_dsl.json");
+    let dsl_file = temp_dir.join(format!("bot_validate_dsl_{}.json", Uuid::new_v4()));
     std::fs::write(&dsl_file, &dsl).map_err(|e| e.to_string())?;
     
-    let output = Command::new(&python_exe)
+    let output_result = Command::new(&python_exe)
         .arg("-c")
         .arg(format!(
             r#"
@@ -1122,21 +1486,35 @@ try:
     print('VALID')
 except Exception as e:
     print('INVALID:', str(e))
+    details = getattr(e, 'errors', None)
+    if details:
+        for item in details:
+            print(' -', item)
     sys.exit(1)
 "#,
             engine_path.display(),
             dsl_file.display()
         ))
         .output()
-        .map_err(|e| format!("Failed to execute Python: {}", e))?;
+        .map_err(|e| format!("Failed to execute Python: {}", e));
+    let _ = std::fs::remove_file(&dsl_file);
+    let output = output_result?;
     
     if output.status.success() {
         println!("✅ DSL is valid");
         Ok(true)
     } else {
-        let error = String::from_utf8_lossy(&output.stderr);
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let error = if !stderr.is_empty() {
+            stderr
+        } else if !stdout.is_empty() {
+            stdout
+        } else {
+            "DSL validation failed".to_string()
+        };
         println!("❌ DSL is invalid: {}", error);
-        Err(error.to_string())
+        Err(error)
     }
 }
 
@@ -1422,6 +1800,9 @@ async fn load_bot(bot_path: String) -> Result<serde_json::Value, String> {
 #[tauri::command]
 async fn save_bot(bot_path: String, dsl: String) -> Result<(), String> {
     println!("💾 Saving bot: {}", bot_path);
+    validate_dsl(dsl.clone())
+        .await
+        .map_err(|e| format!("Cannot save bot: {}", e))?;
 
     let bot_dir = PathBuf::from(&bot_path);
 
@@ -1459,6 +1840,9 @@ async fn delete_bot(bot_path: String) -> Result<(), String> {
 #[tauri::command]
 async fn save_bot_version(bot_path: String, dsl: String, description: Option<String>) -> Result<String, String> {
     println!("📸 Saving bot version: {}", bot_path);
+    validate_dsl(dsl.clone())
+        .await
+        .map_err(|e| format!("Cannot save bot version: {}", e))?;
 
     let history_dir = PathBuf::from(&bot_path).join(".history");
     fs::create_dir_all(&history_dir).map_err(|e| format!("Failed to create history directory: {}", e))?;
@@ -2266,17 +2650,26 @@ print('OK')
 // AI Planner Commands (LLM Integration)
 // ============================================================
 
-// AI Connection for visual connections between nodes (embeddings, memory, tools)
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct AIConnection {
-    from: String,
-    to: String,
-    #[serde(rename = "type")]
-    connection_type: String, // "embeddings", "memory", "tool"
-    #[serde(rename = "toolName")]
-    tool_name: Option<String>,
-    #[serde(rename = "toolDescription")]
-    tool_description: Option<String>,
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+struct PlanStepOutputs {
+    #[serde(default)]
+    success: Option<String>,
+    #[serde(default)]
+    error: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+struct PlanStepConnections {
+    #[serde(default)]
+    model: Option<String>,
+    #[serde(default)]
+    tools: Option<Vec<String>>,
+    #[serde(default)]
+    memory: Option<String>,
+    #[serde(default)]
+    embeddings: Option<String>,
+    #[serde(default)]
+    connection: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -2289,9 +2682,10 @@ struct AIPlanStep {
     reasoning: Option<String>,
     #[serde(default)]
     id: Option<String>,
-    // AI-specific connections for RAG patterns (embeddings→memory→agent)
-    #[serde(rename = "aiConnections", default)]
-    ai_connections: Option<Vec<AIConnection>>,
+    #[serde(default)]
+    outputs: Option<PlanStepOutputs>,
+    #[serde(default)]
+    connections: Option<PlanStepConnections>,
 }
 
 #[derive(Debug, Serialize)]
@@ -2328,6 +2722,7 @@ struct ValidationResult {
 #[derive(Debug, Serialize, Deserialize)]
 struct ExecutablePlan {
     goal: String,
+    description: String,
     assumptions: Vec<String>,
     unknowns: Vec<Clarification>,
     tasks: Vec<AIPlanStep>,
@@ -2489,18 +2884,30 @@ As an expert architect, you MUST:
 <output_schema>
 Each step must follow this exact JSON structure:
 {
+  "id": "unique-step-id",
   "nodeType": "category.action",
   "label": "Human readable step name",
   "description": "Clear explanation of what this step accomplishes",
   "config": {
     // Pre-filled configuration values
-    // Use realistic placeholders like "${variable}" for dynamic values
+    // Use realistic placeholders like "${VARIABLE}" for env/config values
+    // For node-to-node data, ALWAYS use canonical syntax: "${node:<step-id>|<path>}"
+    // Never use label syntax like "${My Node.output}"
   },
-  "reasoning": "Brief explanation of why this step is needed in the workflow",
-  "aiConnections": [
-    // REQUIRED for AI nodes - defines visual connections
-    { "from": "Source Node Label", "to": "Target Node Label", "type": "model|embeddings|memory|tool" }
-  ]
+  "outputs": {
+    // Optional; references by step ID only. If omitted, planner may infer default next step.
+    "success": "next-step-id-or-END",
+    "error": "error-step-id-or-END"
+  },
+  "connections": {
+    // Optional canonical connections (preferred for canonical wiring), IDs only.
+    "model": "source-step-id",
+    "tools": ["source-step-id"],
+    "memory": "source-step-id",
+    "embeddings": "source-step-id",
+    "connection": "source-step-id"
+  },
+  "reasoning": "Brief explanation of why this step is needed in the workflow"
 }
 </output_schema>
 
@@ -2510,6 +2917,7 @@ Visual connection types for AI workflows:
 - "embeddings": Embeddings → AI Agent or Vector Memory (orange connection)
 - "memory": Vector Memory → AI Agent (purple connection)
 - "tool": Any node → AI Agent as callable tool (violet connection)
+- "connection": Service/config provider → node (green connection)
 </ai_connection_types>
 
 <examples>
@@ -2520,13 +2928,16 @@ User request: "Create a chatbot that uses Azure AI Foundry to answer questions a
 Correct response:
 [
   {
+    "id": "trig-1",
     "nodeType": "trigger.manual",
     "label": "Start Chat",
     "description": "Manual trigger to start the chatbot",
     "config": {},
+    "outputs": { "success": "model-1", "error": "END" },
     "reasoning": "Every workflow needs a trigger to start execution"
   },
   {
+    "id": "model-1",
     "nodeType": "ai.model",
     "label": "Azure GPT-4",
     "description": "Configure Azure AI Foundry GPT-4 model",
@@ -2538,9 +2949,11 @@ Correct response:
       "api_key": "${AZURE_OPENAI_KEY}",
       "temperature": 0.7
     },
+    "outputs": { "success": "emb-1", "error": "END" },
     "reasoning": "Azure AI Foundry provides enterprise-grade LLM access"
   },
   {
+    "id": "emb-1",
     "nodeType": "ai.embeddings",
     "label": "Azure Embeddings",
     "description": "Configure Azure embeddings for semantic search",
@@ -2550,9 +2963,11 @@ Correct response:
       "base_url": "https://your-resource.openai.azure.com",
       "api_key": "${AZURE_OPENAI_KEY}"
     },
+    "outputs": { "success": "mem-1", "error": "END" },
     "reasoning": "Embeddings enable semantic search in the vector database"
   },
   {
+    "id": "mem-1",
     "nodeType": "vectordb.memory",
     "label": "Company Docs Memory",
     "description": "Vector memory for company documentation",
@@ -2561,9 +2976,11 @@ Correct response:
       "collection": "company_docs",
       "memory_type": "retrieve"
     },
+    "outputs": { "success": "agent-1", "error": "END" },
     "reasoning": "Vector memory provides RAG context from company documents"
   },
   {
+    "id": "agent-1",
     "nodeType": "ai.agent",
     "label": "Company Assistant",
     "description": "AI agent that answers questions using company documentation",
@@ -2572,21 +2989,24 @@ Correct response:
       "system_prompt": "You are a helpful company assistant. Use the provided context to answer questions accurately.",
       "max_iterations": 5
     },
-    "reasoning": "The AI agent orchestrates the RAG pipeline and generates responses",
-    "aiConnections": [
-      { "from": "Azure GPT-4", "to": "Company Assistant", "type": "model" },
-      { "from": "Azure Embeddings", "to": "Company Assistant", "type": "embeddings" },
-      { "from": "Company Docs Memory", "to": "Company Assistant", "type": "memory" }
-    ]
+    "outputs": { "success": "log-1", "error": "END" },
+    "connections": {
+      "model": "model-1",
+      "embeddings": "emb-1",
+      "memory": "mem-1"
+    },
+    "reasoning": "The AI agent orchestrates the RAG pipeline and generates responses"
   },
   {
+    "id": "log-1",
     "nodeType": "logging.log",
     "label": "Log Response",
     "description": "Log the assistant response for audit",
     "config": {
-      "message": "${Company Assistant.output}",
+      "message": "${node:agent-1|output}",
       "level": "INFO"
     },
+    "outputs": { "success": "END", "error": "END" },
     "reasoning": "Logging responses helps with debugging and audit trails"
   }
 ]
@@ -2598,15 +3018,18 @@ User request: "Index PDF documents into pgvector for later RAG queries"
 Correct response:
 [
   {
+    "id": "sched-1",
     "nodeType": "trigger.schedule",
     "label": "Daily Index",
     "description": "Run document indexing daily",
     "config": {
       "cron": "0 2 * * *"
     },
+    "outputs": { "success": "list-1", "error": "END" },
     "reasoning": "Schedule ensures documents are indexed regularly"
   },
   {
+    "id": "list-1",
     "nodeType": "files.list",
     "label": "List PDFs",
     "description": "Get list of PDF files to index",
@@ -2614,19 +3037,23 @@ Correct response:
       "path": "/documents/incoming",
       "pattern": "*.pdf"
     },
+    "outputs": { "success": "ocr-1", "error": "END" },
     "reasoning": "Find all new PDF documents to process"
   },
   {
+    "id": "ocr-1",
     "nodeType": "document.ocr",
     "label": "Extract Text",
     "description": "Extract text from PDF documents",
     "config": {
-      "file_path": "${List PDFs.files}",
+      "file_path": "${node:list-1|files}",
       "language": "en"
     },
+    "outputs": { "success": "emb-1", "error": "END" },
     "reasoning": "OCR extracts text content from PDFs for embedding"
   },
   {
+    "id": "emb-1",
     "nodeType": "ai.embeddings",
     "label": "OpenAI Embeddings",
     "description": "Configure OpenAI embeddings model",
@@ -2635,9 +3062,11 @@ Correct response:
       "model": "text-embedding-3-small",
       "api_key": "${OPENAI_API_KEY}"
     },
+    "outputs": { "success": "conn-1", "error": "END" },
     "reasoning": "Embeddings convert text to vectors for semantic search"
   },
   {
+    "id": "conn-1",
     "nodeType": "vectordb.pgvector_connect",
     "label": "Connect pgvector",
     "description": "Connect to PostgreSQL with pgvector extension",
@@ -2646,20 +3075,24 @@ Correct response:
       "table_name": "document_embeddings",
       "dimension": 1536
     },
+    "outputs": { "success": "upsert-1", "error": "END" },
     "reasoning": "pgvector provides scalable vector storage in PostgreSQL"
   },
   {
+    "id": "upsert-1",
     "nodeType": "vectordb.pgvector_upsert",
     "label": "Store Embeddings",
     "description": "Store document embeddings in pgvector",
     "config": {
-      "texts": "${Extract Text.text}",
-      "metadata": { "source": "${List PDFs.files}" }
+      "texts": "${node:ocr-1|text}",
+      "metadata": { "source": "${node:list-1|files}" }
     },
-    "reasoning": "Upserting embeddings enables later RAG retrieval",
-    "aiConnections": [
-      { "from": "OpenAI Embeddings", "to": "Store Embeddings", "type": "embeddings" }
-    ]
+    "outputs": { "success": "END", "error": "END" },
+    "connections": {
+      "embeddings": "emb-1",
+      "connection": "conn-1"
+    },
+    "reasoning": "Upserting embeddings enables later RAG retrieval"
   }
 ]
 
@@ -2670,43 +3103,52 @@ User request: "Create a RAG system that detects PII before storing documents"
 Correct response:
 [
   {
+    "id": "trig-1",
     "nodeType": "trigger.manual",
     "label": "Process Document",
     "description": "Manual trigger to process a document",
     "config": {},
+    "outputs": { "success": "read-1", "error": "END" },
     "reasoning": "Every workflow needs a trigger"
   },
   {
+    "id": "read-1",
     "nodeType": "files.read",
     "label": "Read Document",
     "description": "Read the document content",
     "config": {
       "file_path": "${input.file_path}"
     },
+    "outputs": { "success": "pii-1", "error": "END" },
     "reasoning": "Need to read the document before processing"
   },
   {
+    "id": "pii-1",
     "nodeType": "compliance.detect_pii",
     "label": "Detect PII",
     "description": "Scan document for personally identifiable information",
     "config": {
-      "text": "${Read Document.content}",
+      "text": "${node:read-1|content}",
       "entities": ["PERSON", "EMAIL", "PHONE", "SSN", "ADDRESS"]
     },
+    "outputs": { "success": "redact-1", "error": "END" },
     "reasoning": "Compliance requires PII detection before storage"
   },
   {
+    "id": "redact-1",
     "nodeType": "compliance.redact_data",
     "label": "Redact Sensitive Data",
     "description": "Remove detected PII from the document",
     "config": {
-      "data": "${Read Document.content}",
-      "fields": "${Detect PII.entities}",
+      "data": "${node:read-1|content}",
+      "fields": "${node:pii-1|entities}",
       "replacement": "[REDACTED]"
     },
+    "outputs": { "success": "emb-1", "error": "END" },
     "reasoning": "Redact PII before storing in vector database"
   },
   {
+    "id": "emb-1",
     "nodeType": "ai.embeddings",
     "label": "OpenAI Embeddings",
     "description": "Generate embeddings from redacted text",
@@ -2715,29 +3157,34 @@ Correct response:
       "model": "text-embedding-3-small",
       "api_key": "${OPENAI_API_KEY}"
     },
+    "outputs": { "success": "store-1", "error": "END" },
     "reasoning": "Embeddings convert clean text to vectors"
   },
   {
+    "id": "store-1",
     "nodeType": "vectordb.pgvector_upsert",
     "label": "Store Safe Vectors",
     "description": "Store redacted document embeddings",
     "config": {
-      "texts": "${Redact Sensitive Data.redacted_text}",
-      "metadata": { "original_file": "${input.file_path}", "pii_detected": "${Detect PII.count}" }
+      "texts": "${node:redact-1|redacted_text}",
+      "metadata": { "original_file": "${input.file_path}", "pii_detected": "${node:pii-1|count}" }
     },
-    "reasoning": "Store only PII-free content in vector DB",
-    "aiConnections": [
-      { "from": "OpenAI Embeddings", "to": "Store Safe Vectors", "type": "embeddings" }
-    ]
+    "outputs": { "success": "audit-1", "error": "END" },
+    "connections": {
+      "embeddings": "emb-1"
+    },
+    "reasoning": "Store only PII-free content in vector DB"
   },
   {
+    "id": "audit-1",
     "nodeType": "compliance.audit_log",
     "label": "Log Compliance Action",
     "description": "Create audit trail for compliance",
     "config": {
       "action": "document_processed",
-      "details": { "pii_found": "${Detect PII.count}", "file": "${input.file_path}" }
+      "details": { "pii_found": "${node:pii-1|count}", "file": "${input.file_path}" }
     },
+    "outputs": { "success": "END", "error": "END" },
     "reasoning": "Audit logging is required for compliance"
   }
 ]
@@ -2778,7 +3225,7 @@ Before generating the plan, mentally walk through:
 4. What trigger makes sense? (manual, schedule, webhook, form)
 5. What's the data flow between nodes?
 6. What error handling is needed?
-7. Are all AI connections properly defined?
+7. Are canonical connections and IDs valid and complete?
 </thinking_process>
 
 <validation_requirements>
@@ -2807,7 +3254,7 @@ CRITICAL: Every generated plan MUST pass these checks:
    
 6. **Realistic config values**
    - Use placeholders like "${VARIABLE_NAME}" for secrets
-   - Not "YOUR_API_KEY" or "TODO"
+  - Not "YOUR_API_KEY" or "PLACEHOLDER_VALUE"
    - Include actual selectors, paths, patterns
 
 BEFORE returning your plan, validate it against these requirements.
@@ -3036,6 +3483,137 @@ fn load_valid_node_types() -> Result<Vec<String>, String> {
     Ok(node_types)
 }
 
+fn normalize_node_type_key(node_type: &str) -> String {
+    node_type
+        .trim()
+        .to_lowercase()
+        .replace(' ', "_")
+        .replace('-', "_")
+        .replace(':', ".")
+        .replace('/', ".")
+}
+
+fn resolve_node_type_alias(node_type: &str) -> Option<&'static str> {
+    match node_type {
+        "excel.save_as_csv"
+        | "excel.export_csv"
+        | "excel.save_csv"
+        | "excel.write_csv"
+        | "excel.csv_export" => Some("excel.csv_write"),
+        "excel.read_csv" | "excel.load_csv" | "excel.import_csv" | "excel.csv_load" => {
+            Some("excel.csv_read")
+        }
+        "http.request" | "http.get" | "http.post" | "api.request" => Some("api.http_request"),
+        "json.parse" | "parse.json" => Some("api.parse_json"),
+        "condition.if" | "if.condition" => Some("control.if"),
+        "condition.loop" | "loop.condition" => Some("control.loop"),
+        "condition.switch" => Some("control.switch"),
+        "error.handler" | "exception.handler" | "error.handle" => Some("control.try_catch"),
+        "web.open" | "browser.open" => Some("web.open_browser"),
+        "web.goto" | "web.go_to" => Some("web.navigate"),
+        "logging.notify" => Some("logging.notification"),
+        "ai.prompt" => Some("ai.llm_prompt"),
+        "ai.extract" => Some("ai.extract_data"),
+        "db.query" => Some("database.query"),
+        "db.insert" => Some("database.insert"),
+        "db.update" => Some("database.update"),
+        _ => None,
+    }
+}
+
+fn resolve_node_type(node_type: &str, valid_types: &[String]) -> Option<String> {
+    if valid_types.contains(&node_type.to_string()) {
+        return Some(node_type.to_string());
+    }
+
+    let normalized = normalize_node_type_key(node_type);
+    if valid_types.contains(&normalized) {
+        return Some(normalized);
+    }
+
+    if let Some(alias) = resolve_node_type_alias(&normalized) {
+        if valid_types.iter().any(|v| v == alias) {
+            return Some(alias.to_string());
+        }
+    }
+
+    if let Some(stripped) = normalized.strip_prefix("node.") {
+        if valid_types.iter().any(|v| v == stripped) {
+            return Some(stripped.to_string());
+        }
+    }
+
+    None
+}
+
+fn suggest_node_types(node_type: &str, valid_types: &[String], max_suggestions: usize) -> Vec<String> {
+    let key = normalize_node_type_key(node_type);
+    let mut parts = key.split('.');
+    let category = parts.next().unwrap_or_default();
+    let action = parts.next().unwrap_or_default();
+    let action_tokens: Vec<&str> = action.split('_').filter(|t| !t.is_empty()).collect();
+
+    let mut scored: Vec<(i32, String)> = valid_types
+        .iter()
+        .map(|candidate| {
+            let ckey = normalize_node_type_key(candidate);
+            let mut score = 0;
+
+            if !category.is_empty() && ckey.starts_with(&format!("{}.", category)) {
+                score += 3;
+            }
+            if !action.is_empty() && ckey.contains(action) {
+                score += 2;
+            }
+            for token in &action_tokens {
+                if ckey.contains(token) {
+                    score += 1;
+                }
+            }
+            if key.contains("csv") && ckey.contains("csv") {
+                score += 2;
+            }
+
+            (score, candidate.clone())
+        })
+        .filter(|(score, _)| *score > 0)
+        .collect();
+
+    scored.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+    scored
+        .into_iter()
+        .take(max_suggestions)
+        .map(|(_, candidate)| candidate)
+        .collect()
+}
+
+fn normalize_plan_node_types(plan: &mut [AIPlanStep]) -> Result<(), String> {
+    let valid_types = match load_valid_node_types() {
+        Ok(types) => types,
+        Err(e) => {
+            println!(
+                "⚠️  Could not load valid node types for normalization, skipping normalization: {}",
+                e
+            );
+            return Ok(());
+        }
+    };
+
+    for step in plan.iter_mut() {
+        if let Some(resolved) = resolve_node_type(&step.node_type, &valid_types) {
+            if resolved != step.node_type {
+                println!(
+                    "🔧 Normalized node type '{}' -> '{}' (step '{}')",
+                    step.node_type, resolved, step.label
+                );
+                step.node_type = resolved;
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// Validate that all node types in the plan are valid
 fn validate_plan_node_types(plan: &[AIPlanStep]) -> Result<(), String> {
     let valid_types = match load_valid_node_types() {
@@ -3046,22 +3624,149 @@ fn validate_plan_node_types(plan: &[AIPlanStep]) -> Result<(), String> {
         }
     };
 
-    let mut invalid_types: Vec<String> = Vec::new();
+    let mut invalid_entries: Vec<String> = Vec::new();
 
     for step in plan {
         if !valid_types.contains(&step.node_type) {
-            invalid_types.push(step.node_type.clone());
+            let suggestions = suggest_node_types(&step.node_type, &valid_types, 3);
+            if suggestions.is_empty() {
+                invalid_entries.push(format!("{} (step '{}')", step.node_type, step.label));
+            } else {
+                invalid_entries.push(format!(
+                    "{} (step '{}', maybe: {})",
+                    step.node_type,
+                    step.label,
+                    suggestions.join(", ")
+                ));
+            }
         }
     }
 
-    if !invalid_types.is_empty() {
+    if !invalid_entries.is_empty() {
         return Err(format!(
-            "Invalid node types detected: {}. These nodes do not exist in the SkuldBot catalog. Please use only valid node types.",
-            invalid_types.join(", ")
+            "Invalid node types detected:\n- {}\nThese nodes do not exist in the SkuldBot catalog. Please use only valid node types.",
+            invalid_entries.join("\n- ")
         ));
     }
 
     Ok(())
+}
+
+fn validate_plan_references(plan: &[AIPlanStep]) -> Result<(), String> {
+    use std::collections::HashSet;
+
+    let mut step_ids: Vec<String> = Vec::with_capacity(plan.len());
+    let mut id_set: HashSet<String> = HashSet::new();
+    let mut label_set: HashSet<String> = HashSet::new();
+    let mut errors: Vec<String> = Vec::new();
+
+    for (idx, step) in plan.iter().enumerate() {
+        let step_id = step
+            .id
+            .clone()
+            .filter(|v| !v.trim().is_empty())
+            .unwrap_or_else(|| format!("node-{}", idx));
+
+        if !id_set.insert(step_id.clone()) {
+            errors.push(format!("Duplicate step id '{}'", step_id));
+        }
+        step_ids.push(step_id);
+
+        let label = step.label.trim();
+        if !label.is_empty() {
+            label_set.insert(label.to_string());
+        }
+    }
+
+    let validate_ref = |
+        owner_id: &str,
+        field: &str,
+        raw_ref: &str,
+        allow_end: bool,
+    | -> Option<String> {
+        let trimmed = raw_ref.trim();
+        if trimmed.is_empty() {
+            return Some(format!("{} {} is empty", owner_id, field));
+        }
+        if trimmed.eq_ignore_ascii_case("END") {
+            if allow_end {
+                return None;
+            }
+            return Some(format!("{} {} cannot reference END", owner_id, field));
+        }
+        if id_set.contains(trimmed) {
+            return None;
+        }
+        if label_set.contains(trimmed) {
+            return Some(format!(
+                "{} {} uses label '{}' (labels are not allowed; use step id)",
+                owner_id, field, trimmed
+            ));
+        }
+        Some(format!(
+            "{} {} references unknown step id '{}'",
+            owner_id, field, trimmed
+        ))
+    };
+
+    for (idx, step) in plan.iter().enumerate() {
+        let owner_id = &step_ids[idx];
+
+        if let Some(outputs) = step.outputs.as_ref() {
+            if let Some(success_ref) = outputs.success.as_ref() {
+                if let Some(err) = validate_ref(owner_id, "outputs.success", success_ref, true) {
+                    errors.push(err);
+                }
+            }
+            if let Some(error_ref) = outputs.error.as_ref() {
+                if let Some(err) = validate_ref(owner_id, "outputs.error", error_ref, true) {
+                    errors.push(err);
+                }
+            }
+        }
+
+        if let Some(connections) = step.connections.as_ref() {
+            if let Some(model_ref) = connections.model.as_ref() {
+                if let Some(err) = validate_ref(owner_id, "connections.model", model_ref, false) {
+                    errors.push(err);
+                }
+            }
+            if let Some(memory_ref) = connections.memory.as_ref() {
+                if let Some(err) = validate_ref(owner_id, "connections.memory", memory_ref, false) {
+                    errors.push(err);
+                }
+            }
+            if let Some(emb_ref) = connections.embeddings.as_ref() {
+                if let Some(err) = validate_ref(owner_id, "connections.embeddings", emb_ref, false) {
+                    errors.push(err);
+                }
+            }
+            if let Some(conn_ref) = connections.connection.as_ref() {
+                if let Some(err) = validate_ref(owner_id, "connections.connection", conn_ref, false) {
+                    errors.push(err);
+                }
+            }
+            if let Some(tool_refs) = connections.tools.as_ref() {
+                for (tool_idx, tool_ref) in tool_refs.iter().enumerate() {
+                    if let Some(err) = validate_ref(
+                        owner_id,
+                        &format!("connections.tools[{}]", tool_idx),
+                        tool_ref,
+                        false,
+                    ) {
+                        errors.push(err);
+                    }
+                }
+            }
+        }
+
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(format!("Invalid plan references:\n- {}", errors.join("\n- ")))
+    }
 }
 
 // ============================================================
@@ -3070,20 +3775,136 @@ fn validate_plan_node_types(plan: &[AIPlanStep]) -> Result<(), String> {
 
 /// Convert plan steps to complete DSL format
 fn plan_to_dsl(goal: &str, plan: &[AIPlanStep]) -> serde_json::Value {
-    
-    
+    use std::collections::{HashMap, HashSet};
+
+    let mut used_node_ids = HashSet::new();
+    let mut node_ids: Vec<String> = Vec::with_capacity(plan.len());
+
+    for (idx, step) in plan.iter().enumerate() {
+        let base = step
+            .id
+            .clone()
+            .filter(|v| !v.trim().is_empty())
+            .unwrap_or_else(|| format!("node-{}", idx));
+
+        let mut candidate = base.clone();
+        if used_node_ids.contains(&candidate) {
+            candidate = format!("{}-{}", base, idx);
+            while used_node_ids.contains(&candidate) {
+                candidate.push('x');
+            }
+        }
+
+        used_node_ids.insert(candidate.clone());
+        node_ids.push(candidate);
+    }
+
+    let mut id_lookup: HashMap<String, String> = HashMap::new();
+
+    for (idx, step) in plan.iter().enumerate() {
+        let node_id = node_ids[idx].clone();
+        id_lookup.insert(node_id.clone(), node_id.clone());
+
+        if let Some(step_id) = step.id.as_ref() {
+            let trimmed = step_id.trim();
+            if !trimmed.is_empty() {
+                id_lookup.insert(trimmed.to_string(), node_id.clone());
+            }
+        }
+    }
+
+    let resolve_ref = |raw: &str| -> Option<String> {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+        if trimmed.eq_ignore_ascii_case("END") {
+            return Some("END".to_string());
+        }
+        id_lookup.get(trimmed).cloned()
+    };
+
+    let mut connection_map: HashMap<String, PlanStepConnections> = HashMap::new();
+
+    // Canonical connection fields from step.connections
+    for (idx, step) in plan.iter().enumerate() {
+        if let Some(step_connections) = &step.connections {
+            let target_node_id = node_ids[idx].clone();
+            let entry = connection_map
+                .entry(target_node_id)
+                .or_insert_with(PlanStepConnections::default);
+
+            if let Some(model_ref) = step_connections.model.as_ref() {
+                if let Some(model_id) = resolve_ref(model_ref) {
+                    if model_id != "END" {
+                        entry.model = Some(model_id);
+                    }
+                }
+            }
+
+            if let Some(memory_ref) = step_connections.memory.as_ref() {
+                if let Some(memory_id) = resolve_ref(memory_ref) {
+                    if memory_id != "END" {
+                        entry.memory = Some(memory_id);
+                    }
+                }
+            }
+
+            if let Some(emb_ref) = step_connections.embeddings.as_ref() {
+                if let Some(emb_id) = resolve_ref(emb_ref) {
+                    if emb_id != "END" {
+                        entry.embeddings = Some(emb_id);
+                    }
+                }
+            }
+
+            if let Some(conn_ref) = step_connections.connection.as_ref() {
+                if let Some(conn_id) = resolve_ref(conn_ref) {
+                    if conn_id != "END" {
+                        entry.connection = Some(conn_id);
+                    }
+                }
+            }
+
+            if let Some(tool_refs) = step_connections.tools.as_ref() {
+                for tool_ref in tool_refs {
+                    if let Some(tool_id) = resolve_ref(tool_ref) {
+                        if tool_id == "END" {
+                            continue;
+                        }
+                        let tools = entry.tools.get_or_insert_with(Vec::new);
+                        if !tools.contains(&tool_id) {
+                            tools.push(tool_id);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // Generate nodes from plan steps
     let mut nodes: Vec<serde_json::Value> = Vec::new();
-    
     for (idx, step) in plan.iter().enumerate() {
-        let node_id = step.id.clone().unwrap_or_else(|| format!("node-{}", idx));
-        let next_node_id = if idx + 1 < plan.len() {
-            plan[idx + 1].id.clone().unwrap_or_else(|| format!("node-{}", idx + 1))
-        } else {
-            "END".to_string()
-        };
-        
-        // Build node with outputs
+        let node_id = node_ids[idx].clone();
+        let default_next_node = node_ids
+            .get(idx + 1)
+            .cloned()
+            .unwrap_or_else(|| "END".to_string());
+
+        let success_target = step
+            .outputs
+            .as_ref()
+            .and_then(|o| o.success.as_ref())
+            .and_then(|raw| resolve_ref(raw))
+            .unwrap_or(default_next_node);
+
+        let error_target = step
+            .outputs
+            .as_ref()
+            .and_then(|o| o.error.as_ref())
+            .and_then(|raw| resolve_ref(raw))
+            .unwrap_or_else(|| "END".to_string());
+
         let mut node = serde_json::json!({
             "id": node_id,
             "type": step.node_type,
@@ -3091,21 +3912,65 @@ fn plan_to_dsl(goal: &str, plan: &[AIPlanStep]) -> serde_json::Value {
             "description": step.description,
             "config": step.config,
             "outputs": {
-                "success": next_node_id,
-                "error": "END"  // Simple error handling for now
+                "success": success_target,
+                "error": error_target
             }
         });
-        
-        // Add AI connections if present
-        if let Some(ref ai_conns) = step.ai_connections {
-            node["aiConnections"] = serde_json::to_value(ai_conns).unwrap_or_default();
+
+        if let Some(connections) = connection_map.get(&node_ids[idx]) {
+            let mut has_connections = false;
+            let mut conn_json = serde_json::Map::new();
+
+            if let Some(model) = connections.model.as_ref() {
+                has_connections = true;
+                conn_json.insert("model".to_string(), serde_json::json!(model));
+            }
+            if let Some(memory) = connections.memory.as_ref() {
+                has_connections = true;
+                conn_json.insert("memory".to_string(), serde_json::json!(memory));
+            }
+            if let Some(embeddings) = connections.embeddings.as_ref() {
+                has_connections = true;
+                conn_json.insert("embeddings".to_string(), serde_json::json!(embeddings));
+            }
+            if let Some(connection) = connections.connection.as_ref() {
+                has_connections = true;
+                conn_json.insert("connection".to_string(), serde_json::json!(connection));
+            }
+            if let Some(tools) = connections.tools.as_ref() {
+                if !tools.is_empty() {
+                    has_connections = true;
+                    conn_json.insert("tools".to_string(), serde_json::json!(tools));
+                }
+            }
+
+            if has_connections {
+                node["connections"] = serde_json::Value::Object(conn_json);
+            }
         }
-        
+
         nodes.push(node);
     }
-    
-    // Generate bot DSL
-    serde_json::json!({
+
+    let triggers: Vec<String> = plan
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, step)| {
+            if step.node_type.starts_with("trigger.") {
+                Some(node_ids[idx].clone())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    let start_node = if !triggers.is_empty() {
+        Some(triggers[0].clone())
+    } else {
+        node_ids.first().cloned()
+    };
+
+    let mut dsl = serde_json::json!({
         "version": "1.0",
         "bot": {
             "id": format!("bot-{}", uuid::Uuid::new_v4().to_string()[..8].to_string()),
@@ -3114,7 +3979,16 @@ fn plan_to_dsl(goal: &str, plan: &[AIPlanStep]) -> serde_json::Value {
         },
         "nodes": nodes,
         "variables": {}
-    })
+    });
+
+    if !triggers.is_empty() {
+        dsl["triggers"] = serde_json::json!(triggers);
+    }
+    if let Some(start) = start_node {
+        dsl["start_node"] = serde_json::json!(start);
+    }
+
+    dsl
 }
 
 /// Validate DSL and return detailed results
@@ -3312,10 +4186,25 @@ fn validate_and_compile_plan(goal: &str, plan: &[AIPlanStep]) -> Result<Validati
         });
     }
     
-    // Step 2: Convert to DSL
+    // Step 2: Check reference integrity (ID-only contract)
+    if let Err(e) = validate_plan_references(plan) {
+        return Ok(ValidationResult {
+            valid: false,
+            compilable: false,
+            errors: vec![ValidationIssue {
+                severity: "error".to_string(),
+                message: e,
+                node_id: None,
+                node_type: None,
+            }],
+            warnings: vec![],
+        });
+    }
+
+    // Step 3: Convert to DSL
     let dsl = plan_to_dsl(goal, plan);
     
-    // Step 3: Validate DSL structure
+    // Step 4: Validate DSL structure
     let mut validation_result = match validate_dsl_detailed(&dsl) {
         Ok(result) => result,
         Err(e) => {
@@ -3333,7 +4222,7 @@ fn validate_and_compile_plan(goal: &str, plan: &[AIPlanStep]) -> Result<Validati
         }
     };
     
-    // Step 4: Test compilation if validation passed
+    // Step 5: Test compilation if validation passed
     if validation_result.valid {
         match test_compile_dsl(&dsl) {
             Ok(compilable) => {
@@ -3376,6 +4265,151 @@ fn get_api_key_from_env(provider: &str) -> Option<String> {
     }
 }
 
+#[cfg(test)]
+mod planner_contract_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn mk_step(id: &str, node_type: &str, label: &str) -> AIPlanStep {
+        AIPlanStep {
+            id: Some(id.to_string()),
+            node_type: node_type.to_string(),
+            label: label.to_string(),
+            description: format!("{} description", label),
+            config: json!({}),
+            reasoning: None,
+            outputs: None,
+            connections: None,
+        }
+    }
+
+    #[test]
+    fn references_reject_label_based_routes() {
+        let mut start = mk_step("node-1", "trigger.manual", "Start");
+        start.outputs = Some(PlanStepOutputs {
+            success: Some("Next".to_string()),
+            error: Some("END".to_string()),
+        });
+        let next = mk_step("node-2", "logging.log", "Next");
+        let plan = vec![start, next];
+
+        let result = validate_plan_references(&plan);
+        assert!(result.is_err());
+
+        let err = result.err().unwrap_or_default();
+        assert!(err.contains("uses label 'Next'"));
+    }
+
+    #[test]
+    fn references_reject_unknown_ids() {
+        let mut start = mk_step("node-1", "trigger.manual", "Start");
+        start.outputs = Some(PlanStepOutputs {
+            success: Some("node-999".to_string()),
+            error: Some("END".to_string()),
+        });
+        let next = mk_step("node-2", "logging.log", "Next");
+        let plan = vec![start, next];
+
+        let result = validate_plan_references(&plan);
+        assert!(result.is_err());
+
+        let err = result.err().unwrap_or_default();
+        assert!(err.contains("unknown step id 'node-999'"));
+    }
+
+    #[test]
+    fn plan_to_dsl_keeps_canonical_outputs_and_connections() {
+        let mut trigger = mk_step("trigger-1", "trigger.manual", "Start");
+        trigger.outputs = Some(PlanStepOutputs {
+            success: Some("agent-1".to_string()),
+            error: Some("END".to_string()),
+        });
+
+        let model = mk_step("model-1", "ai.model", "Model");
+
+        let mut agent = mk_step("agent-1", "ai.agent", "Agent");
+        agent.outputs = Some(PlanStepOutputs {
+            success: Some("END".to_string()),
+            error: Some("END".to_string()),
+        });
+        agent.connections = Some(PlanStepConnections {
+            model: Some("model-1".to_string()),
+            tools: None,
+            memory: None,
+            embeddings: None,
+            connection: None,
+        });
+
+        let plan = vec![trigger, model, agent];
+
+        let refs_ok = validate_plan_references(&plan);
+        assert!(refs_ok.is_ok(), "expected valid refs, got {:?}", refs_ok.err());
+
+        let dsl = plan_to_dsl("test-goal", &plan);
+        let nodes = dsl["nodes"].as_array().cloned().unwrap_or_default();
+
+        let trigger_node = nodes
+            .iter()
+            .find(|n| n["id"].as_str() == Some("trigger-1"))
+            .cloned()
+            .expect("trigger node missing");
+        assert_eq!(trigger_node["outputs"]["success"].as_str(), Some("agent-1"));
+        assert_eq!(trigger_node["outputs"]["error"].as_str(), Some("END"));
+
+        let agent_node = nodes
+            .iter()
+            .find(|n| n["id"].as_str() == Some("agent-1"))
+            .cloned()
+            .expect("agent node missing");
+        assert_eq!(agent_node["connections"]["model"].as_str(), Some("model-1"));
+
+        assert_eq!(dsl["start_node"].as_str(), Some("trigger-1"));
+    }
+
+    #[test]
+    fn base_prompt_excludes_legacy_label_expressions() {
+        let legacy_snippets = [
+            "${Company Assistant.output}",
+            "${List PDFs.files}",
+            "${Extract Text.text}",
+            "${Read Document.content}",
+            "${Detect PII.entities}",
+            "${Redact Sensitive Data.redacted_text}",
+            "${Detect PII.count}",
+        ];
+
+        for snippet in legacy_snippets {
+            assert!(
+                !AI_PLANNER_BASE_PROMPT.contains(snippet),
+                "legacy expression still present in prompt: {}",
+                snippet
+            );
+        }
+
+        assert!(
+            AI_PLANNER_BASE_PROMPT.contains("${node:agent-1|output}"),
+            "expected canonical node expression example in prompt"
+        );
+    }
+
+    #[test]
+    fn node_type_alias_maps_excel_save_as_csv() {
+        let valid = vec![
+            "excel.csv_write".to_string(),
+            "excel.csv_read".to_string(),
+        ];
+        let resolved = resolve_node_type("excel.save_as_csv", &valid);
+        assert_eq!(resolved.as_deref(), Some("excel.csv_write"));
+    }
+
+    #[test]
+    fn node_type_alias_strips_node_prefix() {
+        let valid = vec!["api.http_request".to_string()];
+        let resolved = resolve_node_type("node.api.http_request", &valid);
+        assert_eq!(resolved.as_deref(), Some("api.http_request"));
+    }
+}
+
 // ============================================================
 // Connections Commands (LLM Credentials Management)
 // ============================================================
@@ -3383,6 +4417,31 @@ fn get_api_key_from_env(provider: &str) -> Option<String> {
 fn get_connections_path() -> PathBuf {
     let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
     home.join(".skuldbot").join("connections.json")
+}
+
+const ENCRYPTED_CONNECTIONS_MAGIC: &[u8] = b"SB_CONN_V1\0";
+
+fn encrypt_connections_payload(plaintext_json: &str) -> Vec<u8> {
+    let storage = protection::SecureStorage::new();
+    let encrypted = storage.encrypt(plaintext_json.as_bytes());
+    let mut payload = Vec::with_capacity(ENCRYPTED_CONNECTIONS_MAGIC.len() + encrypted.len());
+    payload.extend_from_slice(ENCRYPTED_CONNECTIONS_MAGIC);
+    payload.extend_from_slice(&encrypted);
+    payload
+}
+
+fn decode_connections_payload(raw: &[u8]) -> Result<(String, bool), String> {
+    if raw.starts_with(ENCRYPTED_CONNECTIONS_MAGIC) {
+        let storage = protection::SecureStorage::new();
+        let decrypted = storage.decrypt(&raw[ENCRYPTED_CONNECTIONS_MAGIC.len()..]);
+        let text = String::from_utf8(decrypted)
+            .map_err(|e| format!("Failed to decode decrypted connections JSON: {}", e))?;
+        return Ok((text, true));
+    }
+
+    let text = String::from_utf8(raw.to_vec())
+        .map_err(|e| format!("Connections file is not valid UTF-8: {}", e))?;
+    Ok((text, false))
 }
 
 #[tauri::command]
@@ -3396,9 +4455,12 @@ async fn save_connections(connections_json: String) -> Result<bool, String> {
         fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
 
-    // TODO: In production, encrypt the JSON before storing
-    // For now, store as-is (the connections contain API keys)
-    fs::write(&connections_path, &connections_json)
+    // Ensure this is valid JSON before writing encrypted payload.
+    serde_json::from_str::<serde_json::Value>(&connections_json)
+        .map_err(|e| format!("Invalid connections JSON: {}", e))?;
+
+    let payload = encrypt_connections_payload(&connections_json);
+    fs::write(&connections_path, payload)
         .map_err(|e| format!("Failed to save connections: {}", e))?;
 
     println!("✅ Connections saved to: {}", connections_path.display());
@@ -3416,11 +4478,31 @@ async fn load_connections() -> Result<String, String> {
         return Ok("[]".to_string());
     }
 
-    let content = fs::read_to_string(&connections_path)
+    let raw = fs::read(&connections_path)
         .map_err(|e| format!("Failed to read connections: {}", e))?;
+    let (content, is_encrypted) = decode_connections_payload(&raw)?;
+    let normalized_content = if content.trim().is_empty() {
+        "[]".to_string()
+    } else {
+        content
+    };
+
+    // Validate JSON before returning it to frontend.
+    serde_json::from_str::<serde_json::Value>(&normalized_content)
+        .map_err(|e| format!("Stored connections are not valid JSON: {}", e))?;
+
+    // One-time migration of legacy plaintext files to encrypted storage.
+    if !is_encrypted {
+        let encrypted = encrypt_connections_payload(&normalized_content);
+        if let Err(e) = fs::write(&connections_path, encrypted) {
+            println!("⚠️  Failed to migrate plaintext connections to encrypted format: {}", e);
+        } else {
+            println!("🔐 Migrated legacy plaintext connections to encrypted format");
+        }
+    }
 
     println!("✅ Loaded connections from: {}", connections_path.display());
-    Ok(content)
+    Ok(normalized_content)
 }
 
 #[tauri::command]
@@ -3610,8 +4692,26 @@ async fn call_openai_api(
     temperature: f64,
     base_url: Option<&str>,
     api_key: &str,
+    request_timeout_secs: Option<u64>,
 ) -> Result<String, String> {
-    let client = reqwest::Client::new();
+    let is_local_endpoint = base_url
+        .map(|url| {
+            let lower = url.to_lowercase();
+            lower.contains("localhost")
+                || lower.contains("127.0.0.1")
+                || lower.contains("0.0.0.0")
+                || lower.contains(".local")
+        })
+        .unwrap_or(false);
+    let timeout_secs = request_timeout_secs
+        .unwrap_or(if is_local_endpoint { 600 } else { 180 })
+        .clamp(15, 3600);
+
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(timeout_secs))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
 
     // Construct URL based on whether it's a custom base_url or OpenAI
     let url = match base_url {
@@ -3677,8 +4777,14 @@ async fn call_anthropic_api(
     system_prompt: &str,
     model: &str,
     api_key: &str,
+    request_timeout_secs: Option<u64>,
 ) -> Result<String, String> {
-    let client = reqwest::Client::new();
+    let timeout_secs = request_timeout_secs.unwrap_or(180).clamp(15, 3600);
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(timeout_secs))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
 
     let request = AnthropicRequest {
         model: model.to_string(),
@@ -3754,6 +4860,59 @@ fn parse_plan_from_response(response: &str) -> Result<Vec<AIPlanStep>, String> {
         .map_err(|e| format!("Failed to parse LLM response as JSON: {}. Response: {}", e, json_str))
 }
 
+fn parse_step_outputs(step_json: &serde_json::Value) -> Option<PlanStepOutputs> {
+    step_json
+        .get("outputs")
+        .and_then(|v| serde_json::from_value::<PlanStepOutputs>(v.clone()).ok())
+}
+
+fn parse_step_connections(step_json: &serde_json::Value) -> Option<PlanStepConnections> {
+    step_json
+        .get("connections")
+        .and_then(|v| serde_json::from_value::<PlanStepConnections>(v.clone()).ok())
+}
+
+fn parse_ai_plan_step(step_json: &serde_json::Value, idx: usize) -> Option<AIPlanStep> {
+    Some(AIPlanStep {
+        id: step_json
+            .get("id")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .or_else(|| Some(format!("node-{}", idx))),
+        node_type: step_json.get("nodeType")?.as_str()?.to_string(),
+        label: step_json.get("label")?.as_str()?.to_string(),
+        description: step_json.get("description")?.as_str()?.to_string(),
+        config: step_json
+            .get("config")
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!({})),
+        reasoning: step_json
+            .get("reasoning")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        outputs: parse_step_outputs(step_json),
+        connections: parse_step_connections(step_json),
+    })
+}
+
+fn normalize_plan_step_ids(tasks: Vec<AIPlanStep>) -> Vec<AIPlanStep> {
+    tasks
+        .into_iter()
+        .enumerate()
+        .map(|(idx, mut step)| {
+            let needs_id = step
+                .id
+                .as_ref()
+                .map(|v| v.trim().is_empty())
+                .unwrap_or(true);
+            if needs_id {
+                step.id = Some(format!("node-{}", idx));
+            }
+            step
+        })
+        .collect()
+}
+
 #[tauri::command]
 async fn ai_generate_plan(
     description: String,
@@ -3772,35 +4931,16 @@ async fn ai_generate_plan(
         None => match get_api_key_from_env(&provider) {
             Some(key) => key,
             None => {
-                // Return mock response if no API key
-                println!("⚠️  No API key found for {}, using mock response", provider);
-                let mock_plan = vec![
-                    AIPlanStep {
-                        id: None,
-                        node_type: "trigger.manual".to_string(),
-                        label: "Start Automation".to_string(),
-                        description: "Manually trigger the automation".to_string(),
-                        config: serde_json::json!({}),
-                        reasoning: Some("Every automation needs a trigger to start".to_string()),
-                        ai_connections: None,
-                    },
-                    AIPlanStep {
-                        id: None,
-                        node_type: "logging.log".to_string(),
-                        label: "Log Start".to_string(),
-                        description: "Log that the automation has started".to_string(),
-                        config: serde_json::json!({ "message": "Automation started", "level": "INFO" }),
-                        reasoning: Some("Good practice to log automation start for debugging".to_string()),
-                        ai_connections: None,
-                    },
-                ];
-
+                println!("❌ No API key found for provider {}", provider);
                 return Ok(AIPlanResponse {
-                    success: true,
-                    plan: Some(mock_plan),
-                    error: None,
+                    success: false,
+                    plan: None,
+                    error: Some(format!(
+                        "No API key configured for provider '{}'. Configure a valid LLM connection in AI Planner settings.",
+                        provider
+                    )),
                     clarifying_questions: Some(vec![
-                        "Note: Configure an LLM connection in Settings for real AI planning.".to_string()
+                        "Configure a valid API key (or local provider credential) and retry plan generation.".to_string(),
                     ]),
                 });
             }
@@ -3833,11 +4973,12 @@ async fn ai_generate_plan(
                 temperature,
                 base_url.as_deref(),
                 &api_key,
+                None,
             )
             .await
         }
         "anthropic" => {
-            call_anthropic_api(&prompt, &system_prompt, &model, &api_key).await
+            call_anthropic_api(&prompt, &system_prompt, &model, &api_key, None).await
         }
         _ => Err(format!("Unsupported provider: {}", provider)),
     };
@@ -3846,7 +4987,10 @@ async fn ai_generate_plan(
         Ok(response) => {
             println!("📝 LLM Response received ({} chars)", response.len());
             match parse_plan_from_response(&response) {
-                Ok(plan) => {
+                Ok(mut plan) => {
+                    if let Err(e) = normalize_plan_node_types(&mut plan) {
+                        println!("⚠️  Node type normalization failed: {}", e);
+                    }
                     // Validate that all node types exist in the catalog
                     if let Err(validation_error) = validate_plan_node_types(&plan) {
                         println!("❌ Plan validation failed: {}", validation_error);
@@ -3939,7 +5083,8 @@ CONVERSATION HISTORY:
 {}
 
 Please modify the plan according to the user's request. Return ONLY the updated JSON array of steps.
-Follow the same format as the original plan with nodeType, label, description, config, and reasoning fields."#,
+Follow the same canonical format as the original plan including id, nodeType, label, description, config, outputs, connections, and reasoning.
+All references in outputs/connections MUST use step IDs only (never labels)."#,
         current_plan, user_request, conversation_history
     );
 
@@ -3961,11 +5106,12 @@ Follow the same format as the original plan with nodeType, label, description, c
                 temperature,
                 base_url.as_deref(),
                 &api_key,
+                None,
             )
             .await
         }
         "anthropic" => {
-            call_anthropic_api(&refinement_prompt, &system_prompt, &model, &api_key).await
+            call_anthropic_api(&refinement_prompt, &system_prompt, &model, &api_key, None).await
         }
         _ => Err(format!("Unsupported provider: {}", provider)),
     };
@@ -3974,9 +5120,25 @@ Follow the same format as the original plan with nodeType, label, description, c
         Ok(response) => {
             match parse_plan_from_response(&response) {
                 Ok(refined_plan) => {
+                    let mut refined_plan = normalize_plan_step_ids(refined_plan);
+                    if let Err(e) = normalize_plan_node_types(&mut refined_plan) {
+                        println!("⚠️  Node type normalization failed: {}", e);
+                    }
+
                     // Validate that all node types exist in the catalog
                     if let Err(validation_error) = validate_plan_node_types(&refined_plan) {
                         println!("❌ Refined plan validation failed: {}", validation_error);
+                        return Ok(AIPlanResponse {
+                            success: false,
+                            plan: Some(plan), // Return original plan
+                            error: Some(validation_error),
+                            clarifying_questions: None,
+                        });
+                    }
+
+                    // Validate strict ID references
+                    if let Err(validation_error) = validate_plan_references(&refined_plan) {
+                        println!("❌ Refined plan reference validation failed: {}", validation_error);
                         return Ok(AIPlanResponse {
                             success: false,
                             plan: Some(plan), // Return original plan
@@ -4030,6 +5192,7 @@ async fn ai_generate_executable_plan(
     api_key: Option<String>,
     agent_mode: Option<String>, // "ask", "plan", "generate", or "refine"
     conversation_history: Option<String>, // Previous messages for context
+    request_timeout_secs: Option<u64>, // Per-request timeout from UI settings
 ) -> Result<ExecutablePlanResponse, String> {
     println!("🤖 AI Generating EXECUTABLE plan for: {}", description);
     println!("   Provider: {}, Model: {}", provider, model);
@@ -4165,7 +5328,7 @@ CORRECT NODE TYPES (verified from SkuldBot catalog):
 ✅ Web: "web.open_browser", "web.navigate", "web.click", "web.type", "web.get_text"
 ✅ AI: "ai.model", "ai.agent", "ai.embeddings", "ai.llm_prompt", "ai.extract_data"
 ✅ Database: "database.connect", "database.query", "database.insert", "database.update"
-✅ Excel: "excel.open", "excel.read_range", "excel.write_range", "excel.filter"
+✅ Excel: "excel.open", "excel.read_range", "excel.write_range", "excel.filter", "excel.csv_read", "excel.csv_write", "excel.save", "excel.close"
 ✅ Logging: "logging.log", "logging.audit", "logging.notification"
 
 WRONG NODE TYPES (DO NOT USE - these don't exist!):
@@ -4178,6 +5341,11 @@ WRONG NODE TYPES (DO NOT USE - these don't exist!):
 ❌ "node.*" prefix → Never use "node." prefix
 ❌ "error.handler" → Use "control.try_catch"
 
+EXPRESSION RULES:
+- Node data references in config MUST use canonical syntax: "${{node:<step-id>|<path>}}"
+- Env/config placeholders can use "${{VARIABLE_NAME}}"
+- NEVER use label-style refs like "${{My Node.output}}"
+
 RESPONSE FORMAT:
 {{
   "goal": "Clear description in user's language",
@@ -4188,12 +5356,25 @@ RESPONSE FORMAT:
   "confidence": 0.85,
   "tasks": [
     {{
+      "id": "node-0",
       "nodeType": "trigger.manual",
       "label": "Start",
       "description": "...",
-      "config": {{}},
-      "reasoning": "...",
-      "id": "node-0"
+      "config": {{
+        "input": "${{node:node-input|output}}"
+      }},
+      "outputs": {{
+        "success": "node-1",
+        "error": "END"
+      }},
+      "connections": {{
+        "model": "node-model",
+        "tools": ["node-tool-1"],
+        "memory": "node-memory",
+        "embeddings": "node-emb",
+        "connection": "node-connection"
+      }},
+      "reasoning": "..."
     }}
   ]
 }}
@@ -4275,11 +5456,12 @@ Return ONLY valid JSON. Use user's language for all text."#,
                 temperature,
                 base_url.as_deref(),
                 &api_key,
+                request_timeout_secs,
             )
             .await
         }
         "anthropic" => {
-            call_anthropic_api(&prompt, &enhanced_system_prompt, &model, &api_key).await
+            call_anthropic_api(&prompt, &enhanced_system_prompt, &model, &api_key, request_timeout_secs).await
         }
         _ => Err(format!("Unsupported provider: {}", provider)),
     };
@@ -4319,6 +5501,10 @@ Return ONLY valid JSON. Use user's language for all text."#,
                 Ok(json) => {
                     // Extract fields from JSON
                     let goal = json["goal"].as_str().unwrap_or(&description).to_string();
+                    let plan_description = json["description"]
+                        .as_str()
+                        .unwrap_or(&goal)
+                        .to_string();
                     let confidence = json["confidence"].as_f64().unwrap_or(0.5);
                     
                     let assumptions: Vec<String> = json["assumptions"]
@@ -4343,22 +5529,19 @@ Return ONLY valid JSON. Use user's language for all text."#,
                     let tasks: Vec<AIPlanStep> = json["tasks"]
                         .as_array()
                         .map(|arr| {
-                            arr.iter().filter_map(|v| {
-                                Some(AIPlanStep {
-                                    id: v["id"].as_str().map(|s| s.to_string()),
-                                    node_type: v["nodeType"].as_str()?.to_string(),
-                                    label: v["label"].as_str()?.to_string(),
-                                    description: v["description"].as_str()?.to_string(),
-                                    config: v["config"].clone(),
-                                    reasoning: v["reasoning"].as_str().map(|s| s.to_string()),
-                                    ai_connections: None,  // TODO: parse if present
-                                })
-                            }).collect()
+                            arr.iter()
+                                .enumerate()
+                                .filter_map(|(i, v)| parse_ai_plan_step(v, i))
+                                .collect()
                         })
                         .unwrap_or_else(|| {
                             // Fallback: try to parse as simple array
                             parse_plan_from_response(&response).unwrap_or_default()
                         });
+                    let mut tasks = normalize_plan_step_ids(tasks);
+                    if let Err(e) = normalize_plan_node_types(&mut tasks) {
+                        println!("⚠️  Node type normalization failed: {}", e);
+                    }
                     
                     // In ASK or PLAN mode, empty tasks is OK (we're just asking questions or proposing steps)
                     if tasks.is_empty() && (mode == "ask" || mode == "plan") {
@@ -4442,6 +5625,7 @@ Return ONLY valid JSON. Use user's language for all text."#,
                     // Build executable plan
                     let executable_plan = ExecutablePlan {
                         goal: goal.clone(),
+                        description: plan_description,
                         assumptions,
                         unknowns: unknowns.clone(),
                         tasks,
@@ -4495,12 +5679,17 @@ Return ONLY valid JSON. Use user's language for all text."#,
                     println!("⚠️  Could not parse as ExecutablePlan, trying old format: {}", parse_err);
                     match parse_plan_from_response(&response) {
                         Ok(tasks) if !tasks.is_empty() => {
+                            let mut tasks = normalize_plan_step_ids(tasks);
+                            if let Err(e) = normalize_plan_node_types(&mut tasks) {
+                                println!("⚠️  Node type normalization failed: {}", e);
+                            }
                             let goal = description.clone();
                             let validation_result = validate_and_compile_plan(&goal, &tasks)?;
                             let dsl = plan_to_dsl(&goal, &tasks);
                             
                             let executable_plan = ExecutablePlan {
                                 goal: goal.clone(),
+                                description: goal.clone(),
                                 assumptions: vec![],
                                 unknowns: vec![],
                                 tasks,
@@ -4570,15 +5759,95 @@ Return ONLY valid JSON. Use user's language for all text."#,
 // License Validation Commands
 // ============================================================
 
+#[derive(Debug, Deserialize)]
+struct RemoteLicenseValidationResponse {
+    valid: bool,
+    module: Option<String>,
+    #[serde(rename = "expiresAt")]
+    expires_at: Option<String>,
+    features: Option<Vec<String>>,
+    error: Option<String>,
+}
+
+fn get_license_validation_url() -> Option<String> {
+    if let Ok(explicit_url) = std::env::var("SKULDBOT_LICENSE_VALIDATION_URL") {
+        let trimmed = explicit_url.trim();
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
+        }
+    }
+
+    if let Ok(orchestrator_url) = std::env::var("SKULDBOT_ORCHESTRATOR_URL") {
+        let base = orchestrator_url.trim_end_matches('/');
+        if !base.is_empty() {
+            return Some(format!("{}/api/licenses/validate", base));
+        }
+    }
+
+    None
+}
+
+async fn validate_license_with_server(license_key: &str) -> Result<Option<LicenseValidationResult>, String> {
+    let Some(url) = get_license_validation_url() else {
+        return Ok(None);
+    };
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(8))
+        .build()
+        .map_err(|e| format!("Failed to initialize HTTP client: {}", e))?;
+
+    let response = client
+        .post(&url)
+        .json(&serde_json::json!({ "licenseKey": license_key }))
+        .send()
+        .await
+        .map_err(|e| format!("License server request failed: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!(
+            "License server rejected request ({}): {}",
+            status.as_u16(),
+            body
+        ));
+    }
+
+    let payload: RemoteLicenseValidationResponse = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse license server response: {}", e))?;
+
+    Ok(Some(LicenseValidationResult {
+        valid: payload.valid,
+        module: payload.module.unwrap_or_default(),
+        expires_at: payload.expires_at.unwrap_or_default(),
+        features: payload.features.unwrap_or_default(),
+        error: payload.error,
+    }))
+}
+
 #[tauri::command]
 async fn validate_license(license_key: String) -> Result<LicenseValidationResult, String> {
     println!("🔑 Validating license: {}...", &license_key[..8.min(license_key.len())]);
 
-    // TODO: Implement actual license validation against Orchestrator API
-    // For development, we'll validate based on key format
-
-    // Mock validation logic
-    // In production: call POST /api/licenses/validate on Orchestrator
+    match validate_license_with_server(&license_key).await {
+        Ok(Some(remote_result)) => {
+            if remote_result.valid {
+                println!("✅ License validated by server (module: {})", remote_result.module);
+            } else {
+                println!("❌ License rejected by server");
+            }
+            return Ok(remote_result);
+        }
+        Ok(None) => {
+            println!("ℹ️  No license server configured; using local format validation");
+        }
+        Err(e) => {
+            println!("⚠️  License server validation failed, falling back to local format validation: {}", e);
+        }
+    }
 
     let key_upper = license_key.to_uppercase();
 
@@ -4964,6 +6233,7 @@ fn main() {
             debug_step,
             debug_continue,
             debug_stop,
+            debug_pause,
             debug_get_variables,
             save_project,
             load_project,
@@ -5039,6 +6309,3 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-
-
-

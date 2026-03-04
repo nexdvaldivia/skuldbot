@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AuditController } from './audit.controller';
 import { AuditService } from './audit.service';
 import { AuditLog } from './entities/audit-log.entity';
+import { AuditInterceptor } from '../common/interceptors/audit.interceptor';
 
 /**
  * Audit Module.
@@ -40,12 +42,16 @@ import { AuditLog } from './entities/audit-log.entity';
  * not through this module's service directly.
  */
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([AuditLog]),
-    ScheduleModule.forRoot(),
-  ],
+  imports: [TypeOrmModule.forFeature([AuditLog]), ScheduleModule.forRoot()],
   controllers: [AuditController],
-  providers: [AuditService],
+  providers: [
+    AuditService,
+    AuditInterceptor,
+    {
+      provide: APP_INTERCEPTOR,
+      useExisting: AuditInterceptor,
+    },
+  ],
   exports: [AuditService],
 })
 export class AuditModule {}

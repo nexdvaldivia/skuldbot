@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import {
   Home,
@@ -77,75 +77,82 @@ function App() {
   const [config, setConfig] = useState<RunnerConfig | null>(null);
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
 
-  useEffect(() => {
-    loadData();
-    const interval = setInterval(loadStatus, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  async function loadData() {
-    await Promise.all([loadStatus(), loadConfig(), loadSystemInfo()]);
-  }
-
-  async function loadStatus() {
+  const loadStatus = useCallback(async () => {
     try {
       const s = await invoke<RunnerStatus>('get_status');
       setStatus(s);
     } catch (e) {
       console.error('Failed to get status:', e);
     }
-  }
+  }, []);
 
-  async function loadConfig() {
+  const loadConfig = useCallback(async () => {
     try {
       const c = await invoke<RunnerConfig>('get_config');
       setConfig(c);
     } catch (e) {
       console.error('Failed to get config:', e);
     }
-  }
+  }, []);
 
-  async function loadSystemInfo() {
+  const loadSystemInfo = useCallback(async () => {
     try {
       const info = await invoke<SystemInfo>('get_system_info');
       setSystemInfo(info);
     } catch (e) {
       console.error('Failed to get system info:', e);
     }
-  }
-
-  useEffect(() => {
-    (window as unknown as { __startRunner: () => void }).__startRunner = () => handleStart();
-    (window as unknown as { __stopRunner: () => void }).__stopRunner = () => handleStop();
-    (window as unknown as { __restartRunner: () => void }).__restartRunner = () => handleRestart();
   }, []);
 
-  async function handleStart() {
+  const loadData = useCallback(async () => {
+    await Promise.all([loadStatus(), loadConfig(), loadSystemInfo()]);
+  }, [loadConfig, loadStatus, loadSystemInfo]);
+
+  const handleStart = useCallback(async () => {
     try {
       await invoke('start_runner');
       await loadStatus();
     } catch (e) {
       alert('Failed to start: ' + e);
     }
-  }
+  }, [loadStatus]);
 
-  async function handleStop() {
+  const handleStop = useCallback(async () => {
     try {
       await invoke('stop_runner');
       await loadStatus();
     } catch (e) {
       alert('Failed to stop: ' + e);
     }
-  }
+  }, [loadStatus]);
 
-  async function handleRestart() {
+  const handleRestart = useCallback(async () => {
     try {
       await invoke('restart_runner');
       await loadStatus();
     } catch (e) {
       alert('Failed to restart: ' + e);
     }
-  }
+  }, [loadStatus]);
+
+  useEffect(() => {
+    const initialLoadTimer = setTimeout(() => {
+      void loadData();
+    }, 0);
+    const interval = setInterval(() => {
+      void loadStatus();
+    }, 5000);
+    return () => {
+      clearTimeout(initialLoadTimer);
+      clearInterval(interval);
+    };
+  }, [loadData, loadStatus]);
+
+  useEffect(() => {
+    (window as unknown as { __startRunner: () => void }).__startRunner = () => handleStart();
+    (window as unknown as { __stopRunner: () => void }).__stopRunner = () => handleStop();
+    (window as unknown as { __restartRunner: () => void }).__restartRunner = () => handleRestart();
+  }, [handleRestart, handleStart, handleStop]);
 
   const navItems = [
     { id: 'dashboard' as Page, label: 'Dashboard', icon: Home },
@@ -243,7 +250,11 @@ function App() {
             <DashboardPage status={status} config={config} systemInfo={systemInfo} onRefresh={loadData} />
           )}
           {currentPage === 'config' && (
-            <ConfigPage config={config} onSave={loadConfig} />
+            <ConfigPage
+              key={JSON.stringify(config ?? {})}
+              config={config}
+              onSave={loadConfig}
+            />
           )}
           {currentPage === 'secrets' && (
             <SecretsPage />
@@ -594,17 +605,11 @@ function LabelsEditor({
 }
 
 function ConfigPage({ config, onSave }: { config: RunnerConfig | null; onSave: () => void }) {
-  const [formData, setFormData] = useState<Partial<RunnerConfig>>({});
+  const [formData, setFormData] = useState<Partial<RunnerConfig>>(config ?? {});
   const [showApiKey, setShowApiKey] = useState(false);
   const [testing, setTesting] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
-
-  useEffect(() => {
-    if (config) {
-      setFormData(config);
-    }
-  }, [config]);
 
   async function handleTestConnection() {
     if (!formData.orchestrator_url) return;
@@ -902,11 +907,7 @@ function SecretsPage() {
   const [newSecret, setNewSecret] = useState({ key: '', value: '', description: '' });
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadSecrets();
-  }, []);
-
-  async function loadSecrets() {
+  const loadSecrets = useCallback(async () => {
     setLoading(true);
     try {
       const list = await invoke<SecretMetadata[]>('list_secrets');
@@ -915,7 +916,14 @@ function SecretsPage() {
       console.error('Failed to load secrets:', e);
     }
     setLoading(false);
-  }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void loadSecrets();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [loadSecrets]);
 
   async function handleSaveSecret() {
     if (!newSecret.key.trim()) return;

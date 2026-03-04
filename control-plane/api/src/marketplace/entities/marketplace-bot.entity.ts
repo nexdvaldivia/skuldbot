@@ -131,7 +131,7 @@ export class MarketplaceBot {
   // PUBLISHER
   // ============================================================================
 
-  @Column()
+  @Column({ type: 'uuid' })
   publisherId: string;
 
   @ManyToOne(() => Partner, { onDelete: 'RESTRICT' })
@@ -356,7 +356,7 @@ export class BotVersion {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   marketplaceBotId: string;
 
   @ManyToOne(() => MarketplaceBot, (bot) => bot.versions, { onDelete: 'CASCADE' })

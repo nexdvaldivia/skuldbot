@@ -4,7 +4,6 @@ import asyncio
 import os
 import shutil
 import subprocess
-import tempfile
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -13,7 +12,7 @@ from typing import Any, Callable, Awaitable
 import structlog
 
 from .config import RunnerConfig
-from .models import Job, RunResult, RunStatus, StepProgress, StepStatus, LogEntry, LogLevel
+from .models import Job, RunResult, RunStatus, StepProgress, LogEntry, LogLevel
 
 logger = structlog.get_logger()
 
@@ -69,13 +68,13 @@ class BotExecutor:
                 await self._install_dependencies(requirements_file)
                 await emit_log("Dependencies installed successfully")
 
-            # 3. Find main.robot
-            robot_file = extract_dir / "main.robot"
-            if not robot_file.exists():
-                await emit_log("main.robot not found in package", LogLevel.ERROR)
-                raise FileNotFoundError("main.robot not found in package")
+            # 3. Find entry robot file
+            robot_file = self._find_entry_file(extract_dir)
+            if not robot_file:
+                await emit_log("main.skb/main.robot not found in package", LogLevel.ERROR)
+                raise FileNotFoundError("main.skb/main.robot not found in package")
 
-            await emit_log("Found main.robot, starting execution...")
+            await emit_log(f"Found entry script {robot_file.name}, starting execution...")
 
             # 4. Prepare variables from inputs
             variables = self._prepare_variables(job.inputs)
@@ -212,6 +211,9 @@ class BotExecutor:
             str(robot_file),
         ]
 
+        if robot_file.suffix and robot_file.suffix != ".robot":
+            cmd[1:1] = ["--extension", robot_file.suffix.lstrip(".")]
+
         logger.debug("Running robot command", cmd=" ".join(cmd))
 
         # Use asyncio subprocess for real-time streaming
@@ -334,3 +336,17 @@ class BotExecutor:
                 shutil.rmtree(run_dir)
         except Exception as e:
             logger.warning("Failed to cleanup run directory", error=str(e))
+
+    def _find_entry_file(self, extract_dir: Path) -> Path | None:
+        """Find the main executable file from an extracted package."""
+        direct_candidates = [extract_dir / "main.skb", extract_dir / "main.robot"]
+        for candidate in direct_candidates:
+            if candidate.exists():
+                return candidate
+
+        for name in ("main.skb", "main.robot"):
+            recursive = next(extract_dir.rglob(name), None)
+            if recursive:
+                return recursive
+
+        return None

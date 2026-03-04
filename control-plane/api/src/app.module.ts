@@ -1,19 +1,8 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-
-// Entities
-import { Client } from './clients/entities/client.entity';
-import { Tenant } from './tenants/entities/tenant.entity';
-import { License } from './licenses/entities/license.entity';
-import { User } from './users/entities/user.entity';
-import { MarketplaceBot, BotVersion } from './marketplace/entities/marketplace-bot.entity';
-import { Partner } from './marketplace/entities/partner.entity';
-import { UsageRecord, UsageBatch } from './billing/entities/usage-record.entity';
-import { RevenueShareRecord, PartnerPayout } from './billing/entities/revenue-share.entity';
-import { TenantSubscription, PaymentHistory } from './billing/entities/subscription.entity';
-import { PaymentConfig } from './billing/entities/payment-config.entity';
-import { DiscoveredSchema } from './schemas/entities/discovered-schema.entity';
+import { buildTypeOrmOptions } from './database/typeorm-options';
+import { enforceEnvironmentPolicy } from './common/security/environment-policy';
 
 // Modules
 import { IntegrationsModule } from './integrations/integrations.module';
@@ -26,30 +15,31 @@ import { MarketplaceModule } from './marketplace/marketplace.module';
 import { BillingModule } from './billing/billing.module';
 import { SchemasModule } from './schemas/schemas.module';
 import { MCPModule } from './mcp/mcp.module';
+import { OrchestratorsModule } from './orchestrators/orchestrators.module';
+import { SsoModule } from './sso/sso.module';
+import { PublicLeadsModule } from './public-leads/public-leads.module';
+import { TicketsModule } from './tickets/tickets.module';
+import { LookupsModule } from './lookups/lookups.module';
+import { RbacModule } from './rbac/rbac.module';
+
+enforceEnvironmentPolicy(process.env);
 
 @Module({
   imports: [
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env.local', '.env'],
+      // Regulated environments should inject env vars from platform/vault.
+      // Local dotenv loading is opt-in via ALLOW_DOTENV=true.
+      ignoreEnvFile: process.env.ALLOW_DOTENV !== 'true',
+      envFilePath:
+        process.env.ALLOW_DOTENV === 'true' ? ['.env.local', '.env'] : undefined,
     }),
 
     // Database
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get<string>('DB_HOST', 'localhost'),
-        port: configService.get<number>('DB_PORT', 5432),
-        username: configService.get<string>('DB_USERNAME', 'skuld'),
-        password: configService.get<string>('DB_PASSWORD', 'skuld'),
-        database: configService.get<string>('DB_DATABASE', 'skuld_controlplane'),
-        entities: [Client, Tenant, License, User, MarketplaceBot, BotVersion, Partner, UsageRecord, UsageBatch, RevenueShareRecord, PartnerPayout, TenantSubscription, PaymentHistory, PaymentConfig, DiscoveredSchema],
-        synchronize: configService.get<string>('NODE_ENV') !== 'production',
-        logging: configService.get<string>('NODE_ENV') === 'development',
-      }),
-      inject: [ConfigService],
+      useFactory: () => buildTypeOrmOptions(process.env),
     }),
 
     // Integrations (global providers for payment, storage, email, graph)
@@ -61,9 +51,15 @@ import { MCPModule } from './mcp/mcp.module';
     TenantsModule,
     LicensesModule,
     UsersModule,
+    SsoModule,
     MarketplaceModule,
     BillingModule,
     SchemasModule,
+    OrchestratorsModule,
+    TicketsModule,
+    PublicLeadsModule,
+    LookupsModule,
+    RbacModule,
     
     // MCP Module (Model Context Protocol)
     MCPModule,

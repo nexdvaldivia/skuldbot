@@ -60,7 +60,7 @@ export function ConnectionsPanel() {
     }, 5 * 60 * 1000); // 5 minutes
 
     return () => clearInterval(interval);
-  }, [connections.length, checkHealth]);
+  }, [connections, checkHealth]);
 
   // Handle test connection
   const handleTest = async (id: string) => {
@@ -375,4 +375,3 @@ export function ConnectionsPanel() {
     </div>
   );
 }
-

@@ -28,7 +28,7 @@ import { FormBuilder } from "./FormBuilder";
 import { FormPreview } from "./FormPreview";
 import { ValidationBuilder } from "./ValidationBuilder";
 import { ProtectionBuilder } from "./ProtectionBuilder";
-import { FormFieldDefinition, OutputField, FlowNode, ValidationRule, ProtectionRule } from "../types/flow";
+import { FormFieldDefinition, OutputField, FlowEdge, FlowNode, ValidationRule, ProtectionRule } from "../types/flow";
 
 interface AvailableVariable {
   nodeId: string;
@@ -36,6 +36,97 @@ interface AvailableVariable {
   nodeType: string;
   field: OutputField;
   expression: string;
+  displayExpression?: string;
+}
+
+const EMPTY_NODES: FlowNode[] = [];
+const EMPTY_EDGES: FlowEdge[] = [];
+const UI_DATA_MASKING_CONFIG_KEY = "__ui_data_masking_enabled";
+const DEFAULT_DATA_MASKING_ENABLED = true;
+
+function buildNodeExpression(nodeId: string, path: string): string {
+  const normalizedPath = path.startsWith(".") ? path.slice(1) : path;
+  return `\${node:${nodeId}|${normalizedPath}}`;
+}
+
+function buildLabelExpression(nodeLabel: string, path: string): string {
+  return path.startsWith("[")
+    ? `\${${nodeLabel}${path}}`
+    : `\${${nodeLabel}.${path}}`;
+}
+
+interface AuthoringExpressionOptions {
+  nodeLabelById?: Map<string, string>;
+  nodeIdHint?: string;
+  nodeLabelHint?: string;
+  currentNodeId?: string;
+}
+
+function escapeNodeRef(nodeRef: string): string {
+  return nodeRef.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function canonicalToAuthoringExpression(
+  expression: string,
+  options: AuthoringExpressionOptions = {}
+): string {
+  const envMatch = expression.match(/^\$\{env\.([A-Za-z_][A-Za-z0-9_]*)\}$/);
+  if (envMatch) {
+    return `{{$env.${envMatch[1]}}}`;
+  }
+
+  const vaultMatch = expression.match(/^\$\{vault\.([A-Za-z_][A-Za-z0-9_]*)\}$/);
+  if (vaultMatch) {
+    return `{{$vault.${vaultMatch[1]}}}`;
+  }
+
+  const nodeMatch = expression.match(/^\$\{node:([^|}]+)\|(.+)\}$/);
+  if (!nodeMatch) {
+    return expression;
+  }
+
+  const [, nodeId, rawPath] = nodeMatch;
+  const path = rawPath.trim();
+  if (!path) {
+    return expression;
+  }
+
+  const currentNodeId = options.currentNodeId?.trim();
+  if (currentNodeId && nodeId === currentNodeId) {
+    if (path === "input") return "{{$json}}";
+    if (path.startsWith("input.")) {
+      return `{{$json.${path.slice("input.".length)}}}`;
+    }
+    if (path === "inputBinary") return "{{$binary}}";
+    if (path.startsWith("inputBinary.")) {
+      return `{{$binary.${path.slice("inputBinary.".length)}}}`;
+    }
+  }
+
+  let nodeRef: string | undefined;
+  if (options.nodeIdHint === nodeId && options.nodeLabelHint?.trim()) {
+    nodeRef = options.nodeLabelHint.trim();
+  }
+  if (!nodeRef && options.nodeLabelById) {
+    const mapped = options.nodeLabelById.get(nodeId)?.trim();
+    if (mapped) {
+      nodeRef = mapped;
+    }
+  }
+  if (!nodeRef) {
+    nodeRef = nodeId;
+  }
+
+  const escapedNodeRef = escapeNodeRef(nodeRef);
+  const pathSuffix = path.startsWith("[") ? path : `.${path}`;
+  return `{{$node["${escapedNodeRef}"]${pathSuffix}}}`;
+}
+
+function getDroppedExpression(e: React.DragEvent<HTMLElement>): string {
+  return (
+    e.dataTransfer.getData("application/x-skuld-expression") ||
+    e.dataTransfer.getData("text/plain")
+  );
 }
 
 // Expression input with autocomplete
@@ -46,6 +137,7 @@ interface ExpressionInputProps {
   suggestions: { label: string; value: string; description?: string }[];
   className?: string;
   multiline?: boolean;
+  transformExpression?: (expression: string) => string;
 }
 
 function ExpressionInput({
@@ -55,6 +147,7 @@ function ExpressionInput({
   suggestions,
   className = "",
   multiline = false,
+  transformExpression,
 }: ExpressionInputProps) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState(suggestions);
@@ -168,8 +261,11 @@ function ExpressionInput({
     e.preventDefault();
     setIsDragOver(false);
     
-    const expression = e.dataTransfer.getData('application/x-skuld-expression') || 
-                       e.dataTransfer.getData('text/plain');
+    const droppedExpression = e.dataTransfer.getData('application/x-skuld-expression') || 
+      e.dataTransfer.getData('text/plain');
+    const expression = droppedExpression
+      ? (transformExpression ? transformExpression(droppedExpression) : droppedExpression)
+      : "";
     
     if (expression) {
       // Insert at cursor position or append
@@ -190,7 +286,7 @@ function ExpressionInput({
         onChange(value + expression);
       }
     }
-  }, [value, onChange]);
+  }, [value, onChange, transformExpression]);
 
   const InputComponent = multiline ? 'textarea' : 'input';
   const baseClassName = multiline 
@@ -237,8 +333,13 @@ function ExpressionInput({
               onClick={() => insertSuggestion(suggestion)}
             >
               <span className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">
-                {suggestion.value}
+                {suggestion.label}
               </span>
+              {suggestion.label !== suggestion.value && (
+                <span className="font-mono text-[10px] text-slate-400 truncate">
+                  {suggestion.value}
+                </span>
+              )}
               {suggestion.description && (
                 <span className="text-xs text-slate-400 truncate">{suggestion.description}</span>
               )}
@@ -254,6 +355,7 @@ function ExpressionInput({
 interface OutputTreeNodeProps {
   label: string;
   type: "object" | "array";
+  nodeId: string;
   nodeLabel: string;
   fields: FormFieldDefinition[];
   copyExpression: (expr: string) => void;
@@ -263,6 +365,7 @@ interface OutputTreeNodeProps {
 
 function OutputTreeNode({
   label,
+  nodeId,
   nodeLabel,
   fields,
   copyExpression,
@@ -293,7 +396,8 @@ function OutputTreeNode({
       {isExpanded && (
         <>
           {fields.map((field, i) => {
-            const expression = `\${${nodeLabel}.formData.${field.id}}`;
+            const expression = buildNodeExpression(nodeId, `formData.${field.id}`);
+            const displayExpression = buildLabelExpression(nodeLabel, `formData.${field.id}`);
             const fieldIsLast = i === fields.length - 1;
             const fieldType = field.type === "number" ? "number" :
                              field.type === "checkbox" ? "boolean" : "string";
@@ -303,7 +407,7 @@ function OutputTreeNode({
                 key={field.id}
                 className="group pl-4 py-0.5 hover:bg-emerald-50 rounded cursor-pointer flex items-center gap-1"
                 onClick={() => copyExpression(expression)}
-                title={field.label ? `${field.label}\nClick to copy: ${expression}` : `Click to copy: ${expression}`}
+                title={field.label ? `${field.label}\nClick to copy: ${displayExpression}` : `Click to copy: ${displayExpression}`}
               >
                 <span className="text-emerald-600">&quot;{field.id}&quot;</span>
                 <span className="text-slate-400">:</span>
@@ -357,6 +461,7 @@ interface InputNodeTreeProps {
 interface SchemaArrayFieldProps {
   fieldName: string;
   items: { name: string; type: string; description?: string; items?: any }[];
+  nodeId: string;
   nodeLabel: string;
   description?: string;
   copyExpression: (expr: string) => void;
@@ -368,6 +473,7 @@ interface SchemaArrayFieldProps {
 function SchemaArrayField({
   fieldName,
   items,
+  nodeId,
   nodeLabel,
   copyExpression,
   copiedExpression,
@@ -423,7 +529,9 @@ function SchemaArrayField({
           {/* Nested fields */}
           {items.map((item, i) => {
             const basePath = isArray ? `${fieldName}[i]` : fieldName;
-            const itemExpression = `\${${nodeLabel}.${basePath}.${item.name}}`;
+            const itemPath = `${basePath}.${item.name}`;
+            const itemExpression = buildNodeExpression(nodeId, itemPath);
+            const itemDisplayExpression = buildLabelExpression(nodeLabel, itemPath);
             const itemIsLast = i === items.length - 1;
             const itemKey = `${fieldName}-${item.name}`;
             
@@ -460,7 +568,9 @@ function SchemaArrayField({
                         const nestedPath = item.type === "array" 
                           ? `${basePath}.${item.name}[j]` 
                           : `${basePath}.${item.name}`;
-                        const nestedExpr = `\${${nodeLabel}.${nestedPath}.${nested.name}}`;
+                        const nestedFieldPath = `${nestedPath}.${nested.name}`;
+                        const nestedExpr = buildNodeExpression(nodeId, nestedFieldPath);
+                        const nestedDisplayExpr = buildLabelExpression(nodeLabel, nestedFieldPath);
                         const nestedIsLast = ni === nestedFields.length - 1;
                         
                         return (
@@ -468,7 +578,7 @@ function SchemaArrayField({
                             key={nested.name}
                             className="group pl-4 py-0.5 hover:bg-pink-50 rounded cursor-pointer flex items-center gap-1"
                             onClick={() => copyExpression(nestedExpr)}
-                            title={nested.description ? `${nested.description}\nClick to copy: ${nestedExpr}` : `Click to copy: ${nestedExpr}`}
+                            title={nested.description ? `${nested.description}\nClick to copy: ${nestedDisplayExpr}` : `Click to copy: ${nestedDisplayExpr}`}
                           >
                             <span className="text-pink-500">&quot;{nested.name}&quot;</span>
                             <span className="text-slate-400">:</span>
@@ -504,7 +614,7 @@ function SchemaArrayField({
                 key={item.name}
                 className="group pl-8 py-0.5 hover:bg-pink-50 rounded cursor-pointer flex items-center gap-1"
                 onClick={() => copyExpression(itemExpression)}
-                title={item.description ? `${item.description}\nClick to copy: ${itemExpression}` : `Click to copy: ${itemExpression}`}
+                title={item.description ? `${item.description}\nClick to copy: ${itemDisplayExpression}` : `Click to copy: ${itemDisplayExpression}`}
               >
                 <span className="text-pink-600">&quot;{item.name}&quot;</span>
                 <span className="text-slate-400">:</span>
@@ -588,17 +698,20 @@ function GlobalInputTree({
             <div className="text-[10px] text-slate-400 py-1">{emptyMessage}</div>
           ) : (
             variables.map((variable) => (
+              (() => {
+                const authoringExpression = canonicalToAuthoringExpression(variable.value);
+                return (
               <div
                 key={variable.value}
                 draggable
                 onDragStart={(e) => {
-                  e.dataTransfer.setData('text/plain', variable.value);
-                  e.dataTransfer.setData('application/x-skuld-expression', variable.value);
+                  e.dataTransfer.setData('text/plain', authoringExpression);
+                  e.dataTransfer.setData('application/x-skuld-expression', authoringExpression);
                   e.dataTransfer.effectAllowed = 'copy';
                 }}
                 className={`group py-0.5 ${hoverBg} rounded cursor-grab active:cursor-grabbing flex items-center gap-1 px-1`}
                 onClick={() => copyExpression(variable.value)}
-                title={variable.description ? `${variable.description}\nDrag to field or click to copy: ${variable.value}` : `Drag to field or click to copy: ${variable.value}`}
+                title={variable.description ? `${variable.description}\nDrag to field or click to copy: ${authoringExpression}` : `Drag to field or click to copy: ${authoringExpression}`}
               >
                 <GripVertical className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 flex-shrink-0" />
                 <span className={iconColor}>&quot;{variable.label}&quot;</span>
@@ -610,6 +723,8 @@ function GlobalInputTree({
                   <Copy className="w-3 h-3 text-slate-300 ml-auto opacity-0 group-hover:opacity-100" />
                 )}
               </div>
+                );
+              })()
             ))
           )}
         </div>
@@ -623,6 +738,7 @@ interface ExpandableJsonNodeProps {
   keyName: string | number;
   value: any;
   path: string;
+  nodeId: string;
   nodeLabel: string;
   copyExpression: (expr: string) => void;
   copiedExpression: string | null;
@@ -634,6 +750,7 @@ function ExpandableJsonNode({
   keyName,
   value,
   path,
+  nodeId,
   nodeLabel,
   copyExpression,
   copiedExpression,
@@ -645,7 +762,8 @@ function ExpandableJsonNode({
   const isArray = Array.isArray(value);
   const isObject = typeof value === "object" && value !== null && !isArray;
   const isExpandable = isArray || isObject;
-  const expression = `\${${nodeLabel}.${path}}`;
+  const expression = buildNodeExpression(nodeId, path);
+  const displayExpression = buildLabelExpression(nodeLabel, path);
   
   // Format the key display
   const displayKey = typeof keyName === "number" ? `item ${keyName + 1}` : keyName;
@@ -683,7 +801,7 @@ function ExpandableJsonNode({
         <div
           className="group py-1 hover:bg-emerald-50 rounded cursor-pointer pl-4"
           onClick={() => copyExpression(expression)}
-          title={`Click to copy: ${expression}`}
+          title={`Click to copy: ${displayExpression}`}
         >
           <div className="flex items-center gap-1">
             <span className={keyColor}>&quot;{displayKey}&quot;</span>
@@ -706,7 +824,7 @@ function ExpandableJsonNode({
       <div
         className="group py-0.5 hover:bg-emerald-50 rounded cursor-pointer flex items-center gap-1 pl-4"
         onClick={() => copyExpression(expression)}
-        title={`Click to copy: ${expression}`}
+        title={`Click to copy: ${displayExpression}`}
       >
         <span className={keyColor}>&quot;{displayKey}&quot;</span>
         <span className="text-slate-400">:</span>
@@ -755,6 +873,7 @@ function ExpandableJsonNode({
                 keyName={i}
                 value={item}
                 path={`${path}[${i}]`}
+                nodeId={nodeId}
                 nodeLabel={nodeLabel}
                 copyExpression={copyExpression}
                 copiedExpression={copiedExpression}
@@ -768,6 +887,7 @@ function ExpandableJsonNode({
                 keyName={k}
                 value={v}
                 path={path ? `${path}.${k}` : k}
+                nodeId={nodeId}
                 nodeLabel={nodeLabel}
                 copyExpression={copyExpression}
                 copiedExpression={copiedExpression}
@@ -782,8 +902,9 @@ function ExpandableJsonNode({
   );
 }
 
-// Live data tree component for showing real execution data (n8n-style)
+// Live data tree component for showing real execution data (flow-style)
 interface LiveDataTreeProps {
+  nodeId: string;
   nodeLabel: string;
   data: any;
   copyExpression: (expr: string) => void;
@@ -791,6 +912,7 @@ interface LiveDataTreeProps {
 }
 
 function LiveDataTree({
+  nodeId,
   nodeLabel,
   data,
   copyExpression,
@@ -875,8 +997,8 @@ function LiveDataTree({
                     <tr 
                       key={i} 
                       className="hover:bg-green-100 cursor-pointer group"
-                      onClick={() => copyExpression(`\${${nodeLabel}[${i}]}`)}
-                      title={`Click to copy: \${${nodeLabel}[${i}]}`}
+                      onClick={() => copyExpression(buildNodeExpression(nodeId, `[${i}]`))}
+                      title={`Click to copy: ${buildLabelExpression(nodeLabel, `[${i}]`)}`}
                     >
                       <td className="px-2 py-1 text-green-500 border-b border-green-100">{i}</td>
                       {tableColumns.map(col => (
@@ -915,6 +1037,7 @@ function LiveDataTree({
                     keyName={i}
                     value={item}
                     path={`[${i}]`}
+                    nodeId={nodeId}
                     nodeLabel={nodeLabel}
                     copyExpression={copyExpression}
                     copiedExpression={copiedExpression}
@@ -929,6 +1052,7 @@ function LiveDataTree({
                     keyName={key}
                     value={value}
                     path={key}
+                    nodeId={nodeId}
                     nodeLabel={nodeLabel}
                     copyExpression={copyExpression}
                     copiedExpression={copiedExpression}
@@ -948,7 +1072,7 @@ function LiveDataTree({
 }
 
 function InputNodeTree({
-  nodeId: _nodeId, // Reserved for future use
+  nodeId,
   nodeLabel,
   regularFields,
   formDataFields,
@@ -956,7 +1080,6 @@ function InputNodeTree({
   copyExpression,
   copiedExpression,
 }: InputNodeTreeProps) {
-  void _nodeId; // Suppress unused warning
   const [isExpanded, setIsExpanded] = useState(true);
   const [isFormDataExpanded, setIsFormDataExpanded] = useState(true);
   const [expandedArrays, setExpandedArrays] = useState<Set<string>>(new Set());
@@ -980,25 +1103,30 @@ function InputNodeTree({
 
   // Recursive component for nested fields
   const renderNestedField = (field: DiscoveredField, basePath: string, depth: number = 0) => {
-    const expression = `\${${nodeLabel}.${basePath}}`;
+    const expression = buildNodeExpression(nodeId, basePath);
+    const displayExpression = buildLabelExpression(nodeLabel, basePath);
     const hasChildren = (field.type === 'array' && field.items && field.items.length > 0) ||
                        (field.type === 'object' && field.fields && field.fields.length > 0);
     const isArrayExpanded = expandedArrays.has(basePath);
     
     if (!hasChildren) {
+      const authoringExpression = canonicalToAuthoringExpression(expression, {
+        nodeIdHint: nodeId,
+        nodeLabelHint: nodeLabel,
+      });
       return (
         <div
           key={basePath}
           draggable
           onDragStart={(e) => {
-            e.dataTransfer.setData('text/plain', expression);
-            e.dataTransfer.setData('application/x-skuld-expression', expression);
+            e.dataTransfer.setData('text/plain', authoringExpression);
+            e.dataTransfer.setData('application/x-skuld-expression', authoringExpression);
             e.dataTransfer.effectAllowed = 'copy';
           }}
           className="group py-0.5 hover:bg-blue-50 rounded cursor-grab active:cursor-grabbing flex items-center gap-1 px-1"
           style={{ paddingLeft: `${depth * 12 + 4}px` }}
           onClick={() => copyExpression(expression)}
-          title={`Drag to field or click to copy: ${expression}`}
+          title={`Drag to field or click to copy: ${displayExpression}`}
         >
           <GripVertical className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 flex-shrink-0" />
           <span className="text-blue-600">&quot;{field.name}&quot;</span>
@@ -1107,13 +1235,17 @@ function InputNodeTree({
                 key={i}
                 draggable
                 onDragStart={(e) => {
-                  e.dataTransfer.setData('text/plain', v.expression);
-                  e.dataTransfer.setData('application/x-skuld-expression', v.expression);
+                  const authoringExpression = canonicalToAuthoringExpression(v.expression, {
+                    nodeIdHint: v.nodeId,
+                    nodeLabelHint: v.nodeLabel,
+                  });
+                  e.dataTransfer.setData('text/plain', authoringExpression);
+                  e.dataTransfer.setData('application/x-skuld-expression', authoringExpression);
                   e.dataTransfer.effectAllowed = 'copy';
                 }}
                 className="group py-0.5 hover:bg-blue-50 rounded cursor-grab active:cursor-grabbing flex items-center gap-1 px-1"
                 onClick={() => copyExpression(v.expression)}
-                title={v.field.description ? `${v.field.description}\nDrag to field or click to copy: ${v.expression}` : `Drag to field or click to copy: ${v.expression}`}
+                title={v.field.description ? `${v.field.description}\nDrag to field or click to copy: ${v.displayExpression || v.expression}` : `Drag to field or click to copy: ${v.displayExpression || v.expression}`}
               >
                 <GripVertical className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 flex-shrink-0" />
                 <span className="text-blue-600">&quot;{displayName}&quot;</span>
@@ -1170,7 +1302,7 @@ function InputNodeTree({
                         key={i}
                         className="group py-0.5 hover:bg-blue-50 rounded cursor-pointer flex items-center gap-1 px-1"
                         onClick={() => copyExpression(v.expression)}
-                        title={v.field.description ? `${v.field.description}\nClick to copy: ${v.expression}` : `Click to copy: ${v.expression}`}
+                        title={v.field.description ? `${v.field.description}\nClick to copy: ${v.displayExpression || v.expression}` : `Click to copy: ${v.displayExpression || v.expression}`}
                       >
                         <span className="text-blue-600">&quot;{fieldId}&quot;</span>
                         <span className="text-slate-400">:</span>
@@ -1226,9 +1358,10 @@ export default function NodeConfigPanel() {
   const [loadingSheets, setLoadingSheets] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionTestResult, setConnectionTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [activeDropField, setActiveDropField] = useState<string | null>(null);
   
   // Data masking for regulated industries (HIPAA, PCI-DSS)
-  const [dataMaskingEnabled, setDataMaskingEnabled] = useState(false);
+  const [dataMaskingEnabled, setDataMaskingEnabled] = useState(DEFAULT_DATA_MASKING_ENABLED);
   const maskingPolicy: MaskingPolicy = {
     ...DEFAULT_MASKING_POLICY,
     enabled: dataMaskingEnabled,
@@ -1245,8 +1378,18 @@ export default function NodeConfigPanel() {
   // Get nodes and edges from appropriate store
   const activeBot = isProjectMode ? projectStore.bots.get(projectStore.activeBotId || "") : null;
   const activeBotId = projectStore.activeBotId;
-  const nodes = isProjectMode ? (activeBot?.nodes || []) : flowStore.nodes;
-  const edges = isProjectMode ? (activeBot?.edges || []) : flowStore.edges;
+  const nodes = isProjectMode ? (activeBot?.nodes ?? EMPTY_NODES) : flowStore.nodes;
+  const edges = isProjectMode ? (activeBot?.edges ?? EMPTY_EDGES) : flowStore.edges;
+  const nodeLabelById = useMemo(() => {
+    const out = new Map<string, string>();
+    nodes.forEach((n) => {
+      const label = n.data?.label?.trim();
+      if (label) {
+        out.set(n.id, label);
+      }
+    });
+    return out;
+  }, [nodes]);
 
   // Update function depends on mode
   const updateNode = (id: string, data: Partial<FlowNode["data"]>) => {
@@ -1273,6 +1416,31 @@ export default function NodeConfigPanel() {
   };
 
   const node = selectedNode ? nodes.find(n => n.id === selectedNode.id) ?? null : null;
+
+  useEffect(() => {
+    if (!node) return;
+
+    const persistedValue = node.data.config?.[UI_DATA_MASKING_CONFIG_KEY];
+    const resolvedValue =
+      typeof persistedValue === "boolean" ? persistedValue : DEFAULT_DATA_MASKING_ENABLED;
+
+    setDataMaskingEnabled(resolvedValue);
+
+    if (typeof persistedValue !== "boolean") {
+      updateNode(node.id, {
+        config: {
+          ...node.data.config,
+          [UI_DATA_MASKING_CONFIG_KEY]: resolvedValue,
+        },
+      });
+    }
+    // Intentionally scoped to node identity/config value to avoid update loops from updateNode closure recreation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node?.id, node?.data.config?.[UI_DATA_MASKING_CONFIG_KEY]]);
+
+  useEffect(() => {
+    setActiveDropField(null);
+  }, [node?.id]);
 
   // Get all predecessor nodes (nodes that come before this one in the flow)
   const predecessorNodes = useMemo(() => {
@@ -1347,6 +1515,31 @@ export default function NodeConfigPanel() {
       });
     }
 
+    // Current node runtime input context (flow-style)
+    if (node) {
+      const currentInputFields: Array<{ name: string; type: OutputField["type"]; description: string }> = [
+        { name: "input", type: "object", description: "Current node primary input payload" },
+        { name: "inputItems", type: "array", description: "Current node input items collection" },
+        { name: "inputBinary", type: "object", description: "Current node binary input payload" },
+        { name: "inputMeta", type: "object", description: "Current node input metadata" },
+        { name: "inputErrors", type: "array", description: "Current node upstream errors list" },
+      ];
+      currentInputFields.forEach((f) => {
+        variables.push({
+          nodeId: node.id,
+          nodeLabel: `${node.data.label} (current)`,
+          nodeType: node.data.nodeType,
+          field: {
+            name: f.name,
+            type: f.type,
+            description: f.description,
+          },
+          expression: buildNodeExpression(node.id, f.name),
+          displayExpression: buildLabelExpression(node.data.label, f.name),
+        });
+      });
+    }
+
     for (const predNode of predecessorNodes) {
       const template = getNodeTemplate(predNode.data.nodeType);
 
@@ -1361,7 +1554,8 @@ export default function NodeConfigPanel() {
           type: "string",
           description: "Main output/result from this node",
         },
-        expression: `\${${predNode.data.label}.output}`,
+        expression: buildNodeExpression(predNode.id, "output"),
+        displayExpression: buildLabelExpression(predNode.data.label, "output"),
       });
       variables.push({
         nodeId: predNode.id,
@@ -1372,7 +1566,8 @@ export default function NodeConfigPanel() {
           type: "string",
           description: "Error message if node failed",
         },
-        expression: `\${${predNode.data.label}.error}`,
+        expression: buildNodeExpression(predNode.id, "error"),
+        displayExpression: buildLabelExpression(predNode.data.label, "error"),
       });
       variables.push({
         nodeId: predNode.id,
@@ -1383,7 +1578,68 @@ export default function NodeConfigPanel() {
           type: "string",
           description: "Node execution status (pending, success, error)",
         },
-        expression: `\${${predNode.data.label}.status}`,
+        expression: buildNodeExpression(predNode.id, "status"),
+        displayExpression: buildLabelExpression(predNode.data.label, "status"),
+      });
+      variables.push({
+        nodeId: predNode.id,
+        nodeLabel: predNode.data.label,
+        nodeType: predNode.data.nodeType,
+        field: {
+          name: "json",
+          type: "object",
+          description: "Canonical primary payload for this node (flow-style)",
+        },
+        expression: buildNodeExpression(predNode.id, "json"),
+        displayExpression: buildLabelExpression(predNode.data.label, "json"),
+      });
+      variables.push({
+        nodeId: predNode.id,
+        nodeLabel: predNode.data.label,
+        nodeType: predNode.data.nodeType,
+        field: {
+          name: "items",
+          type: "array",
+          description: "Canonical item collection for this node",
+        },
+        expression: buildNodeExpression(predNode.id, "items"),
+        displayExpression: buildLabelExpression(predNode.data.label, "items"),
+      });
+      variables.push({
+        nodeId: predNode.id,
+        nodeLabel: predNode.data.label,
+        nodeType: predNode.data.nodeType,
+        field: {
+          name: "binary",
+          type: "object",
+          description: "Binary payload of the first item",
+        },
+        expression: buildNodeExpression(predNode.id, "binary"),
+        displayExpression: buildLabelExpression(predNode.data.label, "binary"),
+      });
+      variables.push({
+        nodeId: predNode.id,
+        nodeLabel: predNode.data.label,
+        nodeType: predNode.data.nodeType,
+        field: {
+          name: "meta",
+          type: "object",
+          description: "Execution metadata (node, status, itemCount, timestamp)",
+        },
+        expression: buildNodeExpression(predNode.id, "meta"),
+        displayExpression: buildLabelExpression(predNode.data.label, "meta"),
+      });
+      variables.push({
+        nodeId: predNode.id,
+        nodeLabel: predNode.data.label,
+        nodeType: predNode.data.nodeType,
+        field: {
+          name: "errors",
+          type: "array",
+          description: "Structured node errors list",
+        },
+        expression: buildNodeExpression(predNode.id, "errors"),
+        displayExpression: buildLabelExpression(predNode.data.label, "errors"),
       });
 
       // Add template-defined output schema fields
@@ -1394,7 +1650,8 @@ export default function NodeConfigPanel() {
             nodeLabel: predNode.data.label,
             nodeType: predNode.data.nodeType,
             field,
-            expression: `\${${predNode.data.label}.${field.name}}`,
+            expression: buildNodeExpression(predNode.id, field.name),
+            displayExpression: buildLabelExpression(predNode.data.label, field.name),
           });
         }
       }
@@ -1412,7 +1669,8 @@ export default function NodeConfigPanel() {
               type: formField.type === "number" ? "number" : formField.type === "checkbox" ? "boolean" : "string",
               description: formField.label,
             },
-            expression: `\${${predNode.data.label}.formData.${formField.id}}`,
+            expression: buildNodeExpression(predNode.id, `formData.${formField.id}`),
+            displayExpression: buildLabelExpression(predNode.data.label, `formData.${formField.id}`),
           });
         }
       }
@@ -1433,7 +1691,8 @@ export default function NodeConfigPanel() {
                 type: "string",
                 description: `Column: ${colName}`,
               },
-              expression: `\${${predNode.data.label}.row.${colName}}`,
+              expression: buildNodeExpression(predNode.id, `row.${colName}`),
+              displayExpression: buildLabelExpression(predNode.data.label, `row.${colName}`),
             });
           }
         }
@@ -1465,7 +1724,7 @@ export default function NodeConfigPanel() {
     }
 
     return variables;
-  }, [predecessorNodes, hasErrorConnection]);
+  }, [node, predecessorNodes, hasErrorConnection]);
 
   // Check if this is an Excel node and load sheets when file path changes
   const isExcelNode = node?.data.nodeType?.startsWith("excel.");
@@ -1594,11 +1853,43 @@ export default function NodeConfigPanel() {
   // Combined suggestions for expression autocomplete
   const allExpressionSuggestions = useMemo(() => {
     const suggestions: { label: string; value: string; description?: string }[] = [];
+
+    suggestions.push(
+      {
+        label: "{{$json}}",
+        value: "{{$json}}",
+        description: "flow-style: current node input payload",
+      },
+      {
+        label: "{{$json.customer[0].email}}",
+        value: "{{$json.customer[0].email}}",
+        description: "flow-style: input path with array index",
+      },
+      {
+        label: "{{$env.MY_VAR}}",
+        value: "{{$env.MY_VAR}}",
+        description: "flow-style env variable reference",
+      },
+      {
+        label: "{{$vault.my_secret}}",
+        value: "{{$vault.my_secret}}",
+        description: "flow-style vault secret reference",
+      }
+    );
+
+    const firstUpstream = predecessorNodes[0];
+    if (firstUpstream) {
+      suggestions.push({
+        label: `{{$node["${firstUpstream.data.label}"].json}}`,
+        value: `{{$node["${firstUpstream.data.label}"].json}}`,
+        description: "flow-style: reference upstream node output",
+      });
+    }
     
     // Add node output variables
     availableVariables.forEach(v => {
       suggestions.push({
-        label: v.expression,
+        label: v.displayExpression || v.expression,
         value: v.expression,
         description: `${v.nodeLabel}: ${v.field.description || v.field.name}`,
       });
@@ -1615,7 +1906,7 @@ export default function NodeConfigPanel() {
     });
     
     return suggestions;
-  }, [availableVariables, envVariableOptions, vaultVariableOptions]);
+  }, [availableVariables, envVariableOptions, vaultVariableOptions, predecessorNodes]);
 
   // Get discovered schema if available (from runtime) - MUST be before early returns
   // Passes nodeType to also check global type-based schemas
@@ -1719,12 +2010,30 @@ export default function NodeConfigPanel() {
     });
   };
 
+  const handleDataMaskingToggle = () => {
+    const nextValue = !dataMaskingEnabled;
+    setDataMaskingEnabled(nextValue);
+    updateNode(node.id, {
+      config: {
+        ...node.data.config,
+        [UI_DATA_MASKING_CONFIG_KEY]: nextValue,
+      },
+    });
+  };
+
   const handleLabelChange = (label: string) => {
     updateNode(node.id, { label });
   };
 
+  const toAuthoringExpression = (expression: string) =>
+    canonicalToAuthoringExpression(expression, {
+      currentNodeId: node.id,
+      nodeLabelById,
+    });
+
   const copyExpression = (expression: string) => {
-    navigator.clipboard.writeText(expression);
+    const authoringExpression = toAuthoringExpression(expression);
+    navigator.clipboard.writeText(authoringExpression);
     setCopiedExpression(expression);
     setTimeout(() => setCopiedExpression(null), 2000);
   };
@@ -1799,43 +2108,99 @@ export default function NodeConfigPanel() {
         >
           {/* INPUT PANEL - Variables from previous nodes (Tree View) */}
           {hasInputPanel && (() => {
+            const currentNodeExecution =
+              sessionState?.nodeExecutions?.[node.id] ||
+              executionHistory.find((e) => e.nodeId === node.id);
+            const currentNodeInput = currentNodeExecution?.input;
+
             // Check if any predecessor has live data
-            const hasLiveInputData = predecessorNodes.some(predNode =>
-              sessionState?.nodeExecutions?.[predNode.id]?.output !== undefined
-            );
+            const hasLiveInputData =
+              currentNodeInput !== undefined ||
+              predecessorNodes.some((predNode) => {
+                const predExecution =
+                  sessionState?.nodeExecutions?.[predNode.id] ||
+                  executionHistory.find((e) => e.nodeId === predNode.id);
+                return predExecution?.output !== undefined;
+              });
 
             return (
               <div className="w-80 border-r bg-slate-50/80 flex flex-col flex-shrink-0">
-                <div className={`px-4 py-3 border-b flex items-center gap-2 ${hasLiveInputData ? 'bg-green-50/80' : 'bg-blue-50/80'}`}>
-                  <div className={`w-2.5 h-2.5 rounded-full ${hasLiveInputData ? 'bg-green-500 animate-pulse' : 'bg-blue-500'}`} />
-                  <span className={`text-xs font-semibold uppercase tracking-wide ${hasLiveInputData ? 'text-green-700' : 'text-blue-700'}`}>Input</span>
+                <div className="px-4 py-3 border-b flex items-center gap-2 bg-blue-50/80">
+                  <div className={`w-2.5 h-2.5 rounded-full ${hasLiveInputData ? 'bg-blue-500 animate-pulse' : 'bg-blue-400'}`} />
+                  <span className="text-xs font-semibold uppercase tracking-wide text-blue-700">Input</span>
                   {hasLiveInputData && (
-                    <span className="text-[9px] text-green-600 bg-green-200 px-1.5 py-0.5 rounded-full font-semibold">LIVE</span>
+                    <span className="text-[9px] text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded-full font-semibold">LIVE</span>
                   )}
-                  <span className={`text-[10px] ml-auto px-1.5 py-0.5 rounded-full ${hasLiveInputData ? 'text-green-500 bg-green-100' : 'text-blue-500 bg-blue-100'}`}>
+                  <span className="text-[10px] ml-auto px-1.5 py-0.5 rounded-full text-blue-500 bg-blue-100">
                     {totalInputCount}
                   </span>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-3">
+                  {/* Current node real incoming payload (highest fidelity) */}
+                  {currentNodeInput !== undefined && (() => {
+                    let parsedInput = currentNodeInput;
+                    if (typeof parsedInput === "string") {
+                      try {
+                        parsedInput = JSON.parse(parsedInput);
+                      } catch {
+                        // keep raw string if not valid json
+                      }
+                    }
+                    return (
+                      <LiveDataTree
+                        key={`${node.id}-input-live`}
+                        nodeId={node.id}
+                        nodeLabel={`${node.data.label} (incoming)`}
+                        data={parsedInput}
+                        copyExpression={copyExpression}
+                        copiedExpression={copiedExpression}
+                      />
+                    );
+                  })()}
+
+                  {/* Current node input context expressions (when no live payload yet) */}
+                  {currentNodeInput === undefined && (() => {
+                    const currentNodeVars = availableVariables.filter((v) => v.nodeId === node.id);
+                    if (currentNodeVars.length === 0) return null;
+                    return (
+                      <InputNodeTree
+                        key={`${node.id}-input-context`}
+                        nodeId={node.id}
+                        nodeLabel={`${node.data.label} (current input)`}
+                        regularFields={currentNodeVars}
+                        formDataFields={[]}
+                        copyExpression={copyExpression}
+                        copiedExpression={copiedExpression}
+                      />
+                    );
+                  })()}
+
                   {/* Group variables by node - show LIVE data if available */}
                   {predecessorNodes.map((predNode) => {
                     const nodeVars = availableVariables.filter(v => v.nodeId === predNode.id);
-                    const predExecution = sessionState?.nodeExecutions?.[predNode.id];
+                    const predExecution =
+                      sessionState?.nodeExecutions?.[predNode.id] ||
+                      executionHistory.find((e) => e.nodeId === predNode.id);
                     const hasLiveData = predExecution?.output !== undefined;
 
                     if (nodeVars.length === 0 && !hasLiveData) return null;
 
-                    // Show LIVE data if available (n8n-style)
+                    // Show LIVE data if available (flow-style)
                     if (hasLiveData) {
                       // Parse JSON string if needed
                       let parsedData = predExecution.output;
                       if (typeof parsedData === 'string') {
-                        try { parsedData = JSON.parse(parsedData); } catch {}
+                        try {
+                          parsedData = JSON.parse(parsedData);
+                        } catch {
+                          // Keep original string when output is not valid JSON.
+                        }
                       }
                       return (
                         <LiveDataTree
                           key={predNode.id}
+                          nodeId={predNode.id}
                           nodeLabel={predNode.data.label}
                           data={parsedData}
                           copyExpression={copyExpression}
@@ -2042,6 +2407,8 @@ export default function NodeConfigPanel() {
                       const isPathField = /path|file|directory|folder/i.test(field.name) ||
                                          /path|file|directory|folder/i.test(field.label);
                       const isSheetField = isExcelNode && /^sheet$/i.test(field.name);
+                      const supportsDrop = field.supportsExpressions !== false;
+                      const isDropActive = activeDropField === field.name;
 
                       const handleBrowse = async () => {
                         try {
@@ -2056,6 +2423,49 @@ export default function NodeConfigPanel() {
                         } catch (err) {
                           console.error('Failed to open file dialog:', err);
                         }
+                      };
+
+                      const handleTextInputDragOver = (e: React.DragEvent<HTMLInputElement>) => {
+                        if (!supportsDrop) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "copy";
+                        setActiveDropField(field.name);
+                      };
+
+                      const handleTextInputDragEnter = (e: React.DragEvent<HTMLInputElement>) => {
+                        if (!supportsDrop) return;
+                        e.preventDefault();
+                        setActiveDropField(field.name);
+                      };
+
+                      const handleTextInputDragLeave = (e: React.DragEvent<HTMLInputElement>) => {
+                        if (!supportsDrop) return;
+                        if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+                        setActiveDropField((prev) => (prev === field.name ? null : prev));
+                      };
+
+                      const handleTextInputDrop = (e: React.DragEvent<HTMLInputElement>) => {
+                        if (!supportsDrop) return;
+                        e.preventDefault();
+                        setActiveDropField((prev) => (prev === field.name ? null : prev));
+                        const droppedExpression = getDroppedExpression(e);
+                        const expression = droppedExpression
+                          ? toAuthoringExpression(droppedExpression)
+                          : "";
+                        if (!expression) return;
+
+                        const currentValue = String(node.data.config[field.name] || "");
+                        const start = e.currentTarget.selectionStart ?? currentValue.length;
+                        const end = e.currentTarget.selectionEnd ?? currentValue.length;
+                        const nextValue =
+                          currentValue.slice(0, start) + expression + currentValue.slice(end);
+                        handleConfigChange(field.name, nextValue);
+
+                        requestAnimationFrame(() => {
+                          e.currentTarget.focus();
+                          const cursorPos = start + expression.length;
+                          e.currentTarget.setSelectionRange(cursorPos, cursorPos);
+                        });
                       };
 
                       // Sheet field with dynamic sheets from Excel file
@@ -2087,22 +2497,48 @@ export default function NodeConfigPanel() {
                             type="text"
                             value={node.data.config[field.name] || ""}
                             onChange={(e) => handleConfigChange(field.name, e.target.value)}
-                            placeholder={loadingSheets ? "Loading sheets..." : "Select a file first or type sheet name"}
-                            className="h-9"
+                            onDragEnter={handleTextInputDragEnter}
+                            onDragOver={handleTextInputDragOver}
+                            onDragLeave={handleTextInputDragLeave}
+                            onDrop={handleTextInputDrop}
+                            placeholder={
+                              isDropActive
+                                ? "Drop variable here..."
+                                : loadingSheets
+                                  ? "Loading sheets..."
+                                  : "Select a file first or type sheet name"
+                            }
+                            className={`h-9 ${
+                              isDropActive
+                                ? "bg-blue-50 border-blue-400 ring-2 ring-blue-300 ring-offset-1"
+                                : ""
+                            }`}
                             disabled={loadingSheets}
                           />
                         );
                       }
 
                       return isPathField ? (
-                        <div className="flex gap-2">
+                        <div
+                          className={`flex gap-2 rounded-md ${
+                            isDropActive
+                              ? "bg-blue-50/60 ring-2 ring-blue-300 ring-offset-1 px-1 py-1"
+                              : ""
+                          }`}
+                        >
                           <Input
                             id={field.name}
                             type="text"
                             value={node.data.config[field.name] || ""}
                             onChange={(e) => handleConfigChange(field.name, e.target.value)}
-                            placeholder={field.placeholder}
-                            className="h-9 flex-1"
+                            onDragEnter={handleTextInputDragEnter}
+                            onDragOver={handleTextInputDragOver}
+                            onDragLeave={handleTextInputDragLeave}
+                            onDrop={handleTextInputDrop}
+                            placeholder={isDropActive ? "Drop variable here..." : field.placeholder}
+                            className={`h-9 flex-1 ${
+                              isDropActive ? "border-blue-400 bg-blue-50" : ""
+                            }`}
                           />
                           <Button
                             type="button"
@@ -2121,6 +2557,7 @@ export default function NodeConfigPanel() {
                           onChange={(value) => handleConfigChange(field.name, value)}
                           placeholder={field.placeholder}
                           suggestions={allExpressionSuggestions}
+                          transformExpression={toAuthoringExpression}
                         />
                       );
                     })()
@@ -2133,6 +2570,7 @@ export default function NodeConfigPanel() {
                       placeholder={field.placeholder}
                       suggestions={allExpressionSuggestions}
                       multiline={true}
+                      transformExpression={toAuthoringExpression}
                     />
                   )}
 
@@ -2263,8 +2701,48 @@ export default function NodeConfigPanel() {
                       type="password"
                       value={node.data.config[field.name] || ""}
                       onChange={(e) => handleConfigChange(field.name, e.target.value)}
-                      placeholder={field.placeholder}
-                      className="h-9"
+                      onDragEnter={(e) => {
+                        if (!field.supportsExpressions) return;
+                        e.preventDefault();
+                        setActiveDropField(field.name);
+                      }}
+                      onDragOver={(e) => {
+                        if (!field.supportsExpressions) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "copy";
+                        setActiveDropField(field.name);
+                      }}
+                      onDragLeave={(e) => {
+                        if (!field.supportsExpressions) return;
+                        if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+                        setActiveDropField((prev) => (prev === field.name ? null : prev));
+                      }}
+                      onDrop={(e) => {
+                        if (!field.supportsExpressions) return;
+                        e.preventDefault();
+                        setActiveDropField((prev) => (prev === field.name ? null : prev));
+                        const expression = getDroppedExpression(e);
+                        if (!expression) return;
+
+                        const currentValue = String(node.data.config[field.name] || "");
+                        const start = e.currentTarget.selectionStart ?? currentValue.length;
+                        const end = e.currentTarget.selectionEnd ?? currentValue.length;
+                        const nextValue =
+                          currentValue.slice(0, start) + expression + currentValue.slice(end);
+                        handleConfigChange(field.name, nextValue);
+
+                        requestAnimationFrame(() => {
+                          e.currentTarget.focus();
+                          const cursorPos = start + expression.length;
+                          e.currentTarget.setSelectionRange(cursorPos, cursorPos);
+                        });
+                      }}
+                      placeholder={activeDropField === field.name ? "Drop variable here..." : field.placeholder}
+                      className={`h-9 ${
+                        activeDropField === field.name
+                          ? "bg-blue-50 border-blue-400 ring-2 ring-blue-300 ring-offset-1"
+                          : ""
+                      }`}
                     />
                   )}
 
@@ -2386,6 +2864,31 @@ export default function NodeConfigPanel() {
               : rawDisplayData;
             const hasData = displayData !== undefined;
             const hasError = nodeStatus === "error" && nodeError;
+            const envelopeData =
+              displayData &&
+              typeof displayData === "object" &&
+              !Array.isArray(displayData) &&
+              "items" in (displayData as Record<string, unknown>) &&
+              "json" in (displayData as Record<string, unknown>) &&
+              "meta" in (displayData as Record<string, unknown>)
+                ? (displayData as Record<string, unknown>)
+                : null;
+            const livePayloadData =
+              envelopeData && envelopeData.json !== undefined ? envelopeData.json : displayData;
+            const hasPayloadData = livePayloadData !== undefined;
+            const envelopeMeta =
+              envelopeData &&
+              envelopeData.meta &&
+              typeof envelopeData.meta === "object" &&
+              !Array.isArray(envelopeData.meta)
+                ? (envelopeData.meta as Record<string, unknown>)
+                : null;
+            const envelopeItemCount =
+              envelopeMeta && typeof envelopeMeta.itemCount === "number"
+                ? envelopeMeta.itemCount
+                : envelopeData && Array.isArray(envelopeData.items)
+                  ? envelopeData.items.length
+                  : undefined;
 
             // Determine header style based on state
             const getHeaderStyle = () => {
@@ -2422,10 +2925,15 @@ export default function NodeConfigPanel() {
                 {!hasError && !isPinned && hasData && (
                   <span className="text-[9px] text-green-600 bg-green-200 px-1.5 py-0.5 rounded-full font-semibold">LIVE</span>
                 )}
-                <div className="ml-auto flex items-center gap-1">
+                {envelopeData && (
+                  <span className="text-[9px] text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded-full font-semibold">
+                    ENVELOPE
+                  </span>
+                )}
+                <div className="ml-auto flex items-center gap-1 min-w-0">
                   {/* Data Masking toggle (HIPAA/PCI compliance) */}
                   <button
-                    onClick={() => setDataMaskingEnabled(!dataMaskingEnabled)}
+                    onClick={handleDataMaskingToggle}
                     className={`p-1 rounded transition-colors ${
                       dataMaskingEnabled
                         ? 'text-green-600 bg-green-100 hover:bg-green-200'
@@ -2459,9 +2967,12 @@ export default function NodeConfigPanel() {
                     {effectiveOutputSchema.length + dynamicFormFields.length + dynamicExcelColumns.length + dynamicSecrets.length}
                   </span>
                   {discoveredSchema && (
-                    <span className="text-[9px] text-purple-500 ml-1 flex items-center gap-0.5" title={`Discovered from execution at ${new Date(discoveredSchema.discoveredAt).toLocaleString()}`}>
-                      <Sparkles className="w-3 h-3" />
-                      discovered
+                    <span
+                      className="text-[9px] text-purple-600 ml-1 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-purple-100 min-w-0 max-w-[86px]"
+                      title={`Discovered from execution at ${new Date(discoveredSchema.discoveredAt).toLocaleString()}`}
+                    >
+                      <Sparkles className="w-3 h-3 shrink-0" />
+                      <span className="truncate uppercase">schema</span>
                     </span>
                   )}
                 </div>
@@ -2547,7 +3058,7 @@ export default function NodeConfigPanel() {
                       </div>
                     )}
                   </div>
-                ) : displayData && typeof displayData === 'object' ? (
+                ) : hasPayloadData && livePayloadData && typeof livePayloadData === 'object' ? (
                   <div className={`font-mono text-xs rounded-lg border p-3 ${isPinned ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'}`}>
                     <div className={`font-semibold mb-2 text-[10px] uppercase flex items-center gap-1.5 ${isPinned ? 'text-amber-700' : 'text-green-700'}`}>
                       {isPinned && <Pin className="w-3 h-3" />}
@@ -2558,15 +3069,31 @@ export default function NodeConfigPanel() {
                         </span>
                       )}
                     </div>
+                    {envelopeData && (
+                      <div className="mb-2 rounded border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] text-blue-700 flex items-center gap-2">
+                        <span className="font-semibold">Runtime envelope</span>
+                        {envelopeItemCount !== undefined && (
+                          <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                            items: {envelopeItemCount}
+                          </span>
+                        )}
+                        {envelopeMeta?.status !== undefined && envelopeMeta?.status !== null && (
+                          <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                            status: {String(envelopeMeta.status)}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     {/* Expandable JSON tree */}
                     <div className="max-h-80 overflow-y-auto">
-                      {Array.isArray(displayData) ? (
-                        displayData.map((item: any, i: number) => (
+                      {Array.isArray(livePayloadData) ? (
+                        livePayloadData.map((item: any, i: number) => (
                           <ExpandableJsonNode
                             key={i}
                             keyName={i}
                             value={item}
                             path={`[${i}]`}
+                            nodeId={node.id}
                             nodeLabel={node.data.label}
                             copyExpression={copyExpression}
                             copiedExpression={copiedExpression}
@@ -2575,12 +3102,13 @@ export default function NodeConfigPanel() {
                           />
                         ))
                       ) : (
-                        Object.entries(displayData).map(([key, value], i, arr) => (
+                        Object.entries(livePayloadData as Record<string, unknown>).map(([key, value], i, arr) => (
                           <ExpandableJsonNode
                             key={key}
                             keyName={key}
                             value={value}
                             path={key}
+                            nodeId={node.id}
                             nodeLabel={node.data.label}
                             copyExpression={copyExpression}
                             copiedExpression={copiedExpression}
@@ -2591,14 +3119,14 @@ export default function NodeConfigPanel() {
                       )}
                     </div>
                   </div>
-                ) : displayData ? (
+                ) : hasPayloadData ? (
                   <div className={`font-mono text-xs rounded-lg border p-3 ${isPinned ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'}`}>
                     <div className={`font-semibold mb-2 text-[10px] uppercase flex items-center gap-1.5 ${isPinned ? 'text-amber-700' : 'text-green-700'}`}>
                       {isPinned && <Pin className="w-3 h-3" />}
                       {isPinned ? 'Pinned Data' : 'Live Data'}
                     </div>
                     <pre className={`whitespace-pre-wrap break-all text-[10px] ${isPinned ? 'text-amber-800' : 'text-green-800'}`}>
-                      {String(displayData)}
+                      {String(livePayloadData)}
                     </pre>
                   </div>
                 ) : (
@@ -2610,7 +3138,8 @@ export default function NodeConfigPanel() {
 
                     {/* Standard output fields (from discovered or static schema) */}
                     {effectiveOutputSchema.map((field: any, i: number) => {
-                      const expression = `\${${node.data.label}.${field.name}}`;
+                      const expression = buildNodeExpression(node.id, field.name);
+                      const displayExpression = buildLabelExpression(node.data.label, field.name);
                       const isLast = i === effectiveOutputSchema.length - 1 && dynamicFormFields.length === 0 && dynamicExcelColumns.length === 0 && dynamicSecrets.length === 0;
                       
                       // Check if this is an array or object with nested fields
@@ -2624,6 +3153,7 @@ export default function NodeConfigPanel() {
                             key={i}
                             fieldName={field.name}
                             items={nestedFields}
+                            nodeId={node.id}
                             nodeLabel={node.data.label}
                             description={field.description}
                             copyExpression={copyExpression}
@@ -2639,7 +3169,7 @@ export default function NodeConfigPanel() {
                           key={i}
                           className="group pl-4 py-0.5 hover:bg-emerald-50 rounded cursor-pointer flex items-center gap-1"
                           onClick={() => copyExpression(expression)}
-                          title={field.description ? `${field.description}\nClick to copy: ${expression}` : `Click to copy: ${expression}`}
+                          title={field.description ? `${field.description}\nClick to copy: ${displayExpression}` : `Click to copy: ${displayExpression}`}
                         >
                           <span className="text-emerald-600">&quot;{field.name}&quot;</span>
                           <span className="text-slate-400">:</span>
@@ -2673,6 +3203,7 @@ export default function NodeConfigPanel() {
                     <OutputTreeNode
                       label="formData"
                       type="object"
+                      nodeId={node.id}
                       nodeLabel={node.data.label}
                       fields={dynamicFormFields}
                       copyExpression={copyExpression}
@@ -2695,14 +3226,15 @@ export default function NodeConfigPanel() {
                       </div>
                       {/* Column fields */}
                       {dynamicExcelColumns.map((col, i) => {
-                        const expression = `\${${node.data.label}.row.${col.id}}`;
+                        const expression = buildNodeExpression(node.id, `row.${col.id}`);
+                        const displayExpression = buildLabelExpression(node.data.label, `row.${col.id}`);
                         const colIsLast = i === dynamicExcelColumns.length - 1;
                         return (
                           <div
                             key={col.id}
                             className="group pl-4 py-0.5 hover:bg-emerald-50 rounded cursor-pointer flex items-center gap-1"
                             onClick={() => copyExpression(expression)}
-                            title={`Click to copy: ${expression}`}
+                            title={`Click to copy: ${displayExpression}`}
                           >
                             <span className="text-emerald-600">&quot;{col.label}&quot;</span>
                             <span className="text-slate-400">:</span>

@@ -2,10 +2,10 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
-import * as path from 'path';
 
 import configuration from './config/configuration';
 import { validate } from './config/env.validation';
+import { buildTypeOrmOptions } from './database/typeorm-options';
 import { StorageModule } from './storage/storage.module';
 import { BotsModule } from './bots/bots.module';
 import { ManifestsModule } from './manifests/manifests.module';
@@ -27,6 +27,11 @@ import { MarketplaceModule } from './marketplace/marketplace.module';
 import { UsageModule } from './usage/usage.module';
 import { SchemasModule } from './schemas/schemas.module';
 import { MCPModule } from './mcp/mcp.module';
+import { SettingsModule } from './settings/settings.module';
+import { BillingModule } from './billing/billing.module';
+import { enforceEnvironmentPolicy } from './common/utils/environment-policy';
+
+enforceEnvironmentPolicy(process.env);
 
 @Module({
   imports: [
@@ -35,29 +40,22 @@ import { MCPModule } from './mcp/mcp.module';
       isGlobal: true,
       load: [configuration],
       validate,
+      // Regulated environments should inject env vars from platform/vault.
+      // Local dotenv loading is opt-in via ALLOW_DOTENV=true.
+      ignoreEnvFile: process.env.ALLOW_DOTENV !== 'true',
+      envFilePath:
+        process.env.ALLOW_DOTENV === 'true' ? ['.env.local', '.env'] : undefined,
     }),
 
     // Database
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get('database.host'),
-        port: configService.get('database.port'),
-        username: configService.get('database.username'),
-        password: configService.get('database.password'),
-        database: configService.get('database.database'),
-        // Auto-load all entity files
-        entities: [path.join(__dirname, '**/*.entity{.ts,.js}')],
-        // For development: synchronize schema automatically
-        // For production: use migrations
-        synchronize: configService.get('database.synchronize', true),
-        logging: configService.get('database.logging', false),
+      useFactory: () => ({
+        ...buildTypeOrmOptions(process.env),
         // Reduce retry attempts for faster failure
         retryAttempts: 3,
         retryDelay: 1000,
       }),
-      inject: [ConfigService],
     }),
 
     // Queue (BullMQ)
@@ -78,6 +76,7 @@ import { MCPModule } from './mcp/mcp.module';
 
     // Core modules
     LicenseModule,
+    BillingModule,
     AuthModule,
     RolesModule,
     AuditModule,
@@ -110,6 +109,9 @@ import { MCPModule } from './mcp/mcp.module';
 
     // Schema Discovery
     SchemasModule,
+
+    // Tenant settings
+    SettingsModule,
 
     // MCP Module (Model Context Protocol)
     MCPModule,

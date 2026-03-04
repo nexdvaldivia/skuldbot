@@ -1,0 +1,127 @@
+name: Regulatory Guardrails
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate-pr-guardrails:
+    name: Validate PR Regulatory Checklist
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR body structure and required checks
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request?.body || "";
+            const failures = [];
+
+            const requiredSections = [
+              "## Regulatory Profile (choose exactly one)",
+              "## Mandatory Regulatory Checklist",
+              "## Documentation Sync (choose exactly one)",
+              "## Evidence and Validation",
+              "## Risk and Exceptions",
+            ];
+
+            for (const section of requiredSections) {
+              if (!body.includes(section)) {
+                failures.push(`Missing required section: ${section}`);
+              }
+            }
+
+            const selected = (body.match(/- \[(x|X)\] `(standard|regulated|strict)`/g) || []).length;
+            if (selected !== 1) {
+              failures.push("Select exactly one Regulatory Profile (`standard`, `regulated`, or `strict`).");
+            }
+
+            const requiredChecks = [
+              "I confirm access control changes (if any) are covered by tests, including negative authorization tests.",
+              "I confirm no secrets or premium prompts are logged or persisted in plaintext.",
+              "I confirm telemetry/logs are data-minimized and do not exfiltrate raw sensitive data by default.",
+              "I confirm evidence/audit impact was reviewed and updated where required.",
+              "I confirm no runtime mock/fake/stub placeholders were introduced; incomplete integrations fail-fast.",
+              "I confirm this change follows `docs/REGULATORY_DESIGN_GUARDRAILS.md`.",
+            ];
+
+            for (const line of requiredChecks) {
+              const escaped = line.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              const checkedPattern = new RegExp(`- \\[(x|X)\\] ${escaped}`);
+              if (!checkedPattern.test(body)) {
+                failures.push(`Required checklist item not checked: "${line}"`);
+              }
+            }
+
+            const docsDecisionChecks = [
+              "Docs updated in this PR (node/platform/API behavior).",
+              "Docs N/A for this PR (no behavior/contract impact).",
+            ];
+            let docsSelected = 0;
+            for (const line of docsDecisionChecks) {
+              const escaped = line.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              const checkedPattern = new RegExp(`- \\[(x|X)\\] ${escaped}`);
+              if (checkedPattern.test(body)) {
+                docsSelected += 1;
+              }
+            }
+            if (docsSelected !== 1) {
+              failures.push("Select exactly one Documentation Sync option.");
+            }
+
+            const riskMatch = body.match(/Risk level:\s*`?([a-z|]+)`?/i);
+            const riskValue = riskMatch ? riskMatch[1].toLowerCase() : null;
+            if (!riskValue || !["low", "medium", "high"].includes(riskValue) || riskValue.includes("|")) {
+              failures.push("Risk level must be explicitly set to exactly one of: low, medium, high.");
+            }
+
+            const exceptionMatch = body.match(/Exception requested\?\s*`?([a-z|]+)`?/i);
+            const exceptionValue = exceptionMatch ? exceptionMatch[1].toLowerCase() : null;
+            if (!exceptionValue || !["yes", "no"].includes(exceptionValue) || exceptionValue.includes("|")) {
+              failures.push("Exception requested must be explicitly set to exactly one of: yes, no.");
+            }
+
+            if (failures.length > 0) {
+              core.setFailed(
+                "Regulatory guardrails validation failed:\n- " + failures.join("\n- ")
+              );
+            } else {
+              core.info("Regulatory guardrails validation passed.");
+            }
+
+  enforce-config-guardrails:
+    name: Enforce Config Guardrails
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Static config guardrails
+        run: node scripts/regulatory/check-config-guardrails.mjs
+
+      - name: Work controls guardrails
+        run: node scripts/regulatory/check-work-controls.mjs
+
+      - name: Install CP API dependencies
+        run: npm ci
+        working-directory: control-plane/api
+
+      - name: Run CP policy unit tests
+        run: npx jest src/common/security/environment-policy.spec.ts --runInBand
+        working-directory: control-plane/api
+
+      - name: Install Orchestrator API dependencies
+        run: npm ci
+        working-directory: orchestrator/api
+
+      - name: Run Orchestrator policy unit tests
+        run: npx jest src/common/utils/environment-policy.spec.ts --runInBand
+        working-directory: orchestrator/api

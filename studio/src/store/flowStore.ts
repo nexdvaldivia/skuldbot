@@ -5,6 +5,10 @@ import { useToastStore } from "./toastStore";
 import { useLogsStore } from "./logsStore";
 import { useDebugStore } from "./debugStore";
 import { buildExecutionDSL } from "../lib/dsl";
+import {
+  getSchemaCandidateFromNodeData,
+  parseNodeRuntimeTelemetryLine,
+} from "../utils/nodeRuntimeTelemetry";
 
 // Re-export for convenience
 export type { FormTriggerConfig } from "../types/flow";
@@ -199,7 +203,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       (node) => node.data.category === "trigger"
     );
 
-    let dsl = state.generateDSL();
+    const dsl = state.generateDSL();
 
     if (!hasTrigger) {
       // Auto-add Manual Trigger to the DSL
@@ -278,7 +282,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       (node) => node.data.category === "trigger"
     );
 
-    let dsl = state.generateDSL();
+    const dsl = state.generateDSL();
 
     if (!hasTrigger) {
       // Auto-add Manual Trigger to the DSL
@@ -329,7 +333,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
         dsl: JSON.stringify(dsl)
       });
 
-      // Parse and show logs, capture NODE_OUTPUT for schema discovery
+      // Parse and show logs, capture runtime telemetry for schema discovery
       const debugStore = useDebugStore.getState();
       
       console.log("[FlowStore] Run result:", result);
@@ -338,44 +342,23 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       if (result.logs && Array.isArray(result.logs)) {
         result.logs.forEach((log: string) => {
           console.log("[FlowStore] Processing log:", log.substring(0, 100));
-          // Check for NODE_OUTPUT to capture node output data
-          if (log.includes("NODE_OUTPUT:")) {
-            console.log("[FlowStore] Found NODE_OUTPUT in log:", log);
-            const outputLine = log.slice(log.indexOf("NODE_OUTPUT:") + "NODE_OUTPUT:".length).trim();
-            console.log("[FlowStore] Parsed outputLine:", outputLine);
-            let nodeId: string | null = null;
-            let payload = outputLine;
+          // Check for runtime node telemetry (NODE_INPUT / NODE_ENVELOPE / NODE_OUTPUT)
+          const runtimeTelemetry = parseNodeRuntimeTelemetryLine(log);
+          if (runtimeTelemetry) {
+            const { nodeId, data, channel } = runtimeTelemetry;
+            if (nodeId) {
+              console.log("[FlowStore] Runtime telemetry:", channel, "node:", nodeId);
+              if (channel === "input") {
+                debugStore.markNodeInput(nodeId, data);
+              } else {
+                debugStore.markNodeStatus(nodeId, "success", data);
 
-            // Format: NODE_OUTPUT:<nodeId>:<json>
-            if (!outputLine.startsWith("{") && !outputLine.startsWith("[")) {
-              const firstColon = outputLine.indexOf(":");
-              if (firstColon > -1) {
-                const maybeNodeId = outputLine.slice(0, firstColon).trim();
-                const maybeJson = outputLine.slice(firstColon + 1).trim();
-                if (maybeNodeId && maybeJson) {
-                  nodeId = maybeNodeId;
-                  payload = maybeJson;
-                }
-              }
-            }
-
-            try {
-              const outputData = JSON.parse(payload);
-              console.log("[FlowStore] Parsed output data:", outputData);
-              if (nodeId) {
-                console.log("[FlowStore] Marking node status for:", nodeId);
-                debugStore.markNodeStatus(nodeId, "success", outputData);
-                // Discover schema from the actual output
-                const flowNode = state.nodes.find(n => n.id === nodeId);
-                if (flowNode) {
+                const flowNode = state.nodes.find((n) => n.id === nodeId);
+                const schemaCandidate = getSchemaCandidateFromNodeData(data);
+                if (flowNode && schemaCandidate && typeof schemaCandidate === "object") {
                   console.log("[FlowStore] Discovering schema for:", nodeId, flowNode.data.nodeType);
-                  debugStore.discoverSchema(nodeId, flowNode.data.nodeType, outputData);
+                  debugStore.discoverSchema(nodeId, flowNode.data.nodeType, schemaCandidate);
                 }
-              }
-            } catch (e) {
-              console.error("[FlowStore] Failed to parse NODE_OUTPUT:", e, payload);
-              if (nodeId) {
-                debugStore.markNodeStatus(nodeId, "success", payload);
               }
             }
           } else if (log.includes("ERROR")) {
@@ -406,4 +389,3 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     }
   },
 }));
-

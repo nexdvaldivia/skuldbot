@@ -1,7 +1,12 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
-import { UsageRecord, UsageBatch } from './entities/usage-record.entity';
+import {
+  UsageRecord,
+  UsageBatch,
+  UsageIngestEvent,
+  UsageIngestDeadLetter,
+} from './entities/usage-record.entity';
 import {
   RevenueShareRecord,
   PartnerPayout,
@@ -73,6 +78,8 @@ import { IntegrationsModule } from '../integrations/integrations.module';
     TypeOrmModule.forFeature([
       UsageRecord,
       UsageBatch,
+      UsageIngestEvent,
+      UsageIngestDeadLetter,
       RevenueShareRecord,
       PartnerPayout,
       TenantSubscription,

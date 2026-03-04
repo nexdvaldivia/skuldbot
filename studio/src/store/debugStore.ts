@@ -4,6 +4,16 @@ import { useFlowStore } from "./flowStore";
 import { useProjectStore } from "./projectStore";
 import { useLogsStore } from "./logsStore";
 import { useToastStore } from "./toastStore";
+import {
+  parseNodeRuntimeTelemetryLine,
+  extractLatestNodeInputTelemetry,
+  extractLatestNodeRuntimeTelemetry,
+  getSchemaCandidateFromNodeData,
+} from "../utils/nodeRuntimeTelemetry";
+import {
+  buildExpressionNormalizationIndex,
+  normalizeN8nExpressionsInValue,
+} from "../utils/expressionSyntax";
 
 export type DebugState = "idle" | "running" | "paused" | "stopped";
 
@@ -14,6 +24,7 @@ interface NodeExecutionState {
   status: "pending" | "running" | "success" | "error" | "skipped";
   startTime?: number;
   endTime?: number;
+  input?: any;
   output?: any;
   error?: string;
   variables?: Record<string, any>;
@@ -125,7 +136,7 @@ function inferType(value: any): DiscoveredField['type'] {
   return 'string';
 }
 
-// Pinned data for n8n-style data pinning
+// Pinned data for flow-style data pinning
 interface PinnedDataEntry {
   nodeId: string;
   data: any;
@@ -133,10 +144,35 @@ interface PinnedDataEntry {
   label: string;
 }
 
+const LIVE_DEBUG_WAIT_TIMEOUT_MIN_MS = 1000;
+const LIVE_DEBUG_WAIT_TIMEOUT_MAX_MS = 900000;
+const LIVE_DEBUG_WAIT_TIMEOUT_DEFAULT_MS = 180000;
+const LIVE_DEBUG_WAIT_TIMEOUT_STORAGE_KEY = "skuldbot_live_debug_wait_timeout_ms";
+
+function clampLiveDebugWaitTimeoutMs(value: number): number {
+  if (!Number.isFinite(value)) return LIVE_DEBUG_WAIT_TIMEOUT_DEFAULT_MS;
+  return Math.min(
+    LIVE_DEBUG_WAIT_TIMEOUT_MAX_MS,
+    Math.max(LIVE_DEBUG_WAIT_TIMEOUT_MIN_MS, Math.round(value))
+  );
+}
+
+function loadLiveDebugWaitTimeoutMs(): number {
+  try {
+    const raw = localStorage.getItem(LIVE_DEBUG_WAIT_TIMEOUT_STORAGE_KEY);
+    if (!raw) return LIVE_DEBUG_WAIT_TIMEOUT_DEFAULT_MS;
+    const parsed = Number(raw);
+    return clampLiveDebugWaitTimeoutMs(parsed);
+  } catch {
+    return LIVE_DEBUG_WAIT_TIMEOUT_DEFAULT_MS;
+  }
+}
+
 interface DebugStoreState {
   // Debug state
   state: DebugState;
   currentNodeId: string | null;
+  pauseRequested: boolean;
   breakpoints: Set<string>;
   executionHistory: NodeExecutionState[];
 
@@ -147,7 +183,7 @@ interface DebugStoreState {
   watchVariables: Map<string, any>;
   globalVariables: Record<string, any>;
 
-  // Data Pinning (n8n-style)
+  // Data Pinning (flow-style)
   pinnedData: Map<string, PinnedDataEntry>;
   
   // Schema Discovery - automatically inferred schemas from execution
@@ -157,6 +193,7 @@ interface DebugStoreState {
   slowMotion: boolean;
   slowMotionDelay: number;
   useInteractiveDebug: boolean; // Toggle between old and new debug mode
+  liveDebugWaitTimeoutMs: number;
 
   // Actions
   setBreakpoint: (nodeId: string) => void;
@@ -167,18 +204,19 @@ interface DebugStoreState {
 
   // Debug control
   startDebug: () => Promise<void>;
-  pauseDebug: () => void;
+  pauseDebug: () => Promise<void>;
   resumeDebug: () => Promise<void>;
   stopDebug: () => Promise<void>;
   stepOver: () => Promise<void>;
   stepInto: () => void;
   stepOut: () => void;
-  runToCursor: (nodeId: string) => void;
+  runToCursor: (nodeId: string) => Promise<void>;
   runSingleNode: (nodeId: string) => Promise<void>;
 
   // Execution tracking
   setCurrentNode: (nodeId: string | null) => void;
   markNodeStatus: (nodeId: string, status: NodeExecutionState["status"], output?: any, error?: string) => void;
+  markNodeInput: (nodeId: string, input?: any) => void;
   clearExecutionHistory: () => void;
 
   // Variables
@@ -190,8 +228,9 @@ interface DebugStoreState {
   setSlowMotion: (enabled: boolean) => void;
   setSlowMotionDelay: (delay: number) => void;
   setUseInteractiveDebug: (enabled: boolean) => void;
+  setLiveDebugWaitTimeoutMs: (timeoutMs: number) => void;
 
-  // Data Pinning (n8n-style)
+  // Data Pinning (flow-style)
   pinNodeData: (nodeId: string, data: any, label: string) => void;
   unpinNodeData: (nodeId: string) => void;
   clearAllPinnedData: () => void;
@@ -210,6 +249,7 @@ interface DebugStoreState {
 export const useDebugStore = create<DebugStoreState>((set, get) => ({
   state: "idle",
   currentNodeId: null,
+  pauseRequested: false,
   breakpoints: new Set(),
   executionHistory: [],
   sessionState: null,
@@ -231,7 +271,8 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
   })(),
   slowMotion: false,
   slowMotionDelay: 500,
-  useInteractiveDebug: true, // Default to new interactive debug mode
+  useInteractiveDebug: true,
+  liveDebugWaitTimeoutMs: loadLiveDebugWaitTimeoutMs(),
 
   // Breakpoint management
   setBreakpoint: (nodeId) => {
@@ -271,7 +312,7 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
   _syncFromSession: (session: DebugSessionState) => {
     const history: NodeExecutionState[] = [];
 
-    for (const [_nodeId, exec] of Object.entries(session.nodeExecutions)) {
+    for (const [, exec] of Object.entries(session.nodeExecutions)) {
       history.push({
         nodeId: exec.nodeId,
         nodeType: exec.nodeType,
@@ -279,6 +320,7 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
         status: exec.status as NodeExecutionState["status"],
         startTime: exec.startTime,
         endTime: exec.endTime,
+        input: exec.input,
         output: exec.output,
         error: exec.error,
         variables: exec.variables,
@@ -292,14 +334,21 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     else if (session.state === "stopped" || session.state === "error") debugState = "stopped";
     else if (session.state === "completed") debugState = "stopped";
 
-    set({
+    set((state) => ({
       state: debugState,
       currentNodeId: session.currentNodeId,
       sessionState: session,
       executionHistory: history,
       globalVariables: session.globalVariables || {},
       breakpoints: new Set(session.breakpoints),
-    });
+      pauseRequested:
+        session.state === "paused" ||
+        session.state === "completed" ||
+        session.state === "stopped" ||
+        session.state === "error"
+          ? false
+          : state.pauseRequested,
+    }));
   },
 
   // Debug control - Interactive mode
@@ -309,7 +358,7 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     const projectStore = useProjectStore.getState();
     const logs = useLogsStore.getState();
     const toast = useToastStore.getState();
-    const { useInteractiveDebug, breakpoints } = get();
+    const { useInteractiveDebug, breakpoints, liveDebugWaitTimeoutMs } = get();
 
     // Sync flowStore with projectStore data before generating DSL
     // This ensures AI Model connections and other special edges are available
@@ -351,6 +400,7 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     set({
       state: "running",
       currentNodeId: null,
+      pauseRequested: false,
       executionHistory: [],
       sessionState: null,
       globalVariables: {},
@@ -371,7 +421,7 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     );
 
     // Generate DSL from fresh state
-    let dsl = currentFlowState.generateDSL();
+    const dsl = currentFlowState.generateDSL();
 
     // Debug: Log the generated DSL to verify model_config_ is present
     console.log("[debugStore] Generated DSL:", JSON.stringify(dsl, null, 2));
@@ -411,6 +461,7 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
         const result = await invoke<DebugCommandResult>("debug_start", {
           dsl: JSON.stringify(dsl),
           breakpoints: Array.from(breakpoints),
+          timeoutMs: liveDebugWaitTimeoutMs,
         });
 
         if (result.success && result.sessionState) {
@@ -448,51 +499,28 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
               get().markNodeStatus(nodeId, "running");
             }
 
-            // Check for NODE_OUTPUT to capture node output data
-            if (log.includes("NODE_OUTPUT:")) {
-              const outputLine = log.slice(log.indexOf("NODE_OUTPUT:") + "NODE_OUTPUT:".length).trim();
-              let nodeId: string | null = null;
-              let payload = outputLine;
-
-              // Format with node id: NODE_OUTPUT:<nodeId>:<json>
-              if (!outputLine.startsWith("{") && !outputLine.startsWith("[")) {
-                const firstColon = outputLine.indexOf(":");
-                if (firstColon > -1) {
-                  const maybeNodeId = outputLine.slice(0, firstColon).trim();
-                  const maybeJson = outputLine.slice(firstColon + 1).trim();
-                  if (maybeNodeId && maybeJson) {
-                    nodeId = maybeNodeId;
-                    payload = maybeJson;
-                  }
+            const runtimeTelemetry = parseNodeRuntimeTelemetryLine(log);
+            if (runtimeTelemetry?.nodeId) {
+              const { nodeId, data, channel } = runtimeTelemetry;
+              if (channel === "input") {
+                get().markNodeInput(nodeId, data);
+              } else {
+                get().markNodeStatus(nodeId, "success", data);
+                const flowNodes = useFlowStore.getState().nodes;
+                const flowNode = flowNodes.find((n) => n.id === nodeId);
+                const schemaCandidate = getSchemaCandidateFromNodeData(data);
+                if (flowNode && schemaCandidate && typeof schemaCandidate === "object") {
+                  get().discoverSchema(nodeId, flowNode.data.nodeType, schemaCandidate);
                 }
               }
-
-              try {
-                const outputData = JSON.parse(payload);
-                if (nodeId) {
-                  get().markNodeStatus(nodeId, "success", outputData);
-                  // Discover schema from the actual output
-                  const flowNodes = useFlowStore.getState().nodes;
-                  const flowNode = flowNodes.find(n => n.id === nodeId);
-                  if (flowNode) {
-                    get().discoverSchema(nodeId, flowNode.data.nodeType, outputData);
-                  }
-                }
-              } catch {
-                if (nodeId) {
-                  get().markNodeStatus(nodeId, "success", payload);
-                }
-              }
-            }
-
-            if (log.includes("ERROR") || log.includes("FAIL")) {
+            } else if (log.includes("ERROR") || log.includes("FAIL")) {
               logs.error(log);
             } else if (log.includes("WARNING") || log.includes("WARN")) {
               logs.warning(log);
             } else if (log.includes("PASS") || log.includes("SUCCESS")) {
               logs.success(log);
-            } else if (!log.includes("NODE_OUTPUT:")) {
-              // Don't show NODE_OUTPUT lines in logs (already captured as data)
+            } else if (!log.includes("NODE_OUTPUT:") && !log.includes("NODE_ENVELOPE:") && !log.includes("NODE_INPUT:")) {
+              // Don't show telemetry lines in logs (already captured as runtime data)
               logs.info(log);
             }
           });
@@ -522,12 +550,34 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     }
   },
 
-  pauseDebug: () => {
-    set({ state: "paused" });
+  pauseDebug: async () => {
+    const { sessionState, useInteractiveDebug } = get();
+    const logs = useLogsStore.getState();
+
+    if (!useInteractiveDebug || !sessionState) {
+      set({ state: "paused" });
+      return;
+    }
+
+    try {
+      const result = await invoke<DebugCommandResult>("debug_pause");
+      if (result.success && result.sessionState) {
+        get()._syncFromSession(result.sessionState);
+        set({
+          pauseRequested: result.sessionState.state !== "paused",
+        });
+        logs.info(result.message || "Pause requested");
+      } else {
+        logs.error("Pause failed: " + (result.message || "Unknown error"));
+      }
+    } catch (error) {
+      const errorMsg = String(error);
+      logs.error("Pause error: " + errorMsg);
+    }
   },
 
   resumeDebug: async () => {
-    const { sessionState, useInteractiveDebug } = get();
+    const { sessionState, useInteractiveDebug, liveDebugWaitTimeoutMs } = get();
     const logs = useLogsStore.getState();
     const toast = useToastStore.getState();
 
@@ -538,10 +588,11 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
 
     try {
       logs.info("Continuing execution...");
-      set({ state: "running" });
+      set({ state: "running", pauseRequested: false });
 
       const result = await invoke<DebugCommandResult>("debug_continue", {
         sessionStateJson: JSON.stringify(sessionState),
+        timeoutMs: liveDebugWaitTimeoutMs,
       });
 
       if (result.success && result.sessionState) {
@@ -572,6 +623,7 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     set({
       state: "idle",
       currentNodeId: null,
+      pauseRequested: false,
     });
 
     try {
@@ -585,14 +637,15 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
       // Ignore errors when stopping
     }
 
-    // Keep session state for inspection but ensure state is idle
-    set({
-      state: "idle",
-    });
+      // Keep session state for inspection but ensure state is idle
+      set({
+        state: "idle",
+        pauseRequested: false,
+      });
   },
 
   stepOver: async () => {
-    const { sessionState, useInteractiveDebug } = get();
+    const { sessionState, useInteractiveDebug, liveDebugWaitTimeoutMs } = get();
     const logs = useLogsStore.getState();
     const toast = useToastStore.getState();
 
@@ -604,9 +657,11 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
 
     try {
       logs.info("Stepping to next node...");
+      set({ pauseRequested: false });
 
       const result = await invoke<DebugCommandResult>("debug_step", {
         sessionStateJson: JSON.stringify(sessionState),
+        timeoutMs: liveDebugWaitTimeoutMs,
       });
 
       if (result.success && result.sessionState) {
@@ -648,10 +703,70 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     get().resumeDebug();
   },
 
-  runToCursor: (_nodeId) => {
-    // Run until reaching the specified node
-    // TODO: Implement with backend support
-    set({ state: "running" });
+  runToCursor: async (nodeId) => {
+    const { sessionState, useInteractiveDebug, liveDebugWaitTimeoutMs } = get();
+    const logs = useLogsStore.getState();
+    const toast = useToastStore.getState();
+
+    if (!useInteractiveDebug || !sessionState) {
+      await get().resumeDebug();
+      return;
+    }
+
+    const targetExists = sessionState.executionOrder.includes(nodeId);
+    if (!targetExists) {
+      logs.error(`Run to cursor failed: node ${nodeId} is not in execution order`);
+      toast.error("Run to Cursor", "Target node is not part of the current debug session");
+      return;
+    }
+
+    logs.info(`Running to cursor: ${nodeId}`);
+    set({ state: "running", pauseRequested: false });
+
+    try {
+      let currentSession = sessionState;
+      const maxSteps = Math.max(currentSession.executionOrder.length * 3, 50);
+
+      for (let step = 0; step < maxSteps; step++) {
+        const result = await invoke<DebugCommandResult>("debug_step", {
+          sessionStateJson: JSON.stringify(currentSession),
+          timeoutMs: liveDebugWaitTimeoutMs,
+        });
+
+        if (!result.success || !result.sessionState) {
+          const msg = result.message || "Unknown debug step error";
+          logs.error(`Run to cursor failed: ${msg}`);
+          toast.error("Run to Cursor", msg.substring(0, 120));
+          set({ state: "paused" });
+          return;
+        }
+
+        currentSession = result.sessionState;
+        get()._syncFromSession(currentSession);
+
+        if (currentSession.currentNodeId === nodeId) {
+          logs.info(`Reached cursor at node: ${nodeId}`);
+          toast.info("Run to Cursor", `Paused at ${nodeId}`);
+          set({ state: "paused" });
+          return;
+        }
+
+        if (currentSession.state === "completed") {
+          logs.warning(`Execution completed before reaching node: ${nodeId}`);
+          toast.warning("Run to Cursor", "Execution finished before reaching target node");
+          return;
+        }
+      }
+
+      logs.error("Run to cursor hit safety step limit");
+      toast.error("Run to Cursor", "Step limit reached before hitting target node");
+      set({ state: "paused" });
+    } catch (error) {
+      const errorMsg = String(error);
+      logs.error("Run to cursor error: " + errorMsg);
+      toast.error("Run to Cursor", errorMsg.substring(0, 120));
+      set({ state: "paused" });
+    }
   },
 
   runSingleNode: async (nodeId: string) => {
@@ -659,35 +774,6 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     const projectStore = useProjectStore.getState();
     const logs = useLogsStore.getState();
     const toast = useToastStore.getState();
-
-    const extractNodeOutput = (rawOutput?: string): any => {
-      if (!rawOutput) return null;
-      const lines = rawOutput.split("\n").reverse();
-      for (const line of lines) {
-        if (line.includes("NODE_OUTPUT:")) {
-          const idx = line.indexOf("NODE_OUTPUT:");
-          const payloadRaw = line.slice(idx + "NODE_OUTPUT:".length).trim();
-          if (!payloadRaw) continue;
-
-          // Accept both formats: NODE_OUTPUT:<json> or NODE_OUTPUT:<nodeId>:<json>
-          let payload = payloadRaw;
-          if (!payloadRaw.startsWith("{") && !payloadRaw.startsWith("[")) {
-            const firstColon = payloadRaw.indexOf(":");
-            if (firstColon > -1) {
-              const maybeJson = payloadRaw.slice(firstColon + 1).trim();
-              if (maybeJson) payload = maybeJson;
-            }
-          }
-          if (!payload) continue;
-          try {
-            return JSON.parse(payload);
-          } catch {
-            return payload;
-          }
-        }
-      }
-      return null;
-    };
 
     // Sync flowStore with projectStore data
     const activeBot = projectStore.activeBotId ? projectStore.bots.get(projectStore.activeBotId) : null;
@@ -713,6 +799,12 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     try {
       // Generate a mini DSL with just this node and its dependencies
       // For now, we'll create a minimal DSL
+      const expressionIndex = buildExpressionNormalizationIndex(currentFlowState.nodes);
+      const normalizedMainConfig = normalizeN8nExpressionsInValue(
+        node.data.config || {},
+        expressionIndex,
+        nodeId
+      ) as Record<string, any>;
       const nodeDsl = {
         version: "1.0",
         bot: {
@@ -724,7 +816,7 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
           {
             id: nodeId,
             type: node.data.nodeType,
-            config: node.data.config || {},
+            config: normalizedMainConfig,
             outputs: {
               success: nodeId,
               error: nodeId,
@@ -746,11 +838,16 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
       for (const edge of configEdges) {
         const configNode = currentFlowState.nodes.find(n => n.id === edge.source);
         if (configNode) {
+          const normalizedConfigNodeConfig = normalizeN8nExpressionsInValue(
+            configNode.data.config || {},
+            expressionIndex,
+            configNode.id
+          ) as Record<string, any>;
           // Add config node to DSL
           const configDslNode: any = {
             id: configNode.id,
             type: configNode.data.nodeType,
-            config: configNode.data.config || {},
+            config: normalizedConfigNodeConfig,
             label: configNode.data.label,
           };
 
@@ -771,7 +868,7 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
             // For connection nodes (like ms365.connection), pass the actual config
             // so the trigger can use it directly
             if (configNode.data.nodeType === "ms365.connection") {
-              (nodeDsl.nodes[mainNodeIndex] as any).connection_config = configNode.data.config || {};
+              (nodeDsl.nodes[mainNodeIndex] as any).connection_config = normalizedConfigNodeConfig;
             } else {
               // For other config nodes, pass a reference
               (nodeDsl.nodes[mainNodeIndex] as any)[`${handleName}_config_`] = {
@@ -788,13 +885,19 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
       });
 
       if (result.success) {
-        const parsedOutput = extractNodeOutput(result.output);
-        // Use parsed node output if available, otherwise use output/message
-        const outputToShow = parsedOutput ?? result.output ?? result.message ?? "Execution completed successfully";
+        const runtimeInputTelemetry = extractLatestNodeInputTelemetry(result.output);
+        if (runtimeInputTelemetry?.data !== undefined) {
+          get().markNodeInput(nodeId, runtimeInputTelemetry.data);
+        }
+        const runtimeTelemetry = extractLatestNodeRuntimeTelemetry(result.output);
+        const runtimeData = runtimeTelemetry?.data;
+        // Prefer telemetry payload (NODE_ENVELOPE over NODE_OUTPUT), otherwise fallback
+        const outputToShow = runtimeData ?? result.output ?? result.message ?? "Execution completed successfully";
         get().markNodeStatus(nodeId, "success", outputToShow);
-        // Discover schema from the actual output
-        if (parsedOutput && typeof parsedOutput === 'object') {
-          get().discoverSchema(nodeId, node.data.nodeType, parsedOutput);
+        // Discover schema from business payload (json/items/result), not raw wrapper
+        const schemaCandidate = getSchemaCandidateFromNodeData(outputToShow);
+        if (schemaCandidate && typeof schemaCandidate === "object") {
+          get().discoverSchema(nodeId, node.data.nodeType, schemaCandidate);
         }
         logs.success(`Node "${node.data.label}" executed successfully`);
         toast.success("Node executed", result.message || "Success");
@@ -808,6 +911,9 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
       // Log output if available
       if (result.logs && Array.isArray(result.logs)) {
         result.logs.forEach((log: string) => {
+          if (log.includes("NODE_INPUT:") || log.includes("NODE_OUTPUT:") || log.includes("NODE_ENVELOPE:")) {
+            return;
+          }
           if (log.includes("ERROR") || log.includes("FAIL")) {
             logs.error(log);
           } else if (log.includes("WARNING") || log.includes("WARN")) {
@@ -868,6 +974,31 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     });
   },
 
+  markNodeInput: (nodeId, input) => {
+    set((state) => {
+      const existingIndex = state.executionHistory.findIndex((e) => e.nodeId === nodeId);
+      if (existingIndex >= 0) {
+        const newHistory = [...state.executionHistory];
+        newHistory[existingIndex] = {
+          ...newHistory[existingIndex],
+          input,
+        };
+        return { executionHistory: newHistory };
+      }
+
+      const nodeState: NodeExecutionState = {
+        nodeId,
+        nodeType: "",
+        label: nodeId,
+        status: "pending",
+        input,
+      };
+      return {
+        executionHistory: [...state.executionHistory, nodeState],
+      };
+    });
+  },
+
   clearExecutionHistory: () => {
     set({ executionHistory: [] });
   },
@@ -916,7 +1047,17 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     set({ useInteractiveDebug: enabled });
   },
 
-  // Data Pinning (n8n-style)
+  setLiveDebugWaitTimeoutMs: (timeoutMs) => {
+    const bounded = clampLiveDebugWaitTimeoutMs(timeoutMs);
+    try {
+      localStorage.setItem(LIVE_DEBUG_WAIT_TIMEOUT_STORAGE_KEY, String(bounded));
+    } catch {
+      // ignore persistence errors
+    }
+    set({ liveDebugWaitTimeoutMs: bounded });
+  },
+
+  // Data Pinning (flow-style)
   pinNodeData: (nodeId, data, label) => {
     set((state) => {
       const newPinnedData = new Map(state.pinnedData);

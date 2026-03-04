@@ -366,3 +366,4 @@ interface BYOMLLMConfig {
 **Priority:** P0 - Critical for HIPAA market entry  
 **Estimated effort:** 2-3 days for full implementation
 
+

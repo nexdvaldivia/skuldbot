@@ -68,7 +68,7 @@ export class Bot {
    * Tenant ID from license - identifies which tenant owns this bot.
    * In single-tenant mode, this comes from the orchestrator's license.
    */
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
@@ -109,14 +109,14 @@ export class Bot {
   // OWNERSHIP & ACCESS
   // ============================================================================
 
-  @Column()
+  @Column({ type: 'uuid' })
   createdBy: string;
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'createdBy' })
   creator: User;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   updatedBy: string;
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
@@ -136,10 +136,10 @@ export class Bot {
   // VERSION TRACKING
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   currentVersionId: string; // Latest published version
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   draftVersionId: string; // Current draft being edited
 
   @Column({ default: 0 })
@@ -149,10 +149,10 @@ export class Bot {
   // EXECUTION CONFIG
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   defaultRunnerId: string; // Preferred runner
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   runnerGroupId: string; // Runner pool
 
   @Column({ default: 300 }) // 5 minutes
@@ -218,7 +218,7 @@ export class Bot {
   // ORGANIZATION
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   folderId: string; // For folder organization
 
   @Column({ type: 'jsonb', nullable: true, default: [] })
@@ -273,7 +273,7 @@ export class Bot {
   @Column({ nullable: true })
   archivedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   archivedBy: string;
 
   // ============================================================================
@@ -314,7 +314,7 @@ export class BotVersion {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   botId: string;
 
@@ -399,7 +399,7 @@ export class BotVersion {
   @Column({ nullable: true })
   publishedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   publishedBy: string;
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
@@ -410,14 +410,14 @@ export class BotVersion {
   // AUTHORSHIP
   // ============================================================================
 
-  @Column()
+  @Column({ type: 'uuid' })
   createdBy: string;
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'createdBy' })
   creator: User;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   updatedBy: string;
 
   // ============================================================================
@@ -440,7 +440,7 @@ export class BotVersion {
   @Column({ nullable: true })
   deprecatedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   deprecatedBy: string;
 
   @Column({ nullable: true, length: 500 })

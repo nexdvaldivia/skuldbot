@@ -2,7 +2,6 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
-  ConflictException,
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
@@ -197,76 +196,12 @@ export class AuthService {
   // REGISTRATION
   // ============================================================================
 
-  async register(dto: RegisterDto): Promise<RegisterResponseDto> {
-    // Check if email exists
-    const existingUser = await this.userRepository.findOne({
-      where: { email: dto.email.toLowerCase() },
+  async register(_dto: RegisterDto): Promise<RegisterResponseDto> {
+    throw new ForbiddenException({
+      code: 'SELF_REGISTRATION_DISABLED',
+      message:
+        'Self-registration is disabled. Accounts must be provisioned by an administrator.',
     });
-
-    if (existingUser) {
-      throw new ConflictException({
-        code: 'EMAIL_EXISTS',
-        message: 'An account with this email already exists.',
-      });
-    }
-
-    // Determine tenant
-    let tenantId = dto.tenantId;
-    if (dto.invitationToken) {
-      // Handle invitation flow
-      // TODO: Implement invitation validation
-      throw new BadRequestException('Invitation system not yet implemented');
-    } else if (!tenantId && dto.organizationName) {
-      // Create new tenant for self-service registration
-      // TODO: Implement tenant creation
-      throw new BadRequestException('Self-service tenant creation not yet implemented');
-    } else if (!tenantId) {
-      throw new BadRequestException({
-        code: 'TENANT_REQUIRED',
-        message: 'Either invitation token or organization name is required.',
-      });
-    }
-
-    // Hash password
-    const passwordHash = await this.passwordService.hashPassword(dto.password);
-
-    // Create user
-    const user = this.userRepository.create({
-      email: dto.email.toLowerCase(),
-      passwordHash,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      tenantId,
-      status: UserStatus.PENDING_VERIFICATION,
-      authProvider: AuthProvider.LOCAL,
-    });
-
-    // Assign default role
-    const defaultRole = await this.roleRepository.findOne({
-      where: { tenantId, name: 'viewer' },
-    });
-    if (defaultRole) {
-      user.roles = [defaultRole];
-    }
-
-    // Generate email verification token
-    user.emailVerificationToken = this.tokenService.generateSecureToken();
-    user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
-
-    await this.userRepository.save(user);
-
-    // TODO: Send verification email
-
-    return {
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-      },
-      message: 'Registration successful. Please check your email to verify your account.',
-      verificationRequired: true,
-    };
   }
 
   // ============================================================================
@@ -413,77 +348,20 @@ export class AuthService {
   // PASSWORD MANAGEMENT
   // ============================================================================
 
-  async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
-    const user = await this.userRepository.findOne({
-      where: { email: dto.email.toLowerCase() },
+  async forgotPassword(_dto: ForgotPasswordDto): Promise<{ message: string }> {
+    throw new ForbiddenException({
+      code: 'PASSWORD_RECOVERY_DISABLED',
+      message:
+        'Password recovery is disabled. Contact your administrator for credential reset.',
     });
-
-    // Always return success to prevent email enumeration
-    const successMessage = 'If an account exists with this email, you will receive a password reset link.';
-
-    if (!user || user.authProvider !== AuthProvider.LOCAL) {
-      return { message: successMessage };
-    }
-
-    // Generate reset token
-    const resetToken = this.tokenService.generateSecureToken();
-    const resetTokenHash = await this.passwordService.hashToken(resetToken);
-
-    user.passwordResetToken = resetTokenHash;
-    user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-
-    await this.userRepository.save(user);
-
-    // TODO: Send password reset email with resetToken
-
-    return { message: successMessage };
   }
 
-  async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
-    // Hash the token to compare
-    const tokenHash = await this.passwordService.hashToken(dto.token);
-
-    const user = await this.userRepository.findOne({
-      where: {
-        passwordResetToken: tokenHash,
-        passwordResetExpires: MoreThan(new Date()),
-      },
+  async resetPassword(_dto: ResetPasswordDto): Promise<{ message: string }> {
+    throw new ForbiddenException({
+      code: 'PASSWORD_RECOVERY_DISABLED',
+      message:
+        'Password reset via self-service is disabled. Contact your administrator.',
     });
-
-    if (!user) {
-      throw new BadRequestException({
-        code: 'INVALID_RESET_TOKEN',
-        message: 'Invalid or expired password reset token.',
-      });
-    }
-
-    // Check password history (prevent reuse of last 5 passwords)
-    if (user.passwordHistory && user.passwordHistory.length > 0) {
-      for (const oldHash of user.passwordHistory.slice(-5)) {
-        if (await this.passwordService.verifyPassword(dto.newPassword, oldHash)) {
-          throw new BadRequestException({
-            code: 'PASSWORD_REUSED',
-            message: 'Cannot reuse any of your last 5 passwords.',
-          });
-        }
-      }
-    }
-
-    // Update password
-    const newPasswordHash = await this.passwordService.hashPassword(dto.newPassword);
-
-    user.passwordHash = newPasswordHash;
-    user.passwordChangedAt = new Date();
-    user.passwordResetToken = undefined!;
-    user.passwordResetExpires = undefined!;
-    user.passwordHistory = [...(user.passwordHistory || []), user.passwordHash].slice(-5);
-
-    await this.userRepository.save(user);
-
-    // Revoke all sessions (force re-login)
-    await this.logout(user.id);
-
-    return { message: 'Password has been reset successfully. Please login with your new password.' };
   }
 
   async changePassword(

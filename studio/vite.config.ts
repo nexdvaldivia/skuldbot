@@ -1,37 +1,37 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
-// Conditionally load obfuscator plugin (only in production and if installed)
-let obfuscatorPlugin: any = null;
-try {
-  // @ts-ignore - Plugin may not be installed
-  obfuscatorPlugin = require("vite-plugin-obfuscator").default;
-} catch {
-  // Plugin not installed, skip obfuscation
-}
+type JsObfuscator = {
+  obfuscate: (
+    code: string,
+    options: Record<string, unknown>
+  ) => { getObfuscatedCode: () => string };
+};
 
-// https://vitejs.dev/config/
-export default defineConfig(async () => {
-  const isProduction = !process.env.TAURI_DEBUG;
+function createObfuscationPlugin(obfuscator: JsObfuscator): Plugin {
+  return {
+    name: "studio-js-obfuscate",
+    apply: "build",
+    generateBundle(_options, bundle) {
+      for (const [fileName, item] of Object.entries(bundle)) {
+        if (item.type !== "chunk" || !fileName.endsWith(".js")) {
+          continue;
+        }
 
-  const plugins: any[] = [react()];
+        const moduleIds = Object.keys(item.modules);
+        const isVendorChunk =
+          moduleIds.length > 0 &&
+          moduleIds.every((moduleId) => moduleId.includes("node_modules"));
+        if (isVendorChunk) {
+          continue;
+        }
 
-  // Only add obfuscator in production if plugin is available
-  if (isProduction && obfuscatorPlugin) {
-    plugins.push(
-      obfuscatorPlugin({
-        include: ["src/**/*.ts", "src/**/*.tsx"],
-        exclude: [/node_modules/],
-        options: {
-          // High protection settings
+        const obfuscated = obfuscator.obfuscate(item.code, {
           compact: true,
-          controlFlowFlattening: true,
-          controlFlowFlatteningThreshold: 0.75,
-          deadCodeInjection: true,
-          deadCodeInjectionThreshold: 0.4,
-          debugProtection: true,
-          debugProtectionInterval: 2000,
+          controlFlowFlattening: false,
+          deadCodeInjection: false,
+          debugProtection: false,
           disableConsoleOutput: true,
           identifierNamesGenerator: "hexadecimal",
           log: false,
@@ -55,9 +55,34 @@ export default defineConfig(async () => {
           stringArrayThreshold: 0.75,
           transformObjectKeys: true,
           unicodeEscapeSequence: false,
-        },
-      })
-    );
+        });
+
+        item.code = obfuscated.getObfuscatedCode();
+      }
+    },
+  };
+}
+
+// https://vitejs.dev/config/
+export default defineConfig(async () => {
+  const isProduction = !process.env.TAURI_DEBUG;
+  const shouldObfuscate = isProduction && process.env.STUDIO_OBFUSCATE === "true";
+
+  const plugins: any[] = [react()];
+
+  let obfuscatorLib: JsObfuscator | null = null;
+  try {
+    const obfuscatorModule = await import("javascript-obfuscator");
+    const candidate = obfuscatorModule.default as JsObfuscator | undefined;
+    if (candidate && typeof candidate.obfuscate === "function") {
+      obfuscatorLib = candidate;
+    }
+  } catch {
+    obfuscatorLib = null;
+  }
+
+  if (shouldObfuscate && obfuscatorLib) {
+    plugins.push(createObfuscationPlugin(obfuscatorLib));
   }
 
   return {
@@ -106,7 +131,31 @@ export default defineConfig(async () => {
       rollupOptions: isProduction
         ? {
             output: {
-              manualChunks: undefined,
+              manualChunks: (id: string) => {
+                if (!id.includes("node_modules")) {
+                  return undefined;
+                }
+
+                const afterNodeModules = id.split("node_modules/")[1];
+                if (!afterNodeModules) {
+                  return "vendor-misc";
+                }
+
+                const pathParts = afterNodeModules.split("/");
+                const packageName = pathParts[0]?.startsWith("@")
+                  ? `${pathParts[0]}/${pathParts[1]}`
+                  : pathParts[0];
+
+                if (!packageName) {
+                  return "vendor-misc";
+                }
+
+                if (packageName === "detect-node-es") {
+                  return undefined;
+                }
+
+                return `vendor-${packageName.replace("@", "").replace("/", "-")}`;
+              },
               // Randomize chunk names
               chunkFileNames: "assets/[hash].js",
               entryFileNames: "assets/[hash].js",
@@ -114,6 +163,7 @@ export default defineConfig(async () => {
             },
           }
         : undefined,
+      chunkSizeWarningLimit: 3000,
       // Source maps disabled for production
       sourcemap: !isProduction,
     },
@@ -126,4 +176,3 @@ export default defineConfig(async () => {
       : undefined,
   };
 });
-

@@ -167,3 +167,4 @@ if old_connections_dir.exists() {
 
 **No es overkill**, es el estándar de la industria para apps desktop (VS Code, Slack, Discord, etc. usan SQLite).
 
+

@@ -36,7 +36,7 @@ export class User {
   /**
    * Tenant ID from license - identifies which tenant this user belongs to.
    */
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
@@ -182,8 +182,20 @@ export class User {
   }
 
   hasPermission(permission: string): boolean {
+    const requiredResource = permission.split(':')[0];
+
     return this.roles?.some((role) =>
-      role.permissions?.some((p) => p.name === permission)
+      role.permissions?.some((p) => {
+        if (p.name === '*' || p.name === permission) {
+          return true;
+        }
+
+        if (!requiredResource) {
+          return false;
+        }
+
+        return p.name === `${requiredResource}:*`;
+      }),
     );
   }
 

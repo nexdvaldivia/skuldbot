@@ -9,7 +9,7 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Tenant, TenantStatus, TenantDeploymentType } from './entities/tenant.entity';
 import { Client } from '../clients/entities/client.entity';
-import { License, LicenseStatus } from '../licenses/entities/license.entity';
+import { License } from '../licenses/entities/license.entity';
 import {
   CreateTenantDto,
   UpdateTenantDto,
@@ -215,7 +215,7 @@ export class TenantsService {
 
   private toDetailDto(tenant: Tenant): TenantDetailResponseDto {
     const activeLicense = tenant.licenses?.find(
-      (l) => l.status === LicenseStatus.ACTIVE && l.isValid(),
+      (l) => l.status === 'active' && l.isValid(),
     );
 
     return {

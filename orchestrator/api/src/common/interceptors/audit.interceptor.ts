@@ -158,7 +158,8 @@ export class AuditInterceptor implements NestInterceptor {
       const auditLog = new AuditLog();
 
       // Tenant and user info
-      auditLog.tenantId = user?.tenantId || request.tenant?.id || '';
+      auditLog.tenantId =
+        user?.tenantId || request.tenant?.id || request.runner?.tenantId || '';
       auditLog.userId = user?.id || '';
       auditLog.userEmail = user?.email || '';
 

@@ -53,13 +53,24 @@ fi
 
 # Check Engine
 echo -n "Verificando Skuldbot Engine... "
-if python3 -c "import sys; sys.path.insert(0, '../engine'); from skuldbot import Compiler" 2>/dev/null; then
-    echo -e "${GREEN}✓${NC} Engine disponible"
+ENGINE_VENV_PY="../engine/.venv/bin/python"
+if [ -x "$ENGINE_VENV_PY" ]; then
+    if "$ENGINE_VENV_PY" -c "import sys; sys.path.insert(0, '../engine'); from skuldbot import Compiler" 2>/dev/null; then
+        echo -e "${GREEN}✓${NC} Engine disponible (venv)"
+    else
+        echo -e "${YELLOW}⚠${NC} Engine encontrado pero faltan dependencias en .venv"
+        echo "  Instala dependencias:"
+        echo "    cd ../engine"
+        echo "    .venv/bin/pip install -r requirements.txt"
+    fi
+elif python3 -c "import sys; sys.path.insert(0, '../engine'); from skuldbot import Compiler" 2>/dev/null; then
+    echo -e "${GREEN}✓${NC} Engine disponible (python3 sistema)"
 else
     echo -e "${YELLOW}⚠${NC} Engine no encontrado o sin dependencias"
     echo "  Instala dependencias:"
     echo "    cd ../engine"
-    echo "    pip3 install --user -e ."
+    echo "    python3 -m venv .venv"
+    echo "    .venv/bin/pip install -r requirements.txt"
 fi
 
 # Check node_modules

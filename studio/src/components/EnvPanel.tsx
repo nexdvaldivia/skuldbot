@@ -88,7 +88,12 @@ export default function EnvPanel() {
     // Merge with local variables (remove id field)
     const newVariables: EnvVariable[] = [
       ...otherScopeVars,
-      ...localVariables.map(({ id, ...rest }) => rest),
+      ...localVariables.map((variable) => ({
+        name: variable.name,
+        value: variable.value,
+        isSecret: variable.isSecret,
+        scope: variable.scope,
+      })),
     ];
 
     await saveEnvConfig({

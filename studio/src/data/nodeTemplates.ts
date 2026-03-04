@@ -219,11 +219,13 @@ export const nodeTemplates: NodeTemplate[] = [
     label: "Open Browser",
     description: "Open a web browser",
     icon: "Globe",
-    defaultConfig: { browser: "chromium", headless: false },
+    defaultConfig: { browser: "chromium", headless: false, allow_fallback: false, fallback_order: "auto" },
     configSchema: [
       { name: "url", label: "URL", type: "text", required: true, placeholder: "https://example.com" },
-      { name: "browser", label: "Browser", type: "select", default: "chromium", options: [{ value: "chromium", label: "Chromium" }, { value: "firefox", label: "Firefox" }, { value: "webkit", label: "WebKit" }] },
+      { name: "browser", label: "Browser", type: "select", default: "chromium", options: [{ value: "chromium", label: "Chromium" }, { value: "firefox", label: "Firefox" }, { value: "edge", label: "Edge" }, { value: "webkit", label: "WebKit (Safari/macOS)" }] },
       { name: "headless", label: "Headless Mode (invisible browser)", type: "boolean", default: false },
+      { name: "allow_fallback", label: "Allow Browser Fallback", type: "boolean", default: false, description: "When disabled, execution fails if requested browser is unavailable or mismatched" },
+      { name: "fallback_order", label: "Fallback Order", type: "text", default: "auto", placeholder: "auto | edge,chromium,firefox | [\"edge\",\"chromium\"]", description: "Used only when fallback is enabled" },
     ],
     outputSchema: [
       { name: "title", type: "string", description: "Page title" },
@@ -2966,7 +2968,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
 
   // ──────────────────────────────────────────────────
-  // Embeddings Model - Visual connector for embeddings config (n8n-style)
+  // Embeddings Model - Visual connector for embeddings config (flow-style)
   // Connects to Vector Memory, Vector Stores, AI Agent via "embeddings" handle
   // ──────────────────────────────────────────────────
   {
@@ -3050,7 +3052,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
 
   // ──────────────────────────────────────────────────
-  // LLM Model - Visual connector for LLM config (n8n-style)
+  // LLM Model - Visual connector for LLM config (flow-style)
   // Connects to AI Agent via "model" handle
   // ──────────────────────────────────────────────────
   {
@@ -3162,7 +3164,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
 
   // ============================================
-  // CODE - Custom Code Execution (like n8n)
+  // CODE - Custom Code Execution (for visual flows)
   // ============================================
   {
     type: "code.javascript",

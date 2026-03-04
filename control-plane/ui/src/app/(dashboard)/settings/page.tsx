@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { toast } from '@/hooks/use-toast';
 import {
   User,
   Building2,
@@ -44,11 +45,13 @@ const tabs = [
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('profile');
-  const [saved, setSaved] = useState(false);
 
   const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    toast({
+      variant: 'success',
+      title: 'Settings saved',
+      description: 'Your changes were saved successfully.',
+    });
   };
 
   return (
@@ -86,14 +89,6 @@ export default function SettingsPage() {
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          {/* Success Message */}
-          {saved && (
-            <div className="mb-6 flex items-center gap-2 px-4 py-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700">
-              <CheckCircle2 className="h-4 w-4" />
-              <span className="text-sm font-medium">Settings saved successfully</span>
-            </div>
-          )}
-
           {activeTab === 'profile' && <ProfileSettings onSave={handleSave} />}
           {activeTab === 'organization' && <OrganizationSettings onSave={handleSave} />}
           {activeTab === 'integrations' && <IntegrationsOverview />}
@@ -246,7 +241,7 @@ function NotificationSettings({ onSave }: { onSave: () => void }) {
           <h3 className="text-sm font-medium text-zinc-900">Email Notifications</h3>
 
           {[
-            { key: 'newClient', label: 'New Client Signups', description: 'Get notified when a new client registers' },
+            { key: 'newClient', label: 'New Client Onboarding', description: 'Get notified when an admin onboards a new client' },
             { key: 'licenseExpiring', label: 'License Expiration Alerts', description: 'Receive alerts before licenses expire' },
             { key: 'billingAlerts', label: 'Billing Alerts', description: 'Get notified about billing issues and payments' },
             { key: 'systemUpdates', label: 'System Updates', description: 'Receive updates about platform changes' },
@@ -287,6 +282,27 @@ function SecuritySettings({ onSave }: { onSave: () => void }) {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-zinc-900 mb-1">Enterprise SSO</h2>
+              <p className="text-sm text-zinc-500">
+                Configure OIDC providers per orchestrator from Control Plane.
+              </p>
+              <p className="text-xs text-zinc-500 mt-2">
+                RBAC: `skuld_admin` and `client_admin` can modify. `skuld_support` can view/test.
+              </p>
+            </div>
+            <Link href="/settings/security">
+              <Button>
+                Manage SSO
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Password Change */}
       <Card>
         <CardContent className="p-6">

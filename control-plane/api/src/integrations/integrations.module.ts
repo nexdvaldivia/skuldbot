@@ -8,8 +8,14 @@ import { GraphModule } from './graph/graph.module';
 
 import { ProviderRegistry } from './provider-registry.service';
 import { ProviderConfig } from './entities/provider-config.entity';
+import { IntegrationsService } from './integrations.service';
+import { IntegrationsController } from './integrations.controller';
 
 import { StripeProvider } from './payment/stripe.provider';
+import { SendGridProvider } from './email/sendgrid.provider';
+import { SmtpProvider } from './email/smtp.provider';
+import { S3Provider } from './storage/s3.provider';
+import { MicrosoftGraphProvider } from './graph/graph.provider';
 
 /**
  * IntegrationsModule - Central module for all external service integrations.
@@ -37,9 +43,11 @@ import { StripeProvider } from './payment/stripe.provider';
     EmailModule,
     GraphModule,
   ],
-  providers: [ProviderRegistry],
+  controllers: [IntegrationsController],
+  providers: [ProviderRegistry, IntegrationsService],
   exports: [
     ProviderRegistry,
+    IntegrationsService,
     TypeOrmModule,
     PaymentModule,
     StorageModule,
@@ -51,6 +59,10 @@ export class IntegrationsModule implements OnModuleInit {
   constructor(
     private readonly providerRegistry: ProviderRegistry,
     private readonly stripeProvider: StripeProvider,
+    private readonly sendGridProvider: SendGridProvider,
+    private readonly smtpProvider: SmtpProvider,
+    private readonly s3Provider: S3Provider,
+    private readonly microsoftGraphProvider: MicrosoftGraphProvider,
   ) {}
 
   /**
@@ -60,9 +72,14 @@ export class IntegrationsModule implements OnModuleInit {
     // Register payment providers
     this.providerRegistry.register(this.stripeProvider, true);
 
-    // Future: Register other providers
-    // this.providerRegistry.register(this.paypalProvider);
-    // this.providerRegistry.register(this.sendgridProvider);
-    // this.providerRegistry.register(this.s3Provider);
+    // Register email providers
+    this.providerRegistry.register(this.sendGridProvider, true);
+    this.providerRegistry.register(this.smtpProvider);
+
+    // Register storage providers
+    this.providerRegistry.register(this.s3Provider, true);
+
+    // Register graph providers
+    this.providerRegistry.register(this.microsoftGraphProvider, true);
   }
 }

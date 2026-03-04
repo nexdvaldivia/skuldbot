@@ -37,7 +37,7 @@ export class Tenant {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'client_id' })
+  @Column({ name: 'client_id', type: 'uuid' })
   clientId: string;
 
   @ManyToOne(() => Client, (client) => client.tenants, { onDelete: 'CASCADE' })

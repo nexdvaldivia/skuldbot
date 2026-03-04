@@ -474,12 +474,27 @@ export class BYOMService {
     provider: LLMProviderConfig,
   ): Promise<LLMProviderConfig['healthCheck']> {
     const startTime = Date.now();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
 
     try {
-      // Mock health check (in production, would call actual endpoint)
-      // await fetch(`${provider.endpoint}/health`);
+      const endpoint = provider.endpoint.replace(/\/+$/, '');
+      const response = await fetch(`${endpoint}/health`, {
+        method: 'GET',
+        signal: controller.signal,
+      });
 
       const latency = Date.now() - startTime;
+
+      if (!response.ok) {
+        return {
+          status: 'degraded',
+          lastCheck: new Date().toISOString(),
+          latencyMs: latency,
+          errorRate: 100,
+          uptime: 0,
+        };
+      }
 
       return {
         status: 'healthy',
@@ -489,13 +504,19 @@ export class BYOMService {
         uptime: 99.9,
       };
     } catch (error) {
+      const latency = Date.now() - startTime;
+      this.logger.warn(
+        `Provider health check failed for ${provider.id}: ${(error as Error).message}`,
+      );
       return {
         status: 'down',
         lastCheck: new Date().toISOString(),
-        latencyMs: -1,
+        latencyMs: latency,
         errorRate: 100,
         uptime: 0,
       };
+    } finally {
+      clearTimeout(timeout);
     }
   }
 

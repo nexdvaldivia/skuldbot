@@ -13,10 +13,12 @@ export default function DebugPanel({ className }: DebugPanelProps) {
     breakpoints,
     executionHistory,
     sessionState,
+    pauseRequested,
     globalVariables,
     slowMotion,
     slowMotionDelay,
     useInteractiveDebug,
+    liveDebugWaitTimeoutMs,
     startDebug,
     pauseDebug,
     resumeDebug,
@@ -27,6 +29,7 @@ export default function DebugPanel({ className }: DebugPanelProps) {
     setSlowMotion,
     setSlowMotionDelay,
     setUseInteractiveDebug,
+    setLiveDebugWaitTimeoutMs,
   } = useDebugStore();
 
   const [showVariables, setShowVariables] = useState(true);
@@ -39,6 +42,7 @@ export default function DebugPanel({ className }: DebugPanelProps) {
   const isStopped = state === "stopped";
 
   const getStateLabel = (s: DebugState): string => {
+    if (pauseRequested && s === "running") return "Pause Requested";
     switch (s) {
       case "idle": return "Ready";
       case "running": return "Running...";
@@ -48,6 +52,7 @@ export default function DebugPanel({ className }: DebugPanelProps) {
   };
 
   const getStateColor = (s: DebugState): string => {
+    if (pauseRequested && s === "running") return "text-amber-600";
     switch (s) {
       case "idle": return "text-slate-500";
       case "running": return "text-green-500";
@@ -159,6 +164,11 @@ export default function DebugPanel({ className }: DebugPanelProps) {
         <span className={cn("text-xs font-medium", getStateColor(state))}>
           {getStateLabel(state)}
         </span>
+        {pauseRequested && isRunning && (
+          <span className="text-xs text-amber-600 ml-1">
+            (next node boundary)
+          </span>
+        )}
 
         {/* Session info */}
         {sessionState && (
@@ -232,6 +242,25 @@ export default function DebugPanel({ className }: DebugPanelProps) {
                 title="Delay between steps (ms)"
               />
             )}
+
+            <label className="flex items-center gap-1 text-xs text-slate-600">
+              <Timer className="w-3 h-3" />
+              Live Wait (s)
+              <input
+                type="number"
+                value={Math.round(liveDebugWaitTimeoutMs / 1000)}
+                onChange={(e) => {
+                  const seconds = parseInt(e.target.value, 10);
+                  const safeSeconds = Number.isFinite(seconds) ? seconds : 180;
+                  setLiveDebugWaitTimeoutMs(safeSeconds * 1000);
+                }}
+                min={1}
+                max={900}
+                step={1}
+                className="w-16 px-1.5 py-0.5 text-xs border rounded ml-1"
+                title="Tiempo máximo de espera por evento de debug en vivo (segundos)"
+              />
+            </label>
           </div>
         </div>
       )}
@@ -312,7 +341,7 @@ export default function DebugPanel({ className }: DebugPanelProps) {
 
             {/* Node Variables */}
             {Object.entries(sessionState.nodeExecutions)
-              .filter(([_, exec]) => exec.status !== "pending")
+              .filter(([, exec]) => exec.status !== "pending")
               .map(([nodeId, exec]) => (
                 <div key={nodeId}>
                   <button
@@ -370,7 +399,7 @@ export default function DebugPanel({ className }: DebugPanelProps) {
         </div>
       )}
 
-      {/* Execution Timeline (n8n-style) */}
+      {/* Execution Timeline (flow-style) */}
       {executionHistory.length > 0 && (() => {
         // Calculate total execution time
         const completedNodes = executionHistory.filter(

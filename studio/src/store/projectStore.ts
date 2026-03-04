@@ -10,6 +10,10 @@ import {
   ProjectStructure,
 } from "../types/project";
 import { FlowNode, FlowEdge, BotDSL, DSLNode, isContainerNodeType } from "../types/flow";
+import {
+  buildExpressionNormalizationIndex,
+  normalizeN8nExpressionsInValue,
+} from "../utils/expressionSyntax";
 import { useToastStore } from "./toastStore";
 import { useTabsStore } from "./tabsStore";
 
@@ -45,7 +49,7 @@ interface ProjectStoreState {
   updateProjectSettings: (settings: {
     name?: string;
     description?: string;
-    defaultBrowser?: "chromium" | "firefox" | "webkit";
+    defaultBrowser?: "chromium" | "firefox" | "edge" | "webkit";
     defaultHeadless?: boolean;
     autoSaveEnabled?: boolean;
     autoSaveInterval?: number;
@@ -95,7 +99,7 @@ function createProjectStructure(projectPath: string): ProjectStructure {
   };
 }
 
-function dslToFlowNodes(dsl: BotDSL): { nodes: FlowNode[]; edges: FlowEdge[] } {
+export function dslToFlowNodes(dsl: BotDSL): { nodes: FlowNode[]; edges: FlowEdge[] } {
   const nodes: FlowNode[] = [];
   const edges: FlowEdge[] = [];
 
@@ -236,6 +240,8 @@ function flowNodesToDSL(
   nodes: FlowNode[],
   edges: FlowEdge[]
 ): BotDSL {
+  const expressionIndex = buildExpressionNormalizationIndex(nodes);
+
   // Build a map of parentNode -> children for container nodes
   const childrenByParent = new Map<string, FlowNode[]>();
   const topLevelNodes: FlowNode[] = [];
@@ -263,11 +269,16 @@ function flowNodesToDSL(
 
     const isContainer = isContainerNodeType(node.data.nodeType);
     const children = childrenByParent.get(node.id);
+    const normalizedNodeConfig = normalizeN8nExpressionsInValue(
+      node.data.config || {},
+      expressionIndex,
+      node.id
+    ) as Record<string, any>;
 
     const dslNode: DSLNode = {
       id: node.id,
       type: node.data.nodeType,
-      config: node.data.config,
+      config: normalizedNodeConfig,
       outputs: {
         success: successEdge?.target || "END",
         error: errorEdge?.target || "END",
@@ -488,8 +499,12 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     // Check for unsaved changes
     const { hasUnsavedChanges } = get();
     if (hasUnsavedChanges()) {
-      // TODO: Show confirmation dialog
-      console.warn("Closing project with unsaved changes");
+      const shouldClose = window.confirm(
+        "You have unsaved changes. Close the project anyway?"
+      );
+      if (!shouldClose) {
+        return;
+      }
     }
 
     set({

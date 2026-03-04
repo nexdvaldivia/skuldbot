@@ -1,5 +1,7 @@
 """HTTP client for communicating with the Orchestrator API."""
 
+from typing import Any
+
 import httpx
 import structlog
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -15,6 +17,8 @@ from .models import (
     RegisterRequest,
     RegisterResponse,
     RunResult,
+    StepProgress,
+    StepStatus,
 )
 
 logger = structlog.get_logger()
@@ -70,7 +74,7 @@ class OrchestratorClient:
         response.raise_for_status()
 
         data = response.json()
-        result = RegisterResponse(**data)
+        result = RegisterResponse.from_api_payload(data)
 
         logger.info("Runner registered", runner_id=result.id)
         return result
@@ -85,13 +89,24 @@ class OrchestratorClient:
     )
     async def heartbeat(self, request: HeartbeatRequest) -> HeartbeatResponse:
         """Send heartbeat to Orchestrator."""
+        payload: dict[str, Any] = {"status": request.status}
+        if request.current_run_id:
+            payload["currentRunId"] = request.current_run_id
+
+        if request.system_info:
+            payload["metrics"] = {
+                "cpuPercent": 0,
+                "memoryPercent": 0,
+                "activeSteps": 0,
+            }
+
         response = await self.client.post(
             "/runner-agent/heartbeat",
-            json=request.model_dump(),
+            json=payload,
         )
         response.raise_for_status()
 
-        return HeartbeatResponse(**response.json())
+        return HeartbeatResponse.from_api_payload(response.json())
 
     # ============================================
     # Job Polling
@@ -103,7 +118,7 @@ class OrchestratorClient:
         response.raise_for_status()
 
         data = response.json()
-        return [Job(**job) for job in data]
+        return [Job.from_api_payload(job) for job in data]
 
     async def claim_job(self, run_id: str) -> ClaimResponse:
         """Claim a job for execution."""
@@ -115,7 +130,7 @@ class OrchestratorClient:
         )
         response.raise_for_status()
 
-        return ClaimResponse(**response.json())
+        return ClaimResponse.from_api_payload(response.json())
 
     # ============================================
     # Progress Reporting
@@ -123,9 +138,42 @@ class OrchestratorClient:
 
     async def report_progress(self, progress: ProgressReport) -> None:
         """Report progress on current run."""
+        # Current orchestrator contract expects step-level events.
+        if progress.steps:
+            for step in progress.steps:
+                payload = self._build_step_payload(progress.run_id, step)
+                response = await self.client.post("/runner-agent/progress", json=payload)
+                response.raise_for_status()
+            return
+
+        # Fallback heartbeat progress entry.
+        payload = {
+            "runId": progress.run_id,
+            "stepId": "step-0",
+            "nodeId": "runner.lifecycle",
+            "eventType": "step_start",
+            "status": progress.status.value,
+            "payload": {
+                "currentStep": progress.current_step,
+                "totalSteps": progress.total_steps,
+                "logs": progress.logs,
+            },
+        }
+        response = await self.client.post("/runner-agent/progress", json=payload)
+        response.raise_for_status()
+
+    async def start_run(self, run_id: str) -> None:
+        """Emit an initial lifecycle event for a newly claimed run."""
         response = await self.client.post(
             "/runner-agent/progress",
-            json=progress.model_dump(),
+            json={
+                "runId": run_id,
+                "stepId": "step-0",
+                "nodeId": "runner.lifecycle",
+                "eventType": "step_start",
+                "status": "running",
+                "payload": {"source": "runner-agent"},
+            },
         )
         response.raise_for_status()
 
@@ -134,7 +182,14 @@ class OrchestratorClient:
         try:
             response = await self.client.post(
                 "/runner-agent/log",
-                json=log.model_dump(mode="json"),
+                json={
+                    "runId": log.run_id,
+                    "timestamp": log.timestamp.isoformat(),
+                    "level": log.level.value,
+                    "message": log.message,
+                    "nodeId": log.node_id,
+                    "stepIndex": log.step_index,
+                },
             )
             response.raise_for_status()
         except Exception:
@@ -156,7 +211,15 @@ class OrchestratorClient:
 
         response = await self.client.post(
             "/runner-agent/complete",
-            json=result.model_dump(),
+            json={
+                "runId": result.run_id,
+                "success": result.status.is_success,
+                "durationMs": result.duration_ms,
+                "stepsCompleted": result.steps_completed,
+                "stepsFailed": result.steps_failed,
+                "outputs": result.output,
+                "errorMessage": result.error,
+            },
         )
         response.raise_for_status()
 
@@ -175,3 +238,47 @@ class OrchestratorClient:
                     f.write(chunk)
 
         logger.info("Package downloaded", dest=dest_path)
+
+    @staticmethod
+    def _build_step_payload(run_id: str, step: StepProgress) -> dict[str, Any]:
+        if step.status == StepStatus.RUNNING:
+            event_type = "step_start"
+            status = "running"
+        elif step.status == StepStatus.SUCCESS:
+            event_type = "step_end"
+            status = "success"
+        elif step.status == StepStatus.FAILED:
+            event_type = "step_error"
+            status = "failed"
+        elif step.status == StepStatus.SKIPPED:
+            event_type = "step_end"
+            status = "skipped"
+        else:
+            event_type = "step_start"
+            status = step.status.value
+
+        return {
+            "runId": run_id,
+            "stepId": step.step_id,
+            "nodeId": step.node_id,
+            "eventType": event_type,
+            "status": status,
+            "durationMs": OrchestratorClient._duration_ms(
+                step.started_at,
+                step.completed_at,
+            ),
+            "payload": {
+                "nodeType": step.node_type,
+                "output": step.output,
+                "error": step.error,
+            },
+        }
+
+    @staticmethod
+    def _duration_ms(started_at: Any, completed_at: Any) -> int | None:
+        if not started_at or not completed_at:
+            return None
+        try:
+            return int((completed_at - started_at).total_seconds() * 1000)
+        except Exception:
+            return None

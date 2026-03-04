@@ -4,6 +4,7 @@
 //! Studio does NOT implement MCP servers - it only consumes them.
 
 use serde::{Deserialize, Serialize};
+use once_cell::sync::OnceCell;
 
 use super::types::{
     Tool, Resource, ToolCall, ToolResult, ResourceContent,
@@ -26,8 +27,8 @@ pub struct MCPServerConfig {
 /// - Enterprise features
 pub struct MCPClient {
     servers: Vec<MCPServerConfig>,
-    // HTTP client for making requests
-    client: reqwest::Client,
+    // HTTP client is initialized lazily to avoid platform-specific panics during startup/tests.
+    client: OnceCell<reqwest::Client>,
 }
 
 impl MCPClient {
@@ -35,8 +36,17 @@ impl MCPClient {
     pub fn new() -> Self {
         Self {
             servers: Vec::new(),
-            client: reqwest::Client::new(),
+            client: OnceCell::new(),
         }
+    }
+
+    fn http_client(&self) -> Result<&reqwest::Client, MCPError> {
+        self.client.get_or_try_init(|| {
+            reqwest::Client::builder()
+                .no_proxy()
+                .build()
+                .map_err(|e| MCPError::InternalError(format!("Failed to initialize HTTP client: {}", e)))
+        })
     }
     
     /// Add an external server to connect to
@@ -73,7 +83,7 @@ impl MCPClient {
     
     async fn fetch_tools_from_server(&self, server: &MCPServerConfig) -> Result<Vec<Tool>, MCPError> {
         let url = format!("{}/api/v1/mcp/tools", server.url);
-        let mut request = self.client.get(&url);
+        let mut request = self.http_client()?.get(&url);
         
         if let Some(api_key) = &server.api_key {
             request = request.header("x-api-key", api_key);
@@ -121,7 +131,7 @@ impl MCPClient {
     
     async fn fetch_resources_from_server(&self, server: &MCPServerConfig) -> Result<Vec<Resource>, MCPError> {
         let url = format!("{}/api/v1/mcp/resources", server.url);
-        let mut request = self.client.get(&url);
+        let mut request = self.http_client()?.get(&url);
         
         if let Some(api_key) = &server.api_key {
             request = request.header("x-api-key", api_key);
@@ -159,7 +169,7 @@ impl MCPClient {
             .ok_or_else(|| MCPError::ServerNotFound(server_name.to_string()))?;
         
         let url = format!("{}/api/v1/mcp/tools/call", server.url);
-        let mut request = self.client.post(&url).json(&call);
+        let mut request = self.http_client()?.post(&url).json(&call);
         
         if let Some(api_key) = &server.api_key {
             request = request.header("x-api-key", api_key);
@@ -193,7 +203,7 @@ impl MCPClient {
         
         let encoded_uri = urlencoding::encode(uri);
         let url = format!("{}/api/v1/mcp/resources/{}", server.url, encoded_uri);
-        let mut request = self.client.get(&url);
+        let mut request = self.http_client()?.get(&url);
         
         if let Some(api_key) = &server.api_key {
             request = request.header("x-api-key", api_key);

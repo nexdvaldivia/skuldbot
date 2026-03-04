@@ -12,6 +12,7 @@ import {
 import { MarketplaceService, CatalogFilters, CatalogOptions } from './marketplace.service';
 import {
   MarketplaceBot,
+  MarketplaceBotStatus,
   BotVersion,
   BotCategory,
   ExecutionMode,
@@ -95,6 +96,19 @@ export class MarketplaceController {
   // ============================================================================
   // BOT MANAGEMENT (PARTNER)
   // ============================================================================
+
+  @Get('bots')
+  async listBots(
+    @Query('status') status?: MarketplaceBotStatus,
+    @Query('category') category?: BotCategory,
+    @Query('search') search?: string,
+  ): Promise<MarketplaceBot[]> {
+    return this.marketplaceService.listBots({
+      status,
+      category,
+      search,
+    });
+  }
 
   @Post('bots')
   // @UseGuards(JwtAuthGuard, PartnerGuard)

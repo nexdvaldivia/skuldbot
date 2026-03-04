@@ -50,10 +50,10 @@ import {
  *
  * Public endpoints:
  * - POST /auth/login
- * - POST /auth/register
+ * - POST /auth/register (disabled: admin provisioning only)
  * - POST /auth/refresh
- * - POST /auth/forgot-password
- * - POST /auth/reset-password
+ * - POST /auth/forgot-password (disabled: admin reset only)
+ * - POST /auth/reset-password (disabled: admin reset only)
  * - POST /auth/verify-email
  * - POST /auth/resend-verification
  *
@@ -102,7 +102,7 @@ export class AuthController {
 
   @Post('register')
   @Public()
-  @HttpCode(HttpStatus.CREATED)
+  @HttpCode(HttpStatus.FORBIDDEN)
   @Audit({
     category: AuditCategory.AUTH,
     action: AuditAction.CREATE,
@@ -131,7 +131,7 @@ export class AuthController {
 
   @Post('forgot-password')
   @Public()
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.FORBIDDEN)
   async forgotPassword(
     @Body() dto: ForgotPasswordDto,
   ): Promise<{ message: string }> {
@@ -140,7 +140,7 @@ export class AuthController {
 
   @Post('reset-password')
   @Public()
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.FORBIDDEN)
   @Audit({
     category: AuditCategory.SECURITY,
     action: AuditAction.UPDATE,

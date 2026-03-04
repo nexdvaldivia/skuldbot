@@ -13,6 +13,10 @@ import { Button } from "./ui/Button";
 import FormTriggerModal from "./FormTriggerModal";
 import { DSLNode } from "../types/flow";
 import { buildExecutionDSL } from "../lib/dsl";
+import {
+  getSchemaCandidateFromNodeData,
+  parseNodeRuntimeTelemetryLine,
+} from "../utils/nodeRuntimeTelemetry";
 
 export default function ProjectToolbar() {
   const { project, activeBotId, saveBot, getActiveBot, updateActiveBotNodes, updateActiveBotEdges } = useProjectStore();
@@ -136,7 +140,7 @@ export default function ProjectToolbar() {
 
     try {
       // Generate DSL with auto-trigger if needed
-      let dsl = buildExecutionDSL(
+      const dsl = buildExecutionDSL(
         { id: activeBot.id, name: activeBot.name, description: activeBot.description },
         activeBot.nodes,
         activeBot.edges
@@ -203,7 +207,7 @@ export default function ProjectToolbar() {
 
     try {
       // Generate DSL from project store's active bot
-      let dsl = buildExecutionDSL(
+      const dsl = buildExecutionDSL(
         { id: activeBot.id, name: activeBot.name, description: activeBot.description },
         activeBot.nodes,
         activeBot.edges
@@ -254,47 +258,25 @@ export default function ProjectToolbar() {
       // Get debug store for storing execution results
       const debugStore = useDebugStore.getState();
 
-      // Parse and show logs, capture NODE_OUTPUT for schema discovery
+      // Parse and show logs, capture runtime telemetry for schema discovery
       if (result.logs && Array.isArray(result.logs)) {
         result.logs.forEach((log: string) => {
-          // Check for NODE_OUTPUT to capture node output data
-          if (log.includes("NODE_OUTPUT:")) {
-            const outputLine = log.slice(log.indexOf("NODE_OUTPUT:") + "NODE_OUTPUT:".length).trim();
-            let nodeId: string | null = null;
-            let payload = outputLine;
-
-            // Format: NODE_OUTPUT:<nodeId>:<json>
-            if (!outputLine.startsWith("{") && !outputLine.startsWith("[")) {
-              const firstColon = outputLine.indexOf(":");
-              if (firstColon > -1) {
-                const maybeNodeId = outputLine.slice(0, firstColon).trim();
-                const maybeJson = outputLine.slice(firstColon + 1).trim();
-                if (maybeNodeId && maybeJson) {
-                  nodeId = maybeNodeId;
-                  payload = maybeJson;
-                }
-              }
+          const runtimeTelemetry = parseNodeRuntimeTelemetryLine(log);
+          if (runtimeTelemetry?.nodeId) {
+            const { nodeId, data, channel } = runtimeTelemetry;
+            if (channel === "input") {
+              debugStore.markNodeInput(nodeId, data);
+              return;
             }
-
-            try {
-              const outputData = JSON.parse(payload);
-              if (nodeId) {
-                // Store execution result in debug store
-                debugStore.markNodeStatus(nodeId, "success", outputData);
-                // Discover schema from the actual output
-                const flowNode = activeBot.nodes.find(n => n.id === nodeId);
-                if (flowNode) {
-                  debugStore.discoverSchema(nodeId, flowNode.data.nodeType, outputData);
-                }
-              }
-            } catch {
-              if (nodeId) {
-                debugStore.markNodeStatus(nodeId, "success", payload);
-              }
+            debugStore.markNodeStatus(nodeId, "success", data);
+            const flowNode = activeBot.nodes.find((n) => n.id === nodeId);
+            const schemaCandidate = getSchemaCandidateFromNodeData(data);
+            if (flowNode && schemaCandidate && typeof schemaCandidate === "object") {
+              debugStore.discoverSchema(nodeId, flowNode.data.nodeType, schemaCandidate);
             }
+            return;
           }
-          
-          // Show log in panel
+
           if (log.includes("ERROR")) {
             logs.error(log);
           } else if (log.includes("WARNING")) {

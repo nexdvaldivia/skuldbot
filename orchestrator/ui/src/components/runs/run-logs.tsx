@@ -32,23 +32,23 @@ const LOG_LEVEL_CONFIG: Record<
 > = {
   info: {
     icon: Info,
-    color: 'text-blue-400',
-    bgColor: 'bg-blue-400/10',
+    color: 'text-info-700',
+    bgColor: 'bg-info-100',
   },
   warn: {
     icon: AlertTriangle,
-    color: 'text-yellow-400',
-    bgColor: 'bg-yellow-400/10',
+    color: 'text-warning-700',
+    bgColor: 'bg-warning-100',
   },
   error: {
     icon: AlertCircle,
-    color: 'text-red-400',
-    bgColor: 'bg-red-400/10',
+    color: 'text-error-700',
+    bgColor: 'bg-error-100',
   },
   debug: {
     icon: Bug,
-    color: 'text-gray-400',
-    bgColor: 'bg-gray-400/10',
+    color: 'text-zinc-600',
+    bgColor: 'bg-zinc-100',
   },
 };
 
@@ -83,12 +83,12 @@ function LogEntry({
   return (
     <div
       className={cn(
-        'flex items-start gap-2 px-3 py-1.5 font-mono text-sm hover:bg-gray-800/50 transition-colors',
-        log.level === 'error' && 'bg-red-900/20'
+        'flex items-start gap-2 px-3 py-1.5 font-mono text-sm hover:bg-zinc-50 transition-colors',
+        log.level === 'error' && 'bg-error-50'
       )}
     >
       {showTimestamp && (
-        <span className="text-gray-500 shrink-0 select-all">{timestamp}</span>
+        <span className="text-zinc-500 shrink-0 select-all">{timestamp}</span>
       )}
       {showLevel && (
         <span className={cn('shrink-0', config.color)}>
@@ -96,11 +96,11 @@ function LogEntry({
         </span>
       )}
       {showNodeId && log.nodeId && (
-        <span className="text-purple-400 shrink-0 max-w-[120px] truncate">
+        <span className="text-brand-700 shrink-0 max-w-[120px] truncate">
           [{log.nodeId}]
         </span>
       )}
-      <span className="text-gray-200 whitespace-pre-wrap break-all flex-1">
+      <span className="text-zinc-800 whitespace-pre-wrap break-all flex-1">
         {log.message}
       </span>
     </div>
@@ -119,8 +119,8 @@ function StepProgress({ steps }: StepProgressProps) {
   if (steps.length === 0) return null;
 
   return (
-    <div className="border-b border-gray-700 p-3 bg-gray-800/50">
-      <div className="text-xs text-gray-400 mb-2 uppercase tracking-wide">
+    <div className="border-b border-zinc-200 p-3 bg-zinc-50">
+      <div className="text-xs text-zinc-500 mb-2 uppercase tracking-wide">
         Step Progress
       </div>
       <div className="flex flex-wrap gap-2">
@@ -129,10 +129,10 @@ function StepProgress({ steps }: StepProgressProps) {
             key={step.nodeId}
             className={cn(
               'px-2 py-1 rounded text-xs font-medium',
-              step.status === 'running' && 'bg-blue-500/20 text-blue-400',
-              step.status === 'success' && 'bg-green-500/20 text-green-400',
-              step.status === 'failed' && 'bg-red-500/20 text-red-400',
-              step.status === 'skipped' && 'bg-gray-500/20 text-gray-400'
+              step.status === 'running' && 'bg-info-100 text-info-700',
+              step.status === 'success' && 'bg-brand-100 text-brand-700',
+              step.status === 'failed' && 'bg-error-100 text-error-700',
+              step.status === 'skipped' && 'bg-zinc-100 text-zinc-600'
             )}
           >
             <span className="opacity-60">#{step.stepIndex + 1}</span>{' '}
@@ -233,22 +233,22 @@ export function RunLogs({
   return (
     <div
       className={cn(
-        'flex flex-col bg-gray-900 rounded-lg border border-gray-700 overflow-hidden',
+        'flex flex-col bg-white rounded-xl border border-zinc-200 overflow-hidden',
         className
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 bg-gray-800/50">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 bg-zinc-50">
         <div className="flex items-center gap-3">
-          <Terminal className="h-5 w-5 text-gray-400" />
-          <span className="font-medium text-gray-200">Logs</span>
+          <Terminal className="h-5 w-5 text-zinc-500" />
+          <span className="font-medium text-zinc-900">Logs</span>
           {/* Connection status */}
           <div
             className={cn(
               'flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs',
               isConnected
-                ? 'bg-green-500/20 text-green-400'
-                : 'bg-red-500/20 text-red-400'
+                ? 'bg-brand-100 text-brand-700'
+                : 'bg-error-100 text-error-700'
             )}
           >
             {isConnected ? (
@@ -264,8 +264,8 @@ export function RunLogs({
             )}
           </div>
           {currentStatus && (
-            <span className="text-xs text-gray-500">
-              Status: <span className="text-gray-300">{currentStatus}</span>
+            <span className="text-xs text-zinc-500">
+              Status: <span className="text-zinc-700">{currentStatus}</span>
             </span>
           )}
         </div>
@@ -277,8 +277,8 @@ export function RunLogs({
             size="sm"
             onClick={() => setAutoScroll(!autoScroll)}
             className={cn(
-              'text-gray-400 hover:text-gray-200',
-              autoScroll && 'text-blue-400'
+              'text-zinc-500 hover:text-zinc-900',
+              autoScroll && 'text-brand-700'
             )}
           >
             {autoScroll ? (
@@ -291,7 +291,7 @@ export function RunLogs({
             variant="ghost"
             size="sm"
             onClick={handleExport}
-            className="text-gray-400 hover:text-gray-200"
+            className="text-zinc-500 hover:text-zinc-900"
           >
             <Download className="h-4 w-4" />
           </Button>
@@ -299,7 +299,7 @@ export function RunLogs({
             variant="ghost"
             size="sm"
             onClick={clearLogs}
-            className="text-gray-400 hover:text-gray-200"
+            className="text-zinc-500 hover:text-zinc-900"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -307,8 +307,8 @@ export function RunLogs({
       </div>
 
       {/* Filter bar */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-700 bg-gray-800/30">
-        <span className="text-xs text-gray-500 uppercase tracking-wide mr-2">
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-zinc-200 bg-zinc-50/70">
+        <span className="text-xs text-zinc-500 uppercase tracking-wide mr-2">
           Filter:
         </span>
         {(['all', 'info', 'warn', 'error', 'debug'] as const).map((level) => {
@@ -322,9 +322,9 @@ export function RunLogs({
                 'px-2 py-0.5 rounded text-xs font-medium transition-colors',
                 isActive
                   ? level === 'all'
-                    ? 'bg-gray-600 text-white'
+                    ? 'bg-zinc-200 text-zinc-900'
                     : cn(LOG_LEVEL_CONFIG[level].bgColor, LOG_LEVEL_CONFIG[level].color)
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                  : 'bg-white text-zinc-500 hover:bg-zinc-100'
               )}
             >
               {level.charAt(0).toUpperCase() + level.slice(1)}
@@ -347,17 +347,17 @@ export function RunLogs({
         style={{ maxHeight }}
       >
         {filteredLogs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+          <div className="flex flex-col items-center justify-center py-12 text-zinc-500">
             <Terminal className="h-8 w-8 mb-2 opacity-50" />
             <p>Waiting for logs...</p>
             {!isConnected && (
-              <p className="text-xs mt-1 text-red-400">
+              <p className="text-xs mt-1 text-error-600">
                 WebSocket disconnected - attempting to reconnect
               </p>
             )}
           </div>
         ) : (
-          <div className="divide-y divide-gray-800/50">
+          <div className="divide-y divide-zinc-100">
             {filteredLogs.map((log, index) => (
               <LogEntry key={`${log.timestamp}-${index}`} log={log} />
             ))}
@@ -367,7 +367,7 @@ export function RunLogs({
       </div>
 
       {/* Footer with stats */}
-      <div className="flex items-center justify-between px-4 py-2 border-t border-gray-700 bg-gray-800/30 text-xs text-gray-500">
+      <div className="flex items-center justify-between px-4 py-2 border-t border-zinc-200 bg-zinc-50 text-xs text-zinc-500">
         <span>
           {filteredLogs.length} log{filteredLogs.length !== 1 ? 's' : ''}
           {filter !== 'all' && ` (filtered from ${allLogs.length})`}
@@ -378,7 +378,7 @@ export function RunLogs({
               setAutoScroll(true);
               logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="text-blue-400 hover:text-blue-300"
+            className="text-brand-700 hover:text-brand-800"
           >
             Jump to bottom
           </button>
@@ -409,25 +409,25 @@ export function RunLogsCompact({
   return (
     <div
       className={cn(
-        'bg-gray-900 rounded border border-gray-700 overflow-hidden',
+        'bg-white rounded-xl border border-zinc-200 overflow-hidden',
         className
       )}
     >
-      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-200">
         <div className="flex items-center gap-2">
-          <Terminal className="h-4 w-4 text-gray-400" />
-          <span className="text-sm text-gray-300">Recent Logs</span>
+          <Terminal className="h-4 w-4 text-zinc-500" />
+          <span className="text-sm text-zinc-800">Recent Logs</span>
         </div>
         <div
           className={cn(
             'h-2 w-2 rounded-full',
-            isConnected ? 'bg-green-400' : 'bg-red-400'
+            isConnected ? 'bg-brand-500' : 'bg-error-500'
           )}
         />
       </div>
       <div className="max-h-[200px] overflow-y-auto">
         {recentLogs.length === 0 ? (
-          <div className="px-3 py-4 text-center text-gray-500 text-sm">
+          <div className="px-3 py-4 text-center text-zinc-500 text-sm">
             No logs yet
           </div>
         ) : (

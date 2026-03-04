@@ -2,7 +2,6 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  UnauthorizedException,
   Logger,
   Inject,
   forwardRef,
@@ -10,7 +9,13 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { randomBytes, createHash } from 'crypto';
-import { Runner, RunnerStatus, RunnerPool } from './entities/runner.entity';
+import {
+  Runner,
+  RunnerEvent,
+  RunnerEventType,
+  RunnerStatus,
+  RunnerPool,
+} from './entities/runner.entity';
 import { Run, RunStatus, RunEventType } from '../runs/entities/run.entity';
 import { BotVersion } from '../bots/entities/bot.entity';
 import { RunsService } from '../runs/runs.service';
@@ -30,8 +35,17 @@ import {
   JobClaimResponseDto,
   RunnerStatsDto,
 } from './dto/runner-response.dto';
+import {
+  redactSensitiveData,
+  redactSensitiveString,
+} from '../common/utils/redaction.util';
 
 const HEARTBEAT_TIMEOUT_MS = 60 * 1000; // 1 minute without heartbeat = offline
+const RUNNER_API_KEY_PREFIX = 'skr_';
+const RUNNER_API_KEY_BYTES = 32;
+const DEFAULT_RUNNER_API_KEY_TTL_DAYS = 365;
+
+type SocketRunnerStatus = 'idle' | 'busy' | 'draining';
 
 @Injectable()
 export class RunnersService {
@@ -42,6 +56,8 @@ export class RunnersService {
     private readonly runnerRepository: Repository<Runner>,
     @InjectRepository(RunnerPool)
     private readonly poolRepository: Repository<RunnerPool>,
+    @InjectRepository(RunnerEvent)
+    private readonly runnerEventRepository: Repository<RunnerEvent>,
     @InjectRepository(Run)
     private readonly runRepository: Repository<Run>,
     @InjectRepository(BotVersion)
@@ -74,10 +90,20 @@ export class RunnersService {
       secretsConfig: dto.secretsConfig,
       ipAddress,
       apiKeyHash,
+      apiKeyPrefix: this.getApiKeyPrefix(apiKey),
+      apiKeyCreatedAt: new Date(),
+      apiKeyExpiresAt: this.calculateApiKeyExpiryDate(),
       lastHeartbeatAt: new Date(),
     });
 
     await this.runnerRepository.save(runner);
+    await this.recordRunnerEvent({
+      runner,
+      eventType: RunnerEventType.REGISTERED,
+      message: 'Runner registered',
+      triggeredBy: 'system',
+      ipAddress,
+    });
 
     this.logger.log(`Registered runner ${runner.id} (${runner.name})`);
 
@@ -99,9 +125,159 @@ export class RunnersService {
    * Authenticate runner by API key
    */
   async authenticateByApiKey(apiKey: string): Promise<Runner | null> {
+    if (!apiKey.startsWith(RUNNER_API_KEY_PREFIX)) {
+      return null;
+    }
+
     const apiKeyHash = this.hashApiKey(apiKey);
-    return this.runnerRepository.findOne({
+    const runner = await this.runnerRepository.findOne({
       where: { apiKeyHash },
+    });
+
+    if (!runner) {
+      return null;
+    }
+
+    if (this.isRunnerCredentialExpired(runner) || this.isRunnerBlockedForConnection(runner)) {
+      return null;
+    }
+
+    runner.lastAuthenticatedAt = new Date();
+    await this.runnerRepository.save(runner);
+
+    return runner;
+  }
+
+  /**
+   * Authenticate runner over WebSocket using runner ID + API key.
+   */
+  async authenticateRunnerSocket(
+    runnerId: string,
+    apiKey: string,
+    options?: { ipAddress?: string; agentVersion?: string },
+  ): Promise<Runner | null> {
+    if (!apiKey.startsWith(RUNNER_API_KEY_PREFIX)) {
+      return null;
+    }
+
+    const runner = await this.runnerRepository.findOne({
+      where: { id: runnerId },
+    });
+
+    if (!runner) {
+      return null;
+    }
+
+    const apiKeyHash = this.hashApiKey(apiKey);
+    if (runner.apiKeyHash !== apiKeyHash) {
+      return null;
+    }
+
+    if (this.isRunnerCredentialExpired(runner) || this.isRunnerBlockedForConnection(runner)) {
+      return null;
+    }
+
+    runner.lastAuthenticatedAt = new Date();
+    runner.lastAuthenticatedIp = options?.ipAddress;
+    runner.lastHeartbeatAt = new Date();
+    runner.status = RunnerStatus.ONLINE;
+
+    if (options?.agentVersion?.trim()) {
+      runner.agentVersion = options.agentVersion.trim();
+    }
+
+    await this.runnerRepository.save(runner);
+    await this.recordRunnerEvent({
+      runner,
+      eventType: RunnerEventType.CONNECTED,
+      message: 'Runner authenticated via WebSocket',
+      details: {
+        transport: 'websocket',
+        agentVersion: options?.agentVersion ?? null,
+      },
+      triggeredBy: 'system',
+      ipAddress: options?.ipAddress,
+    });
+    return runner;
+  }
+
+  /**
+   * Persist runner heartbeat/state from WebSocket channel.
+   */
+  async updateRunnerSocketHeartbeat(
+    runnerId: string,
+    status: SocketRunnerStatus,
+    metrics?: { cpuUsage?: number; memoryUsage?: number },
+  ): Promise<void> {
+    const runner = await this.runnerRepository.findOne({
+      where: { id: runnerId },
+    });
+
+    if (!runner) {
+      return;
+    }
+
+    runner.lastHeartbeatAt = new Date();
+
+    const previousStatus = runner.status;
+
+    if (status === 'busy') {
+      runner.status = RunnerStatus.BUSY;
+    } else if (status === 'draining') {
+      runner.status = RunnerStatus.DRAINING;
+    } else {
+      runner.status = RunnerStatus.ONLINE;
+    }
+
+    if (typeof metrics?.cpuUsage === 'number') {
+      runner.cpuUsagePercent = metrics.cpuUsage;
+    }
+
+    if (typeof metrics?.memoryUsage === 'number') {
+      runner.memoryUsagePercent = metrics.memoryUsage;
+    }
+
+    await this.runnerRepository.save(runner);
+
+    if (runner.status !== previousStatus) {
+      await this.recordRunnerEvent({
+        runner,
+        eventType: RunnerEventType.STATUS_CHANGED,
+        message: `Runner status changed from ${previousStatus} to ${runner.status}`,
+        previousStatus,
+        newStatus: runner.status,
+        triggeredBy: 'system',
+      });
+    }
+  }
+
+  /**
+   * Mark runner disconnected in persistent state.
+   */
+  async markRunnerDisconnected(runnerId: string, ipAddress?: string): Promise<void> {
+    const runner = await this.runnerRepository.findOne({
+      where: { id: runnerId },
+    });
+
+    if (!runner) {
+      return;
+    }
+
+    if (runner.status === RunnerStatus.DISABLED || runner.status === RunnerStatus.MAINTENANCE) {
+      return;
+    }
+
+    const previousStatus = runner.status;
+    runner.status = RunnerStatus.OFFLINE;
+    await this.runnerRepository.save(runner);
+    await this.recordRunnerEvent({
+      runner,
+      eventType: RunnerEventType.DISCONNECTED,
+      message: 'Runner disconnected',
+      previousStatus,
+      newStatus: runner.status,
+      triggeredBy: 'system',
+      ipAddress,
     });
   }
 
@@ -319,8 +495,11 @@ export class RunnersService {
       status: this.mapEventTypeToStepStatus(dto.eventType),
       startedAt: dto.eventType === 'step_start' ? new Date().toISOString() : undefined,
       completedAt: dto.eventType === 'step_complete' ? new Date().toISOString() : undefined,
-      output: dto.payload?.output,
-      error: dto.payload?.error,
+      output: this.redactValue(dto.payload?.output),
+      error:
+        typeof dto.payload?.error === 'string'
+          ? redactSensitiveString(dto.payload.error)
+          : undefined,
     });
 
     // Emit log entry
@@ -329,7 +508,7 @@ export class RunnersService {
         runId: dto.runId,
         timestamp: new Date().toISOString(),
         level: dto.eventType === 'step_error' ? 'error' : 'info',
-        message: dto.payload.log,
+        message: redactSensitiveString(String(dto.payload.log)),
         nodeId: dto.nodeId,
       });
     }
@@ -375,7 +554,7 @@ export class RunnersService {
       runId: dto.runId,
       timestamp: dto.timestamp,
       level: dto.level,
-      message: dto.message,
+      message: redactSensitiveString(dto.message),
       nodeId: dto.nodeId,
       stepIndex: dto.stepIndex,
     });
@@ -420,7 +599,9 @@ export class RunnersService {
       durationMs,
       stepsCompleted: dto.stepsCompleted || 0,
       stepsFailed: dto.stepsFailed || 0,
-      error: dto.errorMessage,
+      error: dto.errorMessage
+        ? redactSensitiveString(dto.errorMessage)
+        : undefined,
     });
 
     // Emit runner status change
@@ -513,7 +694,16 @@ export class RunnersService {
 
     const apiKey = this.generateApiKey();
     runner.apiKeyHash = this.hashApiKey(apiKey);
+    runner.apiKeyPrefix = this.getApiKeyPrefix(apiKey);
+    runner.apiKeyCreatedAt = new Date();
+    runner.apiKeyExpiresAt = this.calculateApiKeyExpiryDate();
     await this.runnerRepository.save(runner);
+    await this.recordRunnerEvent({
+      runner,
+      eventType: RunnerEventType.API_KEY_REGENERATED,
+      message: 'Runner API key regenerated',
+      triggeredBy: 'system',
+    });
 
     this.logger.log(`Regenerated API key for runner ${runnerId}`);
 
@@ -523,11 +713,75 @@ export class RunnersService {
   // Helper methods
 
   private generateApiKey(): string {
-    return `skr_${randomBytes(32).toString('hex')}`;
+    return `${RUNNER_API_KEY_PREFIX}${randomBytes(RUNNER_API_KEY_BYTES).toString('hex')}`;
+  }
+
+  private getApiKeyPrefix(apiKey: string): string {
+    return apiKey.slice(0, 12);
+  }
+
+  private calculateApiKeyExpiryDate(): Date | null {
+    const configuredTtlDays = Number.parseInt(
+      process.env.RUNNER_API_KEY_TTL_DAYS ?? String(DEFAULT_RUNNER_API_KEY_TTL_DAYS),
+      10,
+    );
+
+    if (!Number.isFinite(configuredTtlDays) || configuredTtlDays <= 0) {
+      return null;
+    }
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + configuredTtlDays);
+    return expiresAt;
   }
 
   private hashApiKey(apiKey: string): string {
     return createHash('sha256').update(apiKey).digest('hex');
+  }
+
+  private isRunnerCredentialExpired(runner: Runner): boolean {
+    if (!runner.apiKeyExpiresAt) {
+      return false;
+    }
+    return runner.apiKeyExpiresAt.getTime() <= Date.now();
+  }
+
+  private isRunnerBlockedForConnection(runner: Runner): boolean {
+    return (
+      runner.status === RunnerStatus.DISABLED ||
+      runner.status === RunnerStatus.MAINTENANCE ||
+      runner.status === RunnerStatus.STOPPING
+    );
+  }
+
+  private redactValue<T>(value: T): T {
+    return redactSensitiveData(value);
+  }
+
+  private async recordRunnerEvent(options: {
+    runner: Runner;
+    eventType: RunnerEventType;
+    message: string;
+    details?: Record<string, unknown>;
+    previousStatus?: string;
+    newStatus?: string;
+    triggeredBy?: string;
+    ipAddress?: string;
+  }): Promise<void> {
+    const event = this.runnerEventRepository.create({
+      tenantId: options.runner.tenantId,
+      runnerId: options.runner.id,
+      eventType: options.eventType,
+      message: options.message,
+      details: options.details,
+      previousStatus: options.previousStatus,
+      newStatus: options.newStatus,
+      triggeredBy: options.triggeredBy ?? 'system',
+      ipAddress: options.ipAddress,
+      timestamp: new Date(),
+    });
+
+    await this.runnerEventRepository.save(event);
   }
 
   private toResponseDto(runner: Runner): RunnerResponseDto {

@@ -4,13 +4,15 @@ import {
   ConflictException,
   ForbiddenException,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import * as argon2 from 'argon2';
 import { User, UserRole, UserStatus } from './entities/user.entity';
 import { Client } from '../clients/entities/client.entity';
 import { CreateUserDto, UpdateUserDto, UserResponseDto } from './dto/user.dto';
+import { CpRole, CpRoleScopeType } from '../rbac/entities/cp-role.entity';
 
 @Injectable()
 export class UsersService {
@@ -21,12 +23,15 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Client)
     private readonly clientRepository: Repository<Client>,
+    @InjectRepository(CpRole)
+    private readonly roleRepository: Repository<CpRole>,
   ) {}
 
   async findAll(clientId?: string): Promise<UserResponseDto[]> {
     const query = this.userRepository
       .createQueryBuilder('user')
-      .leftJoinAndSelect('user.client', 'client');
+      .leftJoinAndSelect('user.client', 'client')
+      .leftJoinAndSelect('user.roles', 'roles');
 
     if (clientId) {
       query.where('user.client_id = :clientId', { clientId });
@@ -39,7 +44,7 @@ export class UsersService {
   async findOne(id: string): Promise<UserResponseDto> {
     const user = await this.userRepository.findOne({
       where: { id },
-      relations: ['client'],
+      relations: ['client', 'roles'],
     });
 
     if (!user) {
@@ -52,7 +57,7 @@ export class UsersService {
   async findByEmail(email: string): Promise<User | null> {
     return this.userRepository.findOne({
       where: { email },
-      relations: ['client'],
+      relations: ['client', 'roles', 'roles.permissions'],
     });
   }
 
@@ -82,6 +87,8 @@ export class UsersService {
       passwordHash = await argon2.hash(dto.password);
     }
 
+    const roles = await this.resolveRoleAssignments(dto.role, dto.roleIds, dto.clientId || null);
+
     const user = this.userRepository.create({
       email: dto.email,
       passwordHash,
@@ -90,6 +97,7 @@ export class UsersService {
       role: dto.role,
       clientId: dto.clientId || null,
       status: dto.password ? UserStatus.ACTIVE : UserStatus.PENDING,
+      roles,
     });
 
     const saved = await this.userRepository.save(user);
@@ -98,7 +106,7 @@ export class UsersService {
     // Reload with relations
     const loaded = await this.userRepository.findOne({
       where: { id: saved.id },
-      relations: ['client'],
+      relations: ['client', 'roles'],
     });
 
     return this.toResponseDto(loaded!);
@@ -107,7 +115,7 @@ export class UsersService {
   async update(id: string, dto: UpdateUserDto, currentUser: User): Promise<UserResponseDto> {
     const user = await this.userRepository.findOne({
       where: { id },
-      relations: ['client'],
+      relations: ['client', 'roles'],
     });
 
     if (!user) {
@@ -124,7 +132,15 @@ export class UsersService {
       throw new ForbiddenException('Cannot deactivate your own account');
     }
 
-    Object.assign(user, dto);
+    if (dto.roleIds) {
+      user.roles = await this.resolveRolesByIds(dto.roleIds, user.clientId);
+    }
+
+    if (dto.firstName !== undefined) user.firstName = dto.firstName;
+    if (dto.lastName !== undefined) user.lastName = dto.lastName;
+    if (dto.role !== undefined) user.role = dto.role;
+    if (dto.status !== undefined) user.status = dto.status;
+
     const saved = await this.userRepository.save(user);
     return this.toResponseDto(saved);
   }
@@ -149,7 +165,7 @@ export class UsersService {
   async activate(id: string): Promise<UserResponseDto> {
     const user = await this.userRepository.findOne({
       where: { id },
-      relations: ['client'],
+      relations: ['client', 'roles'],
     });
 
     if (!user) {
@@ -164,7 +180,7 @@ export class UsersService {
   async suspend(id: string, currentUser: User): Promise<UserResponseDto> {
     const user = await this.userRepository.findOne({
       where: { id },
-      relations: ['client'],
+      relations: ['client', 'roles'],
     });
 
     if (!user) {
@@ -187,6 +203,12 @@ export class UsersService {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
+      roles:
+        user.roles?.map((role) => ({
+          id: role.id,
+          name: role.name,
+          displayName: role.displayName,
+        })) ?? [],
       status: user.status,
       clientId: user.clientId,
       clientName: user.client?.name || null,
@@ -196,5 +218,58 @@ export class UsersService {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
+  }
+
+  private async resolveRoleAssignments(
+    legacyRole: UserRole,
+    roleIds?: string[],
+    userClientId?: string | null,
+  ): Promise<CpRole[]> {
+    if (roleIds && roleIds.length > 0) {
+      return this.resolveRolesByIds(roleIds, userClientId ?? null);
+    }
+
+    const systemRole = await this.roleRepository.findOne({
+      where: { name: legacyRole },
+    });
+
+    return systemRole ? [systemRole] : [];
+  }
+
+  private async resolveRolesByIds(
+    roleIds: string[],
+    userClientId: string | null,
+  ): Promise<CpRole[]> {
+    const uniqueRoleIds = Array.from(new Set(roleIds));
+
+    const roles = await this.roleRepository.find({
+      where: { id: In(uniqueRoleIds) },
+    });
+
+    if (roles.length !== uniqueRoleIds.length) {
+      throw new BadRequestException({
+        code: 'INVALID_ROLE_IDS',
+        message: 'One or more roleIds are invalid.',
+      });
+    }
+
+    for (const role of roles) {
+      if (role.scopeType === CpRoleScopeType.CLIENT) {
+        if (!userClientId) {
+          throw new BadRequestException({
+            code: 'CLIENT_ROLE_REQUIRES_CLIENT_USER',
+            message: `Role ${role.name} requires a client-bound user.`,
+          });
+        }
+        if (role.clientId && role.clientId !== userClientId) {
+          throw new BadRequestException({
+            code: 'CLIENT_ROLE_SCOPE_MISMATCH',
+            message: `Role ${role.name} is scoped to a different client.`,
+          });
+        }
+      }
+    }
+
+    return roles;
   }
 }

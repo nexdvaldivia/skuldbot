@@ -261,6 +261,10 @@ class Executor:
             except ImportError:
                 self._evidence_writer = None
 
+        # Register Studio security overrides in evidence pack (if present in bot manifest)
+        if self._evidence_writer:
+            self._record_ui_masking_overrides(manifest)
+
         # Callback on_start
         if "on_start" in callbacks:
             callbacks["on_start"]()
@@ -405,6 +409,44 @@ class Executor:
 
         return execution_result
 
+    def _record_ui_masking_overrides(self, manifest: Dict[str, Any]) -> None:
+        """
+        Record Studio UI masking overrides in the evidence pack.
+
+        Studio persists the output masking switch per node in config under
+        "__ui_data_masking_enabled". If explicitly false, we audit that
+        override for compliance traceability.
+        """
+        if not self._evidence_writer or not isinstance(manifest, dict):
+            return
+
+        nodes = manifest.get("nodes")
+        if not isinstance(nodes, dict):
+            return
+
+        for node_id, node_meta in nodes.items():
+            if not isinstance(node_meta, dict):
+                continue
+
+            config = node_meta.get("config")
+            if not isinstance(config, dict):
+                continue
+
+            if config.get("__ui_data_masking_enabled") is not False:
+                continue
+
+            node_type = str(node_meta.get("type", ""))
+            node_label = str(node_meta.get("label", node_id))
+            self._evidence_writer.add_log(
+                "WARN",
+                f"HIPAA output masking disabled in Studio for node '{node_label}'",
+                node_id=str(node_id),
+                node_type=node_type,
+                event_type="hipaa_masking_override",
+                masking_enabled=False,
+                source="studio.node_config_panel",
+            )
+
     def _parse_robot_output(self, output_dir: Path) -> Dict[str, Any]:
         """Parsea el output de Robot Framework"""
         output_xml = output_dir / "output.xml"
@@ -425,4 +467,3 @@ class Executor:
         # TODO: Implementar cancelación de proceso
         if self._current_execution:
             self._current_execution.status = ExecutionStatus.CANCELLED
-

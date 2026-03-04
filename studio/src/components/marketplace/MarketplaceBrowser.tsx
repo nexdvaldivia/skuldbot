@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
 import { useToastStore } from '../../store/toastStore';
 import {
@@ -67,11 +67,7 @@ export const MarketplaceBrowser: React.FC<MarketplaceBrowserProps> = ({
     'manufacturing',
   ];
 
-  useEffect(() => {
-    loadMarketplace();
-  }, [searchQuery, selectedCategory, selectedIndustry]);
-
-  const loadMarketplace = async () => {
+  const loadMarketplace = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -93,7 +89,11 @@ export const MarketplaceBrowser: React.FC<MarketplaceBrowserProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchQuery, selectedCategory, selectedIndustry]);
+
+  useEffect(() => {
+    loadMarketplace();
+  }, [loadMarketplace]);
 
   const handleInstall = async (bot: MarketplaceBot) => {
     try {
@@ -283,4 +283,3 @@ export const MarketplaceBrowser: React.FC<MarketplaceBrowserProps> = ({
     </div>
   );
 };
-

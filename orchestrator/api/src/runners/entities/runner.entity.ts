@@ -86,7 +86,7 @@ export class Runner {
   id: string;
 
   /** Tenant ID from license */
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
@@ -125,7 +125,7 @@ export class Runner {
   // POOL & GROUPING
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   poolId: string;
 
   @ManyToOne('RunnerPool', { onDelete: 'SET NULL', nullable: true })
@@ -328,7 +328,7 @@ export class Runner {
   @Column({ nullable: true })
   lastJobCompletedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   currentJobId: string; // Currently executing run ID
 
   @Column({ nullable: true })
@@ -454,7 +454,7 @@ export class RunnerPool {
   id: string;
 
   /** Tenant ID from license */
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
@@ -591,7 +591,7 @@ export class RunnerPool {
   // OWNERSHIP
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   createdBy: string;
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
@@ -635,11 +635,11 @@ export class RunnerHeartbeat {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   runnerId: string;
 
   @ManyToOne(() => Runner, { onDelete: 'CASCADE' })
@@ -712,11 +712,11 @@ export class RunnerEvent {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   runnerId: string;
 
   @ManyToOne(() => Runner, { onDelete: 'CASCADE' })

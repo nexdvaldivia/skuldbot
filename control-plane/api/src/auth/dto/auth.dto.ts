@@ -53,6 +53,8 @@ export class AuthResponseDto {
     firstName: string;
     lastName: string;
     role: string;
+    roles?: string[];
     clientId: string | null;
+    permissions: string[];
   };
 }

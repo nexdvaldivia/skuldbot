@@ -159,7 +159,7 @@ export class Schedule {
   id: string;
 
   /** Tenant ID from license */
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
@@ -187,7 +187,7 @@ export class Schedule {
   // BOT CONFIGURATION
   // ============================================================================
 
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   botId: string;
 
@@ -195,7 +195,7 @@ export class Schedule {
   @JoinColumn({ name: 'botId' })
   bot: Bot;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   botVersionId: string | null; // null = use latest published
 
   @ManyToOne(() => BotVersion, { onDelete: 'SET NULL', nullable: true })
@@ -242,11 +242,11 @@ export class Schedule {
   } | null;
 
   // Event trigger (defined in EventTrigger entity)
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   eventTriggerId: string | null;
 
   // Webhook trigger (defined in WebhookTrigger entity)
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   webhookTriggerId: string | null;
 
   // ============================================================================
@@ -260,10 +260,10 @@ export class Schedule {
   })
   targetType: ScheduleTargetType;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   targetPoolId: string | null; // For POOL target
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   targetRunnerId: string | null; // For PINNED target
 
   @Column({ type: 'jsonb', nullable: true })
@@ -426,19 +426,19 @@ export class Schedule {
   @Column({ nullable: true })
   lastRunAt: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   lastRunId: string | null;
 
   @Column({ nullable: true })
   lastSuccessAt: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   lastSuccessRunId: string | null;
 
   @Column({ nullable: true })
   lastFailureAt: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   lastFailureRunId: string | null;
 
   @Column({ type: 'bigint', default: 0 })
@@ -524,21 +524,21 @@ export class Schedule {
   // OWNERSHIP & ACCESS
   // ============================================================================
 
-  @Column()
+  @Column({ type: 'uuid' })
   createdBy: string;
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'createdBy' })
   creator: User;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   updatedBy: string | null;
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'updatedBy' })
   updater: User | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   ownerId: string | null; // Schedule owner
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
@@ -638,11 +638,11 @@ export class ScheduleExecution {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   scheduleId: string;
 
@@ -656,7 +656,7 @@ export class ScheduleExecution {
   })
   status: ScheduleExecutionStatus;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   runId: string | null; // If run was created
 
   @Column()
@@ -697,7 +697,7 @@ export class ScheduleExecution {
     poolId?: string;
   } | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   botVersionId: string | null;
 
   @Column({ type: 'jsonb', nullable: true })
@@ -724,11 +724,11 @@ export class EventTrigger {
   id: string;
 
   /** Tenant ID from license */
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   scheduleId: string;
 
   @ManyToOne(() => Schedule, (schedule) => schedule.eventTriggers, { onDelete: 'CASCADE' })
@@ -748,7 +748,7 @@ export class EventTrigger {
   sourceType: EventTriggerSourceType;
 
   // Bot completion trigger
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   sourceBotId: string | null; // Bot to watch
 
   @Column({ type: 'jsonb', nullable: true })
@@ -810,7 +810,7 @@ export class EventTrigger {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @Column()
+  @Column({ type: 'uuid' })
   createdBy: string;
 }
 
@@ -831,11 +831,11 @@ export class WebhookTrigger {
   id: string;
 
   /** Tenant ID from license */
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   scheduleId: string;
 
   @ManyToOne(() => Schedule, (schedule) => schedule.webhookTriggers, { onDelete: 'CASCADE' })
@@ -929,10 +929,10 @@ export class WebhookTrigger {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @Column()
+  @Column({ type: 'uuid' })
   createdBy: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   revokedBy: string | null;
 
   @Column({ nullable: true })
@@ -956,7 +956,7 @@ export class ScheduleCalendarEntry {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   scheduleId: string;
 
@@ -974,7 +974,7 @@ export class ScheduleCalendarEntry {
   })
   status: ScheduleExecutionStatus;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   runId: string | null;
 
   @Column({ nullable: true, length: 200 })
@@ -989,7 +989,7 @@ export class ScheduleCalendarEntry {
   @CreateDateColumn()
   createdAt: Date;
 
-  @Column()
+  @Column({ type: 'uuid' })
   createdBy: string;
 }
 
@@ -1007,7 +1007,7 @@ export class ScheduleGroup {
   id: string;
 
   /** Tenant ID from license */
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
@@ -1042,6 +1042,6 @@ export class ScheduleGroup {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @Column()
+  @Column({ type: 'uuid' })
   createdBy: string;
 }

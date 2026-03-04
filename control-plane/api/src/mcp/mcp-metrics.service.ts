@@ -1,30 +1,191 @@
 import { Injectable } from '@nestjs/common';
-import { Registry, Counter, Histogram, Gauge } from 'prom-client';
+
+type LabelSet = Record<string, string | number | boolean>;
+
+interface MetricConfig {
+  name: string;
+  help: string;
+  labelNames?: string[];
+  registers?: Registry[];
+}
+
+interface MetricCollector {
+  render(): string;
+}
+
+class Registry {
+  private readonly collectors: MetricCollector[] = [];
+
+  registerMetric(collector: MetricCollector): void {
+    this.collectors.push(collector);
+  }
+
+  metrics(): string {
+    return this.collectors.map((collector) => collector.render()).join('\n');
+  }
+}
+
+abstract class BaseMetric {
+  protected constructor(
+    protected readonly name: string,
+    protected readonly help: string,
+    protected readonly labelNames: string[] = [],
+  ) {}
+
+  protected normalizeLabels(labels?: LabelSet): { key: string; labels: LabelSet } {
+    const normalized: LabelSet = {};
+    for (const labelName of this.labelNames) {
+      const value = labels?.[labelName];
+      if (value !== undefined) {
+        normalized[labelName] = value;
+      }
+    }
+
+    const sortedEntries = Object.entries(normalized).sort(([a], [b]) =>
+      a.localeCompare(b),
+    );
+    const key = JSON.stringify(sortedEntries);
+    return { key, labels: normalized };
+  }
+
+  protected formatLabels(labels: LabelSet): string {
+    const entries = Object.entries(labels);
+    if (entries.length === 0) {
+      return '';
+    }
+    const rendered = entries
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}="${String(v).replace(/"/g, '\\"')}"`)
+      .join(',');
+    return `{${rendered}}`;
+  }
+}
+
+class Counter extends BaseMetric implements MetricCollector {
+  private readonly samples = new Map<string, { labels: LabelSet; value: number }>();
+
+  constructor(config: MetricConfig) {
+    super(config.name, config.help, config.labelNames ?? []);
+    config.registers?.forEach((registry) => registry.registerMetric(this));
+  }
+
+  inc(labels: LabelSet = {}, value: number = 1): void {
+    const normalized = this.normalizeLabels(labels);
+    const existing = this.samples.get(normalized.key);
+    if (existing) {
+      existing.value += value;
+      return;
+    }
+    this.samples.set(normalized.key, { labels: normalized.labels, value });
+  }
+
+  render(): string {
+    const header = `# HELP ${this.name} ${this.help}\n# TYPE ${this.name} counter`;
+    if (this.samples.size === 0) {
+      return `${header}\n${this.name} 0`;
+    }
+    const body = [...this.samples.values()]
+      .map((sample) => `${this.name}${this.formatLabels(sample.labels)} ${sample.value}`)
+      .join('\n');
+    return `${header}\n${body}`;
+  }
+}
+
+class Gauge extends BaseMetric implements MetricCollector {
+  private readonly samples = new Map<string, { labels: LabelSet; value: number }>();
+
+  constructor(config: MetricConfig) {
+    super(config.name, config.help, config.labelNames ?? []);
+    config.registers?.forEach((registry) => registry.registerMetric(this));
+  }
+
+  inc(labels: LabelSet = {}, value: number = 1): void {
+    const normalized = this.normalizeLabels(labels);
+    const existing = this.samples.get(normalized.key);
+    if (existing) {
+      existing.value += value;
+      return;
+    }
+    this.samples.set(normalized.key, { labels: normalized.labels, value });
+  }
+
+  dec(labels: LabelSet = {}, value: number = 1): void {
+    this.inc(labels, -value);
+  }
+
+  render(): string {
+    const header = `# HELP ${this.name} ${this.help}\n# TYPE ${this.name} gauge`;
+    if (this.samples.size === 0) {
+      return `${header}\n${this.name} 0`;
+    }
+    const body = [...this.samples.values()]
+      .map((sample) => `${this.name}${this.formatLabels(sample.labels)} ${sample.value}`)
+      .join('\n');
+    return `${header}\n${body}`;
+  }
+}
+
+class Histogram extends BaseMetric implements MetricCollector {
+  private readonly samples = new Map<
+    string,
+    { labels: LabelSet; count: number; sum: number }
+  >();
+
+  constructor(config: MetricConfig) {
+    super(config.name, config.help, config.labelNames ?? []);
+    config.registers?.forEach((registry) => registry.registerMetric(this));
+  }
+
+  observe(labels: LabelSet = {}, value: number): void {
+    const normalized = this.normalizeLabels(labels);
+    const existing = this.samples.get(normalized.key);
+    if (existing) {
+      existing.count += 1;
+      existing.sum += value;
+      return;
+    }
+    this.samples.set(normalized.key, {
+      labels: normalized.labels,
+      count: 1,
+      sum: value,
+    });
+  }
+
+  render(): string {
+    const header = `# HELP ${this.name} ${this.help}\n# TYPE ${this.name} histogram`;
+    if (this.samples.size === 0) {
+      return `${header}\n${this.name}_count 0\n${this.name}_sum 0`;
+    }
+    const lines: string[] = [];
+    for (const sample of this.samples.values()) {
+      const labels = this.formatLabels(sample.labels);
+      lines.push(`${this.name}_count${labels} ${sample.count}`);
+      lines.push(`${this.name}_sum${labels} ${sample.sum}`);
+    }
+    return `${header}\n${lines.join('\n')}`;
+  }
+}
 
 /**
  * MCP Metrics Service
- * 
- * Collects and exposes Prometheus metrics for MCP servers
+ *
+ * Collects and exposes Prometheus-like metrics for MCP servers.
  */
 @Injectable()
 export class MCPMetricsService {
   private readonly register: Registry;
 
-  // Tool execution metrics
   private readonly toolCallsTotal: Counter;
   private readonly toolCallDuration: Histogram;
   private readonly toolCallErrors: Counter;
 
-  // Resource read metrics
   private readonly resourceReadsTotal: Counter;
   private readonly resourceReadDuration: Histogram;
   private readonly resourceReadErrors: Counter;
 
-  // Server-specific metrics
   private readonly activeConnections: Gauge;
   private readonly requestsInFlight: Gauge;
 
-  // Business metrics (per server)
   private readonly licensingValidations: Counter;
   private readonly marketplaceBotDownloads: Counter;
   private readonly meteringExecutionsReported: Counter;
@@ -36,7 +197,6 @@ export class MCPMetricsService {
   constructor() {
     this.register = new Registry();
 
-    // Tool execution metrics
     this.toolCallsTotal = new Counter({
       name: 'mcp_tool_calls_total',
       help: 'Total number of MCP tool calls',
@@ -48,7 +208,6 @@ export class MCPMetricsService {
       name: 'mcp_tool_call_duration_seconds',
       help: 'Duration of MCP tool calls in seconds',
       labelNames: ['server', 'tool_name'],
-      buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5],
       registers: [this.register],
     });
 
@@ -59,7 +218,6 @@ export class MCPMetricsService {
       registers: [this.register],
     });
 
-    // Resource read metrics
     this.resourceReadsTotal = new Counter({
       name: 'mcp_resource_reads_total',
       help: 'Total number of MCP resource reads',
@@ -71,7 +229,6 @@ export class MCPMetricsService {
       name: 'mcp_resource_read_duration_seconds',
       help: 'Duration of MCP resource reads in seconds',
       labelNames: ['server', 'resource_type'],
-      buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1],
       registers: [this.register],
     });
 
@@ -82,7 +239,6 @@ export class MCPMetricsService {
       registers: [this.register],
     });
 
-    // Server metrics
     this.activeConnections = new Gauge({
       name: 'mcp_active_connections',
       help: 'Number of active MCP connections',
@@ -97,7 +253,6 @@ export class MCPMetricsService {
       registers: [this.register],
     });
 
-    // Business metrics
     this.licensingValidations = new Counter({
       name: 'mcp_licensing_validations_total',
       help: 'Total number of license feature validations',
@@ -148,10 +303,6 @@ export class MCPMetricsService {
     });
   }
 
-  // ============================================================
-  // Tool Call Metrics
-  // ============================================================
-
   recordToolCall(server: string, toolName: string, status: 'success' | 'error') {
     this.toolCallsTotal.inc({ server, tool_name: toolName, status });
   }
@@ -164,10 +315,6 @@ export class MCPMetricsService {
     this.toolCallErrors.inc({ server, tool_name: toolName, error_type: errorType });
   }
 
-  // ============================================================
-  // Resource Read Metrics
-  // ============================================================
-
   recordResourceRead(server: string, resourceType: string, status: 'success' | 'error') {
     this.resourceReadsTotal.inc({ server, resource_type: resourceType, status });
   }
@@ -179,10 +326,6 @@ export class MCPMetricsService {
   recordResourceReadError(server: string, resourceType: string, errorType: string) {
     this.resourceReadErrors.inc({ server, resource_type: resourceType, error_type: errorType });
   }
-
-  // ============================================================
-  // Server Metrics
-  // ============================================================
 
   incrementActiveConnections(server: string) {
     this.activeConnections.inc({ server });
@@ -199,10 +342,6 @@ export class MCPMetricsService {
   decrementRequestsInFlight(server: string) {
     this.requestsInFlight.dec({ server });
   }
-
-  // ============================================================
-  // Business Metrics
-  // ============================================================
 
   recordLicensingValidation(tenantId: string, feature: string, allowed: boolean) {
     this.licensingValidations.inc({
@@ -249,10 +388,6 @@ export class MCPMetricsService {
     });
   }
 
-  // ============================================================
-  // Export Metrics
-  // ============================================================
-
   async getMetrics(): Promise<string> {
     return this.register.metrics();
   }
@@ -261,4 +396,3 @@ export class MCPMetricsService {
     return this.register;
   }
 }
-

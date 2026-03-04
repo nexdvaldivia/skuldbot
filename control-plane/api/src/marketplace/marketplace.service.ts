@@ -16,6 +16,11 @@ import {
   PricingModel,
 } from './entities/marketplace-bot.entity';
 import { Partner, PartnerStatus, RevenueShareTier } from './entities/partner.entity';
+import {
+  MarketplaceSubscription,
+  MarketplaceSubscriptionPlan,
+  MarketplaceSubscriptionStatus,
+} from './entities/marketplace-subscription.entity';
 
 // ============================================================================
 // DTOs
@@ -86,6 +91,12 @@ export interface CatalogOptions {
   sort?: 'popular' | 'newest' | 'rating' | 'name';
 }
 
+export interface ListBotsFilters {
+  status?: MarketplaceBotStatus;
+  category?: BotCategory;
+  search?: string;
+}
+
 /**
  * Marketplace Service
  *
@@ -106,7 +117,35 @@ export class MarketplaceService {
     private readonly versionRepository: Repository<BotVersion>,
     @InjectRepository(Partner)
     private readonly partnerRepository: Repository<Partner>,
+    @InjectRepository(MarketplaceSubscription)
+    private readonly subscriptionRepository: Repository<MarketplaceSubscription>,
   ) {}
+
+  /**
+   * List all bots for Control Plane administration.
+   */
+  async listBots(filters: ListBotsFilters = {}): Promise<MarketplaceBot[]> {
+    const query = this.botRepository
+      .createQueryBuilder('bot')
+      .leftJoinAndSelect('bot.publisher', 'publisher');
+
+    if (filters.status) {
+      query.andWhere('bot.status = :status', { status: filters.status });
+    }
+
+    if (filters.category) {
+      query.andWhere('bot.category = :category', { category: filters.category });
+    }
+
+    if (filters.search?.trim()) {
+      query.andWhere(
+        '(bot.name ILIKE :search OR bot.description ILIKE :search OR bot.slug ILIKE :search)',
+        { search: `%${filters.search.trim()}%` },
+      );
+    }
+
+    return query.orderBy('bot.updatedAt', 'DESC').getMany();
+  }
 
   // ============================================================================
   // CATALOG (PUBLIC)
@@ -604,5 +643,146 @@ export class MarketplaceService {
     // Also update partner stats
     const bot = await this.getBotById(botId);
     await this.partnerRepository.increment({ id: bot.publisherId }, 'totalInstalls', 1);
+  }
+
+  async listTenantSubscriptions(
+    tenantId: string,
+  ): Promise<MarketplaceSubscription[]> {
+    return this.subscriptionRepository.find({
+      where: { tenantId, status: MarketplaceSubscriptionStatus.ACTIVE },
+      relations: ['marketplaceBot', 'marketplaceBot.publisher'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async subscribeTenantToBot(params: {
+    tenantId: string;
+    botId: string;
+    pricingPlan: MarketplaceSubscriptionPlan;
+  }): Promise<MarketplaceSubscription> {
+    const bot = await this.getBotById(params.botId);
+    if (bot.status !== MarketplaceBotStatus.PUBLISHED) {
+      throw new BadRequestException('Only published bots can be subscribed.');
+    }
+
+    const existing = await this.subscriptionRepository.findOne({
+      where: { tenantId: params.tenantId, marketplaceBotId: params.botId },
+    });
+
+    if (existing?.status === MarketplaceSubscriptionStatus.ACTIVE) {
+      throw new BadRequestException('Tenant is already subscribed to this bot.');
+    }
+
+    const subscription = existing ?? this.subscriptionRepository.create();
+    const now = new Date();
+
+    subscription.tenantId = params.tenantId;
+    subscription.marketplaceBotId = params.botId;
+    subscription.pricingPlan = params.pricingPlan;
+    subscription.status = MarketplaceSubscriptionStatus.ACTIVE;
+    subscription.subscribedAt = now;
+    subscription.canceledAt = undefined;
+
+    const saved = await this.subscriptionRepository.save(subscription);
+    if (!existing) {
+      await this.incrementInstalls(params.botId);
+    }
+    return saved;
+  }
+
+  async unsubscribeTenantFromBot(
+    tenantId: string,
+    botId: string,
+  ): Promise<MarketplaceSubscription> {
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { tenantId, marketplaceBotId: botId },
+    });
+
+    if (!subscription || subscription.status !== MarketplaceSubscriptionStatus.ACTIVE) {
+      throw new NotFoundException('Active subscription not found for tenant and bot.');
+    }
+
+    subscription.status = MarketplaceSubscriptionStatus.CANCELED;
+    subscription.canceledAt = new Date();
+    return this.subscriptionRepository.save(subscription);
+  }
+
+  async getTenantBotSubscription(
+    tenantId: string,
+    botId: string,
+  ): Promise<MarketplaceSubscription | null> {
+    return this.subscriptionRepository.findOne({
+      where: { tenantId, marketplaceBotId: botId },
+      relations: ['marketplaceBot'],
+    });
+  }
+
+  async resolveBotVersion(
+    botId: string,
+    version?: string,
+  ): Promise<BotVersion | null> {
+    if (version?.trim()) {
+      return this.versionRepository.findOne({
+        where: { marketplaceBotId: botId, version: version.trim() },
+      });
+    }
+
+    return this.versionRepository.findOne({
+      where: { marketplaceBotId: botId, isLatest: true },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async recordBotDownload(params: {
+    tenantId: string;
+    botId: string;
+    version?: string;
+  }): Promise<{
+    subscription: MarketplaceSubscription;
+    version: BotVersion | null;
+  }> {
+    const subscription = await this.subscriptionRepository.findOne({
+      where: {
+        tenantId: params.tenantId,
+        marketplaceBotId: params.botId,
+        status: MarketplaceSubscriptionStatus.ACTIVE,
+      },
+    });
+    if (!subscription) {
+      throw new ForbiddenException('Tenant must have an active subscription.');
+    }
+
+    const version = await this.resolveBotVersion(params.botId, params.version);
+    if (!version) {
+      throw new NotFoundException('Bot version not found.');
+    }
+
+    subscription.downloadCount = Number(subscription.downloadCount ?? 0) + 1;
+    subscription.lastDownloadedAt = new Date();
+    await this.subscriptionRepository.save(subscription);
+
+    version.downloads = Number(version.downloads ?? 0) + 1;
+    await this.versionRepository.save(version);
+
+    return { subscription, version };
+  }
+
+  async getPublishedCategoriesSummary(): Promise<
+    Array<{ id: string; name: string; botCount: number }>
+  > {
+    const rows = await this.botRepository
+      .createQueryBuilder('bot')
+      .select('bot.category', 'category')
+      .addSelect('COUNT(bot.id)', 'count')
+      .where('bot.status = :status', { status: MarketplaceBotStatus.PUBLISHED })
+      .groupBy('bot.category')
+      .orderBy('bot.category', 'ASC')
+      .getRawMany<{ category: string; count: string }>();
+
+    return rows.map((row) => ({
+      id: row.category,
+      name: row.category.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+      botCount: Number(row.count),
+    }));
   }
 }

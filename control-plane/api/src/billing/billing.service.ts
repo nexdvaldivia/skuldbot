@@ -1,14 +1,25 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, In, QueryFailedError } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import { UsageRecord, UsageBatch } from './entities/usage-record.entity';
+import {
+  UsageRecord,
+  UsageBatch,
+  UsageIngestEvent,
+  UsageIngestDeadLetter,
+} from './entities/usage-record.entity';
 import {
   RevenueShareRecord,
   RevenueShareTier,
   PartnerPayout,
 } from './entities/revenue-share.entity';
 import { Partner } from '../marketplace/entities/partner.entity';
+import { assertNoOperationalEvidencePayload } from '../common/security/evidence-boundary.util';
 
 /**
  * Usage Event from Orchestrator
@@ -32,6 +43,13 @@ export interface UsageBatchDto {
   tenantId: string;
   events: UsageEventDto[];
   sentAt: string;
+}
+
+export interface UsageIngestResult {
+  processedCount: number;
+  duplicateBatch: boolean;
+  duplicateEventCount: number;
+  traceId?: string;
 }
 
 /**
@@ -63,6 +81,10 @@ export class BillingService {
     private readonly usageRecordRepository: Repository<UsageRecord>,
     @InjectRepository(UsageBatch)
     private readonly usageBatchRepository: Repository<UsageBatch>,
+    @InjectRepository(UsageIngestEvent)
+    private readonly usageIngestEventRepository: Repository<UsageIngestEvent>,
+    @InjectRepository(UsageIngestDeadLetter)
+    private readonly usageIngestDeadLetterRepository: Repository<UsageIngestDeadLetter>,
     @InjectRepository(RevenueShareRecord)
     private readonly revenueShareRepository: Repository<RevenueShareRecord>,
     @InjectRepository(PartnerPayout)
@@ -77,7 +99,27 @@ export class BillingService {
   async ingestUsageBatch(
     orchestratorId: string,
     batch: UsageBatchDto,
-  ): Promise<{ processedCount: number; duplicateBatch: boolean }> {
+    options?: { traceId?: string },
+  ): Promise<UsageIngestResult> {
+    const traceId = options?.traceId;
+
+    if (!batch.tenantId?.trim()) {
+      throw new BadRequestException('tenantId is required');
+    }
+
+    if (!batch.batchId?.trim()) {
+      throw new BadRequestException('batchId is required');
+    }
+
+    if (!Array.isArray(batch.events)) {
+      throw new BadRequestException('events must be an array');
+    }
+
+    const sentAt = new Date(batch.sentAt);
+    if (Number.isNaN(sentAt.getTime())) {
+      throw new BadRequestException('Invalid sentAt timestamp');
+    }
+
     // Check for duplicate batch (idempotency)
     const existingBatch = await this.usageBatchRepository.findOne({
       where: { orchestratorId, batchId: batch.batchId },
@@ -85,9 +127,14 @@ export class BillingService {
 
     if (existingBatch) {
       this.logger.log(
-        `Duplicate batch ${batch.batchId} from ${orchestratorId}`,
+        `[trace:${traceId ?? 'n/a'}] Duplicate batch ${batch.batchId} from ${orchestratorId}`,
       );
-      return { processedCount: 0, duplicateBatch: true };
+      return {
+        processedCount: 0,
+        duplicateBatch: true,
+        duplicateEventCount: existingBatch.duplicateEventCount ?? 0,
+        traceId,
+      };
     }
 
     // Record the batch
@@ -96,76 +143,314 @@ export class BillingService {
       orchestratorId,
       tenantId: batch.tenantId,
       eventCount: batch.events.length,
-      sentAt: new Date(batch.sentAt),
+      processedCount: 0,
+      duplicateEventCount: 0,
+      traceId,
+      sentAt,
       receivedAt: new Date(),
       status: 'processing',
     });
     await this.usageBatchRepository.save(batchRecord);
 
-    try {
-      // Process events - aggregate by metric and period
-      const period = this.getCurrentPeriod();
-      const aggregated = new Map<
-        string,
-        { quantity: number; installationId?: string; botId?: string }
-      >();
+    const maxAttempts = this.getIngestMaxAttempts();
+    const baseBackoffMs = this.getIngestBackoffBaseMs();
+    let lastError: unknown;
 
-      for (const event of batch.events) {
-        const key = `${batch.tenantId}:${event.metric}:${event.installationId || 'none'}`;
-        const existing = aggregated.get(key) || {
-          quantity: 0,
-          installationId: event.installationId,
-          botId: event.botId,
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const result = await this.processUsageBatchAttempt(
+          orchestratorId,
+          batch,
+          traceId,
+        );
+
+        batchRecord.status = 'processed';
+        batchRecord.processedCount = result.processedCount;
+        batchRecord.duplicateEventCount = result.duplicateEventCount;
+        await this.usageBatchRepository.save(batchRecord);
+
+        this.logger.log(
+          `[trace:${traceId ?? 'n/a'}] Processed batch ${batch.batchId}: ${result.processedCount} accepted, ${result.duplicateEventCount} duplicates`,
+        );
+
+        return {
+          processedCount: result.processedCount,
+          duplicateBatch: false,
+          duplicateEventCount: result.duplicateEventCount,
+          traceId,
         };
-        existing.quantity += event.quantity;
-        aggregated.set(key, existing);
-      }
-
-      // Create or update usage records
-      for (const [key, data] of aggregated) {
-        const [tenantId, metric] = key.split(':');
-
-        let record = await this.usageRecordRepository.findOne({
-          where: {
-            tenantId,
-            metric,
-            period,
-            installationId: data.installationId || undefined,
-          },
-        });
-
-        if (record) {
-          record.quantity = Number(record.quantity) + data.quantity;
-          await this.usageRecordRepository.save(record);
-        } else {
-          record = this.usageRecordRepository.create({
-            tenantId,
-            orchestratorId,
-            botId: data.botId,
-            installationId: data.installationId,
-            metric,
-            quantity: data.quantity,
-            period,
-            status: 'pending',
-          });
-          await this.usageRecordRepository.save(record);
+      } catch (error) {
+        lastError = error;
+        if (!this.shouldRetryIngestError(error) || attempt >= maxAttempts) {
+          break;
         }
+
+        const backoffMs = this.computeBackoffMs(baseBackoffMs, attempt);
+        this.logger.warn(
+          `[trace:${traceId ?? 'n/a'}] ingest usage batch ${batch.batchId} failed on attempt ${attempt}/${maxAttempts}; retrying in ${backoffMs}ms`,
+        );
+        await this.sleep(backoffMs);
+      }
+    }
+
+    const finalError =
+      lastError instanceof Error ? lastError : new Error(String(lastError));
+    batchRecord.status = 'failed';
+    batchRecord.error = finalError.message;
+    await this.usageBatchRepository.save(batchRecord);
+
+    if (!(finalError instanceof BadRequestException)) {
+      await this.recordIngestDeadLetter(
+        orchestratorId,
+        batch,
+        traceId,
+        maxAttempts,
+        finalError,
+      );
+    }
+
+    throw finalError;
+  }
+
+  private async processUsageBatchAttempt(
+    orchestratorId: string,
+    batch: UsageBatchDto,
+    traceId?: string,
+  ): Promise<{ processedCount: number; duplicateEventCount: number }> {
+    const incomingEventIds = [...new Set(batch.events.map((event) => event.id))];
+    const existingEvents = incomingEventIds.length
+      ? await this.usageIngestEventRepository.find({
+          select: ['eventId'],
+          where: {
+            orchestratorId,
+            eventId: In(incomingEventIds),
+          },
+        })
+      : [];
+    const knownEventIds = new Set(existingEvents.map((event) => event.eventId));
+    const seenInBatch = new Set<string>();
+    let duplicateEventCount = 0;
+    const acceptedEvents: UsageEventDto[] = [];
+
+    for (const event of batch.events) {
+      if (!event.id?.trim()) {
+        throw new BadRequestException('Every usage event requires a non-empty id');
+      }
+      if (!event.metric?.trim()) {
+        throw new BadRequestException(
+          `Usage event ${event.id} requires a non-empty metric`,
+        );
+      }
+      if (!Number.isFinite(event.quantity)) {
+        throw new BadRequestException(
+          `Usage event ${event.id} has an invalid quantity`,
+        );
       }
 
-      // Mark batch as processed
-      batchRecord.status = 'processed';
-      await this.usageBatchRepository.save(batchRecord);
+      const occurredAt = new Date(event.occurredAt);
+      if (Number.isNaN(occurredAt.getTime())) {
+        throw new BadRequestException(
+          `Usage event ${event.id} has an invalid occurredAt timestamp`,
+        );
+      }
 
-      this.logger.log(
-        `Processed batch ${batch.batchId}: ${batch.events.length} events`,
-      );
-      return { processedCount: batch.events.length, duplicateBatch: false };
-    } catch (error) {
-      batchRecord.status = 'failed';
-      batchRecord.error = error instanceof Error ? error.message : String(error);
-      await this.usageBatchRepository.save(batchRecord);
-      throw error;
+      if (event.metadata !== undefined) {
+        assertNoOperationalEvidencePayload(
+          event.metadata,
+          `Usage event ${event.id} metadata`,
+        );
+      }
+
+      if (seenInBatch.has(event.id) || knownEventIds.has(event.id)) {
+        duplicateEventCount++;
+        continue;
+      }
+
+      seenInBatch.add(event.id);
+
+      try {
+        const ingestEvent = this.usageIngestEventRepository.create({
+          orchestratorId,
+          tenantId: batch.tenantId,
+          eventId: event.id,
+          batchId: batch.batchId,
+          metric: event.metric,
+          quantity: event.quantity,
+          occurredAt,
+          traceId,
+        });
+        await this.usageIngestEventRepository.save(ingestEvent);
+        acceptedEvents.push(event);
+      } catch (error) {
+        if (
+          error instanceof QueryFailedError &&
+          (error as QueryFailedError & { driverError?: { code?: string } })
+            .driverError?.code === '23505'
+        ) {
+          duplicateEventCount++;
+          continue;
+        }
+        throw error;
+      }
     }
+
+    const period = this.getCurrentPeriod();
+    const aggregated = new Map<
+      string,
+      { quantity: number; installationId?: string; botId?: string }
+    >();
+
+    for (const event of acceptedEvents) {
+      const key = `${batch.tenantId}:${event.metric}:${event.installationId || 'none'}`;
+      const existing = aggregated.get(key) || {
+        quantity: 0,
+        installationId: event.installationId,
+        botId: event.botId,
+      };
+      existing.quantity += event.quantity;
+      aggregated.set(key, existing);
+    }
+
+    for (const [key, data] of aggregated) {
+      const [tenantId, metric] = key.split(':');
+
+      let record = await this.usageRecordRepository.findOne({
+        where: {
+          tenantId,
+          metric,
+          period,
+          installationId: data.installationId || undefined,
+        },
+      });
+
+      if (record) {
+        record.quantity = Number(record.quantity) + data.quantity;
+        await this.usageRecordRepository.save(record);
+      } else {
+        record = this.usageRecordRepository.create({
+          tenantId,
+          orchestratorId,
+          botId: data.botId,
+          installationId: data.installationId,
+          metric,
+          quantity: data.quantity,
+          period,
+          status: 'pending',
+        });
+        await this.usageRecordRepository.save(record);
+      }
+    }
+
+    return {
+      processedCount: acceptedEvents.length,
+      duplicateEventCount,
+    };
+  }
+
+  private getIngestMaxAttempts(): number {
+    const configured = Number(
+      this.configService.get<number>('USAGE_INGEST_MAX_RETRIES', 3),
+    );
+    if (!Number.isFinite(configured)) {
+      return 3;
+    }
+    return Math.max(1, Math.floor(configured));
+  }
+
+  private getIngestBackoffBaseMs(): number {
+    const configured = Number(
+      this.configService.get<number>('USAGE_INGEST_BACKOFF_MS', 150),
+    );
+    if (!Number.isFinite(configured)) {
+      return 150;
+    }
+    return Math.max(0, Math.floor(configured));
+  }
+
+  private computeBackoffMs(baseMs: number, attempt: number): number {
+    const exponential = baseMs * 2 ** Math.max(0, attempt - 1);
+    return Math.min(exponential, 2000);
+  }
+
+  private shouldRetryIngestError(error: unknown): boolean {
+    if (error instanceof BadRequestException) {
+      return false;
+    }
+
+    if (
+      error instanceof QueryFailedError &&
+      (error as QueryFailedError & { driverError?: { code?: string } })
+        .driverError?.code === '23505'
+    ) {
+      return false;
+    }
+
+    const message =
+      error instanceof Error ? error.message.toLowerCase() : String(error);
+    return [
+      'timeout',
+      'timed out',
+      'deadlock',
+      'connection',
+      'econnreset',
+      'etimedout',
+      'too many clients',
+      'could not serialize access',
+      'rate limit',
+      'temporarily unavailable',
+    ].some((token) => message.includes(token));
+  }
+
+  private async recordIngestDeadLetter(
+    orchestratorId: string,
+    batch: UsageBatchDto,
+    traceId: string | undefined,
+    attempts: number,
+    error: Error,
+  ): Promise<void> {
+    try {
+      const existing = await this.usageIngestDeadLetterRepository.findOne({
+        where: {
+          orchestratorId,
+          batchId: batch.batchId,
+        },
+      });
+
+      if (existing) {
+        existing.error = error.message;
+        existing.attempts = attempts;
+        existing.traceId = traceId;
+        existing.payload = batch as unknown as Record<string, unknown>;
+        existing.status = 'pending';
+        await this.usageIngestDeadLetterRepository.save(existing);
+        return;
+      }
+
+      const dlqRecord = this.usageIngestDeadLetterRepository.create({
+        orchestratorId,
+        tenantId: batch.tenantId,
+        batchId: batch.batchId,
+        traceId,
+        attempts,
+        error: error.message,
+        payload: batch as unknown as Record<string, unknown>,
+        status: 'pending',
+      });
+      await this.usageIngestDeadLetterRepository.save(dlqRecord);
+    } catch (dlqError) {
+      this.logger.error(
+        `[trace:${traceId ?? 'n/a'}] unable to persist dead-letter for batch ${batch.batchId}: ${
+          dlqError instanceof Error ? dlqError.message : String(dlqError)
+        }`,
+      );
+    }
+  }
+
+  private async sleep(ms: number): Promise<void> {
+    if (ms <= 0) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**

@@ -487,3 +487,4 @@ describe('Control Plane MCP Integration (E2E)', () => {
   });
 });
 
+

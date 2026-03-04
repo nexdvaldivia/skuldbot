@@ -17,21 +17,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-background">
+      <body className="min-h-screen bg-zinc-50">
         <Providers>
-          <div className="flex h-screen">
-            {/* Sidebar */}
+          <div className="min-h-screen bg-zinc-50">
             <Sidebar />
-
-            {/* Main content */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <Header />
-              <main className="flex-1 overflow-y-auto p-6">
-                <div className="max-w-7xl mx-auto animate-fade-in">
-                  {children}
-                </div>
-              </main>
-            </div>
+            <Header />
+            <main className="pt-14 min-h-screen transition-all duration-300 lg:pl-60">
+              <div className="px-4 lg:px-6 py-6 pb-8">
+                <div className="max-w-7xl mx-auto animate-fade-in">{children}</div>
+              </div>
+            </main>
           </div>
           <Toaster />
         </Providers>

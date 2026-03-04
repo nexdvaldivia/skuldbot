@@ -28,10 +28,10 @@ const toastVariants = cva(
   {
     variants: {
       variant: {
-        default: 'border bg-card text-foreground',
-        success: 'border-success/20 bg-success/10 text-success',
-        destructive: 'border-destructive/20 bg-destructive/10 text-destructive',
-        warning: 'border-warning/20 bg-warning/10 text-warning',
+        default: 'border-zinc-200 bg-white text-zinc-900',
+        success: 'border-brand-200 bg-brand-50 text-brand-700',
+        destructive: 'border-error-200 bg-error-50 text-error-700',
+        warning: 'border-warning-200 bg-warning-50 text-warning-700',
       },
     },
     defaultVariants: {
@@ -62,7 +62,7 @@ const ToastAction = React.forwardRef<
   <ToastPrimitives.Action
     ref={ref}
     className={cn(
-      'inline-flex h-8 shrink-0 items-center justify-center rounded-md border bg-transparent px-3 text-sm font-medium transition-colors hover:bg-secondary focus:outline-none focus:ring-1 focus:ring-ring disabled:pointer-events-none disabled:opacity-50 group-[.destructive]:border-muted/40 group-[.destructive]:hover:border-destructive/30 group-[.destructive]:hover:bg-destructive group-[.destructive]:hover:text-destructive-foreground group-[.destructive]:focus:ring-destructive',
+      'inline-flex h-8 shrink-0 items-center justify-center rounded-md border bg-transparent px-3 text-sm font-medium transition-colors hover:bg-zinc-100 focus:outline-none focus:ring-1 focus:ring-brand-400 disabled:pointer-events-none disabled:opacity-50',
       className
     )}
     {...props}
@@ -77,7 +77,7 @@ const ToastClose = React.forwardRef<
   <ToastPrimitives.Close
     ref={ref}
     className={cn(
-      'absolute right-1 top-1 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-1 group-hover:opacity-100',
+      'absolute right-1 top-1 rounded-md p-1 text-zinc-500 opacity-0 transition-opacity hover:text-zinc-900 focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-brand-400 group-hover:opacity-100',
       className
     )}
     toast-close=""
@@ -121,13 +121,13 @@ function ToastIcon({ variant }: { variant?: 'default' | 'success' | 'destructive
   const iconClass = 'h-5 w-5';
   switch (variant) {
     case 'success':
-      return <CheckCircle className={cn(iconClass, 'text-success')} />;
+      return <CheckCircle className={cn(iconClass, 'text-brand-600')} />;
     case 'destructive':
-      return <AlertCircle className={cn(iconClass, 'text-destructive')} />;
+      return <AlertCircle className={cn(iconClass, 'text-error-600')} />;
     case 'warning':
-      return <AlertTriangle className={cn(iconClass, 'text-warning')} />;
+      return <AlertTriangle className={cn(iconClass, 'text-warning-600')} />;
     default:
-      return <Info className={cn(iconClass, 'text-primary')} />;
+      return <Info className={cn(iconClass, 'text-zinc-600')} />;
   }
 }
 

@@ -20,17 +20,17 @@ export class UsageEvent {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   botId: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   runId?: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   installationId?: string; // Marketplace installation ID
 
   // Event details

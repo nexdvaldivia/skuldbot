@@ -9,8 +9,8 @@ import {
   WsException,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger, Injectable, UseGuards } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Logger, Injectable } from '@nestjs/common';
+import { RunnersService } from '../runners/runners.service';
 
 /**
  * Runner Authentication Payload
@@ -42,6 +42,7 @@ interface ConnectedRunner {
   socketId: string;
   name: string;
   tenantId: string;
+  maxConcurrentJobs: number;
   capabilities: RunnerCapabilities;
   status: 'idle' | 'busy' | 'draining';
   currentJobs: string[];
@@ -168,7 +169,7 @@ export class RunnerGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // Heartbeat timeout (90 seconds - 3 missed heartbeats)
   private readonly HEARTBEAT_TIMEOUT = 90000;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(private readonly runnersService: RunnersService) {
     // Start heartbeat checker
     setInterval(() => this.checkHeartbeats(), this.HEARTBEAT_INTERVAL);
   }
@@ -197,7 +198,8 @@ export class RunnerGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (runnerId) {
       const runner = this.runners.get(runnerId);
 
-      if (runner) {
+      // Ignore stale disconnect notifications from an older socket.
+      if (runner && runner.socketId === client.id) {
         this.logger.warn(`Runner ${runnerId} disconnected, had ${runner.currentJobs.length} jobs`);
 
         // Requeue any in-progress jobs
@@ -216,6 +218,11 @@ export class RunnerGateway implements OnGatewayConnection, OnGatewayDisconnect {
           name: runner.name,
           timestamp: new Date().toISOString(),
         });
+
+        await this.runnersService.markRunnerDisconnected(
+          runnerId,
+          this.getClientIp(client),
+        );
       }
 
       this.socketToRunner.delete(client.id);
@@ -235,19 +242,18 @@ export class RunnerGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       this.logger.log(`Runner ${payload.runnerId} authenticating...`);
 
-      // Validate API key (in production, this would check against database)
-      const isValid = await this.validateRunnerApiKey(payload.runnerId, payload.apiKey);
+      const runnerRecord = await this.runnersService.authenticateRunnerSocket(
+        payload.runnerId,
+        payload.apiKey,
+        {
+          ipAddress: this.getClientIp(client),
+          agentVersion: payload.version,
+        },
+      );
 
-      if (!isValid) {
+      if (!runnerRecord) {
         this.logger.warn(`Runner ${payload.runnerId} authentication failed`);
         throw new WsException('Invalid API key');
-      }
-
-      // Get runner info from database (simplified for now)
-      const runnerInfo = await this.getRunnerInfo(payload.runnerId);
-
-      if (!runnerInfo) {
-        throw new WsException('Runner not found');
       }
 
       // Check if already connected (kick old connection)
@@ -266,8 +272,9 @@ export class RunnerGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const connectedRunner: ConnectedRunner = {
         runnerId: payload.runnerId,
         socketId: client.id,
-        name: runnerInfo.name,
-        tenantId: runnerInfo.tenantId,
+        name: runnerRecord.name,
+        tenantId: runnerRecord.tenantId,
+        maxConcurrentJobs: Math.max(runnerRecord.maxConcurrentJobs ?? 1, 1),
         capabilities: payload.capabilities,
         status: 'idle',
         currentJobs: [],
@@ -279,13 +286,13 @@ export class RunnerGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.socketToRunner.set(client.id, payload.runnerId);
 
       // Join tenant room
-      client.join(`tenant:${runnerInfo.tenantId}`);
+      client.join(`tenant:${runnerRecord.tenantId}`);
 
       // Broadcast runner online
       this.server.emit('runner:online', {
         runnerId: payload.runnerId,
-        name: runnerInfo.name,
-        tenantId: runnerInfo.tenantId,
+        name: runnerRecord.name,
+        tenantId: runnerRecord.tenantId,
         capabilities: payload.capabilities,
         timestamp: new Date().toISOString(),
       });
@@ -306,19 +313,33 @@ export class RunnerGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * Runner heartbeat
    */
   @SubscribeMessage('runner:heartbeat')
-  handleHeartbeat(
+  async handleHeartbeat(
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { runnerId: string; status: string; cpuUsage?: number; memoryUsage?: number },
-  ): { success: boolean } {
-    const runner = this.runners.get(payload.runnerId);
+  ): Promise<{ success: boolean }> {
+    const authenticatedRunnerId = this.socketToRunner.get(client.id);
+    if (!authenticatedRunnerId || authenticatedRunnerId !== payload.runnerId) {
+      return { success: false };
+    }
 
-    if (runner && runner.socketId === client.id) {
+    const runner = this.runners.get(authenticatedRunnerId);
+
+    if (runner) {
       runner.lastHeartbeat = new Date();
 
       // Update status if provided
       if (payload.status === 'idle' || payload.status === 'busy' || payload.status === 'draining') {
         runner.status = payload.status;
       }
+
+      await this.runnersService.updateRunnerSocketHeartbeat(
+        authenticatedRunnerId,
+        runner.status,
+        {
+          cpuUsage: payload.cpuUsage,
+          memoryUsage: payload.memoryUsage,
+        },
+      );
 
       this.logger.debug(`Heartbeat from runner ${payload.runnerId}`);
 
@@ -500,7 +521,7 @@ export class RunnerGateway implements OnGatewayConnection, OnGatewayDisconnect {
    */
   hasAvailableRunners(): boolean {
     for (const runner of this.runners.values()) {
-      if (runner.status === 'idle' || runner.currentJobs.length < runner.capabilities.maxConcurrentJobs) {
+      if (runner.status === 'idle' || runner.currentJobs.length < runner.maxConcurrentJobs) {
         return true;
       }
     }
@@ -511,25 +532,10 @@ export class RunnerGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // Private helper methods
   // ============================================
 
-  private async validateRunnerApiKey(runnerId: string, apiKey: string): Promise<boolean> {
-    // TODO: Implement proper API key validation against database
-    // For now, accept any non-empty key
-    return apiKey && apiKey.length > 0;
-  }
-
-  private async getRunnerInfo(runnerId: string): Promise<{ name: string; tenantId: string } | null> {
-    // TODO: Fetch from database
-    // For now, return mock data
-    return {
-      name: `Runner ${runnerId}`,
-      tenantId: 'default-tenant',
-    };
-  }
-
   private findAvailableRunner(job: JobAssignment): ConnectedRunner | null {
     for (const runner of this.runners.values()) {
       // Check if runner has capacity
-      if (runner.currentJobs.length >= runner.capabilities.maxConcurrentJobs) {
+      if (runner.currentJobs.length >= runner.maxConcurrentJobs) {
         continue;
       }
 
@@ -575,5 +581,13 @@ export class RunnerGateway implements OnGatewayConnection, OnGatewayDisconnect {
         // handleDisconnect will clean up
       }
     }
+  }
+
+  private getClientIp(client: Socket): string | undefined {
+    const forwarded = client.handshake.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.trim().length > 0) {
+      return forwarded.split(',')[0].trim();
+    }
+    return client.handshake.address;
   }
 }

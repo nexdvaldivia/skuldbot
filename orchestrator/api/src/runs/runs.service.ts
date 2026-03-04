@@ -29,6 +29,8 @@ import {
 import { Bot, BotVersion, BotStatus, VersionStatus } from '../bots/entities/bot.entity';
 import { BotsService } from '../bots/bots.service';
 import { User } from '../users/entities/user.entity';
+import { LicenseService } from '../license/license.service';
+import { BillingEnforcementService } from '../billing/billing-enforcement.service';
 import {
   CreateRunDto,
   CancelRunDto,
@@ -67,6 +69,7 @@ import {
   DEFAULT_JOB_OPTIONS,
   RUN_MAX_DURATION_MS,
 } from './runs.constants';
+import { redactSensitiveData, redactSensitiveString } from '../common/utils/redaction.util';
 
 @Injectable()
 export class RunsService {
@@ -90,6 +93,8 @@ export class RunsService {
     @InjectQueue(RUN_QUEUE)
     private readonly runQueue: Queue,
     private readonly botsService: BotsService,
+    private readonly licenseService: LicenseService,
+    private readonly billingEnforcementService: BillingEnforcementService,
   ) {}
 
   // ============================================================================
@@ -104,8 +109,33 @@ export class RunsService {
     userId: string,
     dto: CreateRunDto,
   ): Promise<RunDetailDto> {
-    // Check tenant quotas
-    await this.checkRunQuota(tenantId);
+    const features = this.licenseService.getFeatures();
+    const maxConcurrentRuns =
+      typeof features?.maxConcurrentRuns === 'number'
+        ? features.maxConcurrentRuns
+        : -1;
+    const maxMonthlyRuns =
+      typeof features?.maxRunsPerMonth === 'number'
+        ? features.maxRunsPerMonth
+        : -1;
+
+    const quotaSnapshot = await this.checkRunQuota(
+      tenantId,
+      maxConcurrentRuns,
+      maxMonthlyRuns,
+    );
+
+    // Enterprise control-plane enforcement (entitlement + quota check)
+    await this.billingEnforcementService.checkEntitlement(
+      tenantId,
+      'concurrent_runs',
+      quotaSnapshot.runningCount + 1,
+    );
+    await this.billingEnforcementService.checkQuota(
+      tenantId,
+      'runs_per_month',
+      1,
+    );
 
     // Get bot and version
     const { bot, version } = await this.resolveBotVersion(tenantId, dto.botId, dto.versionId);
@@ -190,6 +220,17 @@ export class RunsService {
     });
 
     await this.runRepository.save(run);
+
+    try {
+      await this.billingEnforcementService.consumeQuota(
+        tenantId,
+        'runs_per_month',
+        1,
+      );
+    } catch (error) {
+      await this.runRepository.delete({ id: run.id, tenantId: run.tenantId });
+      throw error;
+    }
 
     this.logger.log(
       `Created run ${run.id} for bot ${bot.name} (${bot.id}) version ${version.version}`,
@@ -678,6 +719,21 @@ export class RunsService {
    * Add an event to a run (internal method for processors).
    */
   async addEvent(data: any): Promise<RunEvent> {
+    const sanitizedData = this.redactObject(data);
+    let tenantId = sanitizedData?.tenantId;
+
+    if (!tenantId && sanitizedData?.runId) {
+      const run = await this.runRepository.findOne({
+        where: { id: sanitizedData.runId },
+        select: ['id', 'tenantId'],
+      });
+      tenantId = run?.tenantId;
+    }
+
+    if (!tenantId) {
+      throw new BadRequestException('tenantId is required to add a run event');
+    }
+
     const timestamp = data.timestamp instanceof Date
       ? data.timestamp
       : data.timestamp
@@ -685,8 +741,21 @@ export class RunsService {
         : new Date();
 
     const event = this.eventRepository.create({
-      ...data,
+      ...sanitizedData,
+      tenantId,
       timestamp,
+      message:
+        typeof sanitizedData.message === 'string'
+          ? redactSensitiveString(sanitizedData.message)
+          : sanitizedData.message,
+      errorMessage:
+        typeof sanitizedData.errorMessage === 'string'
+          ? redactSensitiveString(sanitizedData.errorMessage)
+          : sanitizedData.errorMessage,
+      payload: this.redactObject(sanitizedData.payload),
+      inputSnapshot: this.redactObject(sanitizedData.inputSnapshot),
+      outputSnapshot: this.redactObject(sanitizedData.outputSnapshot),
+      metadata: this.redactObject(sanitizedData.metadata),
     });
     return this.eventRepository.save(event) as unknown as Promise<RunEvent>;
   }
@@ -770,6 +839,8 @@ export class RunsService {
       runId,
       tenantId,
       ...data,
+      message: redactSensitiveString(data.message),
+      data: this.redactObject(data.data),
       timestamp: data.timestamp ? new Date(data.timestamp) : new Date(),
     });
     return this.logRepository.save(log);
@@ -822,6 +893,16 @@ export class RunsService {
       runId,
       tenantId,
       ...data,
+      name: redactSensitiveString(data.name),
+      originalName: data.originalName
+        ? redactSensitiveString(data.originalName)
+        : data.originalName,
+      storageKey: redactSensitiveString(data.storageKey),
+      description: data.description
+        ? redactSensitiveString(data.description)
+        : data.description,
+      tags: (data.tags ?? []).map((tag) => redactSensitiveString(tag)),
+      metadata: this.redactObject(data.metadata),
       expiresAt: data.expiresAt ? new Date(data.expiresAt) : undefined,
     });
     return this.artifactRepository.save(artifact);
@@ -1348,7 +1429,10 @@ export class RunsService {
       run.peakMemoryMb = Math.max(run.peakMemoryMb ?? 0, dto.memoryMb);
     }
     if (dto.outputs) {
-      run.outputs = { ...run.outputs, ...dto.outputs };
+      run.outputs = {
+        ...(run.outputs ?? {}),
+        ...this.redactObject(dto.outputs),
+      };
     }
 
     return this.runRepository.save(run);
@@ -1369,7 +1453,7 @@ export class RunsService {
     const now = new Date();
     run.status = dto.success ? RunStatus.SUCCEEDED : RunStatus.FAILED;
     run.completedAt = now;
-    run.outputs = dto.outputs ?? run.outputs;
+    run.outputs = dto.outputs ? this.redactObject(dto.outputs) : run.outputs;
 
     if (run.startedAt) {
       run.executionDurationMs = now.getTime() - run.startedAt.getTime();
@@ -1377,14 +1461,18 @@ export class RunsService {
     run.totalDurationMs = now.getTime() - run.createdAt.getTime();
 
     if (!dto.success) {
-      run.errorMessage = dto.errorMessage;
+      run.errorMessage = dto.errorMessage
+        ? redactSensitiveString(dto.errorMessage)
+        : dto.errorMessage;
       run.errorCode = dto.errorCode;
       run.errorNodeId = dto.errorNodeId;
       run.errorStepId = dto.errorStepId;
-      run.errorDetails = dto.errorDetails;
+      run.errorDetails = this.redactObject(dto.errorDetails);
     }
 
-    run.warnings = dto.warnings ?? [];
+    run.warnings = (dto.warnings ?? []).map((warning) =>
+      redactSensitiveString(warning),
+    );
     run.peakMemoryMb = dto.peakMemoryMb ?? run.peakMemoryMb;
     run.avgCpuPercent = dto.avgCpuPercent;
     run.networkBytesIn = dto.networkBytesIn ?? run.networkBytesIn;
@@ -1518,16 +1606,19 @@ export class RunsService {
     tenantId: string,
     maxConcurrentRuns = -1,
     maxMonthlyRuns = -1,
-  ): Promise<void> {
-    // Check concurrent runs limit
-    if (maxConcurrentRuns > 0) {
-      const runningCount = await this.runRepository.count({
-        where: {
-          tenantId,
-          status: In([RunStatus.QUEUED, RunStatus.LEASED, RunStatus.RUNNING]),
-        },
-      });
+  ): Promise<{ runningCount: number; monthlyCount: number }> {
+    let runningCount = 0;
+    let monthlyCount = 0;
 
+    // Check concurrent runs limit
+    runningCount = await this.runRepository.count({
+      where: {
+        tenantId,
+        status: In([RunStatus.QUEUED, RunStatus.LEASED, RunStatus.RUNNING]),
+      },
+    });
+
+    if (maxConcurrentRuns > 0) {
       if (runningCount >= maxConcurrentRuns) {
         throw new BadRequestException(
           `Maximum concurrent runs limit reached (${maxConcurrentRuns}). Wait for running jobs to complete.`,
@@ -1536,24 +1627,26 @@ export class RunsService {
     }
 
     // Check monthly runs limit
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    monthlyCount = await this.runRepository.count({
+      where: {
+        tenantId,
+        createdAt: MoreThan(monthStart),
+      },
+    });
+
     if (maxMonthlyRuns > 0) {
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      monthStart.setHours(0, 0, 0, 0);
-
-      const monthlyCount = await this.runRepository.count({
-        where: {
-          tenantId,
-          createdAt: MoreThan(monthStart),
-        },
-      });
-
       if (monthlyCount >= maxMonthlyRuns) {
         throw new BadRequestException(
           `Monthly runs limit reached (${maxMonthlyRuns}). Upgrade your plan or wait until next month.`,
         );
       }
     }
+
+    return { runningCount, monthlyCount };
   }
 
   /**
@@ -1623,7 +1716,7 @@ export class RunsService {
       startedAt: run.startedAt?.toISOString(),
       completedAt: run.completedAt?.toISOString(),
       totalDurationMs: run.totalDurationMs,
-      errorMessage: run.errorMessage,
+      errorMessage: run.errorMessage ? redactSensitiveString(run.errorMessage) : run.errorMessage,
       requiresApproval: run.requiresApproval,
       tags: run.tags ?? [],
       createdAt: run.createdAt.toISOString(),
@@ -1634,9 +1727,9 @@ export class RunsService {
   private toDetailDto(run: Run): RunDetailDto {
     return {
       ...this.toSummaryDto(run),
-      inputs: run.inputs,
-      outputs: run.outputs,
-      context: run.context,
+      inputs: this.redactObject(run.inputs),
+      outputs: this.redactObject(run.outputs),
+      context: this.redactObject(run.context),
       planHash: run.planHash,
       policyPackVersion: run.policyPackVersion,
       currentStepId: run.currentStepId,
@@ -1645,7 +1738,7 @@ export class RunsService {
       maxRetries: run.maxRetries,
       retryCount: run.retryCount,
       nextRetryAt: run.nextRetryAt?.toISOString(),
-      retryHistory: run.retryHistory,
+      retryHistory: this.redactArray(run.retryHistory),
       leasedAt: run.leasedAt?.toISOString(),
       pausedAt: run.pausedAt?.toISOString(),
       resumedAt: run.resumedAt?.toISOString(),
@@ -1663,15 +1756,18 @@ export class RunsService {
       errorCode: run.errorCode,
       errorNodeId: run.errorNodeId,
       errorStepId: run.errorStepId,
-      errorDetails: run.errorDetails,
+      errorDetails: this.redactObject(run.errorDetails),
       warnings: run.warnings ?? [],
-      hitlConfig: run.hitlConfig,
-      hitlState: run.hitlState,
-      notificationConfig: run.notificationConfig,
-      notificationsSent: run.notificationsSent,
+      hitlConfig: this.redactObject(run.hitlConfig),
+      hitlState: this.redactObject(run.hitlState),
+      notificationConfig: this.redactObject(run.notificationConfig),
+      notificationsSent: this.redactArray(run.notificationsSent),
       labels: run.labels,
-      metadata: run.metadata,
-      notes: run.notes,
+      metadata: this.redactObject(run.metadata),
+      notes:
+        typeof run.notes === 'string'
+          ? redactSensitiveString(run.notes)
+          : run.notes,
       billable: run.billable,
       computeUnits: run.computeUnits,
       billingCategory: run.billingCategory,
@@ -1694,14 +1790,14 @@ export class RunsService {
       nodeLabel: event.nodeLabel,
       status: event.status,
       durationMs: event.durationMs,
-      message: event.message,
-      payload: event.payload,
-      inputSnapshot: event.inputSnapshot,
-      outputSnapshot: event.outputSnapshot,
+      message: event.message ? redactSensitiveString(event.message) : event.message,
+      payload: this.redactObject(event.payload),
+      inputSnapshot: this.redactObject(event.inputSnapshot),
+      outputSnapshot: this.redactObject(event.outputSnapshot),
       classification: event.classification,
       controlsApplied: event.controlsApplied,
       errorCode: event.errorCode,
-      errorMessage: event.errorMessage,
+      errorMessage: event.errorMessage ? redactSensitiveString(event.errorMessage) : event.errorMessage,
       memoryMb: event.memoryMb,
       cpuPercent: event.cpuPercent,
       correlationId: event.correlationId,
@@ -1719,8 +1815,8 @@ export class RunsService {
       stepId: log.stepId,
       nodeId: log.nodeId,
       source: log.source,
-      message: log.message,
-      data: log.data,
+      message: redactSensitiveString(log.message),
+      data: this.redactObject(log.data),
       timestamp: log.timestamp?.toISOString(),
       createdAt: log.createdAt.toISOString(),
     };
@@ -1730,15 +1826,19 @@ export class RunsService {
     return {
       id: artifact.id,
       runId: artifact.runId,
-      name: artifact.name,
-      originalName: artifact.originalName,
+      name: redactSensitiveString(artifact.name),
+      originalName: artifact.originalName
+        ? redactSensitiveString(artifact.originalName)
+        : artifact.originalName,
       type: artifact.type,
       mimeType: artifact.mimeType,
       sizeBytes: Number(artifact.sizeBytes),
       stepId: artifact.stepId,
       nodeId: artifact.nodeId,
-      description: artifact.description,
-      tags: artifact.tags ?? [],
+      description: artifact.description
+        ? redactSensitiveString(artifact.description)
+        : artifact.description,
+      tags: (artifact.tags ?? []).map((tag) => redactSensitiveString(tag)),
       encrypted: artifact.encrypted,
       classification: artifact.classification,
       checksum: artifact.checksum,
@@ -1765,10 +1865,12 @@ export class RunsService {
       nodeType: request.nodeType,
       nodeLabel: request.nodeLabel,
       title: request.title,
-      description: request.description,
+      description: request.description
+        ? redactSensitiveString(request.description)
+        : request.description,
       urgency: request.urgency,
-      requestData: request.requestData,
-      contextData: request.contextData,
+      requestData: this.redactObject(request.requestData),
+      contextData: this.redactObject(request.contextData),
       allowedActions: request.allowedActions ?? [],
       dataModificationAllowed: request.dataModificationAllowed,
       assignedTo: request.assignedTo,
@@ -1783,12 +1885,22 @@ export class RunsService {
       resolvedBy: request.resolvedBy,
       resolverName: (request as any).resolver?.displayName,
       resolvedAt: request.resolvedAt?.toISOString(),
-      resolutionComments: request.resolutionComments,
-      modifiedData: request.modifiedData,
-      auditTrail: request.auditTrail,
+      resolutionComments: request.resolutionComments
+        ? redactSensitiveString(request.resolutionComments)
+        : request.resolutionComments,
+      modifiedData: this.redactObject(request.modifiedData),
+      auditTrail: this.redactArray(request.auditTrail),
       isOverdue,
       createdAt: request.createdAt.toISOString(),
       updatedAt: request.updatedAt.toISOString(),
     };
+  }
+
+  private redactObject<T extends Record<string, any> | null | undefined>(value: T): T {
+    return redactSensitiveData(value);
+  }
+
+  private redactArray<T extends Array<any> | null | undefined>(value: T): T {
+    return redactSensitiveData(value);
   }
 }

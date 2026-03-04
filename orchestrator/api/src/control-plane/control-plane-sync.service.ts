@@ -1,7 +1,9 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { randomUUID } from 'crypto';
 import { LicenseService } from '../license/license.service';
+import { buildFleetAuthHeaders } from './fleet-auth.util';
 
 /**
  * Control-Plane Connection Status
@@ -358,11 +360,12 @@ export class ControlPlaneSyncService implements OnModuleInit, OnModuleDestroy {
    */
   private async makeRequest(path: string, options: RequestInit = {}): Promise<Response> {
     const url = `${this.connection.url}${path}`;
+    const traceId = randomUUID();
 
     return fetch(url, {
       ...options,
       headers: {
-        ...this.getAuthHeaders(),
+        ...this.getAuthHeaders(traceId),
         ...(options.headers || {}),
       },
     });
@@ -371,15 +374,22 @@ export class ControlPlaneSyncService implements OnModuleInit, OnModuleDestroy {
   /**
    * Get authentication headers
    */
-  private getAuthHeaders(): Record<string, string> {
+  private getAuthHeaders(traceId?: string): Record<string, string> {
     const licenseKey = this.configService.get<string>('LICENSE_KEY', '');
     const apiKey = this.configService.get<string>('CONTROL_PLANE_API_KEY', '');
+    const tenantId = this.licenseService.getTenantId();
+    const fleetHeaders = buildFleetAuthHeaders(
+      this.configService,
+      this.orchestratorId,
+      tenantId,
+      traceId,
+    );
 
     return {
       'Content-Type': 'application/json',
       'X-License-Key': licenseKey,
       'X-Api-Key': apiKey,
-      'X-Orchestrator-Id': this.orchestratorId,
+      ...fleetHeaders,
     };
   }
 

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { SkuldLogo } from '@/components/ui/skuld-logo';
@@ -140,12 +139,7 @@ export default function LoginPage() {
                 <label htmlFor="password" className="block text-sm font-medium text-zinc-700">
                   Password
                 </label>
-                <Link
-                  href="/forgot-password"
-                  className="text-sm text-zinc-500 hover:text-zinc-700"
-                >
-                  Forgot?
-                </Link>
+                <span className="text-xs text-zinc-500">Reset by admin only</span>
               </div>
               <div className="relative">
                 <input
@@ -221,9 +215,9 @@ export default function LoginPage() {
 
           {/* Support link */}
           <p className="mt-8 text-center text-sm text-zinc-500">
-            Need help?{' '}
+            Need access or password reset?{' '}
             <a href="mailto:support@skuldbot.com" className="text-zinc-700 hover:text-zinc-900 font-medium">
-              Contact support
+              Contact your administrator
             </a>
           </p>
         </div>

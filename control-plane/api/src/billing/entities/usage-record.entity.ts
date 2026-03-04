@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  UpdateDateColumn,
   Index,
 } from 'typeorm';
 
@@ -20,17 +21,17 @@ export class UsageRecord {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
   @Column({ type: 'varchar', nullable: true })
   orchestratorId?: string;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   botId?: string;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   installationId?: string; // Marketplace installation
 
   // Usage details
@@ -98,11 +99,20 @@ export class UsageBatch {
   @Column()
   orchestratorId: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   tenantId: string;
 
   @Column()
   eventCount: number;
+
+  @Column({ default: 0 })
+  processedCount: number;
+
+  @Column({ default: 0 })
+  duplicateEventCount: number;
+
+  @Column({ type: 'varchar', nullable: true })
+  traceId?: string;
 
   @Column({ type: 'timestamptz' })
   sentAt: Date;
@@ -122,4 +132,93 @@ export class UsageBatch {
 
   @CreateDateColumn()
   createdAt: Date;
+}
+
+/**
+ * Usage Ingest Event Entity
+ *
+ * Keeps idempotency records per event_id from each orchestrator.
+ * If an event is already present, usage aggregation must skip it.
+ */
+@Entity('usage_ingest_events')
+@Index(['orchestratorId', 'eventId'], { unique: true })
+@Index(['tenantId', 'occurredAt'])
+export class UsageIngestEvent {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column()
+  orchestratorId: string;
+
+  @Column({ type: 'uuid' })
+  tenantId: string;
+
+  @Column()
+  eventId: string;
+
+  @Column()
+  batchId: string;
+
+  @Column()
+  metric: string;
+
+  @Column({ type: 'decimal', precision: 18, scale: 6 })
+  quantity: number;
+
+  @Column({ type: 'timestamptz' })
+  occurredAt: Date;
+
+  @Column({ type: 'varchar', nullable: true })
+  traceId?: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+}
+
+/**
+ * Usage Ingest Dead Letter Entity
+ *
+ * Stores ingest batches that exhausted local retries in Control Plane.
+ * Allows manual replay without losing payload/traceability.
+ */
+@Entity('usage_ingest_dead_letters')
+@Index(['orchestratorId', 'batchId'], { unique: true })
+@Index(['tenantId', 'status'])
+export class UsageIngestDeadLetter {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column()
+  orchestratorId: string;
+
+  @Column({ type: 'uuid' })
+  tenantId: string;
+
+  @Column()
+  batchId: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  traceId?: string;
+
+  @Column({ default: 0 })
+  attempts: number;
+
+  @Column({ type: 'varchar' })
+  error: string;
+
+  @Column({ type: 'jsonb' })
+  payload: Record<string, unknown>;
+
+  @Column({
+    type: 'enum',
+    enum: ['pending', 'replayed', 'discarded'],
+    default: 'pending',
+  })
+  status: 'pending' | 'replayed' | 'discarded';
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }

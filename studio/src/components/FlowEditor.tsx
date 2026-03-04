@@ -374,7 +374,7 @@ export default function FlowEditor() {
   // Single click just selects the node (React Flow handles this automatically)
   // We don't open the config panel on single click anymore
   const onNodeClick = useCallback(
-    (_event: React.MouseEvent, _node: FlowNode) => {
+    () => {
       // Don't open config panel - just let React Flow handle selection
     },
     []

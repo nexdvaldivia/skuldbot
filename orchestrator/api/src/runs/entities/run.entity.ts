@@ -118,7 +118,7 @@ export class Run {
   id: string;
 
   /** Tenant ID from license */
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
@@ -126,14 +126,14 @@ export class Run {
   // BOT REFERENCE
   // ============================================================================
 
-  @Column()
+  @Column({ type: 'uuid' })
   botId: string;
 
   @ManyToOne(() => Bot, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'botId' })
   bot: Bot;
 
-  @Column()
+  @Column({ type: 'uuid' })
   botVersionId: string;
 
   @ManyToOne(() => BotVersion, { onDelete: 'SET NULL', nullable: true })
@@ -151,14 +151,14 @@ export class Run {
   // RUNNER ASSIGNMENT
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   runnerId: string;
 
   @ManyToOne(() => Runner, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'runnerId' })
   runner: Runner;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   runnerPoolId: string; // Preferred pool
 
   @Column({ type: 'jsonb', nullable: true, default: [] })
@@ -203,7 +203,7 @@ export class Run {
   // PARENT-CHILD (Sub-bots)
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   parentRunId: string;
 
   @ManyToOne(() => Run, { onDelete: 'SET NULL', nullable: true })
@@ -216,17 +216,17 @@ export class Run {
   @Column({ default: 0 })
   depth: number; // Nesting level (0 = top-level)
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   rootRunId?: string; // Top-level parent for deep nesting
 
   // ============================================================================
   // SCHEDULE REFERENCE
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   scheduleId: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   scheduleExecutionId: string; // Specific schedule execution instance
 
   // ============================================================================
@@ -627,11 +627,11 @@ export class RunEvent {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   runId: string;
 
   @ManyToOne(() => Run, (run) => run.events, { onDelete: 'CASCADE' })
@@ -779,11 +779,11 @@ export class RunLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   runId: string;
 
   @ManyToOne(() => Run, (run) => run.logs, { onDelete: 'CASCADE' })
@@ -861,11 +861,11 @@ export class RunArtifact {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   runId: string;
 
   @ManyToOne(() => Run, (run) => run.artifacts, { onDelete: 'CASCADE' })
@@ -1013,11 +1013,11 @@ export class HitlRequest {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   runId: string;
 
   @ManyToOne(() => Run, (run) => run.hitlRequests, { onDelete: 'CASCADE' })
@@ -1080,7 +1080,7 @@ export class HitlRequest {
   // ASSIGNMENT
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   assignedTo: string; // User ID
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
@@ -1090,7 +1090,7 @@ export class HitlRequest {
   @Column({ type: 'jsonb', nullable: true, default: [] })
   approverIds: string[]; // Allowed approvers
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   escalatedTo: string;
 
   @Column({ nullable: true })
@@ -1120,7 +1120,7 @@ export class HitlRequest {
   })
   action: HitlActionType;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   resolvedBy: string;
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })

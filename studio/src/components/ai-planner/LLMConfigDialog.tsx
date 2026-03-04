@@ -1,6 +1,6 @@
 /**
  * LLM Config Dialog
- * Modal for configuring LLM provider settings with n8n-style connections
+ * Modal for configuring LLM provider settings with flow-style connections
  * Using shadcn/ui components
  */
 
@@ -146,6 +146,12 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
 
   const [model, setModel] = useState(llmConfig.model);
   const [temperature, setTemperature] = useState(llmConfig.temperature);
+  const [localAskPlanTimeoutSec, setLocalAskPlanTimeoutSec] = useState(
+    llmConfig.localAskPlanTimeoutSec ?? 180
+  );
+  const [localGenerateTimeoutSec, setLocalGenerateTimeoutSec] = useState(
+    llmConfig.localGenerateTimeoutSec ?? 600
+  );
   const [customModel, setCustomModel] = useState("");
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
   const [editingConnection, setEditingConnection] = useState<LLMConnection | null>(null);
@@ -173,7 +179,20 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
         setModel(providerModels[0]?.value || "");
       }
     }
-  }, [selectedConnection?.id]);
+  }, [model, selectedConnection]);
+
+  // Keep form state aligned with persisted settings whenever dialog opens
+  useEffect(() => {
+    if (!isOpen) return;
+    setTemperature(llmConfig.temperature);
+    setLocalAskPlanTimeoutSec(llmConfig.localAskPlanTimeoutSec ?? 180);
+    setLocalGenerateTimeoutSec(llmConfig.localGenerateTimeoutSec ?? 600);
+  }, [
+    isOpen,
+    llmConfig.temperature,
+    llmConfig.localAskPlanTimeoutSec,
+    llmConfig.localGenerateTimeoutSec,
+  ]);
 
   const handleSave = () => {
     if (!selectedConnection) {
@@ -185,6 +204,8 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
       model: model === "custom" ? customModel : model,
       // apiKey and baseUrl are now in config object
       temperature,
+      localAskPlanTimeoutSec,
+      localGenerateTimeoutSec,
       connectionId: selectedConnection.id,
     });
 
@@ -403,6 +424,48 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
                   <span>Precise (0)</span>
                   <span>Creative (1)</span>
                 </div>
+              </div>
+            )}
+
+            {/* Local Timeout Configuration */}
+            {selectedConnection && (
+              <div className="space-y-3">
+                <Label>Local LLM Timeouts (seconds)</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-slate-600">Ask / Plan</Label>
+                    <Input
+                      type="number"
+                      min={15}
+                      max={3600}
+                      value={localAskPlanTimeoutSec}
+                      onChange={(e) => {
+                        const next = Number(e.target.value);
+                        if (Number.isFinite(next)) {
+                          setLocalAskPlanTimeoutSec(Math.min(Math.max(Math.round(next), 15), 3600));
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-slate-600">Generate</Label>
+                    <Input
+                      type="number"
+                      min={15}
+                      max={3600}
+                      value={localGenerateTimeoutSec}
+                      onChange={(e) => {
+                        const next = Number(e.target.value);
+                        if (Number.isFinite(next)) {
+                          setLocalGenerateTimeoutSec(Math.min(Math.max(Math.round(next), 15), 3600));
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-slate-500">
+                  These apply when using local endpoints (localhost/127.0.0.1).
+                </p>
               </div>
             )}
 

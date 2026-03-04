@@ -11,6 +11,8 @@ import * as crypto from 'crypto';
 import { Bot, BotVersion, BotStatus, VersionStatus } from './entities/bot.entity';
 import { User } from '../users/entities/user.entity';
 import { CompilerService } from '../compiler/compiler.service';
+import { LicenseService } from '../license/license.service';
+import { BillingEnforcementService } from '../billing/billing-enforcement.service';
 import {
   CreateBotDto,
   UpdateBotDto,
@@ -71,6 +73,8 @@ export class BotsService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly compilerService: CompilerService,
+    private readonly licenseService: LicenseService,
+    private readonly billingEnforcementService: BillingEnforcementService,
   ) {}
 
   // ============================================================================
@@ -85,8 +89,17 @@ export class BotsService {
     dto: CreateBotDto,
     currentUser: User,
   ): Promise<BotDetailDto> {
-    // Check tenant quota
-    await this.checkBotQuota(tenantId);
+    const features = this.licenseService.getFeatures();
+    const maxBots =
+      typeof features?.maxBots === 'number' ? features.maxBots : -1;
+    const botCount = await this.checkBotQuota(tenantId, maxBots);
+
+    // Enterprise control-plane entitlement check
+    await this.billingEnforcementService.checkEntitlement(
+      tenantId,
+      'bots',
+      botCount + 1,
+    );
 
     const bot = this.botRepository.create({
       tenantId,
@@ -1150,10 +1163,9 @@ export class BotsService {
    * @param tenantId - The tenant ID
    * @param maxBots - Maximum bots allowed (from license), -1 for unlimited
    */
-  async checkBotQuota(tenantId: string, maxBots = -1): Promise<void> {
-    if (maxBots === -1) return; // Unlimited
-
+  async checkBotQuota(tenantId: string, maxBots = -1): Promise<number> {
     const botCount = await this.botRepository.count({ where: { tenantId } });
+    if (maxBots === -1) return botCount; // Unlimited
 
     if (botCount >= maxBots) {
       throw new ForbiddenException({
@@ -1161,6 +1173,8 @@ export class BotsService {
         message: `Bot quota exceeded. Maximum: ${maxBots}`,
       });
     }
+
+    return botCount;
   }
 
   private generateWebhookSecret(): string {

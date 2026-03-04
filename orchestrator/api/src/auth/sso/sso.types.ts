@@ -17,7 +17,9 @@ export enum SsoProvider {
   // OIDC Providers
   OIDC_GENERIC = 'oidc',
   GOOGLE = 'google',
+  AZURE_ENTRA_ID = 'azure-entra-id',
   AZURE_AD = 'azure-ad',
+  AWS_COGNITO = 'aws-cognito',
   OKTA_OIDC = 'okta-oidc',
   AUTH0 = 'auth0',
   KEYCLOAK = 'keycloak',
@@ -194,6 +196,7 @@ export const PROVIDER_TEMPLATES: Record<
   } as Partial<OidcConfig>,
 
   // Azure AD (OIDC)
+  // NOTE: kept for backwards compatibility
   [SsoProvider.AZURE_AD]: {
     protocol: SsoProtocol.OIDC,
     // discoveryUrl template: https://login.microsoftonline.com/{tenant}/v2.0/.well-known/openid-configuration
@@ -205,6 +208,36 @@ export const PROVIDER_TEMPLATES: Record<
       lastName: 'family_name',
       displayName: 'name',
       groups: 'groups',
+    },
+  } as Partial<OidcConfig>,
+
+  // Azure Entra ID (OIDC)
+  [SsoProvider.AZURE_ENTRA_ID]: {
+    protocol: SsoProtocol.OIDC,
+    // discoveryUrl template: https://login.microsoftonline.com/{tenant}/v2.0/.well-known/openid-configuration
+    scopes: ['openid', 'profile', 'email', 'User.Read'],
+    pkce: true,
+    claimMapping: {
+      email: 'preferred_username',
+      firstName: 'given_name',
+      lastName: 'family_name',
+      displayName: 'name',
+      groups: 'groups',
+    },
+  } as Partial<OidcConfig>,
+
+  // AWS Cognito (OIDC)
+  [SsoProvider.AWS_COGNITO]: {
+    protocol: SsoProtocol.OIDC,
+    // discoveryUrl template: https://cognito-idp.{region}.amazonaws.com/{userPoolId}/.well-known/openid-configuration
+    scopes: ['openid', 'profile', 'email'],
+    pkce: true,
+    claimMapping: {
+      email: 'email',
+      firstName: 'given_name',
+      lastName: 'family_name',
+      displayName: 'name',
+      groups: 'cognito:groups',
     },
   } as Partial<OidcConfig>,
 

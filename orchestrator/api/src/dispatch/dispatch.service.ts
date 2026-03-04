@@ -4,14 +4,15 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Runner, RunnerStatus } from '../runners/entities/runner.entity';
 import { Run, RunStatus, RunTriggerType } from '../runs/entities/run.entity';
-import { BotVersion } from '../bots/entities/bot.entity';
+import { Bot, BotVersion } from '../bots/entities/bot.entity';
 import { Schedule, ScheduleTargetType } from '../schedules/entities/schedule.entity';
 import { InfraPowerService } from './infra-power.service';
+import { BillingEnforcementService } from '../billing/billing-enforcement.service';
 
 // Queue names
 export const QUEUE_DEFAULT = 'runs';
@@ -25,11 +26,14 @@ export class DispatchService {
     private readonly runnerRepository: Repository<Runner>,
     @InjectRepository(Run)
     private readonly runRepository: Repository<Run>,
+    @InjectRepository(Bot)
+    private readonly botRepository: Repository<Bot>,
     @InjectRepository(BotVersion)
     private readonly versionRepository: Repository<BotVersion>,
     @InjectQueue(QUEUE_DEFAULT)
     private readonly defaultQueue: Queue,
     private readonly infraPowerService: InfraPowerService,
+    private readonly billingEnforcementService: BillingEnforcementService,
   ) {}
 
   /**
@@ -40,8 +44,10 @@ export class DispatchService {
       throw new BadRequestException('Schedule has no bot version configured');
     }
 
+    await this.enforceRuntimePolicies(schedule.tenantId);
+
     const version = await this.versionRepository.findOne({
-      where: { id: schedule.botVersionId },
+      where: { id: schedule.botVersionId, botId: schedule.botId },
     });
 
     if (!version?.compiledPlan) {
@@ -51,7 +57,10 @@ export class DispatchService {
     // Create run record
     const run = this.runRepository.create({
       tenantId: schedule.tenantId,
+      botId: schedule.botId,
       botVersionId: schedule.botVersionId,
+      botName: schedule.bot?.name ?? null,
+      botVersionLabel: version.label ?? version.version,
       status: RunStatus.QUEUED,
       triggerType: RunTriggerType.SCHEDULE,
       triggeredBy: `schedule:${schedule.id}`,
@@ -60,6 +69,7 @@ export class DispatchService {
     });
 
     await this.runRepository.save(run);
+    await this.consumeRunQuotaOrRollback(run);
 
     // Route based on target type
     await this.routeRun(run, schedule.targetType, {
@@ -82,6 +92,8 @@ export class DispatchService {
     targetType: ScheduleTargetType = ScheduleTargetType.ANY,
     pinnedRunnerId?: string,
   ): Promise<Run> {
+    await this.enforceRuntimePolicies(tenantId);
+
     const version = await this.versionRepository.findOne({
       where: { id: botVersionId },
     });
@@ -90,9 +102,22 @@ export class DispatchService {
       throw new BadRequestException('Bot version not compiled');
     }
 
+    const bot = await this.botRepository.findOne({
+      where: { id: version.botId, tenantId },
+    });
+
+    if (!bot) {
+      throw new BadRequestException(
+        `Bot version ${botVersionId} does not belong to tenant ${tenantId}`,
+      );
+    }
+
     const run = this.runRepository.create({
       tenantId,
+      botId: version.botId,
       botVersionId,
+      botName: bot.name,
+      botVersionLabel: version.label ?? version.version,
       status: RunStatus.QUEUED,
       triggerType: RunTriggerType.MANUAL,
       triggeredBy: 'manual',
@@ -101,6 +126,7 @@ export class DispatchService {
     });
 
     await this.runRepository.save(run);
+    await this.consumeRunQuotaOrRollback(run);
 
     await this.routeRun(run, targetType, { pinnedRunnerId });
 
@@ -252,5 +278,38 @@ export class DispatchService {
     }
 
     return query.getOne();
+  }
+
+  private async enforceRuntimePolicies(tenantId: string): Promise<void> {
+    const runningCount = await this.runRepository.count({
+      where: {
+        tenantId,
+        status: In([RunStatus.QUEUED, RunStatus.LEASED, RunStatus.RUNNING]),
+      },
+    });
+
+    await this.billingEnforcementService.checkEntitlement(
+      tenantId,
+      'concurrent_runs',
+      runningCount + 1,
+    );
+    await this.billingEnforcementService.checkQuota(
+      tenantId,
+      'runs_per_month',
+      1,
+    );
+  }
+
+  private async consumeRunQuotaOrRollback(run: Run): Promise<void> {
+    try {
+      await this.billingEnforcementService.consumeQuota(
+        run.tenantId,
+        'runs_per_month',
+        1,
+      );
+    } catch (error) {
+      await this.runRepository.delete({ id: run.id, tenantId: run.tenantId });
+      throw error;
+    }
   }
 }

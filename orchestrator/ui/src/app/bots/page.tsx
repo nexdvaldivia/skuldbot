@@ -1,7 +1,10 @@
 'use client';
 
+import { FormEvent, useState } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { StatusBadge } from '@/components/ui/badge';
 import {
   DropdownMenu,
@@ -10,7 +13,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useBots, useDeleteBot } from '@/hooks/use-api';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { useBots, useCreateBot, useDeleteBot } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { formatRelativeTime } from '@/lib/utils';
 import { Bot, Plus, MoreVertical, Play, Trash2, Edit } from 'lucide-react';
@@ -18,17 +29,68 @@ import Link from 'next/link';
 
 export default function BotsPage() {
   const { data: bots, isLoading } = useBots();
+  const createMutation = useCreateBot();
   const deleteMutation = useDeleteBot();
   const { toast } = useToast();
 
-  const handleDelete = async (id: string, name: string) => {
+  const [openCreate, setOpenCreate] = useState(false);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+
+  const resetForm = () => {
+    setName('');
+    setDescription('');
+  };
+
+  const handleCreateBot = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const normalizedName = name.trim();
+    const normalizedDescription = description.trim();
+
+    if (!normalizedName) {
+      toast({
+        variant: 'warning',
+        title: 'Missing name',
+        description: 'Bot name is required.',
+      });
+      return;
+    }
+
+    try {
+      await createMutation.mutateAsync({
+        name: normalizedName,
+        description: normalizedDescription || undefined,
+      });
+
+      toast({
+        variant: 'success',
+        title: 'Bot created',
+        description: `${normalizedName} is now available.`,
+      });
+
+      setOpenCreate(false);
+      resetForm();
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to create bot',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Please verify your data and try again.',
+      });
+    }
+  };
+
+  const handleDelete = async (id: string, botName: string) => {
     if (confirm('Are you sure you want to delete this bot?')) {
       try {
         await deleteMutation.mutateAsync(id);
         toast({
           variant: 'success',
           title: 'Bot deleted',
-          description: `${name} has been deleted successfully.`,
+          description: `${botName} has been deleted successfully.`,
         });
       } catch {
         toast({
@@ -41,48 +103,101 @@ export default function BotsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Bots</h1>
-          <p className="text-muted-foreground mt-1">Manage your RPA bots</p>
+    <>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Bots</h1>
+            <p className="text-muted-foreground mt-1">Manage your RPA bots</p>
+          </div>
+          <Button onClick={() => setOpenCreate(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Upload Bot
+          </Button>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Upload Bot
-        </Button>
+
+        {isLoading ? (
+          <div className="text-center py-12 text-muted-foreground">Loading...</div>
+        ) : bots?.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <Bot className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground">No bots yet</h3>
+              <p className="text-muted-foreground mt-1">
+                Upload a bot package from Studio to get started.
+              </p>
+              <Button className="mt-4" onClick={() => setOpenCreate(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Upload Bot
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {bots?.map((bot) => (
+              <BotCard
+                key={bot.id}
+                bot={bot}
+                onDelete={() => handleDelete(bot.id, bot.name)}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Bots grid */}
-      {isLoading ? (
-        <div className="text-center py-12 text-muted-foreground">Loading...</div>
-      ) : bots?.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Bot className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground">No bots yet</h3>
-            <p className="text-muted-foreground mt-1">
-              Upload a bot package from Studio to get started.
-            </p>
-            <Button className="mt-4">
-              <Plus className="h-4 w-4 mr-2" />
-              Upload Bot
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {bots?.map((bot) => (
-            <BotCard
-              key={bot.id}
-              bot={bot}
-              onDelete={() => handleDelete(bot.id, bot.name)}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+      <Dialog open={openCreate} onOpenChange={setOpenCreate}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Bot</DialogTitle>
+            <DialogDescription>
+              Register a new bot shell and continue versioning from Studio.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form className="space-y-4" onSubmit={handleCreateBot}>
+            <div className="space-y-2">
+              <Label htmlFor="bot-name">Bot Name</Label>
+              <Input
+                id="bot-name"
+                placeholder="Claims Intake Automation"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                maxLength={200}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="bot-description">Description</Label>
+              <textarea
+                id="bot-description"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                maxLength={1000}
+                rows={4}
+                className="flex w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="Optional summary for operators and support teams"
+              />
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setOpenCreate(false);
+                  resetForm();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" loading={createMutation.isPending}>
+                Create Bot
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -122,7 +237,6 @@ function BotCard({
           </div>
         </div>
 
-        {/* Actions menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">

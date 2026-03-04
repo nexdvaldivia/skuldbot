@@ -75,6 +75,20 @@ export class SubscriptionController {
   }
 
   /**
+   * List subscriptions (Control Plane admin)
+   */
+  @Get('subscriptions')
+  async listSubscriptions(
+    @Query('status') status?: SubscriptionStatus,
+    @Query('search') search?: string,
+  ) {
+    return this.subscriptionService.listSubscriptions({
+      status,
+      search,
+    });
+  }
+
+  /**
    * Get subscription status for a tenant
    */
   @Get('subscriptions/:tenantId')

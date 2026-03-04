@@ -28,7 +28,7 @@ export class DiscoveredSchema {
   @Column('simple-array', { nullable: true })
   contributorTenants: string[] | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastContributorTenant: string | null;
 
   @Column({ default: false })
@@ -37,7 +37,7 @@ export class DiscoveredSchema {
   @Column({ default: false })
   isIncludedInRelease: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   includedInVersion: string | null;
 
   @CreateDateColumn()
@@ -53,4 +53,3 @@ export interface SchemaField {
   items?: SchemaField[];
   fields?: SchemaField[];
 }
-

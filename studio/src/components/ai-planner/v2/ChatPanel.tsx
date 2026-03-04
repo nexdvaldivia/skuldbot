@@ -24,6 +24,17 @@ import { useAIPlannerV2Store } from "../../../store/aiPlannerV2Store";
 import { useConnectionsStore } from "../../../store/connectionsStore";
 import { useToastStore } from "../../../store/toastStore";
 
+const EXECUTION_INTENT_RE =
+  /\b(hazlo|adelante|continua|continuar|construye|construir|genera|generar|crea|crear|build|generate|create|implement|go ahead|proceed|do it)\b/i;
+
+function hasExecutionIntent(input: string): boolean {
+  const normalized = input
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  return EXECUTION_INTENT_RE.test(normalized);
+}
+
 export function ChatPanel() {
   const [showClearDialog, setShowClearDialog] = useState(false);
   
@@ -99,11 +110,17 @@ export function ChatPanel() {
     }
 
     // Always call LLM with the selected mode - let the AI decide what to do
-    // The LLM is smart enough to:
-    // - Respond conversationally to greetings
-    // - Ask clarifying questions when needed
-    // - Generate workflows when it has enough info
     console.log(`💬 Input: "${input}" | Mode: ${agentMode}`);
+
+    const shouldForceGenerate =
+      (agentMode === "ask" || agentMode === "plan") && hasExecutionIntent(input);
+
+    if (shouldForceGenerate) {
+      toast.info("Generate Mode", "Building full workflow from chat context");
+      await generateExecutablePlan(input, { forceMode: "generate" });
+      return;
+    }
+
     await generateExecutablePlan(input);
   };
 
@@ -172,60 +189,37 @@ export function ChatPanel() {
       {/* Agent Mode Selector (Ask / Plan / Generate) */}
       <div className="px-6 py-3 bg-white border-b border-neutral-200">
         <div className="flex items-center justify-between max-w-3xl mx-auto">
-          <div className="flex items-center gap-1">
-            {/* Ask Mode */}
-            <Button
-              variant={agentMode === "ask" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setAgentMode("ask")}
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-neutral-600 font-medium">Mode:</span>
+            <Select
+              value={agentMode === "ask" || agentMode === "plan" || agentMode === "generate" ? agentMode : undefined}
+              onValueChange={(value) => setAgentMode(value as "ask" | "plan" | "generate")}
               disabled={isGenerating || isRefining}
-              className={`
-                flex items-center gap-2 h-8 px-4 text-xs font-medium transition-all
-                ${agentMode === "ask" 
-                  ? "bg-primary-500 text-white hover:bg-primary-600" 
-                  : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
-                }
-              `}
             >
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span>Ask</span>
-            </Button>
-
-            {/* Plan Mode */}
-            <Button
-              variant={agentMode === "plan" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setAgentMode("plan")}
-              disabled={isGenerating || isRefining}
-              className={`
-                flex items-center gap-2 h-8 px-4 text-xs font-medium transition-all
-                ${agentMode === "plan" 
-                  ? "bg-primary-500 text-white hover:bg-primary-600" 
-                  : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
-                }
-              `}
-            >
-              <ListChecks className="w-3.5 h-3.5" />
-              <span>Plan</span>
-            </Button>
-
-            {/* Generate Mode */}
-            <Button
-              variant={agentMode === "generate" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setAgentMode("generate")}
-              disabled={isGenerating || isRefining}
-              className={`
-                flex items-center gap-2 h-8 px-4 text-xs font-medium transition-all
-                ${agentMode === "generate" 
-                  ? "bg-primary-500 text-white hover:bg-primary-600" 
-                  : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
-                }
-              `}
-            >
-              <Zap className="w-3.5 h-3.5" />
-              <span>Generate</span>
-            </Button>
+              <SelectTrigger className="w-[190px] h-8 text-xs font-medium border-neutral-300 bg-white">
+                <SelectValue placeholder="Select mode" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ask">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>Ask</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="plan">
+                  <div className="flex items-center gap-2">
+                    <ListChecks className="w-3.5 h-3.5" />
+                    <span>Plan</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="generate">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-3.5 h-3.5" />
+                    <span>Generate</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* New Conversation Button */}
@@ -444,4 +438,3 @@ export function ChatPanel() {
     </div>
   );
 }
-

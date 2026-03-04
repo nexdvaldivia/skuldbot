@@ -10,8 +10,12 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
+    "smoke:compile:nodes": "bash ./scripts/smoke_compile_all_nodes.sh",
+    "migrate:legacy-expr": "python3 ./scripts/migrate_legacy_expressions.py",
+    "test:planner-flow": "node ./scripts/run_planner_flow_tests.mjs",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "kill-vite": "lsof -ti:1420 | xargs kill -9 2>/dev/null || true"
+    "kill-vite": "lsof -ti:1420 | xargs kill -9 2>/dev/null || true",
+    "verify": "bash ./scripts/verify_studio.sh"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",

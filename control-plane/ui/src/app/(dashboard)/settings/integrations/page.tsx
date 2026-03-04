@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { toast } from '@/hooks/use-toast';
+import {
+  integrationsApi,
+  type IntegrationProviderConfig,
+  type IntegrationProviderType,
+} from '@/lib/api';
 import {
   ArrowLeft,
   CreditCard,
@@ -28,8 +34,6 @@ import {
   RefreshCw,
   Loader2,
   ExternalLink,
-  Plus,
-  Trash2,
   Settings2,
 } from 'lucide-react';
 import type {
@@ -41,8 +45,6 @@ import type {
   S3StorageConfig,
   AzureBlobConfig,
 } from '@/types/providers';
-
-// Mock initial data
 const initialPaymentConfig: StripeConfig & { environment: 'test' | 'production' } = {
   provider: 'stripe',
   environment: 'test',
@@ -95,25 +97,130 @@ const initialAzureBlobConfig: AzureBlobConfig = {
 };
 
 type ProviderTab = 'payment' | 'email' | 'storage';
+type SaveProviderInput = {
+  type: IntegrationProviderType;
+  name: string;
+  settings?: Record<string, unknown>;
+  credentials?: Record<string, string>;
+  isActive?: boolean;
+  isPrimary?: boolean;
+  description?: string;
+};
+
+function compactCredentials(values: Record<string, string>): Record<string, string> | undefined {
+  const compact = Object.entries(values).reduce<Record<string, string>>((acc, [key, value]) => {
+    const trimmed = value.trim();
+    if (trimmed) {
+      acc[key] = trimmed;
+    }
+    return acc;
+  }, {});
+
+  return Object.keys(compact).length > 0 ? compact : undefined;
+}
+
+function findProvider(
+  providers: IntegrationProviderConfig[],
+  type: IntegrationProviderType,
+  name: string,
+): IntegrationProviderConfig | undefined {
+  return providers.find((provider) => provider.type === type && provider.name === name);
+}
+
+function toProviderStatus(
+  provider?: IntegrationProviderConfig,
+): ProviderStatus {
+  if (!provider) {
+    return 'not_configured';
+  }
+  if (!provider.isActive) {
+    return 'inactive';
+  }
+  return provider.hasCredentials ? 'active' : 'not_configured';
+}
 
 export default function IntegrationsPage() {
   const [activeTab, setActiveTab] = useState<ProviderTab>('payment');
-  const [saved, setSaved] = useState(false);
+  const [providers, setProviders] = useState<IntegrationProviderConfig[]>([]);
+  const [loadingProviders, setLoadingProviders] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+  const loadProviders = async () => {
+    try {
+      setLoadingProviders(true);
+      const data = await integrationsApi.list();
+      setProviders(data);
+    } catch (error) {
+      setProviders([]);
+      toast({
+        variant: 'error',
+        title: 'Failed to load integrations',
+        description:
+          error instanceof Error ? error.message : 'Could not fetch provider configurations.',
+      });
+    } finally {
+      setLoadingProviders(false);
+    }
   };
 
-  const handleTest = async () => {
+  useEffect(() => {
+    void loadProviders();
+  }, []);
+
+  const handleSave = async (payload: SaveProviderInput) => {
+    try {
+      setSaving(true);
+      await integrationsApi.upsert(payload);
+      await loadProviders();
+      toast({
+        variant: 'success',
+        title: 'Configuration saved',
+        description: `${payload.name} configuration was saved successfully.`,
+      });
+    } catch (error) {
+      toast({
+        variant: 'error',
+        title: 'Failed to save configuration',
+        description: error instanceof Error ? error.message : 'Save request failed.',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTest = async (type: IntegrationProviderType, name: string) => {
+    const provider = findProvider(providers, type, name);
+    if (!provider) {
+      toast({
+        variant: 'warning',
+        title: 'Save configuration first',
+        description: 'This provider must be saved before it can be tested.',
+      });
+      return;
+    }
+
     setTesting(true);
-    setTestResult(null);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setTestResult({ success: true, message: 'Connection successful!' });
-    setTesting(false);
+    try {
+      const result = await integrationsApi.test(provider.id);
+      toast({
+        variant: result.success ? 'success' : 'error',
+        title: result.success ? 'Connection successful' : 'Connection failed',
+        description: result.message,
+      });
+      await loadProviders();
+    } catch (error) {
+      toast({
+        variant: 'error',
+        title: 'Connection failed',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Integration test failed. Check credentials and try again.',
+      });
+    } finally {
+      setTesting(false);
+    }
   };
 
   const tabs = [
@@ -139,26 +246,6 @@ export default function IntegrationsPage() {
         <p className="text-zinc-500 mt-1">Configure external service providers for payments, email, and storage</p>
       </div>
 
-      {/* Success Message */}
-      {saved && (
-        <div className="mb-6 flex items-center gap-2 px-4 py-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700">
-          <CheckCircle2 className="h-4 w-4" />
-          <span className="text-sm font-medium">Configuration saved successfully</span>
-        </div>
-      )}
-
-      {/* Test Result */}
-      {testResult && (
-        <div className={`mb-6 flex items-center gap-2 px-4 py-3 rounded-lg border ${
-          testResult.success
-            ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-            : 'bg-red-50 border-red-200 text-red-700'
-        }`}>
-          {testResult.success ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-          <span className="text-sm font-medium">{testResult.message}</span>
-        </div>
-      )}
-
       {/* Tabs */}
       <div className="flex gap-1 p-1 bg-zinc-100 rounded-lg mb-8 w-fit">
         {tabs.map((tab) => {
@@ -169,7 +256,6 @@ export default function IntegrationsPage() {
               key={tab.id}
               onClick={() => {
                 setActiveTab(tab.id);
-                setTestResult(null);
               }}
               className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 isActive
@@ -186,13 +272,34 @@ export default function IntegrationsPage() {
 
       {/* Content */}
       {activeTab === 'payment' && (
-        <PaymentProviderConfig onSave={handleSave} onTest={handleTest} testing={testing} />
+        <PaymentProviderConfig
+          onSave={handleSave}
+          onTest={handleTest}
+          providers={providers}
+          loading={loadingProviders}
+          saving={saving}
+          testing={testing}
+        />
       )}
       {activeTab === 'email' && (
-        <EmailProviderConfig onSave={handleSave} onTest={handleTest} testing={testing} />
+        <EmailProviderConfig
+          onSave={handleSave}
+          onTest={handleTest}
+          providers={providers}
+          loading={loadingProviders}
+          saving={saving}
+          testing={testing}
+        />
       )}
       {activeTab === 'storage' && (
-        <StorageProviderConfig onSave={handleSave} onTest={handleTest} testing={testing} />
+        <StorageProviderConfig
+          onSave={handleSave}
+          onTest={handleTest}
+          providers={providers}
+          loading={loadingProviders}
+          saving={saving}
+          testing={testing}
+        />
       )}
     </div>
   );
@@ -203,19 +310,57 @@ export default function IntegrationsPage() {
 // ============================================
 
 interface ConfigProps {
-  onSave: () => void;
-  onTest: () => void;
+  onSave: (input: SaveProviderInput) => Promise<void>;
+  onTest: (type: IntegrationProviderType, name: string) => Promise<void>;
+  providers: IntegrationProviderConfig[];
+  loading: boolean;
+  saving: boolean;
   testing: boolean;
 }
 
-function PaymentProviderConfig({ onSave, onTest, testing }: ConfigProps) {
+function PaymentProviderConfig({
+  onSave,
+  onTest,
+  providers,
+  loading,
+  saving,
+  testing,
+}: ConfigProps) {
+  const stripeProvider = useMemo(
+    () => findProvider(providers, 'payment', 'stripe'),
+    [providers],
+  );
   const [config, setConfig] = useState(initialPaymentConfig);
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
-  const [status, setStatus] = useState<ProviderStatus>('not_configured');
+  const status = toProviderStatus(stripeProvider);
 
   const updateConfig = (updates: Partial<typeof config>) => {
     setConfig((prev) => ({ ...prev, ...updates }));
+  };
+
+  const hasStoredSecrets = Boolean(stripeProvider?.hasCredentials);
+
+  const handleSaveClick = async () => {
+    await onSave({
+      type: 'payment',
+      name: 'stripe',
+      isActive: true,
+      isPrimary: true,
+      settings: {
+        environment: config.environment,
+        connectEnabled: config.connectEnabled,
+        publishableKey: config.publishableKey,
+      },
+      credentials: compactCredentials({
+        secretKey: config.secretKey,
+        webhookSecret: config.webhookSecret,
+      }),
+    });
+  };
+
+  const handleTestClick = async () => {
+    await onTest('payment', 'stripe');
   };
 
   return (
@@ -295,11 +440,11 @@ function PaymentProviderConfig({ onSave, onTest, testing }: ConfigProps) {
                 </span>
               </label>
               <div className="relative">
-                <Input
-                  type={showSecretKey ? 'text' : 'password'}
-                  value={config.secretKey}
-                  onChange={(e) => updateConfig({ secretKey: e.target.value })}
-                  placeholder={config.environment === 'test' ? 'sk_test_...' : 'sk_live_...'}
+              <Input
+                type={showSecretKey ? 'text' : 'password'}
+                value={config.secretKey}
+                onChange={(e) => updateConfig({ secretKey: e.target.value })}
+                placeholder={config.environment === 'test' ? 'sk_test_...' : 'sk_live_...'}
                   className="pr-10"
                 />
                 <button
@@ -310,6 +455,11 @@ function PaymentProviderConfig({ onSave, onTest, testing }: ConfigProps) {
                   {showSecretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              {hasStoredSecrets && (
+                <p className="text-xs text-zinc-500 mt-1">
+                  Secret key already configured. Leave empty to keep current value.
+                </p>
+              )}
             </div>
 
             <div>
@@ -333,6 +483,11 @@ function PaymentProviderConfig({ onSave, onTest, testing }: ConfigProps) {
                   {showWebhookSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              {hasStoredSecrets && (
+                <p className="text-xs text-zinc-500 mt-1">
+                  Webhook secret already configured. Leave empty to keep current value.
+                </p>
+              )}
               <p className="text-xs text-zinc-500 mt-1">
                 Webhook endpoint: <code className="bg-zinc-100 px-1.5 py-0.5 rounded text-zinc-600">
                   https://api.skuld.io/webhooks/stripe
@@ -367,7 +522,11 @@ function PaymentProviderConfig({ onSave, onTest, testing }: ConfigProps) {
               Open Stripe Dashboard
             </a>
             <div className="flex items-center gap-3">
-              <Button variant="outline" onClick={onTest} disabled={testing}>
+              <Button
+                variant="outline"
+                onClick={() => void handleTestClick()}
+                disabled={testing || loading || saving}
+              >
                 {testing ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
@@ -375,8 +534,8 @@ function PaymentProviderConfig({ onSave, onTest, testing }: ConfigProps) {
                 )}
                 Test Connection
               </Button>
-              <Button onClick={onSave}>
-                <Save className="h-4 w-4 mr-2" />
+              <Button onClick={() => void handleSaveClick()} disabled={saving || loading}>
+                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                 Save Configuration
               </Button>
             </div>
@@ -391,13 +550,73 @@ function PaymentProviderConfig({ onSave, onTest, testing }: ConfigProps) {
 // EMAIL PROVIDER CONFIG
 // ============================================
 
-function EmailProviderConfig({ onSave, onTest, testing }: ConfigProps) {
+function EmailProviderConfig({
+  onSave,
+  onTest,
+  providers,
+  loading,
+  saving,
+  testing,
+}: ConfigProps) {
   const [activeProvider, setActiveProvider] = useState<'sendgrid' | 'microsoft_graph'>('sendgrid');
   const [sendGridConfig, setSendGridConfig] = useState(initialSendGridConfig);
   const [msGraphConfig, setMsGraphConfig] = useState(initialMsGraphConfig);
   const [showApiKey, setShowApiKey] = useState(false);
   const [showClientSecret, setShowClientSecret] = useState(false);
-  const [status, setStatus] = useState<ProviderStatus>('not_configured');
+  const sendGridProvider = useMemo(
+    () => findProvider(providers, 'email', 'sendgrid'),
+    [providers],
+  );
+  const msGraphProvider = useMemo(
+    () => findProvider(providers, 'graph', 'microsoft_graph'),
+    [providers],
+  );
+  const status = activeProvider === 'sendgrid'
+    ? toProviderStatus(sendGridProvider)
+    : toProviderStatus(msGraphProvider);
+
+  const handleSaveSendGrid = async () => {
+    await onSave({
+      type: 'email',
+      name: 'sendgrid',
+      isActive: true,
+      isPrimary: activeProvider === 'sendgrid',
+      settings: {
+        fromEmail: sendGridConfig.fromEmail,
+        fromName: sendGridConfig.fromName,
+        sandboxMode: sendGridConfig.sandboxMode,
+      },
+      credentials: compactCredentials({
+        apiKey: sendGridConfig.apiKey,
+      }),
+    });
+  };
+
+  const handleSaveMicrosoftGraph = async () => {
+    await onSave({
+      type: 'graph',
+      name: 'microsoft_graph',
+      isActive: true,
+      isPrimary: true,
+      settings: {
+        tenantId: msGraphConfig.tenantId,
+        clientId: msGraphConfig.clientId,
+        fromEmail: msGraphConfig.fromEmail,
+        fromName: msGraphConfig.fromName,
+      },
+      credentials: compactCredentials({
+        clientSecret: msGraphConfig.clientSecret,
+      }),
+    });
+  };
+
+  const handleTestSendGrid = async () => {
+    await onTest('email', 'sendgrid');
+  };
+
+  const handleTestMicrosoftGraph = async () => {
+    await onTest('graph', 'microsoft_graph');
+  };
 
   return (
     <div className="space-y-6">
@@ -469,6 +688,11 @@ function EmailProviderConfig({ onSave, onTest, testing }: ConfigProps) {
                     {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                {sendGridProvider?.hasCredentials && (
+                  <p className="text-xs text-zinc-500 mt-1">
+                    API key already configured. Leave empty to keep current value.
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -516,7 +740,11 @@ function EmailProviderConfig({ onSave, onTest, testing }: ConfigProps) {
                 Open SendGrid Dashboard
               </a>
               <div className="flex items-center gap-3">
-                <Button variant="outline" onClick={onTest} disabled={testing}>
+                <Button
+                  variant="outline"
+                  onClick={() => void handleTestSendGrid()}
+                  disabled={testing || loading || saving}
+                >
                   {testing ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
@@ -524,8 +752,11 @@ function EmailProviderConfig({ onSave, onTest, testing }: ConfigProps) {
                   )}
                   Send Test Email
                 </Button>
-                <Button onClick={onSave}>
-                  <Save className="h-4 w-4 mr-2" />
+                <Button
+                  onClick={() => void handleSaveSendGrid()}
+                  disabled={saving || loading}
+                >
+                  {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                   Save Configuration
                 </Button>
               </div>
@@ -592,6 +823,11 @@ function EmailProviderConfig({ onSave, onTest, testing }: ConfigProps) {
                     {showClientSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                {msGraphProvider?.hasCredentials && (
+                  <p className="text-xs text-zinc-500 mt-1">
+                    Client secret already configured. Leave empty to keep current value.
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -638,7 +874,11 @@ function EmailProviderConfig({ onSave, onTest, testing }: ConfigProps) {
                 Open Azure Portal
               </a>
               <div className="flex items-center gap-3">
-                <Button variant="outline" onClick={onTest} disabled={testing}>
+                <Button
+                  variant="outline"
+                  onClick={() => void handleTestMicrosoftGraph()}
+                  disabled={testing || loading || saving}
+                >
                   {testing ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
@@ -646,8 +886,11 @@ function EmailProviderConfig({ onSave, onTest, testing }: ConfigProps) {
                   )}
                   Send Test Email
                 </Button>
-                <Button onClick={onSave}>
-                  <Save className="h-4 w-4 mr-2" />
+                <Button
+                  onClick={() => void handleSaveMicrosoftGraph()}
+                  disabled={saving || loading}
+                >
+                  {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                   Save Configuration
                 </Button>
               </div>
@@ -663,14 +906,99 @@ function EmailProviderConfig({ onSave, onTest, testing }: ConfigProps) {
 // STORAGE PROVIDER CONFIG
 // ============================================
 
-function StorageProviderConfig({ onSave, onTest, testing }: ConfigProps) {
+function StorageProviderConfig({
+  onSave,
+  onTest,
+  providers,
+  loading,
+  saving,
+  testing,
+}: ConfigProps) {
   const [activeProvider, setActiveProvider] = useState<'local' | 's3' | 'azure_blob'>('local');
   const [localConfig, setLocalConfig] = useState(initialLocalStorageConfig);
   const [s3Config, setS3Config] = useState(initialS3Config);
   const [azureConfig, setAzureConfig] = useState(initialAzureBlobConfig);
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [showConnectionString, setShowConnectionString] = useState(false);
-  const [status, setStatus] = useState<ProviderStatus>('not_configured');
+  const localProvider = useMemo(
+    () => findProvider(providers, 'storage', 'local'),
+    [providers],
+  );
+  const s3Provider = useMemo(
+    () => findProvider(providers, 'storage', 's3'),
+    [providers],
+  );
+  const azureProvider = useMemo(
+    () => findProvider(providers, 'storage', 'azure_blob'),
+    [providers],
+  );
+  const status = activeProvider === 'local'
+    ? toProviderStatus(localProvider)
+    : activeProvider === 's3'
+      ? toProviderStatus(s3Provider)
+      : toProviderStatus(azureProvider);
+
+  const handleSaveLocal = async () => {
+    await onSave({
+      type: 'storage',
+      name: 'local',
+      isActive: true,
+      settings: {
+        basePath: localConfig.basePath,
+        maxFileSizeMb: localConfig.maxFileSizeMb,
+      },
+      isPrimary: activeProvider === 'local',
+    });
+  };
+
+  const handleSaveS3 = async () => {
+    await onSave({
+      type: 'storage',
+      name: 's3',
+      isActive: true,
+      isPrimary: activeProvider === 's3',
+      settings: {
+        region: s3Config.region,
+        bucket: s3Config.bucket,
+        endpoint: s3Config.endpoint || '',
+        forcePathStyle: Boolean(s3Config.forcePathStyle),
+      },
+      credentials: compactCredentials({
+        accessKeyId: s3Config.accessKeyId,
+        secretAccessKey: s3Config.secretAccessKey,
+      }),
+    });
+  };
+
+  const handleSaveAzure = async () => {
+    await onSave({
+      type: 'storage',
+      name: 'azure_blob',
+      isActive: true,
+      isPrimary: activeProvider === 'azure_blob',
+      settings: {
+        accountName: azureConfig.accountName,
+        containerName: azureConfig.containerName,
+      },
+      credentials: compactCredentials({
+        connectionString: azureConfig.connectionString,
+        accountKey: azureConfig.accountKey || '',
+        sasToken: azureConfig.sasToken || '',
+      }),
+    });
+  };
+
+  const handleTestLocal = async () => {
+    await onTest('storage', 'local');
+  };
+
+  const handleTestS3 = async () => {
+    await onTest('storage', 's3');
+  };
+
+  const handleTestAzure = async () => {
+    await onTest('storage', 'azure_blob');
+  };
 
   return (
     <div className="space-y-6">
@@ -768,7 +1096,11 @@ function StorageProviderConfig({ onSave, onTest, testing }: ConfigProps) {
 
             {/* Actions */}
             <div className="mt-6 pt-4 border-t border-zinc-100 flex items-center justify-end gap-3">
-              <Button variant="outline" onClick={onTest} disabled={testing}>
+              <Button
+                variant="outline"
+                onClick={() => void handleTestLocal()}
+                disabled={testing || loading || saving}
+              >
                 {testing ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
@@ -776,8 +1108,8 @@ function StorageProviderConfig({ onSave, onTest, testing }: ConfigProps) {
                 )}
                 Test Connection
               </Button>
-              <Button onClick={onSave}>
-                <Save className="h-4 w-4 mr-2" />
+              <Button onClick={() => void handleSaveLocal()} disabled={saving || loading}>
+                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                 Save Configuration
               </Button>
             </div>
@@ -833,6 +1165,11 @@ function StorageProviderConfig({ onSave, onTest, testing }: ConfigProps) {
                       {showSecretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                  {s3Provider?.hasCredentials && (
+                    <p className="text-xs text-zinc-500 mt-1">
+                      S3 credentials already configured. Leave empty to keep current values.
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -910,7 +1247,11 @@ function StorageProviderConfig({ onSave, onTest, testing }: ConfigProps) {
                 Open AWS Console
               </a>
               <div className="flex items-center gap-3">
-                <Button variant="outline" onClick={onTest} disabled={testing}>
+                <Button
+                  variant="outline"
+                  onClick={() => void handleTestS3()}
+                  disabled={testing || loading || saving}
+                >
                   {testing ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
@@ -918,8 +1259,8 @@ function StorageProviderConfig({ onSave, onTest, testing }: ConfigProps) {
                   )}
                   Test Connection
                 </Button>
-                <Button onClick={onSave}>
-                  <Save className="h-4 w-4 mr-2" />
+                <Button onClick={() => void handleSaveS3()} disabled={saving || loading}>
+                  {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                   Save Configuration
                 </Button>
               </div>
@@ -966,6 +1307,11 @@ function StorageProviderConfig({ onSave, onTest, testing }: ConfigProps) {
                     {showConnectionString ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                {azureProvider?.hasCredentials && (
+                  <p className="text-xs text-zinc-500 mt-1">
+                    Azure credentials already configured. Leave empty to keep current values.
+                  </p>
+                )}
                 <p className="text-xs text-zinc-500 mt-1">
                   Find this in Azure Portal → Storage Account → Access Keys
                 </p>
@@ -1033,7 +1379,11 @@ function StorageProviderConfig({ onSave, onTest, testing }: ConfigProps) {
                 Open Azure Portal
               </a>
               <div className="flex items-center gap-3">
-                <Button variant="outline" onClick={onTest} disabled={testing}>
+                <Button
+                  variant="outline"
+                  onClick={() => void handleTestAzure()}
+                  disabled={testing || loading || saving}
+                >
                   {testing ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
@@ -1041,8 +1391,8 @@ function StorageProviderConfig({ onSave, onTest, testing }: ConfigProps) {
                   )}
                   Test Connection
                 </Button>
-                <Button onClick={onSave}>
-                  <Save className="h-4 w-4 mr-2" />
+                <Button onClick={() => void handleSaveAzure()} disabled={saving || loading}>
+                  {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                   Save Configuration
                 </Button>
               </div>

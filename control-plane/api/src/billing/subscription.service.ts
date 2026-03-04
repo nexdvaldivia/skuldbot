@@ -331,6 +331,33 @@ export class SubscriptionService {
   }
 
   /**
+   * List subscriptions across tenants
+   */
+  async listSubscriptions(filters?: {
+    status?: SubscriptionStatus;
+    search?: string;
+  }): Promise<TenantSubscription[]> {
+    const query = this.subscriptionRepository.createQueryBuilder('subscription');
+
+    if (filters?.status) {
+      query.andWhere('subscription.status = :status', {
+        status: filters.status,
+      });
+    }
+
+    if (filters?.search?.trim()) {
+      query.andWhere(
+        '(subscription.tenantName ILIKE :search OR subscription.tenantId ILIKE :search)',
+        {
+          search: `%${filters.search.trim()}%`,
+        },
+      );
+    }
+
+    return query.orderBy('subscription.createdAt', 'DESC').getMany();
+  }
+
+  /**
    * Get payment history for a tenant
    */
   async getPaymentHistory(

@@ -16,7 +16,7 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 
-import { useProjectStore } from "../store/projectStore";
+import { dslToFlowNodes, useProjectStore } from "../store/projectStore";
 import { useTabsStore } from "../store/tabsStore";
 import { useFlowStore, getDraggedNodeData, clearDraggedNodeData, getPendingNodeTemplate, clearPendingNodeTemplate } from "../store/flowStore";
 import { useHistoryStore, generatePasteIds, duplicateNodes } from "../store/historyStore";
@@ -26,15 +26,19 @@ import CustomNode from "./CustomNode";
 import GroupNode from "./GroupNode";
 import AnimatedEdge from "./AnimatedEdge";
 import EmptyState from "./EmptyState";
-import NodeSearchDialog, { useNodeSearch } from "./NodeSearchDialog";
-import { FlowNode, FlowEdge, isContainerNodeType, NodeCategory } from "../types/flow";
-import { PlanStep, AIConnection } from "../types/ai-planner";
+import NodeSearchDialog from "./NodeSearchDialog";
+import { useNodeSearch } from "../hooks/useNodeSearch";
+import { BotDSL, FlowNode, FlowEdge, isContainerNodeType, NodeCategory } from "../types/flow";
+import { PlanStep } from "../types/ai-planner";
 import { getNodeTemplate } from "../data/nodeTemplates";
 
 const nodeTypes: NodeTypes = {
   customNode: CustomNode,
   groupNode: GroupNode,
 };
+
+const EMPTY_NODES: FlowNode[] = [];
+const EMPTY_EDGES: FlowEdge[] = [];
 
 // Helper to find if a position is inside a GroupNode (container)
 function findParentGroupNode(
@@ -84,8 +88,8 @@ export default function BotEditor() {
 
   // Get active bot
   const activeBot = activeBotId ? bots.get(activeBotId) : null;
-  const nodes = activeBot?.nodes || [];
-  const edges = activeBot?.edges || [];
+  const nodes = activeBot?.nodes ?? EMPTY_NODES;
+  const edges = activeBot?.edges ?? EMPTY_EDGES;
 
   // #region agent log
   useEffect(() => {
@@ -122,8 +126,80 @@ export default function BotEditor() {
 
   // Listen for AI Planner apply event - creates nodes and edges from plan
   useEffect(() => {
-    const handleAIPlannerApply = (e: CustomEvent<{ planSteps: PlanStep[] }>) => {
-      const { planSteps } = e.detail;
+    const handleAIPlannerApply = (e: CustomEvent<{ planSteps?: PlanStep[]; dsl?: BotDSL }>) => {
+      const { planSteps = [], dsl } = e.detail || {};
+
+      if (dsl && Array.isArray(dsl.nodes) && dsl.nodes.length > 0) {
+        // Push current state to history for undo
+        pushState(nodesRef.current, edgesRef.current);
+
+        const existingNodes = nodesRef.current;
+        const existingEdges = edgesRef.current;
+        const { nodes: dslNodes, edges: dslEdges } = dslToFlowNodes(dsl);
+
+        if (dslNodes.length > 0) {
+          // Place imported DSL to the right of existing flow while preserving relative layout
+          const startX = existingNodes.length > 0
+            ? Math.max(...existingNodes.map((n) => n.position.x)) + 300
+            : 100;
+          const startY = 100;
+
+          const minX = Math.min(...dslNodes.map((n) => n.position.x));
+          const minY = Math.min(...dslNodes.map((n) => n.position.y));
+          const offsetX = startX - minX;
+          const offsetY = startY - minY;
+
+          // Remap node IDs to avoid collisions with existing canvas
+          const stamp = Date.now();
+          const idMap = new Map<string, string>();
+          dslNodes.forEach((node, idx) => {
+            idMap.set(node.id, `${node.id}-${stamp}-${idx}`);
+          });
+
+          const remappedNodes: FlowNode[] = dslNodes.map((node) => {
+            const mappedId = idMap.get(node.id) || node.id;
+            const mappedParentId = node.parentId ? idMap.get(node.parentId) : undefined;
+            const mappedParentNode = (node as any).parentNode ? idMap.get((node as any).parentNode) : undefined;
+
+            return {
+              ...node,
+              id: mappedId,
+              position: {
+                x: node.position.x + offsetX,
+                y: node.position.y + offsetY,
+              },
+              ...(mappedParentId ? { parentId: mappedParentId } : {}),
+              ...(mappedParentNode ? { parentNode: mappedParentNode } : {}),
+              data: {
+                ...node.data,
+                ...(node.data.childNodes && {
+                  childNodes: node.data.childNodes.map((childId) => idMap.get(childId) || childId),
+                }),
+              },
+            };
+          });
+
+          const remappedEdges: FlowEdge[] = dslEdges.map((edge, idx) => ({
+            ...edge,
+            id: `${edge.id}-${stamp}-${idx}`,
+            source: idMap.get(edge.source) || edge.source,
+            target: idMap.get(edge.target) || edge.target,
+          }));
+
+          updateActiveBotNodes([...existingNodes, ...remappedNodes]);
+          updateActiveBotEdges([...existingEdges, ...remappedEdges]);
+
+          if (activeBotId) {
+            setTabDirty(`bot-${activeBotId}`, true);
+          }
+
+          setTimeout(() => {
+            fitView({ padding: 0.2, duration: 300 });
+          }, 100);
+        }
+        return;
+      }
+
       if (!planSteps || planSteps.length === 0) return;
 
       // Push current state to history for undo
@@ -139,15 +215,14 @@ export default function BotEditor() {
 
       // Create nodes from plan steps
       const newNodes: FlowNode[] = [];
-      const labelToIdMap: Map<string, string> = new Map();
+      const stepIdToNodeId: Map<string, string> = new Map();
 
       planSteps.forEach((step, index) => {
         const template = getNodeTemplate(step.nodeType);
         const nodeId = `${step.nodeType}-${Date.now()}-${index}`;
 
-        // Store mapping of label to ID for connection lookup
-        labelToIdMap.set(step.label, nodeId);
-        labelToIdMap.set(step.id, nodeId);
+        // Store mapping of canonical plan step ID -> canvas node ID
+        stepIdToNodeId.set(step.id, nodeId);
 
         // Determine node type (groupNode for containers, customNode for regular)
         const isContainer = isContainerNodeType(step.nodeType);
@@ -184,80 +259,143 @@ export default function BotEditor() {
 
       // Create edges: standard flow edges (success connections)
       const newEdges: FlowEdge[] = [];
+      const pushUniqueEdge = (edge: FlowEdge) => {
+        const exists = newEdges.some((e) =>
+          e.source === edge.source &&
+          e.target === edge.target &&
+          e.sourceHandle === edge.sourceHandle &&
+          e.targetHandle === edge.targetHandle &&
+          e.data?.edgeType === edge.data?.edgeType
+        );
+        if (!exists) {
+          newEdges.push(edge);
+        }
+      };
 
-      // Connect nodes sequentially (skip AI config nodes like model/embeddings/memory)
-      const flowNodes = newNodes.filter(n =>
-        !["ai.model", "ai.embeddings", "vectordb.memory"].includes(n.data.nodeType)
-      );
+      // Build control-flow edges from canonical outputs; fallback to sequential by plan order
+      planSteps.forEach((step, index) => {
+        const sourceId = stepIdToNodeId.get(step.id);
+        if (!sourceId) return;
 
-      for (let i = 0; i < flowNodes.length - 1; i++) {
-        const sourceNode = flowNodes[i];
-        const targetNode = flowNodes[i + 1];
+        const successRef = step.outputs?.success;
+        const errorRef = step.outputs?.error;
 
-        newEdges.push({
-          id: `${sourceNode.id}-success-${targetNode.id}`,
-          source: sourceNode.id,
-          target: targetNode.id,
-          sourceHandle: "success",
-          targetHandle: null,
-          type: "animated",
-          data: { edgeType: "success" as const },
-        });
-      }
+        const successTarget = successRef
+          ? (successRef === "END" ? null : stepIdToNodeId.get(successRef))
+          : (() => {
+              const nextStepId = planSteps[index + 1]?.id;
+              return nextStepId ? stepIdToNodeId.get(nextStepId) : null;
+            })();
 
-      // Create AI-specific connections from plan steps
+        if (successTarget && successTarget !== sourceId) {
+          pushUniqueEdge({
+            id: `${sourceId}-success-${successTarget}`,
+            source: sourceId,
+            target: successTarget,
+            sourceHandle: "success",
+            targetHandle: null,
+            type: "animated",
+            data: { edgeType: "success" as const },
+          });
+        }
+
+        const errorTarget = errorRef
+          ? (errorRef === "END" ? null : stepIdToNodeId.get(errorRef))
+          : null;
+
+        if (errorTarget && errorTarget !== sourceId) {
+          pushUniqueEdge({
+            id: `${sourceId}-error-${errorTarget}`,
+            source: sourceId,
+            target: errorTarget,
+            sourceHandle: "error",
+            targetHandle: null,
+            type: "animated",
+            data: { edgeType: "error" as const },
+          });
+        }
+      });
+
+      // Canonical AI/service connections from step.connections
       planSteps.forEach((step) => {
-        if (step.aiConnections) {
-          step.aiConnections.forEach((conn: AIConnection) => {
-            const sourceId = labelToIdMap.get(conn.from);
-            const targetId = labelToIdMap.get(conn.to);
+        const targetId = stepIdToNodeId.get(step.id);
+        if (!targetId || !step.connections) return;
 
-            if (sourceId && targetId) {
-              if (conn.type === "model") {
-                newEdges.push({
-                  id: `${sourceId}-model-${targetId}`,
-                  source: sourceId,
-                  target: targetId,
-                  sourceHandle: "model-out",
-                  targetHandle: "model",
-                  type: "animated",
-                  data: { edgeType: "model" as const },
-                });
-              } else if (conn.type === "embeddings") {
-                newEdges.push({
-                  id: `${sourceId}-embeddings-${targetId}`,
-                  source: sourceId,
-                  target: targetId,
-                  sourceHandle: "embeddings-out",
-                  targetHandle: "embeddings",
-                  type: "animated",
-                  data: { edgeType: "embeddings" as const },
-                });
-              } else if (conn.type === "memory") {
-                newEdges.push({
-                  id: `${sourceId}-memory-${targetId}`,
-                  source: sourceId,
-                  target: targetId,
-                  sourceHandle: "memory-out",
-                  targetHandle: "memory",
-                  type: "animated",
-                  data: { edgeType: "memory" as const, memoryType: "both" },
-                });
-              } else if (conn.type === "tool") {
-                newEdges.push({
-                  id: `${sourceId}-tool-${targetId}`,
-                  source: sourceId,
-                  target: targetId,
-                  sourceHandle: "success",
-                  targetHandle: "tools",
-                  type: "animated",
-                  data: {
-                    edgeType: "tool" as const,
-                    toolName: conn.toolName || "Tool",
-                    toolDescription: conn.toolDescription,
-                  },
-                });
-              }
+        const connections = step.connections;
+
+        if (connections.model) {
+          const sourceId = stepIdToNodeId.get(connections.model);
+          if (sourceId) {
+            pushUniqueEdge({
+              id: `${sourceId}-model-${targetId}`,
+              source: sourceId,
+              target: targetId,
+              sourceHandle: "model-out",
+              targetHandle: "model",
+              type: "animated",
+              data: { edgeType: "model" as const },
+            });
+          }
+        }
+
+        if (connections.embeddings) {
+          const sourceId = stepIdToNodeId.get(connections.embeddings);
+          if (sourceId) {
+            pushUniqueEdge({
+              id: `${sourceId}-embeddings-${targetId}`,
+              source: sourceId,
+              target: targetId,
+              sourceHandle: "embeddings-out",
+              targetHandle: "embeddings",
+              type: "animated",
+              data: { edgeType: "embeddings" as const },
+            });
+          }
+        }
+
+        if (connections.memory) {
+          const sourceId = stepIdToNodeId.get(connections.memory);
+          if (sourceId) {
+            pushUniqueEdge({
+              id: `${sourceId}-memory-${targetId}`,
+              source: sourceId,
+              target: targetId,
+              sourceHandle: "memory-out",
+              targetHandle: "memory",
+              type: "animated",
+              data: { edgeType: "memory" as const, memoryType: "both" },
+            });
+          }
+        }
+
+        if (connections.connection) {
+          const sourceId = stepIdToNodeId.get(connections.connection);
+          if (sourceId) {
+            pushUniqueEdge({
+              id: `${sourceId}-connection-${targetId}`,
+              source: sourceId,
+              target: targetId,
+              sourceHandle: "connection-out",
+              targetHandle: "connection",
+              type: "animated",
+              data: { edgeType: "connection" as const },
+            });
+          }
+        }
+
+        if (connections.tools?.length) {
+          connections.tools.forEach((toolRef) => {
+            const sourceId = stepIdToNodeId.get(toolRef);
+            if (sourceId) {
+              pushUniqueEdge({
+                id: `${sourceId}-tool-${targetId}`,
+                source: sourceId,
+                target: targetId,
+                sourceHandle: "success",
+                targetHandle: "tools",
+                type: "animated",
+                data: { edgeType: "tool" as const, toolName: "Tool" },
+              });
             }
           });
         }
@@ -842,7 +980,7 @@ export default function BotEditor() {
 
   // Single click just selects the node (React Flow handles this automatically)
   const onNodeClick = useCallback(
-    (_event: React.MouseEvent, _node: FlowNode) => {
+    () => {
       // Don't open config panel on single click - let React Flow handle selection
     },
     []

@@ -21,6 +21,7 @@ from .models import (
     RunStatus,
     StepProgress,
 )
+from .plan_adapter import build_zip_package_from_plan
 from .system_info import get_system_info
 
 logger = structlog.get_logger()
@@ -181,14 +182,7 @@ class RunnerAgent:
 
         try:
             # Report that we're starting
-            await self.client.report_progress(
-                ProgressReport(
-                    run_id=job.id,
-                    status=RunStatus.RUNNING,
-                    current_step=0,
-                    logs=["Job started"],
-                )
-            )
+            await self.client.start_run(job.id)
 
             # Download bot package
             package_path = await self._download_package(job)
@@ -238,11 +232,29 @@ class RunnerAgent:
         temp_dir = Path(tempfile.gettempdir()) / "skuldbot-packages"
         temp_dir.mkdir(exist_ok=True)
 
-        package_path = temp_dir / f"{job.id}.zip"
+        if job.package_url:
+            package_path = temp_dir / f"{job.id}.zip"
+            await self.client.download_package(job.package_url, str(package_path))
+            return str(package_path)
 
-        await self.client.download_package(job.package_url, str(package_path))
+        # Current orchestrator contract may provide plan directly without package URL.
+        if job.plan:
+            package_path = build_zip_package_from_plan(
+                plan=job.plan,
+                run_id=job.id,
+                bot_name=job.bot_name,
+                output_dir=temp_dir,
+            )
+            logger.info(
+                "Generated package from execution plan",
+                run_id=job.id,
+                package_path=str(package_path),
+            )
+            return str(package_path)
 
-        return str(package_path)
+        raise RuntimeError(
+            f"Run {job.id} has no package URL and no execution plan."
+        )
 
     async def _handle_progress(self, entry: LogEntry | StepProgress):
         """Handle progress updates from executor - either logs or step progress."""

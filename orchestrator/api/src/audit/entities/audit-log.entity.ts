@@ -105,12 +105,12 @@ export class AuditLog {
   id: string;
 
   /** Tenant ID from license */
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
   // Actor (who performed the action)
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   userId: string;
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
@@ -120,13 +120,13 @@ export class AuditLog {
   @Column({ nullable: true })
   userEmail: string; // Denormalized for when user is deleted
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   impersonatorId: string; // If action was performed by impersonator
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   apiKeyId: string; // If action was performed via API key
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   runnerId: string; // If action was performed by runner agent
 
   // Action details

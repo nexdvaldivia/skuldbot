@@ -6,8 +6,11 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  ManyToMany,
+  JoinTable,
 } from 'typeorm';
 import { Client } from '../../clients/entities/client.entity';
+import { CpRole } from '../../rbac/entities/cp-role.entity';
 
 export enum UserRole {
   SKULD_ADMIN = 'skuld_admin',
@@ -46,12 +49,20 @@ export class User {
   @Column({ type: 'enum', enum: UserStatus, default: UserStatus.PENDING })
   status: UserStatus;
 
-  @Column({ name: 'client_id', type: 'varchar', nullable: true })
+  @Column({ name: 'client_id', type: 'uuid', nullable: true })
   clientId: string | null;
 
   @ManyToOne(() => Client, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'client_id' })
   client: Client | null;
+
+  @ManyToMany(() => CpRole, (role) => role.users, { cascade: false })
+  @JoinTable({
+    name: 'cp_user_roles',
+    joinColumn: { name: 'user_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
+  })
+  roles: CpRole[];
 
   @Column({ name: 'last_login_at', type: 'timestamp with time zone', nullable: true })
   lastLoginAt: Date | null;

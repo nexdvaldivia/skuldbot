@@ -540,32 +540,12 @@ export class WorkflowServer {
     botId: string,
     customizations?: Record<string, any>,
   ): Promise<ToolResult> {
-    // TODO: Fetch bot from marketplace (via Control Plane MCP)
-    // For now, create a mock bot
-    const mockBotDSL = {
-      name: `Cloned Bot ${botId}`,
-      description: 'Cloned from marketplace',
-      nodes: [],
-    };
-
-    // Apply customizations
-    let finalDSL = mockBotDSL;
-    if (customizations) {
-      finalDSL = { ...mockBotDSL, ...customizations };
-    }
-
-    // Create as tenant template
-    const template = await this.createWorkflowTemplate({
-      tenantId,
-      name: `${mockBotDSL.name} (Custom)`,
-      description: `Customized version of ${botId}`,
-      category: 'marketplace',
-      dsl: finalDSL,
-      tags: ['marketplace', 'cloned'],
-      isPublic: false,
-    });
-
-    return template;
+    void tenantId;
+    void botId;
+    void customizations;
+    throw new Error(
+      'clone_marketplace_bot is disabled until marketplace source-of-truth integration is implemented.',
+    );
   }
 
   // ============================================================

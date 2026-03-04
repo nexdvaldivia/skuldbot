@@ -24,24 +24,19 @@ class EnvironmentVariables {
   PORT: number = 3000;
 
   @IsString()
-  @IsOptional()
-  DATABASE_HOST: string = 'localhost';
+  DATABASE_HOST: string;
 
   @IsNumber()
-  @IsOptional()
-  DATABASE_PORT: number = 5432;
+  DATABASE_PORT: number;
 
   @IsString()
-  @IsOptional()
-  DATABASE_USER: string = 'skuldbot';
+  DATABASE_USER: string;
 
   @IsString()
-  @IsOptional()
-  DATABASE_PASSWORD: string = 'skuldbot';
+  DATABASE_PASSWORD: string;
 
   @IsString()
-  @IsOptional()
-  DATABASE_NAME: string = 'skuldbot_orchestrator';
+  DATABASE_NAME: string;
 
   @IsString()
   @IsOptional()

@@ -19,6 +19,7 @@ import {
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
+import { getUserGrantedPermissions, getUserRoleNames } from '../common/authz/permissions';
 
 @Controller('auth')
 export class AuthController {
@@ -31,7 +32,7 @@ export class AuthController {
   }
 
   @Post('register')
-  @HttpCode(HttpStatus.CREATED)
+  @HttpCode(HttpStatus.FORBIDDEN)
   async register(@Body() dto: RegisterDto): Promise<AuthResponseDto> {
     return this.authService.register(dto);
   }
@@ -43,13 +44,13 @@ export class AuthController {
   }
 
   @Post('forgot-password')
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.FORBIDDEN)
   async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<{ message: string }> {
     return this.authService.forgotPassword(dto);
   }
 
   @Post('reset-password')
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.FORBIDDEN)
   async resetPassword(@Body() dto: ResetPasswordDto): Promise<{ message: string }> {
     return this.authService.resetPassword(dto);
   }
@@ -62,9 +63,11 @@ export class AuthController {
     firstName: string;
     lastName: string;
     role: string;
+    roles: string[];
     clientId: string | null;
     emailVerified: boolean;
     mfaEnabled: boolean;
+    permissions: string[];
   }> {
     return {
       id: user.id,
@@ -72,9 +75,11 @@ export class AuthController {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
+      roles: getUserRoleNames(user),
       clientId: user.clientId,
       emailVerified: user.emailVerified,
       mfaEnabled: user.mfaEnabled,
+      permissions: getUserGrantedPermissions(user),
     };
   }
 }

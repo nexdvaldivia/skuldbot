@@ -17,12 +17,13 @@ import {
 import { useToastStore } from "./toastStore";
 import { useLicenseStore } from "./licenseStore";
 import { useConnectionsStore } from "./connectionsStore";
-import { FlowNode, FlowEdge, NodeCategory } from "../types/flow";
-import { useFlowStore } from "./flowStore";
-
-// ============================================================
-// AI Planner V2 Store State
-// ============================================================
+import { useProjectStore } from "./projectStore";
+import { useTabsStore } from "./tabsStore";
+import { useNavigationStore } from "./navigationStore";
+import {
+  evaluatePlannerResponse,
+  validateApplyContext,
+} from "./aiPlannerV2Flow";
 
 interface AIPlannerV2State {
   // Modes
@@ -67,7 +68,7 @@ interface AIPlannerV2State {
   setMode: (complexity: PlannerComplexity) => void;
   setAgentMode: (mode: PlannerAgentMode) => void;
   setUserInput: (input: string) => void;
-  generateExecutablePlan: (description: string) => Promise<void>;
+  generateExecutablePlan: (description: string, options?: GeneratePlanOptions) => Promise<void>;
   refineWithFeedback: (feedback: string) => Promise<void>;
   askClarification: (question: string) => Promise<void>;
   validatePlan: () => Promise<void>;
@@ -79,55 +80,47 @@ interface AIPlannerV2State {
   addMessage: (role: "user" | "assistant", content: string, mode?: PlannerAgentMode) => void;
 }
 
+interface GeneratePlanOptions {
+  forceMode?: PlannerAgentMode;
+  displayMessage?: string;
+  skipUserMessage?: boolean;
+}
+
+const CLOUD_ASK_PLAN_TIMEOUT_MS = 75_000;
+const CLOUD_GENERATE_TIMEOUT_MS = 180_000;
+const LOCAL_ASK_PLAN_TIMEOUT_MS = 180_000;
+const LOCAL_GENERATE_TIMEOUT_MS = 600_000;
+
+function toTimeoutMs(
+  timeoutSec: number | undefined,
+  fallbackMs: number,
+  minSec = 15,
+  maxSec = 3600
+): number {
+  if (typeof timeoutSec !== "number" || Number.isNaN(timeoutSec)) {
+    return fallbackMs;
+  }
+  const boundedSec = Math.min(Math.max(Math.round(timeoutSec), minSec), maxSec);
+  return boundedSec * 1000;
+}
+
+function isLikelyLocalEndpoint(baseUrl: string | null): boolean {
+  if (!baseUrl) return false;
+  const raw = baseUrl.trim().toLowerCase();
+  if (!raw) return false;
+
+  try {
+    const parsed = new URL(raw);
+    const host = parsed.hostname.toLowerCase();
+    return host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0" || host.endsWith(".local");
+  } catch {
+    return raw.includes("localhost") || raw.includes("127.0.0.1") || raw.includes("0.0.0.0");
+  }
+}
+
 // Helper to generate message ID
 function generateMessageId(): string {
   return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
-
-// Helper to convert ExecutablePlan tasks to FlowNodes
-function tasksToFlowNodes(plan: ExecutablePlan): { nodes: FlowNode[]; edges: FlowEdge[] } {
-  const nodes: FlowNode[] = [];
-  const edges: FlowEdge[] = [];
-  
-  let yPosition = 100;
-  const xPosition = 300;
-  const verticalSpacing = 120;
-
-  plan.tasks.forEach((task, index) => {
-    const nodeId = task.id || `node-${index}`;
-    
-    // Create node
-    const node: FlowNode = {
-      id: nodeId,
-      type: "custom",
-      position: { x: xPosition, y: yPosition },
-      data: {
-        label: task.label,
-        nodeType: task.nodeType,
-        category: (task.nodeType.split('.')[0] || 'control') as NodeCategory,
-        config: task.config as Record<string, any>,
-        description: task.description,
-      },
-    };
-    
-    nodes.push(node);
-    
-    // Create edge to next node (if not last)
-    if (index < plan.tasks.length - 1) {
-      const nextNodeId = plan.tasks[index + 1].id || `node-${index + 1}`;
-      edges.push({
-        id: `edge-${nodeId}-${nextNodeId}`,
-        source: nodeId,
-        target: nextNodeId,
-        type: "default",
-        animated: false,
-      });
-    }
-    
-    yPosition += verticalSpacing;
-  });
-
-  return { nodes, edges };
 }
 
 // ============================================================
@@ -208,8 +201,9 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
       // Plan Generation
       // ============================================================
 
-      generateExecutablePlan: async (description: string) => {
+      generateExecutablePlan: async (description: string, options?: GeneratePlanOptions) => {
         const { llmConfig, addMessage, iterations, maxIterations } = get();
+        const effectiveMode = options?.forceMode || get().agentMode;
         const toast = useToastStore.getState();
         const license = useLicenseStore.getState();
 
@@ -224,8 +218,8 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
           return;
         }
 
-        // Check max iterations
-        if (iterations >= maxIterations) {
+        // Check max iterations for full workflow generation only.
+        if (effectiveMode === "generate" && iterations >= maxIterations) {
           toast.error("Max Iterations", "Maximum refinement iterations reached. Please start a new plan.");
           return;
         }
@@ -282,8 +276,10 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
 
         set({ isGenerating: true, error: null });
 
-        // Add user message
-        addMessage("user", description);
+        // Add user message (unless caller already injected it)
+        if (!options?.skipUserMessage) {
+          addMessage("user", options?.displayMessage || description, effectiveMode);
+        }
 
         try {
           console.log("🤖 Calling ai_generate_executable_plan...");
@@ -292,125 +288,96 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
           console.log(`   Base URL: ${baseUrl || "default"}`);
           
           // Build conversation history for LLM context
-          const { conversation, agentMode } = get();
-          console.log(`   🎯 Agent Mode: ${agentMode}`);
+          const { conversation } = get();
+          console.log(`   🎯 Agent Mode: ${effectiveMode}`);
           
           const conversationHistory = conversation
             .map((msg) => `${msg.role === "user" ? "User" : "Assistant"}: ${msg.content}`)
             .join("\n\n");
+
+          const isLocalEndpoint = isLikelyLocalEndpoint(baseUrl);
+          const timeoutMs = effectiveMode === "generate"
+            ? (
+                isLocalEndpoint
+                  ? toTimeoutMs(llmConfig.localGenerateTimeoutSec, LOCAL_GENERATE_TIMEOUT_MS)
+                  : CLOUD_GENERATE_TIMEOUT_MS
+              )
+            : (
+                isLocalEndpoint
+                  ? toTimeoutMs(llmConfig.localAskPlanTimeoutSec, LOCAL_ASK_PLAN_TIMEOUT_MS)
+                  : CLOUD_ASK_PLAN_TIMEOUT_MS
+              );
+          let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
           
-          // Call Tauri backend with conversation history and agent mode
-          const response = await invoke<ExecutablePlanResponse>("ai_generate_executable_plan", {
-            description,
-            provider,
-            model,
-            temperature: llmConfig.temperature,
-            baseUrl,
-            apiKey,
-            agentMode: agentMode === "idle" ? null : agentMode, // Pass current agent mode
-            conversationHistory: conversationHistory || null,
+          const response = await Promise.race([
+            invoke<ExecutablePlanResponse>("ai_generate_executable_plan", {
+              description,
+              provider,
+              model,
+              temperature: llmConfig.temperature,
+              baseUrl,
+              apiKey,
+              agentMode: effectiveMode === "idle" ? null : effectiveMode, // Pass effective mode
+              conversationHistory: conversationHistory || null,
+              requestTimeoutSecs: Math.max(15, Math.round(timeoutMs / 1000)),
+            }),
+            new Promise<never>((_, reject) => {
+              timeoutHandle = setTimeout(() => {
+                reject(new Error(`Planner timeout after ${Math.round(timeoutMs / 1000)}s`));
+              }, timeoutMs);
+            }),
+          ]).finally(() => {
+            if (timeoutHandle) {
+              clearTimeout(timeoutHandle);
+            }
           });
 
           console.log("📝 Response received:", response);
 
-          // Handle different agent modes
-          if (!response.success) {
-            throw new Error(response.error || "Failed to generate response");
+          const evaluation = evaluatePlannerResponse(effectiveMode, response);
+
+          if (evaluation.kind === "plan") {
+            addMessage("assistant", evaluation.message, effectiveMode);
+
+            set({
+              currentPlan: evaluation.plan,
+              confidence: evaluation.confidence,
+              suggestions: evaluation.suggestions,
+              isGenerating: false,
+              iterations: iterations + 1,
+            });
+
+            if (evaluation.requiresClarification) {
+              toast.info("Clarification Needed", "Please answer the questions to continue");
+            } else if (evaluation.plan.validation.valid && evaluation.plan.validation.compilable) {
+              toast.success("Plan Generated", "Workflow is ready to apply to canvas");
+            } else if (evaluation.plan.validation.errors.length > 0) {
+              toast.warning("Plan Has Errors", "Check Validation tab for details");
+            } else {
+              toast.success("Plan Generated", "Review and refine as needed");
+            }
+            return;
           }
 
-          // ASK or PLAN mode: Show LLM response directly
-          if (agentMode === "ask" || agentMode === "plan") {
-            // The LLM decides what to say - we just display it
-            let responseText = "";
-            
-            if (response.clarifyingQuestions && response.clarifyingQuestions.length > 0) {
-              // LLM responded with text - show it directly
-              responseText = response.clarifyingQuestions.join("\n\n");
-            } else if (response.proposedSteps && response.proposedSteps.length > 0) {
-              responseText = response.proposedSteps.join("\n\n");
-            } else if (response.plan?.goal) {
-              responseText = response.plan.goal;
-            } else {
-              responseText = "Ready to help. What would you like to automate?";
-            }
-
-            addMessage("assistant", responseText);
+          if (evaluation.kind === "chat") {
+            addMessage("assistant", evaluation.message, effectiveMode);
             set({ isGenerating: false });
             return;
           }
 
-          // GENERATE mode: Must have a full plan
-          if (!response.plan) {
-            throw new Error("No plan generated. Please try again.");
-          }
-
-          const { plan, confidence, suggestions } = response;
-
-          // Build assistant response
-          let responseText = "";
-          
-          if (plan.unknowns && plan.unknowns.length > 0) {
-            responseText += "I need some clarification before I can create a complete workflow:\n\n";
-            plan.unknowns.forEach((unknown, i) => {
-              responseText += `${i + 1}. ${unknown.question}`;
-              if (unknown.context) {
-                responseText += ` (${unknown.context})`;
-              }
-              responseText += "\n";
-            });
-            responseText += "\nPlease provide these details so I can generate an accurate workflow.";
-          } else {
-            responseText = `I've created a ${plan.tasks.length}-step workflow for "${plan.goal}".\n\n`;
-            responseText += `**Confidence:** ${(confidence * 100).toFixed(0)}% ${confidence >= 0.8 ? "(High)" : confidence >= 0.5 ? "(Medium)" : "(Low)"}\n`;
-            responseText += `**Status:** ${plan.validation.valid && plan.validation.compilable ? "✓ Valid and compilable" : "⚠️ Has issues"}\n\n`;
-            
-            if (plan.assumptions.length > 0) {
-              responseText += `**Assumptions:**\n`;
-              plan.assumptions.forEach((assumption) => {
-                responseText += `• ${assumption}\n`;
-              });
-              responseText += "\n";
-            }
-
-            if (plan.validation.errors.length > 0) {
-              responseText += `**Errors:** ${plan.validation.errors.length}\n`;
-            }
-            if (plan.validation.warnings.length > 0) {
-              responseText += `**Warnings:** ${plan.validation.warnings.length}\n`;
-            }
-
-            responseText += "\nCheck the Preview and Validation tabs for details. Would you like me to adjust anything?";
-          }
-
-          // Add assistant message
-          addMessage("assistant", responseText);
-
-          // Update state
-          set({
-            currentPlan: plan,
-            confidence: confidence || 0,
-            suggestions: suggestions || [],
-            isGenerating: false,
-            iterations: iterations + 1,
-          });
-
-          // Show toast based on result
-          if (response.clarifyingQuestions && response.clarifyingQuestions.length > 0) {
-            toast.info("Clarification Needed", "Please answer the questions to continue");
-          } else if (plan.validation.valid && plan.validation.compilable) {
-            toast.success("Plan Generated", "Workflow is ready to apply to canvas");
-          } else if (plan.validation.errors.length > 0) {
-            toast.warning("Plan Has Errors", "Check Validation tab for details");
-          } else {
-            toast.success("Plan Generated", "Review and refine as needed");
-          }
+          throw new Error(evaluation.error);
         } catch (error) {
           console.error("❌ Failed to generate plan:", error);
-          const errorMessage = String(error);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          const isTimeout = /planner timeout/i.test(errorMessage);
+          const assistantMessage = isTimeout
+            ? `The model did not respond in time (${selectedConnection.name}). Please verify that the LLM service is running and try again.`
+            : `Sorry, I encountered an error: ${errorMessage}\n\nPlease try again or rephrase your request.`;
           
           addMessage(
             "assistant",
-            `Sorry, I encountered an error: ${errorMessage}\n\nPlease try again or rephrase your request.`
+            assistantMessage,
+            effectiveMode
           );
           
           set({
@@ -418,7 +385,11 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
             isGenerating: false,
           });
           
-          toast.error("Generation Failed", errorMessage);
+          if (isTimeout) {
+            toast.error("Planner Timeout", "The selected model did not respond in time");
+          } else {
+            toast.error("Generation Failed", errorMessage);
+          }
         }
       },
 
@@ -427,7 +398,7 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
       // ============================================================
 
       refineWithFeedback: async (feedback: string) => {
-        const { currentPlan, addMessage } = get();
+        const { currentPlan } = get();
         const toast = useToastStore.getState();
 
         if (!currentPlan) {
@@ -437,34 +408,40 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
 
         set({ isRefining: true, error: null });
 
-        // Add user message
-        addMessage("user", feedback);
-
         try {
           console.log("🔄 Refining plan with feedback...");
           
-          // For now, just regenerate with combined context
-          const combinedDescription = `${currentPlan.goal}\n\nUser feedback: ${feedback}`;
+          const currentTasksJson = JSON.stringify(currentPlan.tasks, null, 2);
+          const combinedDescription = [
+            "Refine the existing SkuldBot workflow based on user feedback.",
+            `Current goal: ${currentPlan.goal}`,
+            `Current workflow description: ${currentPlan.description}`,
+            "Current tasks JSON:",
+            currentTasksJson,
+            `User feedback: ${feedback}`,
+            "Return the full updated executable workflow and preserve unchanged behavior.",
+          ].join("\n\n");
           
-          // Re-use the generate function
-          await get().generateExecutablePlan(combinedDescription);
-          
-          set({ isRefining: false });
+          await get().generateExecutablePlan(combinedDescription, {
+            forceMode: "generate",
+            displayMessage: feedback,
+          });
         } catch (error) {
           console.error("❌ Failed to refine plan:", error);
           const errorMessage = String(error);
           
-          addMessage(
+          get().addMessage(
             "assistant",
             `Sorry, I couldn't process your feedback: ${errorMessage}`
           );
           
           set({
             error: errorMessage,
-            isRefining: false,
           });
           
           toast.error("Refinement Failed", errorMessage);
+        } finally {
+          set({ isRefining: false });
         }
       },
 
@@ -504,14 +481,34 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
       applyToCanvas: () => {
         const { currentPlan } = get();
         const toast = useToastStore.getState();
-        const flowStore = useFlowStore.getState();
+        const { currentView } = useNavigationStore.getState();
+        const { activeBotId } = useProjectStore.getState();
+        const { tabs, activeTabId } = useTabsStore.getState();
 
         if (!currentPlan) {
           toast.error("No Plan", "Generate a plan first");
           return;
         }
 
-        if (!currentPlan.validation.valid || !currentPlan.validation.compilable) {
+        const activeTab = tabs.find((t) => t.id === activeTabId);
+        const applyError = validateApplyContext(currentPlan, {
+          currentView,
+          activeBotId,
+          activeTabType: activeTab?.type || null,
+        });
+        if (applyError === "Invalid Context") {
+          toast.error("Invalid Context", "AI Planner V2 can only apply plans in Project view");
+          return;
+        }
+        if (applyError === "No Active Bot") {
+          toast.error("No Active Bot", "Open a bot tab before applying the plan");
+          return;
+        }
+        if (applyError === "Invalid Tab") {
+          toast.error("Invalid Tab", "Switch to a bot tab before applying the plan");
+          return;
+        }
+        if (applyError === "Invalid Plan") {
           toast.error(
             "Invalid Plan",
             "Fix validation errors before applying to canvas"
@@ -520,20 +517,15 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
         }
 
         try {
-          // Convert tasks to flow nodes
-          const { nodes, edges } = tasksToFlowNodes(currentPlan);
-
-          // Add to canvas
-          flowStore.setNodes([...flowStore.nodes, ...nodes]);
-          flowStore.setEdges([...flowStore.edges, ...edges]);
-
-          // Update bot info
-          flowStore.setBotInfo({
-            name: currentPlan.goal,
-            description: `AI-generated workflow with ${currentPlan.tasks.length} steps`,
+          const event = new CustomEvent("ai-planner-apply", {
+            detail: {
+              planSteps: currentPlan.tasks,
+              dsl: currentPlan.dsl,
+            },
           });
+          window.dispatchEvent(event);
 
-          toast.success("Applied to Canvas", `Added ${nodes.length} nodes to workflow`);
+          toast.success("Applied to Canvas", `${currentPlan.tasks.length} nodes added to active bot`);
 
           // Close panel
           get().closePanel();
@@ -587,4 +579,3 @@ export const useAIPlannerV2Store = create<AIPlannerV2State>()(
     }
   )
 );
-

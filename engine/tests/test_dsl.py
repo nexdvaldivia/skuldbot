@@ -155,3 +155,34 @@ def test_variables():
     assert bot.variables["api_key"].type == "credential"
     assert bot.variables["max_retries"].value == 3
 
+
+def test_duplicate_node_labels_are_invalid():
+    """Duplicate labels should fail validation to avoid ambiguous expressions."""
+    dsl = {
+        "version": "1.0",
+        "bot": {"id": "bot-dup-label", "name": "Duplicate Labels"},
+        "nodes": [
+            {
+                "id": "node-1",
+                "type": "control.log",
+                "label": "Process Data",
+                "config": {},
+                "outputs": {"success": "node-2", "error": "node-2"},
+            },
+            {
+                "id": "node-2",
+                "type": "control.log",
+                "label": "Process Data",
+                "config": {},
+                "outputs": {"success": "node-2", "error": "node-2"},
+            },
+        ],
+    }
+
+    validator = DSLValidator()
+    with pytest.raises(ValidationError) as exc_info:
+        validator.validate(dsl)
+
+    assert "Duplicate node label" in str(exc_info.value) or any(
+        "Duplicate node label" in err for err in getattr(exc_info.value, "errors", [])
+    )

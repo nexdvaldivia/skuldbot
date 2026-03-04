@@ -1,23 +1,30 @@
 import { Injectable } from '@nestjs/common';
+import { MarketplaceService } from '../../marketplace/marketplace.service';
+import {
+  MarketplaceBot,
+  MarketplaceBotStatus,
+  PricingModel,
+  BotCategory,
+} from '../../marketplace/entities/marketplace-bot.entity';
+import {
+  MarketplaceSubscriptionPlan,
+} from '../../marketplace/entities/marketplace-subscription.entity';
 import {
   Tool,
   Resource,
   ToolResult,
   ResourceContent,
-  MarketplaceBot,
 } from '../types/mcp.types';
 
 /**
  * Marketplace MCP Server
- * 
+ *
  * Provides tools and resources for bot marketplace discovery and subscription.
- * Critical for Studio to browse and subscribe to marketplace bots.
  */
 @Injectable()
 export class MarketplaceServer {
-  /**
-   * Get all tools provided by this server
-   */
+  constructor(private readonly marketplaceService: MarketplaceService) {}
+
   getTools(): Tool[] {
     return [
       {
@@ -26,10 +33,7 @@ export class MarketplaceServer {
         inputSchema: {
           type: 'object',
           properties: {
-            query: {
-              type: 'string',
-              description: 'Search query',
-            },
+            query: { type: 'string', description: 'Search query' },
             category: {
               type: 'string',
               enum: ['insurance', 'healthcare', 'finance', 'hr', 'all'],
@@ -58,10 +62,7 @@ export class MarketplaceServer {
         inputSchema: {
           type: 'object',
           properties: {
-            botId: {
-              type: 'string',
-              description: 'Bot ID',
-            },
+            botId: { type: 'string', description: 'Bot ID' },
           },
           required: ['botId'],
         },
@@ -74,14 +75,8 @@ export class MarketplaceServer {
         inputSchema: {
           type: 'object',
           properties: {
-            tenantId: {
-              type: 'string',
-              description: 'Tenant ID',
-            },
-            botId: {
-              type: 'string',
-              description: 'Bot ID to subscribe to',
-            },
+            tenantId: { type: 'string', description: 'Tenant ID' },
+            botId: { type: 'string', description: 'Bot ID to subscribe to' },
             pricingPlan: {
               type: 'string',
               enum: ['usage', 'per_call', 'monthly', 'hybrid'],
@@ -99,14 +94,8 @@ export class MarketplaceServer {
         inputSchema: {
           type: 'object',
           properties: {
-            tenantId: {
-              type: 'string',
-              description: 'Tenant ID',
-            },
-            botId: {
-              type: 'string',
-              description: 'Bot ID to unsubscribe from',
-            },
+            tenantId: { type: 'string', description: 'Tenant ID' },
+            botId: { type: 'string', description: 'Bot ID to unsubscribe from' },
           },
           required: ['tenantId', 'botId'],
         },
@@ -119,10 +108,7 @@ export class MarketplaceServer {
         inputSchema: {
           type: 'object',
           properties: {
-            tenantId: {
-              type: 'string',
-              description: 'Tenant ID',
-            },
+            tenantId: { type: 'string', description: 'Tenant ID' },
           },
           required: ['tenantId'],
         },
@@ -135,14 +121,8 @@ export class MarketplaceServer {
         inputSchema: {
           type: 'object',
           properties: {
-            tenantId: {
-              type: 'string',
-              description: 'Tenant ID',
-            },
-            botId: {
-              type: 'string',
-              description: 'Bot ID',
-            },
+            tenantId: { type: 'string', description: 'Tenant ID' },
+            botId: { type: 'string', description: 'Bot ID' },
             version: {
               type: 'string',
               description: 'Bot version (default: latest)',
@@ -159,10 +139,7 @@ export class MarketplaceServer {
         inputSchema: {
           type: 'object',
           properties: {
-            partnerId: {
-              type: 'string',
-              description: 'Partner ID',
-            },
+            partnerId: { type: 'string', description: 'Partner ID' },
           },
           required: ['partnerId'],
         },
@@ -172,9 +149,6 @@ export class MarketplaceServer {
     ];
   }
 
-  /**
-   * Get all resources provided by this server
-   */
   getResources(): Resource[] {
     return [
       {
@@ -229,9 +203,6 @@ export class MarketplaceServer {
     ];
   }
 
-  /**
-   * Execute a tool
-   */
   async executeTool(toolCall: {
     name: string;
     arguments: Record<string, any>;
@@ -245,36 +216,29 @@ export class MarketplaceServer {
             toolCall.arguments.pricingModel,
             toolCall.arguments.limit,
           );
-
         case 'get_bot_details':
           return await this.getBotDetails(toolCall.arguments.botId);
-
         case 'subscribe_to_bot':
           return await this.subscribeToBot(
             toolCall.arguments.tenantId,
             toolCall.arguments.botId,
             toolCall.arguments.pricingPlan,
           );
-
         case 'unsubscribe_from_bot':
           return await this.unsubscribeFromBot(
             toolCall.arguments.tenantId,
             toolCall.arguments.botId,
           );
-
         case 'list_subscribed_bots':
           return await this.listSubscribedBots(toolCall.arguments.tenantId);
-
         case 'download_bot':
           return await this.downloadBot(
             toolCall.arguments.tenantId,
             toolCall.arguments.botId,
             toolCall.arguments.version,
           );
-
         case 'list_partner_bots':
           return await this.listPartnerBots(toolCall.arguments.partnerId);
-
         default:
           return {
             success: false,
@@ -284,61 +248,48 @@ export class MarketplaceServer {
     } catch (error) {
       return {
         success: false,
-        error: error.message || 'Tool execution failed',
+        error: error instanceof Error ? error.message : 'Tool execution failed',
       };
     }
   }
 
-  /**
-   * Read a resource
-   */
   async readResource(uri: string): Promise<ResourceContent> {
     if (uri === 'marketplace://bots/catalog') {
-      return await this.getBotCatalogResource();
+      return this.getBotCatalogResource();
     }
-
     if (uri === 'marketplace://categories') {
-      return await this.getCategoriesResource();
+      return this.getCategoriesResource();
     }
 
-    // marketplace://bots/{botId}/details
     const botDetailsMatch = uri.match(/marketplace:\/\/bots\/([^/]+)\/details/);
     if (botDetailsMatch) {
-      return await this.getBotDetailsResource(botDetailsMatch[1]);
+      return this.getBotDetailsResource(botDetailsMatch[1]);
     }
 
-    // marketplace://bots/{botId}/pricing
     const pricingMatch = uri.match(/marketplace:\/\/bots\/([^/]+)\/pricing/);
     if (pricingMatch) {
-      return await this.getBotPricingResource(pricingMatch[1]);
+      return this.getBotPricingResource(pricingMatch[1]);
     }
 
-    // marketplace://bots/{botId}/dsl
     const dslMatch = uri.match(/marketplace:\/\/bots\/([^/]+)\/dsl/);
     if (dslMatch) {
-      return await this.getBotDSLResource(dslMatch[1]);
+      return this.getBotDSLResource(dslMatch[1]);
     }
 
-    // marketplace://partners/{partnerId}
     const partnerMatch = uri.match(/marketplace:\/\/partners\/([^/]+)/);
     if (partnerMatch) {
-      return await this.getPartnerResource(partnerMatch[1]);
+      return this.getPartnerResource(partnerMatch[1]);
     }
 
-    // marketplace://tenant/{tenantId}/subscriptions
     const subsMatch = uri.match(
       /marketplace:\/\/tenant\/([^/]+)\/subscriptions/,
     );
     if (subsMatch) {
-      return await this.getTenantSubscriptionsResource(subsMatch[1]);
+      return this.getTenantSubscriptionsResource(subsMatch[1]);
     }
 
     throw new Error(`Unknown resource URI: ${uri}`);
   }
-
-  // ============================================================
-  // Tool Implementations
-  // ============================================================
 
   private async searchMarketplaceBots(
     query?: string,
@@ -346,114 +297,68 @@ export class MarketplaceServer {
     pricingModel?: string,
     limit: number = 20,
   ): Promise<ToolResult> {
-    // TODO: Query database with filters
-    // Mock data for FNOL bot and Claims Processor
-    const mockBots: MarketplaceBot[] = [
-      {
-        id: 'fnol-bot-v1',
-        name: 'FNOL Automation Bot',
-        description:
-          'Automate First Notice of Loss (FNOL) intake for insurance claims',
-        category: 'insurance',
-        version: '1.2.0',
-        pricing: {
-          model: 'hybrid',
-          perUsageRate: 3.0,
-          perCallRate: 0.75,
-          monthlyMinimum: 4000.0,
-          currency: 'USD',
-          billingCycle: 'monthly',
-        },
-        isPublic: true,
-        features: [
-          'OCR document extraction',
-          'PHI classification',
-          'Multi-carrier support',
-          'Real-time validation',
-        ],
-        requiredLicense: 'professional',
-      },
-      {
-        id: 'claims-processor-v1',
-        name: 'Claims Processor Bot',
-        description: 'End-to-end claims processing automation',
-        category: 'insurance',
-        version: '2.0.1',
-        pricing: {
-          model: 'hybrid',
-          perUsageRate: 0.5,
-          monthlyMinimum: 500.0,
-          currency: 'USD',
-          billingCycle: 'monthly',
-        },
-        isPublic: true,
-        features: ['Adjudication', 'Payment processing', 'Fraud detection'],
-        requiredLicense: 'enterprise',
-      },
-    ];
+    const normalizedLimit = this.normalizeLimit(limit);
+    const categoryFilter = this.normalizeCategory(category);
+    const pricingFilter = this.normalizePricing(pricingModel);
 
-    // Apply filters
-    let filtered = mockBots;
-    if (query) {
-      filtered = filtered.filter((b) =>
-        b.name.toLowerCase().includes(query.toLowerCase()),
-      );
-    }
-    if (category && category !== 'all') {
-      filtered = filtered.filter((b) => b.category === category);
-    }
-    if (pricingModel && pricingModel !== 'all') {
-      filtered = filtered.filter((b) => b.pricing.model === pricingModel);
-    }
+    const catalog = await this.marketplaceService.getCatalog(
+      {
+        search: query?.trim() || undefined,
+        category: categoryFilter,
+        pricingModel: pricingFilter,
+      },
+      {
+        page: 1,
+        limit: normalizedLimit,
+        sort: 'popular',
+      },
+    );
 
     return {
       success: true,
       result: {
-        bots: filtered.slice(0, limit),
-        total: filtered.length,
+        total: catalog.pagination.total,
+        page: catalog.pagination.page,
+        limit: catalog.pagination.limit,
+        bots: catalog.data.map((bot) => this.toBotCatalogEntry(bot)),
       },
     };
   }
 
   private async getBotDetails(botId: string): Promise<ToolResult> {
-    // TODO: Query database
-    if (botId === 'fnol-bot-v1') {
+    const bot = await this.marketplaceService.getBotById(botId);
+    if (bot.status !== MarketplaceBotStatus.PUBLISHED) {
       return {
-        success: true,
-        result: {
-          id: 'fnol-bot-v1',
-          name: 'FNOL Automation Bot',
-          description:
-            'Automate First Notice of Loss (FNOL) intake for insurance claims',
-          category: 'insurance',
-          version: '1.2.0',
-          pricing: {
-            model: 'hybrid',
-            perUsageRate: 3.0,
-            perCallRate: 0.75,
-            monthlyMinimum: 4000.0,
-            currency: 'USD',
-            billingCycle: 'monthly',
-            description:
-              '$3 per claim OR $0.75 per API call OR $4,000/month (whichever is greater)',
-          },
-          features: [
-            'OCR document extraction',
-            'PHI classification',
-            'Multi-carrier support',
-            'Real-time validation',
-          ],
-          requiredLicense: 'professional',
-          partnerId: 'skuld-official',
-          documentation: 'https://docs.skuldbot.com/bots/fnol',
-          supportEmail: 'support@skuldbot.com',
-        },
+        success: false,
+        error: `Bot ${botId} is not published`,
       };
     }
 
+    const versions = await this.marketplaceService.getVersions(botId);
     return {
-      success: false,
-      error: `Bot not found: ${botId}`,
+      success: true,
+      result: {
+        ...this.toBotCatalogEntry(bot),
+        status: bot.status,
+        executionMode: bot.executionMode,
+        currentVersion: bot.currentVersion,
+        publisherId: bot.publisherId,
+        publisherName: bot.publisher?.name ?? null,
+        requirements: bot.requirements ?? null,
+        runnerRequirements: bot.runnerRequirements ?? null,
+        documentation: bot.documentationUrl ?? null,
+        supportEmail: bot.supportEmail ?? null,
+        supportUrl: bot.supportUrl ?? null,
+        versions: versions.map((version) => ({
+          id: version.id,
+          version: version.version,
+          releaseNotes: version.releaseNotes ?? null,
+          isLatest: version.isLatest,
+          packageHash: version.packageHash,
+          dslHash: version.dslHash,
+          createdAt: version.createdAt?.toISOString(),
+        })),
+      },
     };
   }
 
@@ -462,18 +367,22 @@ export class MarketplaceServer {
     botId: string,
     pricingPlan: string,
   ): Promise<ToolResult> {
-    // TODO: Create subscription in database
+    const normalizedPlan = this.normalizeSubscriptionPlan(pricingPlan);
+    const subscription = await this.marketplaceService.subscribeTenantToBot({
+      tenantId,
+      botId,
+      pricingPlan: normalizedPlan,
+    });
+
     return {
       success: true,
       result: {
-        subscriptionId: `sub-${Date.now()}`,
+        subscriptionId: subscription.id,
         tenantId,
         botId,
-        pricingPlan,
-        status: 'active',
-        subscribedAt: new Date().toISOString(),
-        message:
-          'Subscription created. Bot is now available for download and execution.',
+        pricingPlan: subscription.pricingPlan,
+        status: subscription.status,
+        subscribedAt: subscription.subscribedAt?.toISOString() ?? null,
       },
     };
   }
@@ -482,33 +391,40 @@ export class MarketplaceServer {
     tenantId: string,
     botId: string,
   ): Promise<ToolResult> {
-    // TODO: Update subscription status in database
+    const subscription = await this.marketplaceService.unsubscribeTenantFromBot(
+      tenantId,
+      botId,
+    );
+
     return {
       success: true,
       result: {
         tenantId,
         botId,
-        status: 'cancelled',
-        cancelledAt: new Date().toISOString(),
-        message: 'Subscription cancelled. Final invoice will be generated.',
+        status: subscription.status,
+        cancelledAt: subscription.canceledAt?.toISOString() ?? null,
       },
     };
   }
 
   private async listSubscribedBots(tenantId: string): Promise<ToolResult> {
-    // TODO: Query database
+    const subscriptions = await this.marketplaceService.listTenantSubscriptions(
+      tenantId,
+    );
+
     return {
       success: true,
       result: {
-        subscriptions: [
-          {
-            botId: 'fnol-bot-v1',
-            botName: 'FNOL Automation Bot',
-            pricingPlan: 'hybrid',
-            status: 'active',
-            subscribedAt: '2026-01-01T00:00:00Z',
-          },
-        ],
+        subscriptions: subscriptions.map((subscription) => ({
+          subscriptionId: subscription.id,
+          botId: subscription.marketplaceBotId,
+          botName: subscription.marketplaceBot?.name ?? null,
+          botSlug: subscription.marketplaceBot?.slug ?? null,
+          pricingPlan: subscription.pricingPlan,
+          status: subscription.status,
+          subscribedAt: subscription.subscribedAt?.toISOString() ?? null,
+          downloadCount: Number(subscription.downloadCount ?? 0),
+        })),
       },
     };
   }
@@ -518,36 +434,52 @@ export class MarketplaceServer {
     botId: string,
     version?: string,
   ): Promise<ToolResult> {
-    // TODO: Check subscription and return DSL
+    const { version: resolvedVersion } =
+      await this.marketplaceService.recordBotDownload({
+        tenantId,
+        botId,
+        version,
+      });
+
+    if (!resolvedVersion) {
+      return {
+        success: false,
+        error: `No published version found for bot ${botId}`,
+      };
+    }
+
     return {
       success: true,
       result: {
         botId,
-        version: version || 'latest',
+        tenantId,
+        version: resolvedVersion.version,
+        packageUrl: resolvedVersion.packageUrl,
+        packageHash: resolvedVersion.packageHash,
+        packageSignature: resolvedVersion.packageSignature ?? null,
         dslUrl: `marketplace://bots/${botId}/dsl`,
-        downloadUrl: `https://marketplace.skuldbot.com/api/v1/bots/${botId}/download?tenant=${tenantId}`,
       },
     };
   }
 
   private async listPartnerBots(partnerId: string): Promise<ToolResult> {
-    // TODO: Query database
+    const catalog = await this.marketplaceService.getCatalog(
+      { publisherId: partnerId },
+      { page: 1, limit: 100, sort: 'popular' },
+    );
+
     return {
       success: true,
       result: {
         partnerId,
-        bots: [],
+        total: catalog.pagination.total,
+        bots: catalog.data.map((bot) => this.toBotCatalogEntry(bot)),
       },
     };
   }
 
-  // ============================================================
-  // Resource Implementations
-  // ============================================================
-
   private async getBotCatalogResource(): Promise<ResourceContent> {
     const bots = await this.searchMarketplaceBots(undefined, 'all', 'all', 100);
-
     return {
       uri: 'marketplace://bots/catalog',
       content: JSON.stringify(bots.result, null, 2),
@@ -557,56 +489,76 @@ export class MarketplaceServer {
 
   private async getBotDetailsResource(botId: string): Promise<ResourceContent> {
     const details = await this.getBotDetails(botId);
-
     return {
       uri: `marketplace://bots/${botId}/details`,
-      content: JSON.stringify(details.result, null, 2),
+      content: JSON.stringify(details.result ?? {}, null, 2),
       mimeType: 'application/json',
     };
   }
 
   private async getBotPricingResource(botId: string): Promise<ResourceContent> {
     const details = await this.getBotDetails(botId);
-
     return {
       uri: `marketplace://bots/${botId}/pricing`,
-      content: JSON.stringify(details.result?.pricing, null, 2),
+      content: JSON.stringify(details.result?.pricing ?? null, null, 2),
       mimeType: 'application/json',
     };
   }
 
   private async getBotDSLResource(botId: string): Promise<ResourceContent> {
-    // TODO: Get actual DSL from storage
-    const mockDSL = {
-      version: '1.0',
-      bot: {
-        id: botId,
-        name: 'FNOL Automation Bot',
-        description: 'First Notice of Loss automation',
-      },
-      nodes: [],
-    };
+    const bot = await this.marketplaceService.getBotById(botId);
+    if (bot.status !== MarketplaceBotStatus.PUBLISHED) {
+      throw new Error(`Bot ${botId} is not published`);
+    }
+
+    const version = await this.marketplaceService.resolveBotVersion(botId);
+    if (!version) {
+      throw new Error(`No version found for bot ${botId}`);
+    }
 
     return {
       uri: `marketplace://bots/${botId}/dsl`,
-      content: JSON.stringify(mockDSL, null, 2),
+      content: JSON.stringify(
+        {
+          botId: bot.id,
+          botSlug: bot.slug,
+          version: version.version,
+          dslHash: version.dslHash,
+          dslSchema: version.dslSchema ?? null,
+          packageHash: version.packageHash,
+        },
+        null,
+        2,
+      ),
       mimeType: 'application/json',
     };
   }
 
   private async getPartnerResource(partnerId: string): Promise<ResourceContent> {
-    // TODO: Get from database
-    const partner = {
-      id: partnerId,
-      name: 'Skuld Official',
-      website: 'https://skuldbot.com',
-      revenueShare: 0.5,
-      botsPublished: 2,
-    };
+    const partner = await this.marketplaceService.getPartner(partnerId);
+    const catalog = await this.marketplaceService.getCatalog(
+      { publisherId: partnerId },
+      { page: 1, limit: 100, sort: 'popular' },
+    );
 
     return {
       uri: `marketplace://partners/${partnerId}`,
-      content: JSON.stringify(partner, null, 2),
+      content: JSON.stringify(
+        {
+          id: partner.id,
+          name: partner.name,
+          company: partner.company,
+          email: partner.email,
+          website: partner.website ?? null,
+          status: partner.status,
+          revenueShareTier: partner.revenueShareTier,
+          publishedBots: catalog.pagination.total,
+          totalInstalls: partner.totalInstalls,
+          lifetimeRevenue: partner.lifetimeRevenue,
+        },
+        null,
+        2,
+      ),
       mimeType: 'application/json',
     };
   }
@@ -614,28 +566,119 @@ export class MarketplaceServer {
   private async getTenantSubscriptionsResource(
     tenantId: string,
   ): Promise<ResourceContent> {
-    const subs = await this.listSubscribedBots(tenantId);
-
+    const subscriptions = await this.listSubscribedBots(tenantId);
     return {
       uri: `marketplace://tenant/${tenantId}/subscriptions`,
-      content: JSON.stringify(subs.result, null, 2),
+      content: JSON.stringify(subscriptions.result, null, 2),
       mimeType: 'application/json',
     };
   }
 
   private async getCategoriesResource(): Promise<ResourceContent> {
-    const categories = [
-      { id: 'insurance', name: 'Insurance', botCount: 5 },
-      { id: 'healthcare', name: 'Healthcare', botCount: 3 },
-      { id: 'finance', name: 'Finance', botCount: 4 },
-      { id: 'hr', name: 'Human Resources', botCount: 2 },
-    ];
-
+    const categories = await this.marketplaceService.getPublishedCategoriesSummary();
     return {
       uri: 'marketplace://categories',
       content: JSON.stringify(categories, null, 2),
       mimeType: 'application/json',
     };
   }
-}
 
+  private toBotCatalogEntry(bot: MarketplaceBot): Record<string, unknown> {
+    return {
+      id: bot.id,
+      slug: bot.slug,
+      name: bot.name,
+      description: bot.description,
+      category: bot.category,
+      version: bot.currentVersion,
+      executionMode: bot.executionMode,
+      pricing: this.toPricingModel(bot),
+      features: (bot.features ?? []).map((feature) => feature.title),
+      installs: bot.installs,
+      rating: bot.rating,
+      publisherId: bot.publisherId,
+      isSkuldBot: bot.isSkuldBot,
+      documentationUrl: bot.documentationUrl ?? null,
+    };
+  }
+
+  private toPricingModel(bot: MarketplaceBot): Record<string, unknown> {
+    const usageMetric = bot.pricing?.usageMetrics?.[0];
+    return {
+      model: this.toPricingModelCode(bot.pricingModel),
+      perUsageRate: usageMetric?.pricePerUnit ?? null,
+      perCallRate: usageMetric?.pricePerUnit ?? null,
+      monthlyMinimum: bot.pricing?.minimumMonthly ?? bot.pricing?.monthlyBase ?? null,
+      currency: 'USD',
+      billingCycle: 'monthly',
+    };
+  }
+
+  private toPricingModelCode(pricing: PricingModel): string {
+    switch (pricing) {
+      case PricingModel.SUBSCRIPTION:
+        return 'monthly';
+      case PricingModel.HYBRID:
+        return 'hybrid';
+      case PricingModel.USAGE:
+        return 'usage';
+      default:
+        return 'usage';
+    }
+  }
+
+  private normalizeCategory(value?: string): BotCategory | undefined {
+    if (!value || value === 'all') {
+      return undefined;
+    }
+    const normalized = value.trim().toLowerCase();
+    const map: Record<string, BotCategory> = {
+      insurance: BotCategory.INSURANCE,
+      healthcare: BotCategory.HEALTHCARE,
+      finance: BotCategory.FINANCE,
+      hr: BotCategory.HR,
+    };
+    if (!map[normalized]) {
+      throw new Error(`Unsupported category: ${value}`);
+    }
+    return map[normalized];
+  }
+
+  private normalizePricing(value?: string): PricingModel | undefined {
+    if (!value || value === 'all') {
+      return undefined;
+    }
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'monthly') {
+      return PricingModel.SUBSCRIPTION;
+    }
+    if (normalized === 'hybrid') {
+      return PricingModel.HYBRID;
+    }
+    if (normalized === 'usage' || normalized === 'per_call') {
+      return PricingModel.USAGE;
+    }
+    throw new Error(`Unsupported pricingModel: ${value}`);
+  }
+
+  private normalizeSubscriptionPlan(value: string): MarketplaceSubscriptionPlan {
+    const normalized = value?.trim().toLowerCase();
+    const map: Record<string, MarketplaceSubscriptionPlan> = {
+      usage: MarketplaceSubscriptionPlan.USAGE,
+      per_call: MarketplaceSubscriptionPlan.PER_CALL,
+      monthly: MarketplaceSubscriptionPlan.MONTHLY,
+      hybrid: MarketplaceSubscriptionPlan.HYBRID,
+    };
+    if (!map[normalized]) {
+      throw new Error(`Unsupported pricingPlan: ${value}`);
+    }
+    return map[normalized];
+  }
+
+  private normalizeLimit(value?: number): number {
+    if (!value || Number.isNaN(value)) {
+      return 20;
+    }
+    return Math.min(100, Math.max(1, Math.floor(value)));
+  }
+}

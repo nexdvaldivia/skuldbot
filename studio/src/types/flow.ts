@@ -110,7 +110,7 @@ export type NodeCategory =
   | "document"     // PDF / OCR / Documents
   | "ai"           // AI / Intelligent Automation
   | "vectordb"     // Vector Databases / Memory (RAG)
-  | "code"         // Custom Code (JavaScript & Python - like n8n)
+  | "code"         // Custom Code (JavaScript & Python - for visual flows)
   | "python"       // Python Project Execution
   | "control"      // Control Flow (Map, Filter, Reduce)
   | "logging"      // Logging & Monitoring

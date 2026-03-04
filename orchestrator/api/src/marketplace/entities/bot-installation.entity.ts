@@ -37,7 +37,7 @@ export class BotInstallation {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   @Index()
   tenantId: string;
 
@@ -45,7 +45,7 @@ export class BotInstallation {
   // MARKETPLACE BOT REFERENCE
   // ============================================================================
 
-  @Column()
+  @Column({ type: 'uuid' })
   marketplaceBotId: string; // Reference to bot in Control-Plane
 
   @Column({ length: 200 })
@@ -190,7 +190,7 @@ export class BotInstallation {
   // METADATA
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   installedBy?: string; // User ID who installed
 
   @Column({ type: 'jsonb', nullable: true })

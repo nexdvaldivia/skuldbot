@@ -9,20 +9,6 @@ import {
 } from 'typeorm';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 
-export enum LicenseType {
-  TRIAL = 'trial',
-  STANDARD = 'standard',
-  PROFESSIONAL = 'professional',
-  ENTERPRISE = 'enterprise',
-}
-
-export enum LicenseStatus {
-  ACTIVE = 'active',
-  EXPIRED = 'expired',
-  REVOKED = 'revoked',
-  SUSPENDED = 'suspended',
-}
-
 export interface LicenseFeatures {
   maxBots: number;
   maxRunners: number;
@@ -32,6 +18,10 @@ export interface LicenseFeatures {
   customNodes: boolean;
   apiAccess: boolean;
   sso: boolean;
+  ssoEnabled?: boolean;
+  ssoEnforced?: boolean;
+  ssoProvider?: string | null;
+  ssoConfig?: Record<string, unknown> | null;
   auditLog: boolean;
   prioritySupport: boolean;
 }
@@ -41,7 +31,7 @@ export class License {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'tenant_id' })
+  @Column({ name: 'tenant_id', type: 'uuid' })
   tenantId: string;
 
   @ManyToOne(() => Tenant, (tenant) => tenant.licenses, { onDelete: 'CASCADE' })
@@ -51,11 +41,11 @@ export class License {
   @Column({ unique: true })
   key: string;
 
-  @Column({ type: 'enum', enum: LicenseType, default: LicenseType.TRIAL })
-  type: LicenseType;
+  @Column({ type: 'varchar', length: 80, default: 'trial' })
+  type: string;
 
-  @Column({ type: 'enum', enum: LicenseStatus, default: LicenseStatus.ACTIVE })
-  status: LicenseStatus;
+  @Column({ type: 'varchar', length: 80, default: 'active' })
+  status: string;
 
   @Column({ type: 'jsonb', default: {} })
   features: LicenseFeatures;
@@ -80,10 +70,6 @@ export class License {
 
   isValid(): boolean {
     const now = new Date();
-    return (
-      this.status === LicenseStatus.ACTIVE &&
-      this.validFrom <= now &&
-      this.validUntil >= now
-    );
+    return this.status === 'active' && this.validFrom <= now && this.validUntil >= now;
   }
 }

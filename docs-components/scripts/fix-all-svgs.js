@@ -342,3 +342,4 @@ for (const file of files) {
 console.log(`\nDone! Fixed ${totalFixed} total SVGs.`);
 
 
+

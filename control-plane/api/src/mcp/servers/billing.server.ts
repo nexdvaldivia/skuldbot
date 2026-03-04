@@ -1,9 +1,36 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { Tool, Resource, ToolResult, ResourceContent } from '../types/mcp.types';
 import { BillingService } from '../../billing/billing.service';
-import { StripeProvider } from '../../integrations/payment/stripe.provider';
+import { SubscriptionService } from '../../billing/subscription.service';
 import { PAYMENT_PROVIDER } from '../../integrations/payment/payment.module';
 import { PaymentProvider } from '../../common/interfaces/integration.interface';
+import { PaymentHistory } from '../../billing/entities/subscription.entity';
+
+type InvoiceStatus = 'pending' | 'paid' | 'past_due' | 'unpaid';
+
+type InvoiceLineItem = {
+  category: string;
+  description: string;
+  quantity: number;
+  unitPrice: number | null;
+  total: number;
+};
+
+type InvoiceSnapshot = {
+  invoiceId: string;
+  tenantId: string;
+  period: string;
+  generatedAt: string;
+  dueDate: string;
+  status: InvoiceStatus;
+  items: InvoiceLineItem[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  currency: string;
+  paidAt?: string;
+  stripeInvoiceId?: string | null;
+};
 
 /**
  * Billing MCP Server
@@ -15,6 +42,7 @@ import { PaymentProvider } from '../../common/interfaces/integration.interface';
 export class BillingServer {
   constructor(
     private readonly billingService: BillingService,
+    private readonly subscriptionService: SubscriptionService,
     @Inject(PAYMENT_PROVIDER)
     private readonly paymentProvider: PaymentProvider,
   ) {}
@@ -284,8 +312,8 @@ export class BillingServer {
         customerId,
         amount: Math.round(amount * 100), // Convert to cents
         currency: 'usd',
-        description: description || 'SkuldBot payment',
         metadata: {
+          description: description || 'SkuldBot payment',
           source: 'mcp_billing_server',
         },
       });
@@ -326,7 +354,6 @@ export class BillingServer {
           customerId: customer.id,
           email: customer.email,
           name: customer.name,
-          created: customer.created,
         },
       };
     } catch (error) {
@@ -345,8 +372,8 @@ export class BillingServer {
     try {
       const subscription = await this.paymentProvider.createSubscription({
         customerId,
-        items: [{ priceId }],
-        trialPeriodDays: trialDays,
+        priceId,
+        trialDays,
         metadata: {
           source: 'mcp_billing_server',
         },
@@ -360,7 +387,6 @@ export class BillingServer {
           customerId: subscription.customerId,
           currentPeriodStart: subscription.currentPeriodStart,
           currentPeriodEnd: subscription.currentPeriodEnd,
-          trialEnd: subscription.trialEnd,
         },
       };
     } catch (error) {
@@ -375,92 +401,67 @@ export class BillingServer {
     tenantId: string,
     period: string,
   ): Promise<ToolResult> {
-    // TODO: Get actual data from Metering Server and database
-    // For now, return mock invoice calculation
+    this.assertPeriod(period);
 
-    const invoice = {
-      invoiceId: `inv-${period}-${tenantId}`,
+    const usageSummary = await this.billingService.getTenantUsageSummary(
+      tenantId,
+      period,
+    );
+    const subscription = await this.subscriptionService.getSubscription(tenantId);
+    const paymentHistory = await this.subscriptionService.getPaymentHistory(tenantId, 100);
+    const periodPayments = this.getPeriodPayments(paymentHistory, period);
+
+    const items: InvoiceLineItem[] = [];
+    for (const [metric, usage] of Object.entries(usageSummary.metrics)) {
+      const quantity = Number(usage.quantity ?? 0);
+      const total = Number(usage.amount ?? 0);
+      const unitPrice = quantity > 0 && total > 0 ? total / quantity : null;
+      items.push({
+        category: `usage:${metric}`,
+        description: `Usage metric ${metric}`,
+        quantity,
+        unitPrice,
+        total,
+      });
+    }
+
+    if (subscription?.monthlyAmount && Number(subscription.monthlyAmount) > 0) {
+      const monthlyAmount = Number(subscription.monthlyAmount);
+      items.push({
+        category: 'subscription_base',
+        description: 'Subscription base amount',
+        quantity: 1,
+        unitPrice: monthlyAmount,
+        total: monthlyAmount,
+      });
+    }
+
+    const subtotal = items.reduce((sum, item) => sum + item.total, 0);
+    const tax = 0;
+    const total = subtotal + tax;
+
+    const status = this.resolveInvoiceStatus(periodPayments);
+    const paidAt =
+      periodPayments.find((payment) => payment.status === 'succeeded')?.clearedAt ??
+      periodPayments.find((payment) => payment.status === 'succeeded')?.createdAt;
+
+    const stripeInvoiceId =
+      periodPayments.find((payment) => payment.stripeInvoiceId)?.stripeInvoiceId ?? null;
+
+    const invoice: InvoiceSnapshot = {
+      invoiceId: this.buildInvoiceId(tenantId, period),
       tenantId,
       period,
       generatedAt: new Date().toISOString(),
       dueDate: this.calculateDueDate(period),
-      status: 'pending',
-
-      // Line items
-      items: [
-        {
-          category: 'orchestrator_license',
-          description: 'Orchestrator License - Professional',
-          quantity: 1,
-          unitPrice: 500.0,
-          total: 500.0,
-        },
-        {
-          category: 'studio_licenses',
-          description: 'Studio Licenses - Pro',
-          quantity: 3,
-          unitPrice: 100.0,
-          total: 300.0,
-        },
-        {
-          category: 'runners',
-          description: 'Runners (2 attended, 5 unattended)',
-          details: {
-            attended: { count: 2, rate: 50, subtotal: 100 },
-            unattended: { count: 5, rate: 200, subtotal: 1000 },
-          },
-          quantity: 7,
-          unitPrice: null,
-          total: 1100.0,
-        },
-        {
-          category: 'marketplace_bots',
-          description: 'Marketplace Bots',
-          details: [
-            {
-              botId: 'fnol-bot-v1',
-              botName: 'FNOL Automation Bot',
-              usage: {
-                claimsCompleted: 320,
-                apiCalls: 4500,
-              },
-              costs: {
-                usageBased: 960.0, // 320 × $3
-                callBased: 3375.0, // 4500 × $0.75
-                monthlyMinimum: 4000.0,
-                charged: 4000.0, // max(960, 3375, 4000)
-              },
-              pricingModel: 'hybrid',
-              explanation:
-                'Charged $4,000 (monthly minimum) as it is greater than usage-based ($960) and call-based ($3,375)',
-            },
-            {
-              botId: 'claims-processor-v1',
-              botName: 'Claims Processor Bot',
-              usage: {
-                recordsProcessed: 1200,
-              },
-              costs: {
-                usageBased: 600.0, // 1200 × $0.50
-                monthlyMinimum: 500.0,
-                charged: 600.0, // max(600, 500)
-              },
-              pricingModel: 'hybrid',
-              explanation:
-                'Charged $600 (usage-based) as it is greater than monthly minimum ($500)',
-            },
-          ],
-          quantity: 2,
-          unitPrice: null,
-          total: 4600.0,
-        },
-      ],
-
-      // Totals
-      subtotal: 6500.0,
-      tax: 650.0, // 10%
-      total: 7150.0,
-      currency: 'USD',
+      status,
+      items,
+      subtotal,
+      tax,
+      total,
+      currency: subscription?.currency ?? 'USD',
+      paidAt: paidAt ? paidAt.toISOString() : undefined,
+      stripeInvoiceId,
     };
 
     return {
@@ -470,44 +471,68 @@ export class BillingServer {
   }
 
   private async getInvoice(invoiceId: string): Promise<ToolResult> {
-    // TODO: Get from database
-    return {
-      success: true,
-      result: {
-        invoiceId,
-        status: 'paid',
-        paidAt: '2026-01-15T10:30:00Z',
-        message: 'Invoice retrieved successfully',
-      },
-    };
+    const parsed = this.parseInvoiceId(invoiceId);
+
+    if (parsed) {
+      const calculated = await this.calculateInvoice(parsed.tenantId, parsed.period);
+      return {
+        success: true,
+        result: {
+          ...calculated.result,
+          invoiceId,
+        },
+      };
+    }
+
+    throw new Error(
+      `Invoice "${invoiceId}" is not in MCP-derived format inv-YYYY-MM-<tenantId>.`,
+    );
   }
 
   private async listInvoices(
     tenantId: string,
     limit: number = 12,
   ): Promise<ToolResult> {
-    // TODO: Get from database
-    const invoices = [
-      {
-        invoiceId: 'inv-2026-01-' + tenantId,
-        period: '2026-01',
-        total: 7150.0,
-        status: 'pending',
-        dueDate: '2026-02-15',
-      },
-      {
-        invoiceId: 'inv-2025-12-' + tenantId,
-        period: '2025-12',
-        total: 6800.0,
-        status: 'paid',
-        paidAt: '2025-12-20T10:30:00Z',
-      },
-    ];
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 12;
+    const paymentHistory = await this.subscriptionService.getPaymentHistory(tenantId, 500);
+    const discoveredPeriods = Array.from(
+      new Set(
+        paymentHistory
+          .map((payment) => payment.invoicePeriod)
+          .filter((period): period is string => Boolean(period?.trim())),
+      ),
+    );
+
+    const currentPeriod = this.getCurrentPeriod();
+    if (!discoveredPeriods.includes(currentPeriod)) {
+      discoveredPeriods.push(currentPeriod);
+    }
+
+    discoveredPeriods.sort((a, b) => b.localeCompare(a));
+    const selectedPeriods = discoveredPeriods.slice(0, safeLimit);
+
+    const invoices: InvoiceSnapshot[] = [];
+    for (const period of selectedPeriods) {
+      const result = await this.calculateInvoice(tenantId, period);
+      invoices.push(result.result as InvoiceSnapshot);
+    }
+
+    invoices.sort((a, b) => b.period.localeCompare(a.period));
 
     return {
       success: true,
       result: {
-        invoices: invoices.slice(0, limit),
+        invoices: invoices.slice(0, safeLimit).map((invoice) => ({
+          invoiceId: invoice.invoiceId,
+          period: invoice.period,
+          total: invoice.total,
+          subtotal: invoice.subtotal,
+          currency: invoice.currency,
+          status: invoice.status,
+          dueDate: invoice.dueDate,
+          paidAt: invoice.paidAt,
+          stripeInvoiceId: invoice.stripeInvoiceId ?? null,
+        })),
         total: invoices.length,
       },
     };
@@ -532,22 +557,25 @@ export class BillingServer {
   private async getPaymentMethodsResource(
     tenantId: string,
   ): Promise<ResourceContent> {
-    // TODO: Get from database
-    const paymentMethods = [
-      {
-        id: 'pm-1',
-        type: 'card',
-        last4: '4242',
-        brand: 'visa',
-        expiryMonth: 12,
-        expiryYear: 2026,
-        isDefault: true,
-      },
-    ];
+    const subscription = await this.subscriptionService.getSubscription(tenantId);
+    const methods = subscription
+      ? [
+          {
+            id: subscription.stripePaymentMethodId ?? `subscription-${subscription.id}`,
+            type: subscription.paymentMethodType,
+            currency: subscription.currency,
+            bankName: subscription.bankName ?? null,
+            bankAccountLast4: subscription.bankAccountLast4 ?? null,
+            bankAccountType: subscription.bankAccountType ?? null,
+            isDefault: true,
+            status: subscription.status,
+          },
+        ]
+      : [];
 
     return {
       uri: `billing://tenant/${tenantId}/payment-methods`,
-      content: JSON.stringify(paymentMethods, null, 2),
+      content: JSON.stringify(methods, null, 2),
       mimeType: 'application/json',
     };
   }
@@ -573,5 +601,52 @@ export class BillingServer {
     const nextYear = month === 12 ? year + 1 : year;
     return `${nextYear}-${String(nextMonth).padStart(2, '0')}-15`;
   }
-}
 
+  private assertPeriod(period: string): void {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(period)) {
+      throw new Error('Invalid period format. Expected YYYY-MM.');
+    }
+  }
+
+  private buildInvoiceId(tenantId: string, period: string): string {
+    return `inv-${period}-${tenantId}`;
+  }
+
+  private parseInvoiceId(
+    invoiceId: string,
+  ): { period: string; tenantId: string } | null {
+    const match = invoiceId.match(/^inv-(\d{4}-(0[1-9]|1[0-2]))-(.+)$/);
+    if (!match) {
+      return null;
+    }
+    return {
+      period: match[1],
+      tenantId: match[3],
+    };
+  }
+
+  private getCurrentPeriod(): string {
+    const now = new Date();
+    return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
+
+  private getPeriodPayments(
+    paymentHistory: PaymentHistory[],
+    period: string,
+  ): PaymentHistory[] {
+    return paymentHistory.filter((payment) => payment.invoicePeriod === period);
+  }
+
+  private resolveInvoiceStatus(periodPayments: PaymentHistory[]): InvoiceStatus {
+    if (periodPayments.some((payment) => payment.status === 'succeeded')) {
+      return 'paid';
+    }
+    if (periodPayments.some((payment) => payment.status === 'failed')) {
+      return 'past_due';
+    }
+    if (periodPayments.some((payment) => payment.status === 'processing')) {
+      return 'pending';
+    }
+    return 'pending';
+  }
+}

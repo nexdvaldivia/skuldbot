@@ -111,6 +111,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; latencyMs?: number } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const isEditing = !!editingConnection;
 
   // Define resetForm first before useEffect
   const resetForm = useCallback(() => {
@@ -232,6 +233,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
         } as AzureFoundryConfig;
 
       case "aws-bedrock":
+      {
         if (!awsAccessKeyId || !awsSecretAccessKey || !awsRegion) return null;
         const finalAwsModelId = awsModelId === "custom" ? model : awsModelId;
         if (!finalAwsModelId) return null;
@@ -242,8 +244,10 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
           region: awsRegion,
           modelId: finalAwsModelId,
         } as AWSBedrockConfig;
+      }
 
       case "vertex-ai":
+      {
         if (!gcpProjectId || !gcpLocation || !gcpServiceAccountJson) return null;
         const finalGcpModel = gcpModel === "custom" ? model : gcpModel;
         if (!finalGcpModel) return null;
@@ -254,6 +258,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
           serviceAccountJson: gcpServiceAccountJson,
           model: finalGcpModel,
         } as VertexAIConfig;
+      }
 
       case "ollama":
         if (!baseUrl || !model) return null;
@@ -280,6 +285,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
         return { type: "localai", baseUrl, model } as LocalAIConfig;
 
       case "openai":
+      {
         if (!apiKey) return null;
         const finalOpenaiModel = openaiModel === "custom" ? model : openaiModel;
         if (!finalOpenaiModel) return null;
@@ -289,8 +295,10 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
           baseUrl: baseUrl || undefined,
           model: finalOpenaiModel,
         } as OpenAIConfig;
+      }
 
       case "anthropic":
+      {
         if (!apiKey) return null;
         const finalAnthropicModel = anthropicModel === "custom" ? model : anthropicModel;
         if (!finalAnthropicModel) return null;
@@ -299,8 +307,10 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
           apiKey,
           model: finalAnthropicModel,
         } as AnthropicConfig;
+      }
 
       case "custom":
+      {
         if (!baseUrl || !model) return null;
         const headers = customHeaders ? JSON.parse(customHeaders) : undefined;
         return {
@@ -311,6 +321,7 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
           model,
           headers,
         } as CustomConfig;
+      }
 
       default:
         return null;
@@ -374,10 +385,6 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
     }
   };
 
-  if (!isOpen) return null;
-
-  const isEditing = !!editingConnection;
-  
   // Memoize provider fields to prevent unnecessary re-renders
   const renderProviderFields = useMemo(() => {
     switch (provider) {
@@ -778,7 +785,9 @@ export function ConnectionDialog({ isOpen, onClose, editingConnection }: Connect
       awsAccessKeyId, awsSecretAccessKey, awsRegion, awsModelId, model,
       gcpProjectId, gcpLocation, gcpServiceAccountJson, gcpModel,
       baseUrl, apiKey, openaiModel, anthropicModel,
-      customName, customHeaders, isEditing]);
+      customName, isEditing]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70]">

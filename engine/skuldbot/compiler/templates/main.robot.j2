@@ -59,7 +59,7 @@ Execute Node
     # Routing de nodos
 {% for node in bot.nodes %}
     IF    '${node_id}' == '{{ node.id }}'
-        ${next_node}=    Execute Node {{ node.id|replace('-', '_') }}
+        ${next_node}=    Execute Node {{ node.id| node_id_safe }}
         IF    '${next_node}' != 'END'
             Execute Node    ${next_node}
         END
@@ -72,7 +72,7 @@ Execute Node
 
 # Implementación de nodos
 {% for node in bot.nodes %}
-Execute Node {{ node.id|replace('-', '_') }}
+Execute Node {{ node.id| node_id_safe }}
     [Documentation]    Node {{ node.id }}: {{ node.type }}
     
     Log    Executing node {{ node.id }} ({{ node.type }})
