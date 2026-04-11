@@ -3,13 +3,11 @@
 import argparse
 import asyncio
 import sys
-import webbrowser
-from typing import Optional
 
 import structlog
 
 from .agent import RunnerAgent
-from .config import load_config, RunnerConfig
+from .config import load_config
 
 
 def setup_logging(level: str = "INFO"):
@@ -57,7 +55,7 @@ def cmd_run(args):
     # Validate configuration
     if not config.orchestrator_url:
         logger.error("SKULDBOT_ORCHESTRATOR_URL is required")
-        logger.info("Run 'skuldbot-runner ui' to configure via web interface")
+        logger.info("Run 'skuldbot-runner register' to configure this runner")
         sys.exit(1)
 
     if not config.api_key:
@@ -75,110 +73,10 @@ def cmd_run(args):
         sys.exit(0)
 
 
-def cmd_ui(args):
-    """Start the local web UI for configuration and monitoring."""
-    config = load_config()
-    setup_logging(config.log_level)
-
-    logger = structlog.get_logger()
-
-    # Import here to avoid slow startup when not using UI
-    try:
-        import uvicorn
-        from .web.app import create_app, RunnerState
-    except ImportError:
-        logger.error("Web UI dependencies not installed. Run: pip install skuldbot-runner[web]")
-        sys.exit(1)
-
-    host = args.host or "127.0.0.1"
-    port = args.port or 8585
-
-    logger.info(f"Starting SkuldBot Runner UI at http://{host}:{port}")
-
-    # Create app with shared state
-    state = RunnerState(config=config)
-    app = create_app(state)
-
-    # Open browser if requested
-    if args.open:
-        webbrowser.open(f"http://{host}:{port}")
-
-    # Run server
-    uvicorn.run(
-        app,
-        host=host,
-        port=port,
-        log_level="warning",  # Reduce uvicorn noise
-    )
-
-
-def cmd_ui_agent(args):
-    """Start both the web UI and the agent together."""
-    config = load_config()
-    setup_logging(config.log_level)
-
-    logger = structlog.get_logger()
-
-    try:
-        import uvicorn
-        from .web.app import create_app, RunnerState
-    except ImportError:
-        logger.error("Web UI dependencies not installed. Run: pip install skuldbot-runner[web]")
-        sys.exit(1)
-
-    host = args.host or "127.0.0.1"
-    port = args.port or 8585
-
-    # Create shared state
-    state = RunnerState(config=config)
-
-    # Create agent if configured
-    agent: Optional[RunnerAgent] = None
-    if config.orchestrator_url and config.api_key:
-        agent = RunnerAgent(config)
-        state.agent = agent
-        logger.info(
-            "Agent configured",
-            orchestrator_url=config.orchestrator_url,
-            runner_name=config.runner_name,
-        )
-    else:
-        logger.warning("Agent not started - missing configuration")
-        logger.info(f"Configure via web UI at http://{host}:{port}/config")
-
-    app = create_app(state)
-
-    # Open browser if requested
-    if args.open:
-        webbrowser.open(f"http://{host}:{port}")
-
-    async def run_all():
-        """Run both UI server and agent."""
-        # Configure uvicorn
-        config_uvicorn = uvicorn.Config(
-            app,
-            host=host,
-            port=port,
-            log_level="warning",
-        )
-        server = uvicorn.Server(config_uvicorn)
-
-        if agent:
-            # Run both concurrently
-            await asyncio.gather(
-                server.serve(),
-                agent.start(),
-            )
-        else:
-            # Just run the server
-            await server.serve()
-
-    try:
-        logger.info(f"Starting SkuldBot Runner at http://{host}:{port}")
-        asyncio.run(run_all())
-    except KeyboardInterrupt:
-        logger.info("Interrupted by user")
-        sys.exit(0)
+def cmd_start(args):
+    """Backward-compatible alias for run."""
+    print("Warning: command 'start' is deprecated; use 'run' instead.", file=sys.stderr)
+    cmd_run(args)
 
 
 async def cmd_register_async(args):
@@ -301,7 +199,7 @@ def cmd_status(args):
         print("  Run 'skuldbot-runner run' to start polling for jobs")
     else:
         print(f"\nStatus: NOT CONFIGURED")
-        print("  Run 'skuldbot-runner register' or 'skuldbot-runner ui' to configure")
+        print("  Run 'skuldbot-runner register' to configure")
 
     print("=" * 50 + "\n")
 
@@ -318,19 +216,9 @@ def main():
     run_parser = subparsers.add_parser("run", help="Start the agent in polling mode")
     run_parser.set_defaults(func=cmd_run)
 
-    # ui command
-    ui_parser = subparsers.add_parser("ui", help="Start the local web UI only")
-    ui_parser.add_argument("--host", default="127.0.0.1", help="Host to bind (default: 127.0.0.1)")
-    ui_parser.add_argument("--port", type=int, default=8585, help="Port to bind (default: 8585)")
-    ui_parser.add_argument("--open", action="store_true", help="Open browser automatically")
-    ui_parser.set_defaults(func=cmd_ui)
-
-    # start command (ui + agent)
-    start_parser = subparsers.add_parser("start", help="Start both web UI and agent")
-    start_parser.add_argument("--host", default="127.0.0.1", help="Host to bind (default: 127.0.0.1)")
-    start_parser.add_argument("--port", type=int, default=8585, help="Port to bind (default: 8585)")
-    start_parser.add_argument("--open", action="store_true", help="Open browser automatically")
-    start_parser.set_defaults(func=cmd_ui_agent)
+    # start command (backward-compatible alias)
+    start_parser = subparsers.add_parser("start", help="Deprecated alias for 'run'")
+    start_parser.set_defaults(func=cmd_start)
 
     # register command
     reg_parser = subparsers.add_parser("register", help="Register this runner with orchestrator")
@@ -348,12 +236,9 @@ def main():
     args = parser.parse_args()
 
     if args.command is None:
-        # Default to 'start' command with UI + agent
         parser.print_help()
         print("\nQuick start:")
-        print("  skuldbot-runner start --open   # Start with web UI")
-        print("  skuldbot-runner run            # Run agent only (headless)")
-        print("  skuldbot-runner ui --open      # Web UI only (for config)")
+        print("  skuldbot-runner run            # Run agent (headless)")
         print("  skuldbot-runner register       # Register with orchestrator")
         print("  skuldbot-runner status         # Show current status")
         sys.exit(0)

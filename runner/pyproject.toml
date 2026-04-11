@@ -23,12 +23,6 @@ dependencies = [
     "structlog>=23.0.0",      # Structured logging
     "tenacity>=8.0.0",        # Retry logic
     "psutil>=5.9.0",          # System info
-    # Web UI dependencies
-    "fastapi>=0.109.0",       # Web framework for local UI
-    "uvicorn>=0.27.0",        # ASGI server
-    "jinja2>=3.1.0",          # HTML templates
-    "python-multipart>=0.0.6", # Form handling
-    "sse-starlette>=1.8.0",   # Server-sent events for live logs
 ]
 
 [project.optional-dependencies]
