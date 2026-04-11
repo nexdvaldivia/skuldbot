@@ -10,7 +10,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
 lib64/
 parts/
 sdist/
@@ -77,7 +77,6 @@ test_rpa_output/
 *.db
 *.sqlite
 *.sqlite3
-
 
 
 
