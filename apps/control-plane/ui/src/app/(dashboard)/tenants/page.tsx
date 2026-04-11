@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   ExternalLink,
@@ -72,7 +72,7 @@ function slugify(value: string): string {
     .slice(0, 60);
 }
 
-export default function TenantsPage() {
+function TenantsPageContent() {
   const searchParams = useSearchParams();
   const initialClientId = searchParams.get('clientId') ?? 'all';
 
@@ -470,6 +470,14 @@ export default function TenantsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function TenantsPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-zinc-500">Loading orchestrators...</div>}>
+      <TenantsPageContent />
+    </Suspense>
   );
 }
 

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 
 import configuration from './config/configuration';
@@ -51,7 +51,7 @@ enforceEnvironmentPolicy(process.env);
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: () => ({
-        ...buildTypeOrmOptions(process.env),
+        ...(buildTypeOrmOptions(process.env) as TypeOrmModuleOptions),
         // Reduce retry attempts for faster failure
         retryAttempts: 3,
         retryDelay: 1000,
