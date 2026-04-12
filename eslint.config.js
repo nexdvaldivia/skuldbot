@@ -32,6 +32,19 @@ const sharedConfig = [
     },
     plugins: {
       '@typescript-eslint': tseslint.plugin,
+    },
+    rules: {
+      'no-eval': 'error',
+      'no-implied-eval': 'error',
+      'no-new-func': 'error',
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': 'error',
+      '@typescript-eslint/no-explicit-any': 'warn',
+    },
+  },
+  {
+    files: ['**/*.{jsx,tsx}'],
+    plugins: {
       react: reactPlugin,
       'react-hooks': reactHooks,
     },
@@ -41,14 +54,8 @@ const sharedConfig = [
       },
     },
     rules: {
-      'no-eval': 'error',
-      'no-implied-eval': 'error',
-      'no-new-func': 'error',
-      'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': 'error',
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
-      '@typescript-eslint/no-explicit-any': 'warn',
     },
   },
 ];
