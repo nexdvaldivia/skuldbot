@@ -173,9 +173,7 @@ describe('BillingServer', () => {
       status: 'active',
     });
 
-    const resource = await server.readResource(
-      'billing://tenant/tenant-3/payment-methods',
-    );
+    const resource = await server.readResource('billing://tenant/tenant-3/payment-methods');
     const methods = JSON.parse(resource.content);
 
     expect(resource.uri).toBe('billing://tenant/tenant-3/payment-methods');

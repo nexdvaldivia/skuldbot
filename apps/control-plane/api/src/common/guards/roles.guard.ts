@@ -2,11 +2,7 @@ import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UserRole } from '../../users/entities/user.entity';
 import { ROLES_KEY } from '../decorators/roles.decorator';
-import {
-  hasPermission,
-  getUserGrantedPermissions,
-  getUserRoleNames,
-} from '../authz/permissions';
+import { hasPermission, getUserGrantedPermissions, getUserRoleNames } from '../authz/permissions';
 import {
   PERMISSIONS_KEY,
   PERMISSIONS_MODE_KEY,
@@ -43,10 +39,10 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(
-      PERMISSIONS_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
     if (!requiredPermissions || requiredPermissions.length === 0) {
       return false;

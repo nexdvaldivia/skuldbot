@@ -5,7 +5,7 @@ import { MCPMetricsService } from './mcp-metrics.service';
 
 /**
  * MCP Metrics Interceptor
- * 
+ *
  * Automatically records metrics for all MCP requests
  */
 @Injectable()
@@ -15,7 +15,7 @@ export class MCPMetricsInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest();
     const serverName = this.getServerName(request);
-    
+
     this.metricsService.incrementRequestsInFlight(serverName);
     const startTime = Date.now();
 
@@ -24,7 +24,7 @@ export class MCPMetricsInterceptor implements NestInterceptor {
         next: () => {
           const duration = (Date.now() - startTime) / 1000;
           this.metricsService.decrementRequestsInFlight(serverName);
-          
+
           // Record specific metrics based on endpoint
           if (request.url.includes('/tools/call')) {
             const toolName = request.body?.name || 'unknown';
@@ -39,15 +39,23 @@ export class MCPMetricsInterceptor implements NestInterceptor {
         error: (error) => {
           const duration = (Date.now() - startTime) / 1000;
           this.metricsService.decrementRequestsInFlight(serverName);
-          
+
           if (request.url.includes('/tools/call')) {
             const toolName = request.body?.name || 'unknown';
             this.metricsService.recordToolCall(serverName, toolName, 'error');
-            this.metricsService.recordToolCallError(serverName, toolName, error.name || 'UnknownError');
+            this.metricsService.recordToolCallError(
+              serverName,
+              toolName,
+              error.name || 'UnknownError',
+            );
           } else if (request.url.includes('/resources/')) {
             const resourceType = this.extractResourceType(request.url);
             this.metricsService.recordResourceRead(serverName, resourceType, 'error');
-            this.metricsService.recordResourceReadError(serverName, resourceType, error.name || 'UnknownError');
+            this.metricsService.recordResourceReadError(
+              serverName,
+              resourceType,
+              error.name || 'UnknownError',
+            );
           }
         },
       }),
@@ -67,5 +75,3 @@ export class MCPMetricsInterceptor implements NestInterceptor {
     return match ? match[1] : 'unknown';
   }
 }
-
-

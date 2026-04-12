@@ -35,10 +35,7 @@ import {
   JobClaimResponseDto,
   RunnerStatsDto,
 } from './dto/runner-response.dto';
-import {
-  redactSensitiveData,
-  redactSensitiveString,
-} from '../common/utils/redaction.util';
+import { redactSensitiveData, redactSensitiveString } from '../common/utils/redaction.util';
 
 const HEARTBEAT_TIMEOUT_MS = 60 * 1000; // 1 minute without heartbeat = offline
 const RUNNER_API_KEY_PREFIX = 'skr_';
@@ -599,9 +596,7 @@ export class RunnersService {
       durationMs,
       stepsCompleted: dto.stepsCompleted || 0,
       stepsFailed: dto.stepsFailed || 0,
-      error: dto.errorMessage
-        ? redactSensitiveString(dto.errorMessage)
-        : undefined,
+      error: dto.errorMessage ? redactSensitiveString(dto.errorMessage) : undefined,
     });
 
     // Emit runner status change
@@ -613,9 +608,7 @@ export class RunnersService {
       timestamp: completedAt.toISOString(),
     });
 
-    this.logger.log(
-      `Runner ${runner.id} completed run ${dto.runId} (success: ${dto.success})`,
-    );
+    this.logger.log(`Runner ${runner.id} completed run ${dto.runId} (success: ${dto.success})`);
   }
 
   /**
@@ -681,10 +674,7 @@ export class RunnersService {
   /**
    * Regenerate API key for a runner
    */
-  async regenerateApiKey(
-    tenantId: string,
-    runnerId: string,
-  ): Promise<{ apiKey: string }> {
+  async regenerateApiKey(tenantId: string, runnerId: string): Promise<{ apiKey: string }> {
     const runner = await this.runnerRepository.findOne({
       where: { id: runnerId, tenantId },
     });

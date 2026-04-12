@@ -82,9 +82,7 @@ export class RbacService {
           .groupBy('role.id')
           .getRawMany<{ roleId: string; count: string }>();
 
-        userCountsByRole = new Map(
-          raw.map((entry) => [entry.roleId, Number(entry.count)]),
-        );
+        userCountsByRole = new Map(raw.map((entry) => [entry.roleId, Number(entry.count)]));
       }
     }
 
@@ -92,7 +90,7 @@ export class RbacService {
       this.toRoleResponse(
         role,
         query.includePermissions ?? false,
-        query.includeUserCount ? userCountsByRole.get(role.id) ?? 0 : undefined,
+        query.includeUserCount ? (userCountsByRole.get(role.id) ?? 0) : undefined,
       ),
     );
   }
@@ -250,10 +248,7 @@ export class RbacService {
     return (user.roles ?? []).map((role) => this.toRoleResponse(role, true));
   }
 
-  async assignUserRoles(
-    userId: string,
-    dto: AssignUserRolesDto,
-  ): Promise<RoleResponseDto[]> {
+  async assignUserRoles(userId: string, dto: AssignUserRolesDto): Promise<RoleResponseDto[]> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: ['roles'],
@@ -363,9 +358,7 @@ export class RbacService {
       isSystem: role.isSystem,
       isDefault: role.isDefault,
       permissions: includePermissions
-        ? (role.permissions ?? []).map((permission) =>
-            this.toPermissionResponse(permission),
-          )
+        ? (role.permissions ?? []).map((permission) => this.toPermissionResponse(permission))
         : undefined,
       userCount,
       createdAt: role.createdAt,

@@ -3,23 +3,23 @@
  * Enterprise-grade UI for managing AI Planner LLM connections
  */
 
-import { useState, useEffect } from "react";
-import { 
-  Plus, 
-  Trash2, 
-  Settings, 
-  CheckCircle2, 
-  XCircle, 
+import { useState, useEffect } from 'react';
+import {
+  Plus,
+  Trash2,
+  Settings,
+  CheckCircle2,
+  XCircle,
   AlertCircle,
   Zap,
   Clock,
   Star,
-  RefreshCw
-} from "lucide-react";
-import { Button } from "../../ui/Button";
-import { useConnectionsStore } from "../../../store/connectionsStore";
-import { ConnectionDialog } from "../ConnectionDialog";
-import { LLMConnection } from "../../../types/ai-planner";
+  RefreshCw,
+} from 'lucide-react';
+import { Button } from '../../ui/Button';
+import { useConnectionsStore } from '../../../store/connectionsStore';
+import { ConnectionDialog } from '../ConnectionDialog';
+import { LLMConnection } from '../../../types/ai-planner';
 
 export function ConnectionsPanel() {
   const {
@@ -48,16 +48,19 @@ export function ConnectionsPanel() {
     if (connections.length === 0) return;
 
     // Initial health check for all connections
-    connections.forEach(conn => {
+    connections.forEach((conn) => {
       checkHealth(conn.id);
     });
 
     // Set up interval for periodic checks
-    const interval = setInterval(() => {
-      connections.forEach(conn => {
-        checkHealth(conn.id);
-      });
-    }, 5 * 60 * 1000); // 5 minutes
+    const interval = setInterval(
+      () => {
+        connections.forEach((conn) => {
+          checkHealth(conn.id);
+        });
+      },
+      5 * 60 * 1000,
+    ); // 5 minutes
 
     return () => clearInterval(interval);
   }, [connections, checkHealth]);
@@ -69,7 +72,7 @@ export function ConnectionsPanel() {
       const result = await testConnectionById(id);
       if (result.success) {
         // Show success feedback
-        console.log("Connection test successful:", result);
+        console.log('Connection test successful:', result);
       }
     } finally {
       setTestingId(null);
@@ -102,37 +105,37 @@ export function ConnectionsPanel() {
   // Get provider display name
   const getProviderLabel = (provider: string): string => {
     const labels: Record<string, string> = {
-      "openai": "OpenAI",
-      "anthropic": "Anthropic",
-      "azure-foundry": "Azure AI Foundry",
-      "aws-bedrock": "AWS Bedrock",
-      "vertex-ai": "Google Vertex AI",
-      "ollama": "Ollama",
-      "vllm": "vLLM",
-      "tgi": "Text Generation Inference",
-      "llamacpp": "llama.cpp",
-      "lmstudio": "LM Studio",
-      "localai": "LocalAI",
-      "custom": "Custom",
+      openai: 'OpenAI',
+      anthropic: 'Anthropic',
+      'azure-foundry': 'Azure AI Foundry',
+      'aws-bedrock': 'AWS Bedrock',
+      'vertex-ai': 'Google Vertex AI',
+      ollama: 'Ollama',
+      vllm: 'vLLM',
+      tgi: 'Text Generation Inference',
+      llamacpp: 'llama.cpp',
+      lmstudio: 'LM Studio',
+      localai: 'LocalAI',
+      custom: 'Custom',
     };
     return labels[provider] || provider;
   };
 
   // Get provider color
   const getProviderColor = (provider: string): string => {
-      const colors: Record<string, string> = {
-      "openai": "bg-primary-100 text-primary-700 border-primary-200",
-      "anthropic": "bg-purple-100 text-purple-700 border-purple-200",
-      "azure-foundry": "bg-blue-100 text-blue-700 border-blue-200",
-      "aws-bedrock": "bg-orange-100 text-orange-700 border-orange-200",
-      "vertex-ai": "bg-red-100 text-red-700 border-red-200",
-      "ollama": "bg-indigo-100 text-indigo-700 border-indigo-200",
-      "vllm": "bg-pink-100 text-pink-700 border-pink-200",
-      "tgi": "bg-yellow-100 text-yellow-700 border-yellow-200",
-      "llamacpp": "bg-cyan-100 text-cyan-700 border-cyan-200",
-      "lmstudio": "bg-teal-100 text-teal-700 border-teal-200",
-      "localai": "bg-lime-100 text-lime-700 border-lime-200",
-      "custom": "bg-gray-100 text-gray-700 border-gray-200",
+    const colors: Record<string, string> = {
+      openai: 'bg-primary-100 text-primary-700 border-primary-200',
+      anthropic: 'bg-purple-100 text-purple-700 border-purple-200',
+      'azure-foundry': 'bg-blue-100 text-blue-700 border-blue-200',
+      'aws-bedrock': 'bg-orange-100 text-orange-700 border-orange-200',
+      'vertex-ai': 'bg-red-100 text-red-700 border-red-200',
+      ollama: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+      vllm: 'bg-pink-100 text-pink-700 border-pink-200',
+      tgi: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+      llamacpp: 'bg-cyan-100 text-cyan-700 border-cyan-200',
+      lmstudio: 'bg-teal-100 text-teal-700 border-teal-200',
+      localai: 'bg-lime-100 text-lime-700 border-lime-200',
+      custom: 'bg-gray-100 text-gray-700 border-gray-200',
     };
     return colors[provider] || colors.custom;
   };
@@ -144,25 +147,25 @@ export function ConnectionsPanel() {
     }
 
     switch (connection.healthStatus.status) {
-      case "healthy":
+      case 'healthy':
         return <CheckCircle2 className="w-4 h-4 text-primary-600" />;
-      case "degraded":
+      case 'degraded':
         return <AlertCircle className="w-4 h-4 text-amber-600" />;
-      case "down":
+      case 'down':
         return <XCircle className="w-4 h-4 text-red-600" />;
     }
   };
 
   // Format last used time
   const formatLastUsed = (timestamp?: string): string => {
-    if (!timestamp) return "Never used";
-    
+    if (!timestamp) return 'Never used';
+
     const date = new Date(timestamp);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
-    
-    if (diffMins < 1) return "Just now";
+
+    if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
     return `${Math.floor(diffMins / 1440)}d ago`;
@@ -174,9 +177,7 @@ export function ConnectionsPanel() {
       <div className="px-6 py-4 bg-white border-b border-neutral-200">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-neutral-900">
-              LLM Connections
-            </h3>
+            <h3 className="text-sm font-semibold text-neutral-900">LLM Connections</h3>
             <p className="text-xs text-neutral-500 mt-0.5">
               Manage AI providers for plan generation
             </p>
@@ -200,9 +201,7 @@ export function ConnectionsPanel() {
             <div className="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center mb-4">
               <Zap className="w-8 h-8 text-primary-600" />
             </div>
-            <h3 className="text-base font-semibold text-neutral-900 mb-2">
-              No connections yet
-            </h3>
+            <h3 className="text-base font-semibold text-neutral-900 mb-2">No connections yet</h3>
             <p className="text-sm text-neutral-600 mb-6 max-w-sm leading-relaxed">
               Add your first LLM provider to start generating intelligent automation workflows.
               Supports 12+ providers including OpenAI, Azure, AWS, and self-hosted options.
@@ -225,8 +224,8 @@ export function ConnectionsPanel() {
                   bg-white rounded-xl border-2 p-5 transition-all cursor-pointer
                   ${
                     selectedConnectionId === connection.id
-                      ? "border-primary-400 shadow-md"
-                      : "border-neutral-200 hover:border-neutral-300"
+                      ? 'border-primary-400 shadow-md'
+                      : 'border-neutral-200 hover:border-neutral-300'
                   }
                 `}
                 onClick={() => selectConnection(connection.id)}
@@ -254,9 +253,7 @@ export function ConnectionsPanel() {
                       )}
 
                       {/* Health Status */}
-                      <div className="flex items-center gap-1">
-                        {getHealthIcon(connection)}
-                      </div>
+                      <div className="flex items-center gap-1">{getHealthIcon(connection)}</div>
                     </div>
 
                     {/* Connection Name */}
@@ -292,9 +289,7 @@ export function ConnectionsPanel() {
                       title="Test connection"
                     >
                       <RefreshCw
-                        className={`w-4 h-4 ${
-                          testingId === connection.id ? "animate-spin" : ""
-                        }`}
+                        className={`w-4 h-4 ${testingId === connection.id ? 'animate-spin' : ''}`}
                       />
                     </button>
 
@@ -334,14 +329,14 @@ export function ConnectionsPanel() {
                         p-2 rounded-lg transition-colors
                         ${
                           deleteConfirmId === connection.id
-                            ? "bg-red-100 text-red-700 hover:bg-red-200"
-                            : "hover:bg-neutral-100 text-neutral-600 hover:text-red-600"
+                            ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                            : 'hover:bg-neutral-100 text-neutral-600 hover:text-red-600'
                         }
                       `}
                       title={
                         deleteConfirmId === connection.id
-                          ? "Click again to confirm"
-                          : "Delete connection"
+                          ? 'Click again to confirm'
+                          : 'Delete connection'
                       }
                     >
                       <Trash2 className="w-4 h-4" />
@@ -352,9 +347,7 @@ export function ConnectionsPanel() {
                 {/* Error Message */}
                 {connection.healthStatus?.errorMessage && (
                   <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-xs text-red-700">
-                      {connection.healthStatus.errorMessage}
-                    </p>
+                    <p className="text-xs text-red-700">{connection.healthStatus.errorMessage}</p>
                   </div>
                 )}
               </div>

@@ -64,10 +64,7 @@ export class UsersController {
   @Roles(UserRole.SKULD_ADMIN)
   @RequirePermissions(CP_PERMISSIONS.USERS_DELETE)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async delete(
-    @Param('id') id: string,
-    @CurrentUser() currentUser: User,
-  ): Promise<void> {
+  async delete(@Param('id') id: string, @CurrentUser() currentUser: User): Promise<void> {
     return this.usersService.delete(id, currentUser);
   }
 

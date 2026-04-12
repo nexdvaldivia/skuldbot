@@ -150,4 +150,3 @@ if (failures.length > 0) {
 }
 
 console.log('Regulatory config guardrails passed.');
-

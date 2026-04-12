@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ChevronRight,
   Search,
@@ -21,27 +21,34 @@ import {
   Wand2,
   Shield,
   KeyRound,
-} from "lucide-react";
-import { open } from "@tauri-apps/api/shell";
-import { nodeTemplates } from "../data/nodeTemplates";
-import { NodeTemplate, NodeCategory } from "../types/flow";
-import { Icon } from "./ui/Icon";
-import { Input } from "./ui/Input";
-import { categoryColors, categoryIcons, categoryNames, categoryOrder } from "../lib/design-tokens";
-import { ScrollArea } from "./ui/scroll-area";
-import { setDraggedNodeData, getDraggedNodeData, clearDraggedNodeData, setPendingNodeTemplate, getPendingNodeTemplate, clearPendingNodeTemplate } from "../store/flowStore";
-import { useProjectStore } from "../store/projectStore";
-import { useTabsStore } from "../store/tabsStore";
-import { useNavigationStore } from "../store/navigationStore";
-import { useAIPlannerV2Store } from "../store/aiPlannerV2Store";
-import { useCanUseAIPlanner, useLicenseStatus } from "../store/licenseStore";
-import { LicenseDialog } from "./LicenseDialog";
+} from 'lucide-react';
+import { open } from '@tauri-apps/api/shell';
+import { nodeTemplates } from '../data/nodeTemplates';
+import { NodeTemplate, NodeCategory } from '../types/flow';
+import { Icon } from './ui/Icon';
+import { Input } from './ui/Input';
+import { categoryColors, categoryIcons, categoryNames, categoryOrder } from '../lib/design-tokens';
+import { ScrollArea } from './ui/scroll-area';
+import {
+  setDraggedNodeData,
+  getDraggedNodeData,
+  clearDraggedNodeData,
+  setPendingNodeTemplate,
+  getPendingNodeTemplate,
+  clearPendingNodeTemplate,
+} from '../store/flowStore';
+import { useProjectStore } from '../store/projectStore';
+import { useTabsStore } from '../store/tabsStore';
+import { useNavigationStore } from '../store/navigationStore';
+import { useAIPlannerV2Store } from '../store/aiPlannerV2Store';
+import { useCanUseAIPlanner, useLicenseStatus } from '../store/licenseStore';
+import { LicenseDialog } from './LicenseDialog';
 
 // ============================================================
 // Sidebar Tab Types
 // ============================================================
 
-type SidebarTab = "explorer" | "nodes" | "ai-planner";
+type SidebarTab = 'explorer' | 'nodes' | 'ai-planner';
 
 // ============================================================
 // Unified Sidebar Component
@@ -49,14 +56,14 @@ type SidebarTab = "explorer" | "nodes" | "ai-planner";
 
 export default function UnifiedSidebar() {
   const { project } = useProjectStore();
-  const [activeTab, setActiveTab] = useState<SidebarTab>(project ? "explorer" : "nodes");
+  const [activeTab, setActiveTab] = useState<SidebarTab>(project ? 'explorer' : 'nodes');
   const { openPanel } = useAIPlannerV2Store();
   const canUseAI = useCanUseAIPlanner();
 
   // Switch to explorer when project opens
   useEffect(() => {
     if (project) {
-      setActiveTab("explorer");
+      setActiveTab('explorer');
     }
   }, [project]);
 
@@ -70,11 +77,11 @@ export default function UnifiedSidebar() {
       <div className="flex border-b bg-muted/30 h-12">
         {project && (
           <button
-            onClick={() => setActiveTab("explorer")}
+            onClick={() => setActiveTab('explorer')}
             className={`flex-1 flex items-center justify-center gap-2 px-4 text-sm font-medium transition-colors ${
-              activeTab === "explorer"
-                ? "text-primary border-b-2 border-primary bg-card"
-                : "text-muted-foreground hover:text-foreground"
+              activeTab === 'explorer'
+                ? 'text-primary border-b-2 border-primary bg-card'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <FolderTree className="w-4 h-4" />
@@ -82,11 +89,11 @@ export default function UnifiedSidebar() {
           </button>
         )}
         <button
-          onClick={() => setActiveTab("nodes")}
+          onClick={() => setActiveTab('nodes')}
           className={`flex-1 flex items-center justify-center gap-2 px-4 text-sm font-medium transition-colors ${
-            activeTab === "nodes"
-              ? "text-primary border-b-2 border-primary bg-card"
-              : "text-muted-foreground hover:text-foreground"
+            activeTab === 'nodes'
+              ? 'text-primary border-b-2 border-primary bg-card'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <Sparkles className="w-4 h-4" />
@@ -95,26 +102,25 @@ export default function UnifiedSidebar() {
         <button
           onClick={handleAIPlannerClick}
           className={`flex-1 flex items-center justify-center gap-2 px-4 text-sm font-medium transition-colors relative ${
-            activeTab === "ai-planner"
-              ? "text-primary border-b-2 border-primary bg-card"
-              : "text-muted-foreground hover:text-foreground"
+            activeTab === 'ai-planner'
+              ? 'text-primary border-b-2 border-primary bg-card'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
-          title={canUseAI ? "AI Planner" : "AI Planner (License Required)"}
+          title={canUseAI ? 'AI Planner' : 'AI Planner (License Required)'}
         >
           <Wand2 className="w-4 h-4" />
           <span>AI</span>
           {!canUseAI && (
-            <span className="absolute top-1 right-1 w-2 h-2 bg-amber-400 rounded-full" title="License required" />
+            <span
+              className="absolute top-1 right-1 w-2 h-2 bg-amber-400 rounded-full"
+              title="License required"
+            />
           )}
         </button>
       </div>
 
       {/* Tab Content */}
-      {activeTab === "explorer" && project ? (
-        <ExplorerContent />
-      ) : (
-        <NodesContent />
-      )}
+      {activeTab === 'explorer' && project ? <ExplorerContent /> : <NodesContent />}
     </div>
   );
 }
@@ -124,15 +130,18 @@ export default function UnifiedSidebar() {
 // ============================================================
 
 function ExplorerContent() {
-  const { project, projectPath, bots, activeBotId, openBot, createBot, deleteBot, renameBot } = useProjectStore();
+  const { project, projectPath, bots, activeBotId, openBot, createBot, deleteBot, renameBot } =
+    useProjectStore();
   const { openTab, updateTabTitle } = useTabsStore();
   const { setView } = useNavigationStore();
   const { isActivated, modules } = useLicenseStatus();
   const [showCreateBot, setShowCreateBot] = useState(false);
-  const [newBotName, setNewBotName] = useState("");
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; botId: string } | null>(null);
+  const [newBotName, setNewBotName] = useState('');
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; botId: string } | null>(
+    null,
+  );
   const [renamingBotId, setRenamingBotId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState("");
+  const [renameValue, setRenameValue] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
   const [copiedPath, setCopiedPath] = useState(false);
   const [showLicenseDialog, setShowLicenseDialog] = useState(false);
@@ -140,7 +149,7 @@ function ExplorerContent() {
   const handleCreateBot = async () => {
     if (!newBotName.trim()) return;
     const botId = await createBot(newBotName);
-    setNewBotName("");
+    setNewBotName('');
     setShowCreateBot(false);
     // Open the new bot
     if (botId) {
@@ -157,7 +166,7 @@ function ExplorerContent() {
 
     openTab({
       id: `bot-${botId}`,
-      type: "bot",
+      type: 'bot',
       botId,
       title: bot.name,
       isDirty: bot.isDirty,
@@ -215,7 +224,7 @@ function ExplorerContent() {
 
   const handleCancelRename = () => {
     setRenamingBotId(null);
-    setRenameValue("");
+    setRenameValue('');
   };
 
   const handleRevealInFinder = async (botId: string) => {
@@ -224,7 +233,7 @@ function ExplorerContent() {
     try {
       await open(bot.path);
     } catch (err) {
-      console.error("Failed to open in Finder:", err);
+      console.error('Failed to open in Finder:', err);
     }
     setContextMenu(null);
   };
@@ -243,7 +252,7 @@ function ExplorerContent() {
     try {
       await open(projectPath);
     } catch (err) {
-      console.error("Failed to open project in Finder:", err);
+      console.error('Failed to open project in Finder:', err);
     }
   };
 
@@ -258,8 +267,8 @@ function ExplorerContent() {
   // Close context menu when clicking outside
   useEffect(() => {
     const handleClick = () => setContextMenu(null);
-    window.addEventListener("click", handleClick);
-    return () => window.removeEventListener("click", handleClick);
+    window.addEventListener('click', handleClick);
+    return () => window.removeEventListener('click', handleClick);
   }, []);
 
   return (
@@ -273,10 +282,10 @@ function ExplorerContent() {
             </div>
             <div className="min-w-0">
               <h3 className="text-sm font-semibold text-foreground truncate">
-                {project?.project.name || "Project"}
+                {project?.project.name || 'Project'}
               </h3>
               <p className="text-xs text-muted-foreground">
-                {bots.size} bot{bots.size !== 1 ? "s" : ""}
+                {bots.size} bot{bots.size !== 1 ? 's' : ''}
               </p>
             </div>
           </div>
@@ -296,7 +305,7 @@ function ExplorerContent() {
               <Plus className="w-4 h-4" />
             </button>
             <button
-              onClick={() => setView("welcome")}
+              onClick={() => setView('welcome')}
               className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
               title="Home"
             >
@@ -318,10 +327,10 @@ function ExplorerContent() {
               className="h-8 text-sm"
               autoFocus
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreateBot();
-                if (e.key === "Escape") {
+                if (e.key === 'Enter') handleCreateBot();
+                if (e.key === 'Escape') {
                   setShowCreateBot(false);
-                  setNewBotName("");
+                  setNewBotName('');
                 }
               }}
             />
@@ -352,8 +361,8 @@ function ExplorerContent() {
                   onContextMenu={(e) => handleContextMenu(e, bot.id)}
                   className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left transition-colors group cursor-pointer ${
                     activeBotId === bot.id
-                      ? "bg-primary/10 text-primary"
-                      : "hover:bg-accent text-foreground"
+                      ? 'bg-primary/10 text-primary'
+                      : 'hover:bg-accent text-foreground'
                   }`}
                 >
                   <Bot className="w-4 h-4 flex-shrink-0" />
@@ -365,9 +374,9 @@ function ExplorerContent() {
                       onChange={(e) => setRenameValue(e.target.value)}
                       onBlur={handleConfirmRename}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") {
+                        if (e.key === 'Enter') {
                           handleConfirmRename();
-                        } else if (e.key === "Escape") {
+                        } else if (e.key === 'Escape') {
                           handleCancelRename();
                         }
                       }}
@@ -416,21 +425,27 @@ function ExplorerContent() {
             </div>
             <div className="space-y-0.5">
               <button
-                onClick={() => openTab({ id: "settings", type: "settings", title: "Settings", isDirty: false })}
+                onClick={() =>
+                  openTab({ id: 'settings', type: 'settings', title: 'Settings', isDirty: false })
+                }
                 className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left hover:bg-accent text-foreground transition-colors"
               >
                 <Settings className="w-4 h-4" />
                 <span className="text-sm">Project Settings</span>
               </button>
               <button
-                onClick={() => openTab({ id: "env", type: "env", title: "Environment", isDirty: false })}
+                onClick={() =>
+                  openTab({ id: 'env', type: 'env', title: 'Environment', isDirty: false })
+                }
                 className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left hover:bg-accent text-foreground transition-colors"
               >
                 <Variable className="w-4 h-4" />
                 <span className="text-sm">Environment Variables</span>
               </button>
               <button
-                onClick={() => openTab({ id: "secrets", type: "secrets", title: "Secrets", isDirty: false })}
+                onClick={() =>
+                  openTab({ id: 'secrets', type: 'secrets', title: 'Secrets', isDirty: false })
+                }
                 className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left hover:bg-accent text-foreground transition-colors"
               >
                 <KeyRound className="w-4 h-4" />
@@ -458,61 +473,59 @@ function ExplorerContent() {
       </ScrollArea>
 
       {/* License Dialog */}
-      <LicenseDialog
-        isOpen={showLicenseDialog}
-        onClose={() => setShowLicenseDialog(false)}
-      />
+      <LicenseDialog isOpen={showLicenseDialog} onClose={() => setShowLicenseDialog(false)} />
 
       {/* Context Menu */}
-      {contextMenu && createPortal(
-        <div
-          className="fixed z-[9999] bg-card rounded-lg shadow-xl border py-1 min-w-[160px]"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors"
-            onClick={() => {
-              handleOpenBot(contextMenu.botId);
-              setContextMenu(null);
-            }}
+      {contextMenu &&
+        createPortal(
+          <div
+            className="fixed z-[9999] bg-card rounded-lg shadow-xl border py-1 min-w-[160px]"
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <Play className="w-4 h-4" />
-            <span>Open</span>
-          </button>
-          <button
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors"
-            onClick={() => handleStartRename(contextMenu.botId)}
-          >
-            <Edit3 className="w-4 h-4" />
-            <span>Rename</span>
-          </button>
-          <div className="border-t my-1" />
-          <button
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors"
-            onClick={() => handleRevealInFinder(contextMenu.botId)}
-          >
-            <FolderOpen className="w-4 h-4" />
-            <span>Reveal in Finder</span>
-          </button>
-          <button
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors"
-            onClick={() => handleCopyPath(contextMenu.botId)}
-          >
-            <Copy className="w-4 h-4" />
-            <span>{copiedPath ? "Copied!" : "Copy Path"}</span>
-          </button>
-          <div className="border-t my-1" />
-          <button
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-            onClick={() => handleDeleteBot(contextMenu.botId)}
-          >
-            <Trash2 className="w-4 h-4" />
-            <span>Delete</span>
-          </button>
-        </div>,
-        document.body
-      )}
+            <button
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors"
+              onClick={() => {
+                handleOpenBot(contextMenu.botId);
+                setContextMenu(null);
+              }}
+            >
+              <Play className="w-4 h-4" />
+              <span>Open</span>
+            </button>
+            <button
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors"
+              onClick={() => handleStartRename(contextMenu.botId)}
+            >
+              <Edit3 className="w-4 h-4" />
+              <span>Rename</span>
+            </button>
+            <div className="border-t my-1" />
+            <button
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors"
+              onClick={() => handleRevealInFinder(contextMenu.botId)}
+            >
+              <FolderOpen className="w-4 h-4" />
+              <span>Reveal in Finder</span>
+            </button>
+            <button
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors"
+              onClick={() => handleCopyPath(contextMenu.botId)}
+            >
+              <Copy className="w-4 h-4" />
+              <span>{copiedPath ? 'Copied!' : 'Copy Path'}</span>
+            </button>
+            <div className="border-t my-1" />
+            <button
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+              onClick={() => handleDeleteBot(contextMenu.botId)}
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Delete</span>
+            </button>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }
@@ -522,9 +535,9 @@ function ExplorerContent() {
 // ============================================================
 
 function NodesContent() {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Set<NodeCategory>>(
-    new Set() // Start with all categories collapsed
+    new Set(), // Start with all categories collapsed
   );
 
   const toggleCategory = (categoryId: NodeCategory) => {
@@ -542,15 +555,15 @@ function NodesContent() {
 
     // Set data in multiple formats for compatibility
     try {
-      event.dataTransfer.setData("application/reactflow", data);
-      event.dataTransfer.setData("text/plain", data);
-      event.dataTransfer.setData("text", data);
+      event.dataTransfer.setData('application/reactflow', data);
+      event.dataTransfer.setData('text/plain', data);
+      event.dataTransfer.setData('text', data);
     } catch {
       // Ignore - will use global fallback
     }
 
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.dropEffect = "move";
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.dropEffect = 'move';
 
     // Always set global variable as fallback for WebKit
     setDraggedNodeData(nodeTemplate);
@@ -572,17 +585,19 @@ function NodesContent() {
         (n) =>
           n.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
           n.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          n.type.toLowerCase().includes(searchQuery.toLowerCase())
+          n.type.toLowerCase().includes(searchQuery.toLowerCase()),
       )
     : nodeTemplates;
 
-  const categoryCounts = categoryOrder.reduce((acc, cat) => {
-    acc[cat] = nodeTemplates.filter((n) => n.category === cat).length;
-    return acc;
-  }, {} as Record<NodeCategory, number>);
+  const categoryCounts = categoryOrder.reduce(
+    (acc, cat) => {
+      acc[cat] = nodeTemplates.filter((n) => n.category === cat).length;
+      return acc;
+    },
+    {} as Record<NodeCategory, number>,
+  );
 
   const totalNodes = nodeTemplates.length;
-
 
   return (
     <>
@@ -593,12 +608,8 @@ function NodesContent() {
             <Sparkles className="w-4 h-4" style={{ color: '#00A36C' }} />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-foreground">
-              Node Library
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              {totalNodes} nodes available
-            </p>
+            <h2 className="text-sm font-semibold text-foreground">Node Library</h2>
+            <p className="text-xs text-muted-foreground">{totalNodes} nodes available</p>
           </div>
         </div>
 
@@ -665,9 +676,11 @@ function NodesContent() {
                   >
                     <ChevronRight
                       size={14}
-                      className={`text-muted-foreground transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
+                      className={`text-muted-foreground transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`}
                     />
-                    <div className={`w-6 h-6 rounded-md flex items-center justify-center ${colors.bg} ${colors.text}`}>
+                    <div
+                      className={`w-6 h-6 rounded-md flex items-center justify-center ${colors.bg} ${colors.text}`}
+                    >
                       <Icon name={iconName} size={13} />
                     </div>
                     <span className="text-sm font-medium text-foreground flex-1 truncate">
@@ -726,8 +739,8 @@ function NodeItem({
   showCategory?: boolean;
 }) {
   const colors = categoryColors[node.category] || categoryColors.control;
-  const isAI = node.category === "ai";
-  const isPython = node.category === "python";
+  const isAI = node.category === 'ai';
+  const isPython = node.category === 'python';
   const isSpecial = isAI || isPython;
 
   const [isPending, setIsPending] = useState(false);
@@ -738,7 +751,8 @@ function NodeItem({
       setIsPending(e.detail?.type === node.type);
     };
     window.addEventListener('pendingNodeChange', handlePendingChange as EventListener);
-    return () => window.removeEventListener('pendingNodeChange', handlePendingChange as EventListener);
+    return () =>
+      window.removeEventListener('pendingNodeChange', handlePendingChange as EventListener);
   }, [node.type]);
 
   const handleClick = () => {
@@ -780,23 +794,29 @@ function NodeItem({
         className={`
           group flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer
           border transition-all duration-100 select-none
-          ${isPending
-            ? "bg-primary/10 border-primary ring-2 ring-primary/20"
-            : "border-transparent hover:bg-emerald-50 hover:border-emerald-200"}
+          ${
+            isPending
+              ? 'bg-primary/10 border-primary ring-2 ring-primary/20'
+              : 'border-transparent hover:bg-emerald-50 hover:border-emerald-200'
+          }
           active:scale-[0.98]
-          ${isSpecial ? "hover:shadow-sm" : ""}
+          ${isSpecial ? 'hover:shadow-sm' : ''}
         `}
         style={{ WebkitUserDrag: 'element' } as React.CSSProperties}
       >
-        <div className={`
+        <div
+          className={`
           relative flex-shrink-0 w-7 h-7 rounded-md
           ${colors.bg} ${colors.text}
           flex items-center justify-center
-          ${isSpecial ? "ring-1 ring-inset ring-black/5" : ""}
-        `}>
+          ${isSpecial ? 'ring-1 ring-inset ring-black/5' : ''}
+        `}
+        >
           <Icon name={node.icon} size={13} />
           {isSpecial && (
-            <div className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ${colors.accent} ring-2 ring-card`} />
+            <div
+              className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ${colors.accent} ring-2 ring-card`}
+            />
           )}
         </div>
 
@@ -821,48 +841,47 @@ function NodeItem({
         />
       </div>
 
-      {showTooltip && createPortal(
-        <div
-          className="fixed z-[9999] pointer-events-none"
-          style={{
-            top: tooltipPos.top,
-            left: tooltipPos.left,
-            minWidth: '220px',
-            maxWidth: '280px'
-          }}
-        >
-          <div className="bg-slate-900 text-white rounded-lg shadow-2xl p-3 text-left animate-in fade-in slide-in-from-left-2 duration-150">
-            <div className="absolute left-0 top-3 -translate-x-full">
-              <div className="border-8 border-transparent border-r-slate-900" />
-            </div>
-
-            <div className="flex items-start gap-2.5">
-              <div className={`flex-shrink-0 w-8 h-8 rounded-lg ${colors.bg} ${colors.text} flex items-center justify-center`}>
-                <Icon name={node.icon} size={16} />
+      {showTooltip &&
+        createPortal(
+          <div
+            className="fixed z-[9999] pointer-events-none"
+            style={{
+              top: tooltipPos.top,
+              left: tooltipPos.left,
+              minWidth: '220px',
+              maxWidth: '280px',
+            }}
+          >
+            <div className="bg-slate-900 text-white rounded-lg shadow-2xl p-3 text-left animate-in fade-in slide-in-from-left-2 duration-150">
+              <div className="absolute left-0 top-3 -translate-x-full">
+                <div className="border-8 border-transparent border-r-slate-900" />
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-sm text-white leading-tight">
-                  {node.label}
+
+              <div className="flex items-start gap-2.5">
+                <div
+                  className={`flex-shrink-0 w-8 h-8 rounded-lg ${colors.bg} ${colors.text} flex items-center justify-center`}
+                >
+                  <Icon name={node.icon} size={16} />
                 </div>
-                <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                  {node.type}
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm text-white leading-tight">{node.label}</div>
+                  <div className="text-[10px] text-slate-400 font-mono mt-0.5">{node.type}</div>
                 </div>
               </div>
-            </div>
 
-            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-              {node.description}
-            </p>
+              <p className="text-xs text-slate-300 mt-2 leading-relaxed">{node.description}</p>
 
-            <div className="mt-2 pt-2 border-t border-slate-700">
-              <span className={`text-[10px] px-2 py-0.5 rounded-full ${colors.bg} ${colors.text} font-medium`}>
-                {categoryNames[node.category]}
-              </span>
+              <div className="mt-2 pt-2 border-t border-slate-700">
+                <span
+                  className={`text-[10px] px-2 py-0.5 rounded-full ${colors.bg} ${colors.text} font-medium`}
+                >
+                  {categoryNames[node.category]}
+                </span>
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

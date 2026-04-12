@@ -33,11 +33,7 @@ import { LicenseModule } from '../license/license.module';
  * - Uses LicenseModule for tenant identification
  */
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([BotInstallation]),
-    ConfigModule,
-    LicenseModule,
-  ],
+  imports: [TypeOrmModule.forFeature([BotInstallation]), ConfigModule, LicenseModule],
   controllers: [MarketplaceController],
   providers: [CatalogService, InstallationService],
   exports: [CatalogService, InstallationService],

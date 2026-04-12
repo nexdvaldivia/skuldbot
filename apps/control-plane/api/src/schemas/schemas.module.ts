@@ -11,6 +11,3 @@ import { DiscoveredSchema } from './entities/discovered-schema.entity';
   exports: [SchemasService],
 })
 export class SchemasModule {}
-
-
-

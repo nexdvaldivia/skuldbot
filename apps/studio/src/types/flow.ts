@@ -1,4 +1,4 @@
-import { Node, Edge } from "reactflow";
+import { Node, Edge } from 'reactflow';
 
 // DSL Types
 export interface BotDSL {
@@ -10,8 +10,8 @@ export interface BotDSL {
   };
   nodes: DSLNode[];
   variables?: Record<string, VariableDefinition>;
-  triggers?: string[];    // IDs of trigger nodes (can be multiple)
-  start_node?: string;    // Deprecated: use triggers[] instead
+  triggers?: string[]; // IDs of trigger nodes (can be multiple)
+  start_node?: string; // Deprecated: use triggers[] instead
 }
 
 export interface DSLNode {
@@ -24,7 +24,7 @@ export interface DSLNode {
   };
   label?: string;
   description?: string;
-  position?: { x: number; y: number };  // Visual position in editor
+  position?: { x: number; y: number }; // Visual position in editor
   // Container nodes: nested nodes that execute inside this container
   children?: DSLNode[];
   // AI Agent: connected tools (node IDs that this agent can use)
@@ -40,9 +40,9 @@ export interface DSLNode {
   connection_config?: Record<string, any>;
   // Special connections (model, tools, memory, embeddings, connection) - persisted for UI reconstruction
   connections?: {
-    model?: string;      // ID of connected AI Model node
-    tools?: string[];    // IDs of connected tool nodes
-    memory?: string;     // ID of connected Vector Memory node
+    model?: string; // ID of connected AI Model node
+    tools?: string[]; // IDs of connected tool nodes
+    memory?: string; // ID of connected Vector Memory node
     embeddings?: string; // ID of connected Embeddings node
     connection?: string; // ID of connected service node (MS365 Connection, etc.)
   };
@@ -50,7 +50,7 @@ export interface DSLNode {
 
 // AI Model Configuration - defines the LLM used by an agent
 export interface ModelConfig {
-  provider: "openai" | "anthropic" | "azure" | "ollama" | "google" | "aws" | "groq" | "mistral";
+  provider: 'openai' | 'anthropic' | 'azure' | 'ollama' | 'google' | 'aws' | 'groq' | 'mistral';
   model: string;
   temperature?: number;
   max_tokens?: number;
@@ -64,9 +64,9 @@ export interface ModelConfig {
 
 // Memory Configuration - defines vector store for agent memory
 export interface MemoryConfig {
-  provider: "chroma" | "pgvector" | "supabase" | "pinecone" | "qdrant";
+  provider: 'chroma' | 'pgvector' | 'supabase' | 'pinecone' | 'qdrant';
   collection: string;
-  memory_type: "retrieve" | "store" | "both";
+  memory_type: 'retrieve' | 'store' | 'both';
   top_k?: number;
   min_score?: number;
   connection_params?: Record<string, any>;
@@ -74,7 +74,7 @@ export interface MemoryConfig {
 
 // Embeddings Configuration - defines embedding model
 export interface EmbeddingsConfig {
-  provider: "openai" | "azure" | "ollama" | "cohere" | "huggingface" | "google" | "aws";
+  provider: 'openai' | 'azure' | 'ollama' | 'cohere' | 'huggingface' | 'google' | 'aws';
   model: string;
   dimension?: number;
   api_key?: string;
@@ -84,14 +84,14 @@ export interface EmbeddingsConfig {
 
 // AI Agent Tool Connection - defines a tool available to the agent
 export interface AgentToolConnection {
-  nodeId: string;           // ID of the connected node
-  name: string;             // Tool name for the LLM
-  description: string;      // What this tool does (for LLM)
-  inputMapping?: Record<string, string>;  // Map agent params to node config
+  nodeId: string; // ID of the connected node
+  name: string; // Tool name for the LLM
+  description: string; // What this tool does (for LLM)
+  inputMapping?: Record<string, string>; // Map agent params to node config
 }
 
 export interface VariableDefinition {
-  type: "string" | "number" | "boolean" | "credential" | "file" | "json";
+  type: 'string' | 'number' | 'boolean' | 'credential' | 'file' | 'json';
   value?: any;
   vault?: string;
   description?: string;
@@ -99,40 +99,40 @@ export interface VariableDefinition {
 
 // Node Categories - Complete RPA Platform
 export type NodeCategory =
-  | "web"          // Web Automation
-  | "desktop"      // Desktop Automation (Windows)
-  | "storage"      // Multi-Provider Storage (S3, Azure, GCS, SharePoint, etc.)
-  | "files"        // Files & Folders (uses Storage Provider)
-  | "excel"        // Excel / CSV / Data
-  | "email"        // Email
-  | "api"          // API & Integration
-  | "database"     // Database
-  | "document"     // PDF / OCR / Documents
-  | "ai"           // AI / Intelligent Automation
-  | "vectordb"     // Vector Databases / Memory (RAG)
-  | "code"         // Custom Code (JavaScript & Python - for visual flows)
-  | "python"       // Python Project Execution
-  | "control"      // Control Flow (Map, Filter, Reduce)
-  | "logging"      // Logging & Monitoring
-  | "security"     // Security & Secrets
-  | "human"        // Human-in-the-loop
-  | "compliance"   // PII/PHI Protection & HIPAA Safe Harbor
-  | "dataquality"  // Data Quality Gates (Great Expectations)
-  | "data"         // Data Integration (Taps & Targets)
-  | "bot"          // Bot Subprocess (Call other bots)
-  | "voice"        // Voice & Telephony (Twilio + Azure Speech)
-  | "insurance"    // Insurance (FNOL, Policy, Claims)
-  | "trigger"      // Scheduling & Triggers
-  | "ms365";       // Microsoft 365 (Outlook, Calendar, OneDrive, Teams)
+  | 'web' // Web Automation
+  | 'desktop' // Desktop Automation (Windows)
+  | 'storage' // Multi-Provider Storage (S3, Azure, GCS, SharePoint, etc.)
+  | 'files' // Files & Folders (uses Storage Provider)
+  | 'excel' // Excel / CSV / Data
+  | 'email' // Email
+  | 'api' // API & Integration
+  | 'database' // Database
+  | 'document' // PDF / OCR / Documents
+  | 'ai' // AI / Intelligent Automation
+  | 'vectordb' // Vector Databases / Memory (RAG)
+  | 'code' // Custom Code (JavaScript & Python - for visual flows)
+  | 'python' // Python Project Execution
+  | 'control' // Control Flow (Map, Filter, Reduce)
+  | 'logging' // Logging & Monitoring
+  | 'security' // Security & Secrets
+  | 'human' // Human-in-the-loop
+  | 'compliance' // PII/PHI Protection & HIPAA Safe Harbor
+  | 'dataquality' // Data Quality Gates (Great Expectations)
+  | 'data' // Data Integration (Taps & Targets)
+  | 'bot' // Bot Subprocess (Call other bots)
+  | 'voice' // Voice & Telephony (Twilio + Azure Speech)
+  | 'insurance' // Insurance (FNOL, Policy, Claims)
+  | 'trigger' // Scheduling & Triggers
+  | 'ms365'; // Microsoft 365 (Outlook, Calendar, OneDrive, Teams)
 
 // Output field definition - what data a node produces
 export interface OutputField {
   name: string;
-  type: "string" | "number" | "boolean" | "object" | "array" | "any";
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'any';
   description?: string;
   example?: string;
   items?: {
-    type: "string" | "number" | "boolean" | "object" | "any";
+    type: 'string' | 'number' | 'boolean' | 'object' | 'any';
     fields?: OutputField[];
   };
 }
@@ -145,69 +145,81 @@ export interface NodeTemplate {
   icon: string;
   defaultConfig: Record<string, any>;
   configSchema: ConfigField[];
-  outputSchema?: OutputField[];  // Fields this node outputs to the flow
+  outputSchema?: OutputField[]; // Fields this node outputs to the flow
 }
 
 export interface ConfigField {
   name: string;
   label: string;
-  type: "text" | "number" | "boolean" | "select" | "textarea" | "password" | "form-builder" | "expression" | "validation-builder" | "protection-builder" | "node-select" | "bot-select";
+  type:
+    | 'text'
+    | 'number'
+    | 'boolean'
+    | 'select'
+    | 'textarea'
+    | 'password'
+    | 'form-builder'
+    | 'expression'
+    | 'validation-builder'
+    | 'protection-builder'
+    | 'node-select'
+    | 'bot-select';
   required?: boolean;
   default?: any;
   options?: { value: string; label: string }[];
   placeholder?: string;
-  description?: string;  // Help text shown below the field
-  supportsExpressions?: boolean;  // Allow ${node.field} syntax in this field
-  secret?: boolean;  // Mask the field value (for passwords, API keys)
-  visibleWhen?: { field: string; value: string | string[] };  // Conditional visibility based on another field's value
-  nodeType?: string;  // For "node-select" type: the node type to filter by (e.g., "storage.provider")
+  description?: string; // Help text shown below the field
+  supportsExpressions?: boolean; // Allow ${node.field} syntax in this field
+  secret?: boolean; // Mask the field value (for passwords, API keys)
+  visibleWhen?: { field: string; value: string | string[] }; // Conditional visibility based on another field's value
+  nodeType?: string; // For "node-select" type: the node type to filter by (e.g., "storage.provider")
 }
 
 // Validation Builder Types (for dataquality.run_suite)
 export type ValidationRuleType =
-  | "not_null"
-  | "unique"
-  | "regex"
-  | "in_set"
-  | "not_in_set"
-  | "between"
-  | "greater_than"
-  | "less_than"
-  | "length_between"
-  | "email"
-  | "date_format"
-  | "json_schema";
+  | 'not_null'
+  | 'unique'
+  | 'regex'
+  | 'in_set'
+  | 'not_in_set'
+  | 'between'
+  | 'greater_than'
+  | 'less_than'
+  | 'length_between'
+  | 'email'
+  | 'date_format'
+  | 'json_schema';
 
 export interface ValidationRule {
   id: string;
   field: string;
   type: ValidationRuleType;
-  params?: Record<string, any>;  // pattern, values, min, max, etc.
+  params?: Record<string, any>; // pattern, values, min, max, etc.
 }
 
 // Protection Builder Types (for compliance.protect_pii and compliance.protect_phi)
 export type ProtectionMethodType =
-  | "skip"          // Pass through unchanged (no transformation)
-  | "mask"          // Replace with *** (preserving length)
-  | "redact"        // Replace with [REDACTED]
-  | "pseudonymize"  // Replace with consistent fake values
-  | "hash"          // Apply cryptographic hash
-  | "generalize"    // Reduce precision (age -> range, zip -> partial)
-  | "encrypt"       // Reversible encryption
-  | "tokenize";     // Replace with tokens (reversible via lookup)
+  | 'skip' // Pass through unchanged (no transformation)
+  | 'mask' // Replace with *** (preserving length)
+  | 'redact' // Replace with [REDACTED]
+  | 'pseudonymize' // Replace with consistent fake values
+  | 'hash' // Apply cryptographic hash
+  | 'generalize' // Reduce precision (age -> range, zip -> partial)
+  | 'encrypt' // Reversible encryption
+  | 'tokenize'; // Replace with tokens (reversible via lookup)
 
 export interface ProtectionRule {
   id: string;
   field: string;
   method: ProtectionMethodType;
-  outputName?: string;  // Rename the field in output (optional)
-  params?: Record<string, any>;  // mask_char, hash_algorithm, preserve_last, etc.
+  outputName?: string; // Rename the field in output (optional)
+  params?: Record<string, any>; // mask_char, hash_algorithm, preserve_last, etc.
 }
 
 // Form Builder Types (for trigger.form)
 export interface FormFieldDefinition {
   id: string;
-  type: "text" | "email" | "number" | "date" | "dropdown" | "checkbox" | "file" | "textarea";
+  type: 'text' | 'email' | 'number' | 'date' | 'dropdown' | 'checkbox' | 'file' | 'textarea';
   label: string;
   placeholder?: string;
   required?: boolean;
@@ -222,13 +234,13 @@ export interface FormFieldDefinition {
 
 // Container Node Types - nodes that can hold other nodes inside
 export const CONTAINER_NODE_TYPES = [
-  "control.loop",       // For Each loop
-  "control.while",      // While loop
-  "control.if",         // If/Else branch
-  "control.try_catch",  // Try/Catch block
+  'control.loop', // For Each loop
+  'control.while', // While loop
+  'control.if', // If/Else branch
+  'control.try_catch', // Try/Catch block
 ] as const;
 
-export type ContainerNodeType = typeof CONTAINER_NODE_TYPES[number];
+export type ContainerNodeType = (typeof CONTAINER_NODE_TYPES)[number];
 
 // Check if a node type is a container
 export function isContainerNodeType(nodeType: string): boolean {
@@ -254,16 +266,16 @@ export interface FlowNodeData {
 
 // React Flow Edge Data
 export interface FlowEdgeData {
-  edgeType: "success" | "error" | "tool" | "memory" | "embeddings" | "model" | "connection";
+  edgeType: 'success' | 'error' | 'tool' | 'memory' | 'embeddings' | 'model' | 'connection';
   // Color inherited from source node's category
   sourceColor?: string;
   // For tool edges: metadata about the tool connection
-  toolName?: string;         // Name shown to the LLM (e.g., "search_web")
-  toolDescription?: string;  // Description for the LLM (what this tool does)
+  toolName?: string; // Name shown to the LLM (e.g., "search_web")
+  toolDescription?: string; // Description for the LLM (what this tool does)
   // For memory edges: vector store connection metadata
-  memoryType?: "retrieve" | "store" | "both";  // How agent uses this memory
+  memoryType?: 'retrieve' | 'store' | 'both'; // How agent uses this memory
   // For connection edges: service connection (MS365, databases, etc.)
-  connectionType?: string;   // Type of connection (e.g., "ms365", "database")
+  connectionType?: string; // Type of connection (e.g., "ms365", "database")
 }
 
 // React Flow Types - proper extension
@@ -296,7 +308,7 @@ export interface FlowState {
   setNodes: (nodes: FlowNode[]) => void;
   setEdges: (edges: FlowEdge[]) => void;
   setSelectedNode: (node: FlowNode | null) => void;
-  setBotInfo: (info: Partial<FlowState["botInfo"]>) => void;
+  setBotInfo: (info: Partial<FlowState['botInfo']>) => void;
 
   // DSL Operations
   generateDSL: () => BotDSL;
@@ -308,5 +320,3 @@ export interface FlowState {
   requiresFormInput: () => boolean;
   getFormTriggerConfig: () => FormTriggerConfig | null;
 }
-
-

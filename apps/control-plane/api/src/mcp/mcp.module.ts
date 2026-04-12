@@ -22,7 +22,7 @@ import { RunnerHeartbeatEntity } from './entities/runner-heartbeat.entity';
 
 /**
  * MCP Module for Control Plane
- * 
+ *
  * Provides centralized MCP services:
  * - Licensing (feature flags, SKUs, entitlements)
  * - Marketplace (bot catalog, subscriptions, partners)
@@ -54,12 +54,6 @@ import { RunnerHeartbeatEntity } from './entities/runner-heartbeat.entity';
       useClass: MCPMetricsInterceptor,
     },
   ],
-  exports: [
-    LicensingServer,
-    MarketplaceServer,
-    MeteringServer,
-    BillingServer,
-    MCPMetricsService,
-  ],
+  exports: [LicensingServer, MarketplaceServer, MeteringServer, BillingServer, MCPMetricsService],
 })
 export class MCPModule {}

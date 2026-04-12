@@ -26,8 +26,7 @@ export class OrchestratorFleetAuthGuard implements CanActivate {
     const jwtSecret = this.getJwtSecret();
     const expectedSharedSecret = this.getExpectedSharedSecret();
     if (!jwtSecret && !expectedSharedSecret) {
-      const isProduction =
-        this.configService.get<string>('NODE_ENV') === 'production';
+      const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
       if (isProduction) {
         throw new UnauthorizedException(
           'Fleet channel authentication is not configured in Control Plane',
@@ -55,14 +54,10 @@ export class OrchestratorFleetAuthGuard implements CanActivate {
     }
 
     if (!this.safeCompare(providedToken, expectedSharedSecret)) {
-      throw new UnauthorizedException(
-        'Invalid orchestrator authentication token',
-      );
+      throw new UnauthorizedException('Invalid orchestrator authentication token');
     }
 
-    const headerOrchestratorId = this.getHeaderValue(
-      request.headers['x-orchestrator-id'],
-    );
+    const headerOrchestratorId = this.getHeaderValue(request.headers['x-orchestrator-id']);
     if (
       headerOrchestratorId &&
       request.body?.orchestratorId &&
@@ -78,9 +73,7 @@ export class OrchestratorFleetAuthGuard implements CanActivate {
   }
 
   private getJwtSecret(): string {
-    return this.configService
-      .get<string>('ORCHESTRATOR_FLEET_JWT_SECRET', '')
-      .trim();
+    return this.configService.get<string>('ORCHESTRATOR_FLEET_JWT_SECRET', '').trim();
   }
 
   private getExpectedSharedSecret(): string {
@@ -94,9 +87,7 @@ export class OrchestratorFleetAuthGuard implements CanActivate {
     return this.configService.get<string>('CONTROL_PLANE_API_KEY', '').trim();
   }
 
-  private getProvidedToken(
-    headers: Record<string, string | string[] | undefined>,
-  ): string | null {
+  private getProvidedToken(headers: Record<string, string | string[] | undefined>): string | null {
     const headerToken = this.getHeaderValue(headers['x-orchestrator-token']);
     if (headerToken) {
       return headerToken;
@@ -152,30 +143,16 @@ export class OrchestratorFleetAuthGuard implements CanActivate {
 
       const payloadOrchestratorId = payload.sub || payload.orchestratorId || '';
       if (!payloadOrchestratorId) {
-        throw new UnauthorizedException(
-          'Invalid fleet JWT: missing orchestrator subject',
-        );
+        throw new UnauthorizedException('Invalid fleet JWT: missing orchestrator subject');
       }
 
-      const headerOrchestratorId = this.getHeaderValue(
-        request.headers['x-orchestrator-id'],
-      );
-      if (
-        headerOrchestratorId &&
-        headerOrchestratorId !== payloadOrchestratorId
-      ) {
-        throw new UnauthorizedException(
-          'Fleet JWT subject does not match x-orchestrator-id',
-        );
+      const headerOrchestratorId = this.getHeaderValue(request.headers['x-orchestrator-id']);
+      if (headerOrchestratorId && headerOrchestratorId !== payloadOrchestratorId) {
+        throw new UnauthorizedException('Fleet JWT subject does not match x-orchestrator-id');
       }
 
-      if (
-        request.body?.orchestratorId &&
-        request.body.orchestratorId !== payloadOrchestratorId
-      ) {
-        throw new UnauthorizedException(
-          'Fleet JWT subject does not match body.orchestratorId',
-        );
+      if (request.body?.orchestratorId && request.body.orchestratorId !== payloadOrchestratorId) {
+        throw new UnauthorizedException('Fleet JWT subject does not match body.orchestratorId');
       }
 
       const payloadTenantId = payload.tenantId?.trim();
@@ -185,15 +162,11 @@ export class OrchestratorFleetAuthGuard implements CanActivate {
 
       const headerTenantId = this.getHeaderValue(request.headers['x-tenant-id']).trim();
       if (headerTenantId && headerTenantId !== payloadTenantId) {
-        throw new UnauthorizedException(
-          'Fleet JWT tenant does not match x-tenant-id',
-        );
+        throw new UnauthorizedException('Fleet JWT tenant does not match x-tenant-id');
       }
 
       if (request.body?.tenantId && request.body.tenantId !== payloadTenantId) {
-        throw new UnauthorizedException(
-          'Fleet JWT tenant does not match body.tenantId',
-        );
+        throw new UnauthorizedException('Fleet JWT tenant does not match body.tenantId');
       }
     } catch (error) {
       if (error instanceof UnauthorizedException) {
@@ -222,9 +195,7 @@ export class OrchestratorFleetAuthGuard implements CanActivate {
       'ORCHESTRATOR_FLEET_CONTRACT_VERSION',
       '1',
     );
-    const providedVersion = this.getHeaderValue(
-      headers['x-fleet-contract-version'],
-    ).trim();
+    const providedVersion = this.getHeaderValue(headers['x-fleet-contract-version']).trim();
 
     if (!providedVersion) {
       throw new UnauthorizedException('Missing x-fleet-contract-version header');
@@ -237,10 +208,7 @@ export class OrchestratorFleetAuthGuard implements CanActivate {
     }
   }
 
-  private isCompatibleContractVersion(
-    provided: string,
-    expected: string,
-  ): boolean {
+  private isCompatibleContractVersion(provided: string, expected: string): boolean {
     const providedMajor = this.extractMajorVersion(provided);
     const expectedMajor = this.extractMajorVersion(expected);
 

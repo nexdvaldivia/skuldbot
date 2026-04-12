@@ -1,6 +1,6 @@
-import { useCallback } from "react";
-import { useProjectStore } from "../store/projectStore";
-import { useTabsStore } from "../store/tabsStore";
+import { useCallback } from 'react';
+import { useProjectStore } from '../store/projectStore';
+import { useTabsStore } from '../store/tabsStore';
 
 export function useAutoSave() {
   const { bots, saveBot } = useProjectStore();
@@ -14,7 +14,7 @@ export function useAutoSave() {
         promises.push(
           saveBot(botId).then(() => {
             setTabDirty(`bot-${botId}`, false);
-          })
+          }),
         );
       }
     }

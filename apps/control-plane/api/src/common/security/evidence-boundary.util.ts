@@ -51,9 +51,7 @@ function isEvidenceLikeKey(key: string): boolean {
   return EVIDENCE_KEY_TOKENS.some((token) => normalized.includes(token));
 }
 
-export function findEvidenceBoundaryViolations(
-  payload: unknown,
-): EvidenceBoundaryViolation[] {
+export function findEvidenceBoundaryViolations(payload: unknown): EvidenceBoundaryViolation[] {
   if (!isRecord(payload) && !Array.isArray(payload)) {
     return [];
   }
@@ -105,10 +103,7 @@ export function findEvidenceBoundaryViolations(
   return violations;
 }
 
-export function assertNoOperationalEvidencePayload(
-  payload: unknown,
-  context: string,
-): void {
+export function assertNoOperationalEvidencePayload(payload: unknown, context: string): void {
   const violations = findEvidenceBoundaryViolations(payload);
   if (violations.length === 0) {
     return;

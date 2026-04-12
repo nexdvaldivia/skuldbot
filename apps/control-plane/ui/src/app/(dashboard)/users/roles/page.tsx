@@ -300,7 +300,9 @@ export default function RolesPage() {
                         </Badge>
                         {role.isDefault && <Badge variant="outline">Default</Badge>}
                       </div>
-                      <p className="text-sm text-zinc-500 mt-1">{role.description || 'No description'}</p>
+                      <p className="text-sm text-zinc-500 mt-1">
+                        {role.description || 'No description'}
+                      </p>
                       <p className="text-xs text-zinc-400 mt-1">
                         {role.name}
                         {role.clientName ? ` • ${role.clientName}` : ''}
@@ -362,7 +364,10 @@ export default function RolesPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-zinc-700" htmlFor="rbac-role-display-name">
+                <label
+                  className="text-sm font-medium text-zinc-700"
+                  htmlFor="rbac-role-display-name"
+                >
                   Display Name
                 </label>
                 <Input
@@ -411,7 +416,9 @@ export default function RolesPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-zinc-700">Client (for client scope)</label>
+                <label className="text-sm font-medium text-zinc-700">
+                  Client (for client scope)
+                </label>
                 <Select
                   value={clientId || undefined}
                   onValueChange={(value) => setClientId(value)}
@@ -462,7 +469,9 @@ export default function RolesPage() {
                             className="mt-0.5 h-4 w-4 rounded border-zinc-300"
                           />
                           <span>
-                            <span className="font-medium text-zinc-900 block">{permission.code}</span>
+                            <span className="font-medium text-zinc-900 block">
+                              {permission.code}
+                            </span>
                             <span className="text-xs text-zinc-500">
                               {permission.description || permission.label}
                             </span>
@@ -520,7 +529,9 @@ function StatCard({
     <Card>
       <CardContent className="p-4">
         <div className="flex items-center gap-3 mb-3">
-          <div className={`h-8 w-8 rounded-lg ${colorClasses[color]} flex items-center justify-center`}>
+          <div
+            className={`h-8 w-8 rounded-lg ${colorClasses[color]} flex items-center justify-center`}
+          >
             <Icon className="h-4 w-4" />
           </div>
         </div>

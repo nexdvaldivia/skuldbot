@@ -273,9 +273,7 @@ export default function RolesPage() {
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Create Role</DialogTitle>
-            <DialogDescription>
-              Define a custom role with explicit permissions.
-            </DialogDescription>
+            <DialogDescription>Define a custom role with explicit permissions.</DialogDescription>
           </DialogHeader>
 
           <form className="space-y-4" onSubmit={handleCreateRole}>

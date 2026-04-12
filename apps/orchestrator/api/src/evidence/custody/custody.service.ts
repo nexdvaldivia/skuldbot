@@ -61,10 +61,7 @@ export class CustodyService {
     private readonly configService: ConfigService,
     @Inject(STORAGE_SERVICE) private readonly storageService: StorageService,
   ) {
-    this.bucket = this.configService.get<string>(
-      'storage.evidenceBucket',
-      'skuldbot-evidence',
-    );
+    this.bucket = this.configService.get<string>('storage.evidenceBucket', 'skuldbot-evidence');
     this.chainPrefix = this.configService.get<string>(
       'evidence.custody.prefix',
       'evidence-custody',
@@ -207,26 +204,20 @@ export class CustodyService {
       // Verify event hash
       const expectedHash = this.hashEvent({ ...event, eventHash: '' });
       if (event.eventHash !== expectedHash) {
-        this.logger.warn(
-          `Chain verification failed: event ${event.eventId} hash mismatch`,
-        );
+        this.logger.warn(`Chain verification failed: event ${event.eventId} hash mismatch`);
         return false;
       }
 
       // Verify link to previous event
       if (i === 0) {
         if (event.previousEventHash !== null) {
-          this.logger.warn(
-            `Chain verification failed: first event has previous hash`,
-          );
+          this.logger.warn(`Chain verification failed: first event has previous hash`);
           return false;
         }
       } else {
         const previousEvent = chain.events[i - 1];
         if (event.previousEventHash !== previousEvent.eventHash) {
-          this.logger.warn(
-            `Chain verification failed: event ${event.eventId} link broken`,
-          );
+          this.logger.warn(`Chain verification failed: event ${event.eventId} link broken`);
           return false;
         }
       }
@@ -352,9 +343,6 @@ export class CustodyService {
       previousEventHash: event.previousEventHash,
     };
 
-    return crypto
-      .createHash('sha256')
-      .update(JSON.stringify(data))
-      .digest('hex');
+    return crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex');
   }
 }

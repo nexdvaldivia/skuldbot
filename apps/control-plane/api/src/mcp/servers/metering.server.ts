@@ -95,8 +95,7 @@ export class MeteringServer {
       },
       {
         name: 'get_current_usage',
-        description:
-          'Get current usage and projected cost for a bot in the current billing period',
+        description: 'Get current usage and projected cost for a bot in the current billing period',
         inputSchema: {
           type: 'object',
           properties: {
@@ -162,8 +161,7 @@ export class MeteringServer {
       },
       {
         name: 'reset_usage_metrics',
-        description:
-          'Reset usage metrics (called at start of new billing period)',
+        description: 'Reset usage metrics (called at start of new billing period)',
         inputSchema: {
           type: 'object',
           properties: {
@@ -220,10 +218,7 @@ export class MeteringServer {
         case 'report_bot_execution':
           return await this.reportBotExecution(toolCall.arguments as BotExecution);
         case 'get_current_usage':
-          return await this.getCurrentUsage(
-            toolCall.arguments.tenantId,
-            toolCall.arguments.botId,
-          );
+          return await this.getCurrentUsage(toolCall.arguments.tenantId, toolCall.arguments.botId);
         case 'get_tenant_usage_summary':
           return await this.getTenantUsageSummary(
             toolCall.arguments.tenantId,
@@ -255,30 +250,22 @@ export class MeteringServer {
   }
 
   async readResource(uri: string): Promise<ResourceContent> {
-    const currentPeriodMatch = uri.match(
-      /metering:\/\/tenant\/([^/]+)\/current-period/,
-    );
+    const currentPeriodMatch = uri.match(/metering:\/\/tenant\/([^/]+)\/current-period/);
     if (currentPeriodMatch) {
       return this.getCurrentPeriodResource(currentPeriodMatch[1]);
     }
 
-    const botUsageMatch = uri.match(
-      /metering:\/\/tenant\/([^/]+)\/bots\/([^/]+)\/usage/,
-    );
+    const botUsageMatch = uri.match(/metering:\/\/tenant\/([^/]+)\/bots\/([^/]+)\/usage/);
     if (botUsageMatch) {
       return this.getBotUsageResource(botUsageMatch[1], botUsageMatch[2]);
     }
 
-    const runnersMatch = uri.match(
-      /metering:\/\/tenant\/([^/]+)\/runners\/active/,
-    );
+    const runnersMatch = uri.match(/metering:\/\/tenant\/([^/]+)\/runners\/active/);
     if (runnersMatch) {
       return this.getActiveRunnersResource(runnersMatch[1]);
     }
 
-    const projectedMatch = uri.match(
-      /metering:\/\/tenant\/([^/]+)\/projected-bill/,
-    );
+    const projectedMatch = uri.match(/metering:\/\/tenant\/([^/]+)\/projected-bill/);
     if (projectedMatch) {
       return this.getProjectedBillResource(projectedMatch[1]);
     }
@@ -300,8 +287,8 @@ export class MeteringServer {
       throw new Error('Invalid endTime');
     }
 
-    const metricEntries = Object.entries(execution.metrics ?? {}).filter(
-      ([, quantity]) => Number.isFinite(quantity as number),
+    const metricEntries = Object.entries(execution.metrics ?? {}).filter(([, quantity]) =>
+      Number.isFinite(quantity as number),
     );
     if (metricEntries.length === 0) {
       throw new Error('At least one numeric metric is required');
@@ -344,17 +331,10 @@ export class MeteringServer {
     };
   }
 
-  private async getCurrentUsage(
-    tenantId: string,
-    botId: string,
-  ): Promise<ToolResult> {
+  private async getCurrentUsage(tenantId: string, botId: string): Promise<ToolResult> {
     this.assertUuid(tenantId, 'tenantId');
     this.assertUuid(botId, 'botId');
-    const usage = await this.buildCurrentUsageSnapshot(
-      tenantId,
-      botId,
-      this.getCurrentPeriod(),
-    );
+    const usage = await this.buildCurrentUsageSnapshot(tenantId, botId, this.getCurrentPeriod());
 
     return {
       success: true,
@@ -362,10 +342,7 @@ export class MeteringServer {
     };
   }
 
-  private async getTenantUsageSummary(
-    tenantId: string,
-    period?: string,
-  ): Promise<ToolResult> {
+  private async getTenantUsageSummary(tenantId: string, period?: string): Promise<ToolResult> {
     this.assertUuid(tenantId, 'tenantId');
     const targetPeriod = period?.trim() || this.getCurrentPeriod();
     this.assertPeriod(targetPeriod);
@@ -381,16 +358,11 @@ export class MeteringServer {
       ),
     );
 
-    const totalBotCost = botUsage.reduce(
-      (sum, usage) => sum + Number(usage.willBeBilled ?? 0),
-      0,
-    );
+    const totalBotCost = botUsage.reduce((sum, usage) => sum + Number(usage.willBeBilled ?? 0), 0);
 
     const totalClaimsCompleted = usageRecords.reduce((sum, record) => {
       const normalized = this.normalizeMetric(record.metric);
-      return normalized === 'claimscompleted'
-        ? sum + Number(record.quantity)
-        : sum;
+      return normalized === 'claimscompleted' ? sum + Number(record.quantity) : sum;
     }, 0);
 
     const totalApiCalls = usageRecords.reduce((sum, record) => {
@@ -451,9 +423,7 @@ export class MeteringServer {
 
   private async getActiveRunners(tenantId: string): Promise<ToolResult> {
     this.assertUuid(tenantId, 'tenantId');
-    const minHeartbeatAt = new Date(
-      Date.now() - MeteringServer.ACTIVE_RUNNER_WINDOW_MS,
-    );
+    const minHeartbeatAt = new Date(Date.now() - MeteringServer.ACTIVE_RUNNER_WINDOW_MS);
 
     const activeRunners = await this.heartbeatRepository.find({
       where: {
@@ -476,20 +446,13 @@ export class MeteringServer {
           orchestratorId: runner.orchestratorId ?? null,
         })),
         totalActive: activeRunners.length,
-        attended: activeRunners.filter(
-          (runner) => runner.type === RunnerType.ATTENDED,
-        ).length,
-        unattended: activeRunners.filter(
-          (runner) => runner.type === RunnerType.UNATTENDED,
-        ).length,
+        attended: activeRunners.filter((runner) => runner.type === RunnerType.ATTENDED).length,
+        unattended: activeRunners.filter((runner) => runner.type === RunnerType.UNATTENDED).length,
       },
     };
   }
 
-  private async resetUsageMetrics(
-    tenantId: string,
-    period: string,
-  ): Promise<ToolResult> {
+  private async resetUsageMetrics(tenantId: string, period: string): Promise<ToolResult> {
     this.assertUuid(tenantId, 'tenantId');
     this.assertPeriod(period);
 
@@ -508,9 +471,7 @@ export class MeteringServer {
     };
   }
 
-  private async getCurrentPeriodResource(
-    tenantId: string,
-  ): Promise<ResourceContent> {
+  private async getCurrentPeriodResource(tenantId: string): Promise<ResourceContent> {
     const summary = await this.getTenantUsageSummary(tenantId);
     return {
       uri: `metering://tenant/${tenantId}/current-period`,
@@ -519,10 +480,7 @@ export class MeteringServer {
     };
   }
 
-  private async getBotUsageResource(
-    tenantId: string,
-    botId: string,
-  ): Promise<ResourceContent> {
+  private async getBotUsageResource(tenantId: string, botId: string): Promise<ResourceContent> {
     const usage = await this.getCurrentUsage(tenantId, botId);
     return {
       uri: `metering://tenant/${tenantId}/bots/${botId}/usage`,
@@ -531,9 +489,7 @@ export class MeteringServer {
     };
   }
 
-  private async getActiveRunnersResource(
-    tenantId: string,
-  ): Promise<ResourceContent> {
+  private async getActiveRunnersResource(tenantId: string): Promise<ResourceContent> {
     const runners = await this.getActiveRunners(tenantId);
     return {
       uri: `metering://tenant/${tenantId}/runners/active`,
@@ -542,9 +498,7 @@ export class MeteringServer {
     };
   }
 
-  private async getProjectedBillResource(
-    tenantId: string,
-  ): Promise<ResourceContent> {
+  private async getProjectedBillResource(tenantId: string): Promise<ResourceContent> {
     const summary = await this.getTenantUsageSummary(tenantId);
     const activeRunners = await this.getActiveRunners(tenantId);
     const subscription = await this.subscriptionService.getSubscription(tenantId);
@@ -617,16 +571,12 @@ export class MeteringServer {
       const bot = await this.marketplaceService.getBotById(botId);
       const usageRates: Record<string, number> = {};
       for (const metric of bot.pricing?.usageMetrics ?? []) {
-        usageRates[this.normalizeMetric(metric.metric)] = Number(
-          metric.pricePerUnit ?? 0,
-        );
+        usageRates[this.normalizeMetric(metric.metric)] = Number(metric.pricePerUnit ?? 0);
       }
 
       return {
         usageRates,
-        monthlyMinimum: Number(
-          bot.pricing?.minimumMonthly ?? bot.pricing?.monthlyBase ?? 0,
-        ),
+        monthlyMinimum: Number(bot.pricing?.minimumMonthly ?? bot.pricing?.monthlyBase ?? 0),
       };
     } catch {
       return {
@@ -655,10 +605,7 @@ export class MeteringServer {
     }
 
     if (usageBased === 0) {
-      usageBased = records.reduce(
-        (sum, record) => sum + Number(record.totalAmount ?? 0),
-        0,
-      );
+      usageBased = records.reduce((sum, record) => sum + Number(record.totalAmount ?? 0), 0);
     }
 
     const charged = Math.max(usageBased, callBased, pricing.monthlyMinimum);
@@ -708,8 +655,7 @@ export class MeteringServer {
   }
 
   private assertUuid(value: string, fieldName: string): void {
-    const uuidRegex =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(value ?? '')) {
       throw new Error(`${fieldName} must be a valid UUID`);
     }

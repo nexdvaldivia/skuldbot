@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, In, QueryFailedError } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -158,11 +153,7 @@ export class BillingService {
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        const result = await this.processUsageBatchAttempt(
-          orchestratorId,
-          batch,
-          traceId,
-        );
+        const result = await this.processUsageBatchAttempt(orchestratorId, batch, traceId);
 
         batchRecord.status = 'processed';
         batchRecord.processedCount = result.processedCount;
@@ -193,20 +184,13 @@ export class BillingService {
       }
     }
 
-    const finalError =
-      lastError instanceof Error ? lastError : new Error(String(lastError));
+    const finalError = lastError instanceof Error ? lastError : new Error(String(lastError));
     batchRecord.status = 'failed';
     batchRecord.error = finalError.message;
     await this.usageBatchRepository.save(batchRecord);
 
     if (!(finalError instanceof BadRequestException)) {
-      await this.recordIngestDeadLetter(
-        orchestratorId,
-        batch,
-        traceId,
-        maxAttempts,
-        finalError,
-      );
+      await this.recordIngestDeadLetter(orchestratorId, batch, traceId, maxAttempts, finalError);
     }
 
     throw finalError;
@@ -237,14 +221,10 @@ export class BillingService {
         throw new BadRequestException('Every usage event requires a non-empty id');
       }
       if (!event.metric?.trim()) {
-        throw new BadRequestException(
-          `Usage event ${event.id} requires a non-empty metric`,
-        );
+        throw new BadRequestException(`Usage event ${event.id} requires a non-empty metric`);
       }
       if (!Number.isFinite(event.quantity)) {
-        throw new BadRequestException(
-          `Usage event ${event.id} has an invalid quantity`,
-        );
+        throw new BadRequestException(`Usage event ${event.id} has an invalid quantity`);
       }
 
       const occurredAt = new Date(event.occurredAt);
@@ -255,10 +235,7 @@ export class BillingService {
       }
 
       if (event.metadata !== undefined) {
-        assertNoOperationalEvidencePayload(
-          event.metadata,
-          `Usage event ${event.id} metadata`,
-        );
+        assertNoOperationalEvidencePayload(event.metadata, `Usage event ${event.id} metadata`);
       }
 
       if (seenInBatch.has(event.id) || knownEventIds.has(event.id)) {
@@ -284,8 +261,8 @@ export class BillingService {
       } catch (error) {
         if (
           error instanceof QueryFailedError &&
-          (error as QueryFailedError & { driverError?: { code?: string } })
-            .driverError?.code === '23505'
+          (error as QueryFailedError & { driverError?: { code?: string } }).driverError?.code ===
+            '23505'
         ) {
           duplicateEventCount++;
           continue;
@@ -348,9 +325,7 @@ export class BillingService {
   }
 
   private getIngestMaxAttempts(): number {
-    const configured = Number(
-      this.configService.get<number>('USAGE_INGEST_MAX_RETRIES', 3),
-    );
+    const configured = Number(this.configService.get<number>('USAGE_INGEST_MAX_RETRIES', 3));
     if (!Number.isFinite(configured)) {
       return 3;
     }
@@ -358,9 +333,7 @@ export class BillingService {
   }
 
   private getIngestBackoffBaseMs(): number {
-    const configured = Number(
-      this.configService.get<number>('USAGE_INGEST_BACKOFF_MS', 150),
-    );
+    const configured = Number(this.configService.get<number>('USAGE_INGEST_BACKOFF_MS', 150));
     if (!Number.isFinite(configured)) {
       return 150;
     }
@@ -379,14 +352,13 @@ export class BillingService {
 
     if (
       error instanceof QueryFailedError &&
-      (error as QueryFailedError & { driverError?: { code?: string } })
-        .driverError?.code === '23505'
+      (error as QueryFailedError & { driverError?: { code?: string } }).driverError?.code ===
+        '23505'
     ) {
       return false;
     }
 
-    const message =
-      error instanceof Error ? error.message.toLowerCase() : String(error);
+    const message = error instanceof Error ? error.message.toLowerCase() : String(error);
     return [
       'timeout',
       'timed out',
@@ -496,10 +468,7 @@ export class BillingService {
   /**
    * Calculate revenue share for a partner for a given period
    */
-  async calculateRevenueShare(
-    partnerId: string,
-    period: string,
-  ): Promise<RevenueShareRecord> {
+  async calculateRevenueShare(partnerId: string, period: string): Promise<RevenueShareRecord> {
     const partner = await this.partnerRepository.findOne({
       where: { id: partnerId },
     });
@@ -582,10 +551,7 @@ export class BillingService {
   /**
    * Approve a revenue share record for payout
    */
-  async approveRevenueShare(
-    recordId: string,
-    approvedBy: string,
-  ): Promise<RevenueShareRecord> {
+  async approveRevenueShare(recordId: string, approvedBy: string): Promise<RevenueShareRecord> {
     const record = await this.revenueShareRepository.findOne({
       where: { id: recordId },
     });
@@ -704,8 +670,6 @@ export class BillingService {
     // 2. For each subscription item, report usage via Stripe API
     // 3. Mark records as 'billed'
 
-    this.logger.log(
-      `Would send usage to Stripe for tenant ${tenantId}, period ${period}`,
-    );
+    this.logger.log(`Would send usage to Stripe for tenant ${tenantId}, period ${period}`);
   }
 }

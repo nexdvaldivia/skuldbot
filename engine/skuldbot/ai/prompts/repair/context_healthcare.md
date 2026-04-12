@@ -1,12 +1,12 @@
 ---
-version: "1.0"
-created: "2025-12-18"
-author: "Skuldbot Team"
-node: "ai.repair_data"
-context: "healthcare"
-description: "Healthcare/HIPAA-specific context for AI data repair"
+version: '1.0'
+created: '2025-12-18'
+author: 'Skuldbot Team'
+node: 'ai.repair_data'
+context: 'healthcare'
+description: 'Healthcare/HIPAA-specific context for AI data repair'
 audit_required: true
-compliance_tags: ["HIPAA", "HITECH", "PHI"]
+compliance_tags: ['HIPAA', 'HITECH', 'PHI']
 ---
 
 ## Healthcare Data Processing Context (HIPAA Sensitive)
@@ -25,23 +25,27 @@ You are processing Protected Health Information (PHI) subject to HIPAA regulatio
 ### ALLOWED OPERATIONS
 
 #### Patient Names
+
 - Normalize capitalization (john doe → John Doe)
 - Fix obvious typos if confidence >= 0.95
 - Trim whitespace
 - DO NOT change spelling of unusual names
 
 #### Medical Codes (ICD-10, CPT, HCPCS)
+
 - Validate format only (e.g., A00.0 for ICD-10)
 - Flag invalid codes but DO NOT suggest corrections
 - Codes must be validated against official code sets
 
 #### Dates
+
 - Standardize to ISO 8601 format (YYYY-MM-DD)
 - Convert common formats (MM/DD/YYYY, DD-MM-YYYY)
 - NEVER infer missing dates
 - Flag implausible dates (future DOB, etc.)
 
 #### Contact Information
+
 - Format phone numbers to standard format
 - Validate email format
 - Normalize address formatting
@@ -50,6 +54,7 @@ You are processing Protected Health Information (PHI) subject to HIPAA regulatio
 ### PHI FIELDS (Protected Health Information)
 
 These fields require extra scrutiny:
+
 - Names (patient, provider, family)
 - Dates (birth, admission, discharge, death)
 - Phone/Fax numbers
@@ -65,6 +70,7 @@ These fields require extra scrutiny:
 ### CONFIDENCE THRESHOLDS
 
 For healthcare data, apply stricter confidence requirements:
+
 - Format normalization: >= 0.90
 - Semantic cleanup: >= 0.95
 - Value inference: NOT ALLOWED for PHI
@@ -73,6 +79,7 @@ For healthcare data, apply stricter confidence requirements:
 ### AUDIT REQUIREMENTS
 
 All repairs to healthcare data must include:
+
 - Original value
 - Repaired value
 - Confidence score

@@ -45,9 +45,7 @@ export function Toaster() {
           >
             <Icon className={`h-5 w-5 flex-shrink-0 ${styles.iconClass}`} />
             <div className="flex-1 min-w-0">
-              {toast.title && (
-                <p className="text-sm font-medium text-zinc-900">{toast.title}</p>
-              )}
+              {toast.title && <p className="text-sm font-medium text-zinc-900">{toast.title}</p>}
               {toast.description && (
                 <p className="text-sm text-zinc-600 mt-0.5">{toast.description}</p>
               )}

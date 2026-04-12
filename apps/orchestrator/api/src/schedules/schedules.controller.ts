@@ -334,12 +334,7 @@ export class SchedulesController {
     @Param('id', ParseUUIDPipe) scheduleId: string,
     @Body() dto: CreateWebhookTriggerDto,
   ): Promise<WebhookTriggerDto> {
-    return this.schedulesService.createWebhookTrigger(
-      tenantId,
-      scheduleId,
-      user.id,
-      dto,
-    );
+    return this.schedulesService.createWebhookTrigger(tenantId, scheduleId, user.id, dto);
   }
 
   /**
@@ -372,12 +367,7 @@ export class SchedulesController {
     @Param('webhookId', ParseUUIDPipe) webhookId: string,
     @Body() dto: UpdateWebhookTriggerDto,
   ): Promise<WebhookTriggerDto> {
-    return this.schedulesService.updateWebhookTrigger(
-      tenantId,
-      scheduleId,
-      webhookId,
-      dto,
-    );
+    return this.schedulesService.updateWebhookTrigger(tenantId, scheduleId, webhookId, dto);
   }
 
   /**
@@ -430,12 +420,7 @@ export class SchedulesController {
     @Param('id', ParseUUIDPipe) scheduleId: string,
     @Body() dto: CreateEventTriggerDto,
   ): Promise<EventTriggerDto> {
-    return this.schedulesService.createEventTrigger(
-      tenantId,
-      scheduleId,
-      user.id,
-      dto,
-    );
+    return this.schedulesService.createEventTrigger(tenantId, scheduleId, user.id, dto);
   }
 
   /**
@@ -468,12 +453,7 @@ export class SchedulesController {
     @Param('eventId', ParseUUIDPipe) eventId: string,
     @Body() dto: UpdateEventTriggerDto,
   ): Promise<EventTriggerDto> {
-    return this.schedulesService.updateEventTrigger(
-      tenantId,
-      scheduleId,
-      eventId,
-      dto,
-    );
+    return this.schedulesService.updateEventTrigger(tenantId, scheduleId, eventId, dto);
   }
 
   /**
@@ -493,11 +473,7 @@ export class SchedulesController {
     @Param('id', ParseUUIDPipe) scheduleId: string,
     @Param('eventId', ParseUUIDPipe) eventId: string,
   ): Promise<void> {
-    return this.schedulesService.deleteEventTrigger(
-      tenantId,
-      scheduleId,
-      eventId,
-    );
+    return this.schedulesService.deleteEventTrigger(tenantId, scheduleId, eventId);
   }
 }
 
@@ -571,9 +547,7 @@ export class BotSchedulesController {
 @Controller('scheduler')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class SchedulerAdminController {
-  constructor(
-    private readonly schedulerService: SchedulerService,
-  ) {}
+  constructor(private readonly schedulerService: SchedulerService) {}
 
   /**
    * Get scheduler status and health metrics.

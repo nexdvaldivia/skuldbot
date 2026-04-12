@@ -7,7 +7,16 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, LessThanOrEqual, MoreThanOrEqual, Between, Not, IsNull, DataSource } from 'typeorm';
+import {
+  Repository,
+  In,
+  LessThanOrEqual,
+  MoreThanOrEqual,
+  Between,
+  Not,
+  IsNull,
+  DataSource,
+} from 'typeorm';
 import { randomBytes } from 'crypto';
 import {
   Schedule,
@@ -207,9 +216,7 @@ export class SchedulesService {
 
     await this.scheduleRepository.save(schedule);
 
-    this.logger.log(
-      `Created schedule ${schedule.id} (${schedule.name}) for bot ${bot.name}`,
-    );
+    this.logger.log(`Created schedule ${schedule.id} (${schedule.name}) for bot ${bot.name}`);
 
     return this.findOne(tenantId, schedule.id);
   }
@@ -275,22 +282,28 @@ export class SchedulesService {
     }
     if (dto.priority !== undefined) schedule.priority = dto.priority;
     if (dto.inputs !== undefined) schedule.inputs = dto.inputs;
-    if (dto.environmentOverrides !== undefined) schedule.environmentOverrides = dto.environmentOverrides;
+    if (dto.environmentOverrides !== undefined)
+      schedule.environmentOverrides = dto.environmentOverrides;
     if (dto.credentialIds !== undefined) schedule.credentialIds = dto.credentialIds;
     if (dto.timeoutSeconds !== undefined) schedule.timeoutSeconds = dto.timeoutSeconds;
     if (dto.maxRetries !== undefined) schedule.maxRetries = dto.maxRetries;
     if (dto.overlapPolicy !== undefined) schedule.overlapPolicy = dto.overlapPolicy;
     if (dto.maxConcurrentRuns !== undefined) schedule.maxConcurrentRuns = dto.maxConcurrentRuns;
     if (dto.catchupPolicy !== undefined) schedule.catchupPolicy = dto.catchupPolicy;
-    if (dto.catchupWindowSeconds !== undefined) schedule.catchupWindowSeconds = dto.catchupWindowSeconds;
+    if (dto.catchupWindowSeconds !== undefined)
+      schedule.catchupWindowSeconds = dto.catchupWindowSeconds;
     if (dto.maxCatchupRuns !== undefined) schedule.maxCatchupRuns = dto.maxCatchupRuns;
     if (dto.blackoutWindows !== undefined) {
       schedule.blackoutWindows = dto.blackoutWindows ? { windows: dto.blackoutWindows } : null;
     }
-    if (dto.maxExecutionsPerHour !== undefined) schedule.maxExecutionsPerHour = dto.maxExecutionsPerHour;
-    if (dto.maxExecutionsPerDay !== undefined) schedule.maxExecutionsPerDay = dto.maxExecutionsPerDay;
-    if (dto.maxExecutionsPerWeek !== undefined) schedule.maxExecutionsPerWeek = dto.maxExecutionsPerWeek;
-    if (dto.maxExecutionsPerMonth !== undefined) schedule.maxExecutionsPerMonth = dto.maxExecutionsPerMonth;
+    if (dto.maxExecutionsPerHour !== undefined)
+      schedule.maxExecutionsPerHour = dto.maxExecutionsPerHour;
+    if (dto.maxExecutionsPerDay !== undefined)
+      schedule.maxExecutionsPerDay = dto.maxExecutionsPerDay;
+    if (dto.maxExecutionsPerWeek !== undefined)
+      schedule.maxExecutionsPerWeek = dto.maxExecutionsPerWeek;
+    if (dto.maxExecutionsPerMonth !== undefined)
+      schedule.maxExecutionsPerMonth = dto.maxExecutionsPerMonth;
     if (dto.maxTotalExecutions !== undefined) schedule.maxTotalExecutions = dto.maxTotalExecutions;
     if (dto.effectiveFrom !== undefined) {
       schedule.effectiveFrom = dto.effectiveFrom ? new Date(dto.effectiveFrom) : null;
@@ -298,20 +311,25 @@ export class SchedulesService {
     if (dto.effectiveUntil !== undefined) {
       schedule.effectiveUntil = dto.effectiveUntil ? new Date(dto.effectiveUntil) : null;
     }
-    if (dto.autoDisableOnExpiry !== undefined) schedule.autoDisableOnExpiry = dto.autoDisableOnExpiry;
-    if (dto.slaMaxDurationSeconds !== undefined) schedule.slaMaxDurationSeconds = dto.slaMaxDurationSeconds;
+    if (dto.autoDisableOnExpiry !== undefined)
+      schedule.autoDisableOnExpiry = dto.autoDisableOnExpiry;
+    if (dto.slaMaxDurationSeconds !== undefined)
+      schedule.slaMaxDurationSeconds = dto.slaMaxDurationSeconds;
     if (dto.slaMaxFailureRate !== undefined) schedule.slaMaxFailureRate = dto.slaMaxFailureRate;
     if (dto.alertOnFailure !== undefined) schedule.alertOnFailure = dto.alertOnFailure;
-    if (dto.alertOnSlaViolation !== undefined) schedule.alertOnSlaViolation = dto.alertOnSlaViolation;
+    if (dto.alertOnSlaViolation !== undefined)
+      schedule.alertOnSlaViolation = dto.alertOnSlaViolation;
     if (dto.alertOnSkip !== undefined) schedule.alertOnSkip = dto.alertOnSkip;
     if (dto.alertAfterConsecutiveFailures !== undefined) {
       schedule.alertAfterConsecutiveFailures = dto.alertAfterConsecutiveFailures;
     }
     if (dto.alertConfig !== undefined) schedule.alertConfig = dto.alertConfig;
     if (dto.autoPauseOnFailure !== undefined) schedule.autoPauseOnFailure = dto.autoPauseOnFailure;
-    if (dto.autoPauseAfterFailures !== undefined) schedule.autoPauseAfterFailures = dto.autoPauseAfterFailures;
+    if (dto.autoPauseAfterFailures !== undefined)
+      schedule.autoPauseAfterFailures = dto.autoPauseAfterFailures;
     if (dto.autoResumeEnabled !== undefined) schedule.autoResumeEnabled = dto.autoResumeEnabled;
-    if (dto.autoResumeAfterSeconds !== undefined) schedule.autoResumeAfterSeconds = dto.autoResumeAfterSeconds;
+    if (dto.autoResumeAfterSeconds !== undefined)
+      schedule.autoResumeAfterSeconds = dto.autoResumeAfterSeconds;
     if (dto.tags !== undefined) schedule.tags = dto.tags;
     if (dto.metadata !== undefined) schedule.metadata = dto.metadata;
 
@@ -332,10 +350,7 @@ export class SchedulesService {
   /**
    * Get all schedules for a tenant with filtering.
    */
-  async findAll(
-    tenantId: string,
-    query: ListSchedulesQueryDto,
-  ): Promise<PaginatedSchedulesDto> {
+  async findAll(tenantId: string, query: ListSchedulesQueryDto): Promise<PaginatedSchedulesDto> {
     const {
       limit = 20,
       offset = 0,
@@ -372,10 +387,9 @@ export class SchedulesService {
     }
 
     if (search) {
-      qb.andWhere(
-        '(schedule.name ILIKE :search OR schedule.description ILIKE :search)',
-        { search: `%${search}%` },
-      );
+      qb.andWhere('(schedule.name ILIKE :search OR schedule.description ILIKE :search)', {
+        search: `%${search}%`,
+      });
     }
 
     if (tags && tags.length > 0) {
@@ -383,20 +397,18 @@ export class SchedulesService {
     }
 
     // Sorting
-    const sortColumn = {
-      name: 'schedule.name',
-      createdAt: 'schedule.createdAt',
-      nextRunAt: 'schedule.nextRunAt',
-      lastRunAt: 'schedule.lastRunAt',
-      status: 'schedule.status',
-    }[sortBy] || 'schedule.createdAt';
+    const sortColumn =
+      {
+        name: 'schedule.name',
+        createdAt: 'schedule.createdAt',
+        nextRunAt: 'schedule.nextRunAt',
+        lastRunAt: 'schedule.lastRunAt',
+        status: 'schedule.status',
+      }[sortBy] || 'schedule.createdAt';
 
     qb.orderBy(sortColumn, sortOrder.toUpperCase() as 'ASC' | 'DESC');
 
-    const [schedules, total] = await qb
-      .skip(offset)
-      .take(limit)
-      .getManyAndCount();
+    const [schedules, total] = await qb.skip(offset).take(limit).getManyAndCount();
 
     return {
       data: schedules.map((s) => this.toSummaryDto(s)),
@@ -458,11 +470,7 @@ export class SchedulesService {
   /**
    * Activate a schedule.
    */
-  async activate(
-    tenantId: string,
-    scheduleId: string,
-    userId: string,
-  ): Promise<ScheduleDetailDto> {
+  async activate(tenantId: string, scheduleId: string, userId: string): Promise<ScheduleDetailDto> {
     const schedule = await this.scheduleRepository.findOne({
       where: { id: scheduleId, tenantId },
     });
@@ -681,9 +689,7 @@ export class SchedulesService {
         manualTriggeredBy: userId,
       },
       botVersionId: schedule.botVersionId,
-      inputs: dto.inputOverrides
-        ? { ...schedule.inputs, ...dto.inputOverrides }
-        : schedule.inputs,
+      inputs: dto.inputOverrides ? { ...schedule.inputs, ...dto.inputOverrides } : schedule.inputs,
     });
 
     await this.executionRepository.save(execution);
@@ -695,9 +701,7 @@ export class SchedulesService {
 
     await this.scheduleRepository.save(schedule);
 
-    this.logger.log(
-      `Manually triggered schedule ${scheduleId} by user ${userId}`,
-    );
+    this.logger.log(`Manually triggered schedule ${scheduleId} by user ${userId}`);
 
     // TODO: Actually dispatch the run via RunsService
     // For now, return the execution ID as runId placeholder
@@ -749,10 +753,7 @@ export class SchedulesService {
 
     qb.orderBy('exec.triggeredAt', sortOrder.toUpperCase() as 'ASC' | 'DESC');
 
-    const [executions, total] = await qb
-      .skip(offset)
-      .take(limit)
-      .getManyAndCount();
+    const [executions, total] = await qb.skip(offset).take(limit).getManyAndCount();
 
     return {
       data: executions.map((e) => this.toExecutionDto(e)),
@@ -970,11 +971,7 @@ export class SchedulesService {
   /**
    * Delete an event trigger.
    */
-  async deleteEventTrigger(
-    tenantId: string,
-    scheduleId: string,
-    triggerId: string,
-  ): Promise<void> {
+  async deleteEventTrigger(tenantId: string, scheduleId: string, triggerId: string): Promise<void> {
     const result = await this.eventTriggerRepository.delete({
       id: triggerId,
       scheduleId,
@@ -1087,14 +1084,14 @@ export class SchedulesService {
     // Get upcoming executions
     const upcomingExecutions = schedules
       .filter((s) => s.status === ScheduleStatus.ACTIVE && s.nextRunAt)
-      .sort((a, b) => a.nextRunAt!.getTime() - b.nextRunAt!.getTime())
+      .sort((a, b) => a.nextRunAt.getTime() - b.nextRunAt.getTime())
       .slice(0, 10)
       .map((s) => ({
         scheduleId: s.id,
         scheduleName: s.name,
         botId: s.botId,
         botName: s.bot?.name || 'Unknown',
-        nextRunAt: s.nextRunAt!.toISOString(),
+        nextRunAt: s.nextRunAt.toISOString(),
       }));
 
     // Get recent failures
@@ -1276,9 +1273,7 @@ export class SchedulesService {
         catchup: job.catchup,
       },
       botVersionId: schedule.botVersionId,
-      inputs: job.inputOverrides
-        ? { ...schedule.inputs, ...job.inputOverrides }
-        : schedule.inputs,
+      inputs: job.inputOverrides ? { ...schedule.inputs, ...job.inputOverrides } : schedule.inputs,
     });
 
     await this.executionRepository.save(execution);
@@ -1357,9 +1352,7 @@ export class SchedulesService {
         schedule.pauseReason = `Auto-paused after ${schedule.consecutiveFailures} consecutive failures`;
 
         if (schedule.autoResumeEnabled) {
-          schedule.autoResumeAt = new Date(
-            Date.now() + schedule.autoResumeAfterSeconds * 1000,
-          );
+          schedule.autoResumeAt = new Date(Date.now() + schedule.autoResumeAfterSeconds * 1000);
         }
 
         this.logger.warn(

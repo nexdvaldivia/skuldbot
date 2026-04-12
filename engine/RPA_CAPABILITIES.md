@@ -7,6 +7,7 @@
 El engine **genera código RPA correcto** para estos nodos:
 
 #### 1. Browser Automation
+
 ```python
 # En DSL:
 {
@@ -23,12 +24,14 @@ Open Available Browser    https://example.com    browser=chromium    headless=tr
 ```
 
 **Nodos browser disponibles:**
+
 - ✅ `browser.open` - Abre navegador
 - ✅ `browser.click` - Click en elemento
 - ✅ `browser.fill` - Llenar campo de texto
 - ✅ `browser.close` - Cerrar navegador
 
 #### 2. Excel Automation
+
 ```python
 # En DSL:
 {
@@ -43,12 +46,14 @@ Open Workbook    ./data.xlsx
 ```
 
 **Nodos Excel disponibles:**
+
 - ✅ `excel.open` - Abrir archivo Excel
 - ✅ `excel.read` - Leer datos a variable
 - ✅ `excel.write` - Escribir datos
 - ✅ `excel.close` - Cerrar archivo
 
 #### 3. Control Flow
+
 ```python
 # En DSL:
 {
@@ -64,6 +69,7 @@ Log    Processing...    level=INFO    console=yes
 ```
 
 **Nodos control disponibles:**
+
 - ✅ `control.log` - Logging
 - ✅ `control.wait` - Esperar segundos
 - ✅ `control.set_variable` - Definir variable
@@ -81,7 +87,7 @@ pip install rpaframework
 pip install robotframework-browser
 rfbrowser init
 
-# Para Excel RPA  
+# Para Excel RPA
 pip install rpaframework
 pip install openpyxl
 
@@ -209,23 +215,24 @@ dsl = {
 
 ## 📊 Comparación con Plataformas Comerciales
 
-| Capacidad | Skuldbot | UiPath | Automation Anywhere | Power Automate |
-|-----------|----------|--------|---------------------|----------------|
-| Browser RPA | ✅ Básico | ✅ Avanzado | ✅ Avanzado | ✅ Avanzado |
-| Excel RPA | ✅ Básico | ✅ Avanzado | ✅ Avanzado | ✅ Avanzado |
-| Control Flow | ✅ Básico | ✅ Avanzado | ✅ Avanzado | ✅ Avanzado |
-| PDF | ❌ | ✅ | ✅ | ✅ |
-| Email | ❌ | ✅ | ✅ | ✅ |
-| APIs | ❌ | ✅ | ✅ | ✅ |
-| Desktop Apps | ❌ | ✅ | ✅ | ⚠️ |
-| OCR | ❌ | ✅ | ✅ | ✅ |
-| AI/ML | ❌ | ✅ | ✅ | ✅ |
-| **Open Source** | ✅ | ❌ | ❌ | ❌ |
-| **Free** | ✅ | ⚠️ Limited | ⚠️ Limited | ⚠️ Limited |
+| Capacidad       | Skuldbot  | UiPath      | Automation Anywhere | Power Automate |
+| --------------- | --------- | ----------- | ------------------- | -------------- |
+| Browser RPA     | ✅ Básico | ✅ Avanzado | ✅ Avanzado         | ✅ Avanzado    |
+| Excel RPA       | ✅ Básico | ✅ Avanzado | ✅ Avanzado         | ✅ Avanzado    |
+| Control Flow    | ✅ Básico | ✅ Avanzado | ✅ Avanzado         | ✅ Avanzado    |
+| PDF             | ❌        | ✅          | ✅                  | ✅             |
+| Email           | ❌        | ✅          | ✅                  | ✅             |
+| APIs            | ❌        | ✅          | ✅                  | ✅             |
+| Desktop Apps    | ❌        | ✅          | ✅                  | ⚠️             |
+| OCR             | ❌        | ✅          | ✅                  | ✅             |
+| AI/ML           | ❌        | ✅          | ✅                  | ✅             |
+| **Open Source** | ✅        | ❌          | ❌                  | ❌             |
+| **Free**        | ✅        | ⚠️ Limited  | ⚠️ Limited          | ⚠️ Limited     |
 
 ## 🚀 Roadmap RPA
 
 ### Corto Plazo (Implementar Próximamente)
+
 - [ ] `browser.wait` - Esperar elemento
 - [ ] `browser.screenshot` - Captura de pantalla
 - [ ] `browser.extract_text` - Extraer texto
@@ -235,6 +242,7 @@ dsl = {
 - [ ] `file.write` - Escribir archivo
 
 ### Mediano Plazo
+
 - [ ] `api.request` - HTTP requests
 - [ ] `email.send` - Enviar email
 - [ ] `pdf.read` - Leer PDF
@@ -242,6 +250,7 @@ dsl = {
 - [ ] `database.query` - Consultas SQL
 
 ### Largo Plazo
+
 - [ ] `ocr.read` - OCR de imágenes
 - [ ] `ai.classify` - Clasificación con IA
 - [ ] `desktop.click` - Automatización desktop
@@ -262,12 +271,13 @@ dsl = {
 8. ✅ Logging y control
 
 **Ejemplo real que FUNCIONA:**
+
 ```bash
 # Generar bot
 python3 -c "
 from skuldbot import Compiler
 dsl = {'version': '1.0', 'bot': {'id': 'test', 'name': 'Test'}, 'nodes': [
-    {'id': 'log', 'type': 'control.log', 'config': {'message': 'Hello RPA!'}, 
+    {'id': 'log', 'type': 'control.log', 'config': {'message': 'Hello RPA!'},
      'outputs': {'success': 'log', 'error': 'log'}}
 ]}
 compiler = Compiler()
@@ -290,6 +300,7 @@ robot main.robot
 ## 🎓 Conclusión
 
 **Skuldbot Engine SÍ es RPA**, pero:
+
 - ✅ Genera código RPA válido
 - ✅ Usa Robot Framework + rpaframework (estándares de la industria)
 - ✅ Puede automatizar web y Excel
@@ -297,14 +308,15 @@ robot main.robot
 - ⚠️ Requiere instalar rpaframework
 
 **¿Es production-ready para RPA?**
+
 - ✅ Para casos simples: SÍ
 - ⚠️ Para casos complejos: Faltan features
 - ✅ Para aprendizaje/prototipado: PERFECTO
 - ✅ Como base para extender: EXCELENTE
 
 **Comparado con UiPath/AA:**
+
 - Ventaja: Open source, gratis, extensible
 - Desventaja: Menos features out-of-the-box
 - Ventaja: Robot Framework es estándar industrial
 - Desventaja: Sin UI visual (necesita el Studio)
-

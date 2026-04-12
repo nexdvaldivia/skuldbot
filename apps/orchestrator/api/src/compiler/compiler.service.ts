@@ -39,9 +39,7 @@ export class CompilerService {
   async compile(request: CompileRequest): Promise<CompileResult> {
     const { dsl, tenantId, botId, botVersion, runId } = request;
 
-    this.logger.log(
-      `Compiling bot ${botId} version ${botVersion} for tenant ${tenantId}`,
-    );
+    this.logger.log(`Compiling bot ${botId} version ${botVersion} for tenant ${tenantId}`);
 
     // Get manifests for all node types in the DSL
     const nodeTypes = this.extractNodeTypes(dsl);
@@ -65,9 +63,7 @@ export class CompilerService {
         `Compilation successful: ${result.plan?.steps.length} steps, hash: ${result.planHash}`,
       );
     } else {
-      this.logger.warn(
-        `Compilation failed: ${result.errors.length} errors`,
-      );
+      this.logger.warn(`Compilation failed: ${result.errors.length} errors`);
     }
 
     if (result.warnings.length > 0) {

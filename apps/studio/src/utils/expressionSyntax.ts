@@ -1,4 +1,4 @@
-import type { FlowNode } from "../types/flow";
+import type { FlowNode } from '../types/flow';
 
 type Primitive = string | number | boolean | null | undefined;
 
@@ -14,7 +14,7 @@ interface ExpressionNormalizationContext {
 }
 
 function unescapeQuoted(value: string): string {
-  return value.replace(/\\(["'\\])/g, "$1");
+  return value.replace(/\\(["'\\])/g, '$1');
 }
 
 function isIdentifier(token: string): boolean {
@@ -28,13 +28,13 @@ function parsePathTokens(path: string): string[] | null {
   while (i < path.length) {
     const ch = path[i];
 
-    if (ch === ".") {
+    if (ch === '.') {
       i += 1;
       continue;
     }
 
-    if (ch === "[") {
-      const end = path.indexOf("]", i + 1);
+    if (ch === '[') {
+      const end = path.indexOf(']', i + 1);
       if (end === -1) return null;
 
       const raw = path.slice(i + 1, end).trim();
@@ -42,8 +42,7 @@ function parsePathTokens(path: string): string[] | null {
 
       let token = raw;
       const startsWithQuote =
-        (raw.startsWith('"') && raw.endsWith('"')) ||
-        (raw.startsWith("'") && raw.endsWith("'"));
+        (raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"));
       if (startsWithQuote && raw.length >= 2) {
         token = unescapeQuoted(raw.slice(1, -1));
       }
@@ -55,7 +54,7 @@ function parsePathTokens(path: string): string[] | null {
     }
 
     let j = i;
-    while (j < path.length && path[j] !== "." && path[j] !== "[") {
+    while (j < path.length && path[j] !== '.' && path[j] !== '[') {
       j += 1;
     }
     const token = path.slice(i, j).trim();
@@ -69,7 +68,7 @@ function parsePathTokens(path: string): string[] | null {
 }
 
 function tokensToCanonicalPath(tokens: string[]): string {
-  let out = "";
+  let out = '';
   tokens.forEach((token, idx) => {
     if (idx === 0 && isIdentifier(token)) {
       out += token;
@@ -85,7 +84,7 @@ function tokensToCanonicalPath(tokens: string[]): string {
 }
 
 function normalizeJsPath(path: string | undefined): string | null {
-  if (!path || !path.trim()) return "";
+  if (!path || !path.trim()) return '';
   const tokens = parsePathTokens(path.trim());
   if (!tokens) return null;
   return tokensToCanonicalPath(tokens);
@@ -108,16 +107,16 @@ function resolveNodeId(nodeRef: string, ctx: ExpressionNormalizationContext): st
 
 function normalizeSingleN8nExpression(
   expressionBody: string,
-  ctx: ExpressionNormalizationContext
+  ctx: ExpressionNormalizationContext,
 ): string | null {
   const body = expressionBody.trim();
-  if (!body.startsWith("$")) return null;
+  if (!body.startsWith('$')) return null;
 
   const jsonMatch = body.match(/^\$json(?<path>(?:\.|\[).*)?$/);
   if (jsonMatch) {
     const normalizedPath = normalizeJsPath(jsonMatch.groups?.path);
     if (normalizedPath === null) return null;
-    const path = normalizedPath ? `input.${normalizedPath}` : "input";
+    const path = normalizedPath ? `input.${normalizedPath}` : 'input';
     return `\${node:${ctx.currentNodeId}|${path}}`;
   }
 
@@ -125,7 +124,7 @@ function normalizeSingleN8nExpression(
   if (binaryMatch) {
     const normalizedPath = normalizeJsPath(binaryMatch.groups?.path);
     if (normalizedPath === null) return null;
-    const path = normalizedPath ? `inputBinary.${normalizedPath}` : "inputBinary";
+    const path = normalizedPath ? `inputBinary.${normalizedPath}` : 'inputBinary';
     return `\${node:${ctx.currentNodeId}|${path}}`;
   }
 
@@ -133,7 +132,7 @@ function normalizeSingleN8nExpression(
   if (inputJsonMatch) {
     const normalizedPath = normalizeJsPath(inputJsonMatch.groups?.path);
     if (normalizedPath === null) return null;
-    const path = normalizedPath ? `input.${normalizedPath}` : "input";
+    const path = normalizedPath ? `input.${normalizedPath}` : 'input';
     return `\${node:${ctx.currentNodeId}|${path}}`;
   }
 
@@ -184,7 +183,7 @@ export function buildExpressionNormalizationIndex(nodes: FlowNode[]): Expression
 
 function createContext(
   index: ExpressionNormalizationIndex,
-  currentNodeId: string
+  currentNodeId: string,
 ): ExpressionNormalizationContext {
   return { currentNodeId, index };
 }
@@ -192,9 +191,9 @@ function createContext(
 export function normalizeN8nExpressionsInText(
   text: string,
   index: ExpressionNormalizationIndex,
-  currentNodeId: string
+  currentNodeId: string,
 ): string {
-  if (!text.includes("{{")) return text;
+  if (!text.includes('{{')) return text;
 
   const ctx = createContext(index, currentNodeId);
   return text.replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (_full, body: string) => {
@@ -206,28 +205,26 @@ export function normalizeN8nExpressionsInText(
 export function normalizeN8nExpressionsInValue<T>(
   value: T,
   index: ExpressionNormalizationIndex,
-  currentNodeId: string
+  currentNodeId: string,
 ): T {
   if (
     value === null ||
     value === undefined ||
-    typeof value === "number" ||
-    typeof value === "boolean"
+    typeof value === 'number' ||
+    typeof value === 'boolean'
   ) {
     return value;
   }
 
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     return normalizeN8nExpressionsInText(value, index, currentNodeId) as T;
   }
 
   if (Array.isArray(value)) {
-    return value.map((item) =>
-      normalizeN8nExpressionsInValue(item, index, currentNodeId)
-    ) as T;
+    return value.map((item) => normalizeN8nExpressionsInValue(item, index, currentNodeId)) as T;
   }
 
-  if (typeof value === "object") {
+  if (typeof value === 'object') {
     const obj = value as Record<string, Primitive | unknown>;
     const out: Record<string, Primitive | unknown> = {};
     Object.entries(obj).forEach(([key, nested]) => {

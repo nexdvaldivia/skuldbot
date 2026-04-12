@@ -24,34 +24,34 @@ import {
   FileWarning,
   Cloud,
   LucideIcon,
-} from "lucide-react";
+} from 'lucide-react';
 
 // ============================================================
 // Category Colors
 // ============================================================
 
 const CATEGORY_COLORS: Record<string, string> = {
-  trigger: "#10b981",     // Emerald
-  web: "#3b82f6",         // Blue
-  email: "#f59e0b",       // Amber
-  excel: "#22c55e",       // Green
-  files: "#8b5cf6",       // Violet
-  pdf: "#ef4444",         // Red
-  api: "#06b6d4",         // Cyan
-  database: "#f97316",    // Orange
-  data: "#06b6d4",        // Cyan (same as api)
-  ai: "#a855f7",          // Purple
-  control: "#64748b",     // Slate
-  logging: "#71717a",     // Zinc
-  variables: "#14b8a6",   // Teal
-  json: "#eab308",        // Yellow
-  compliance: "#059669",  // Emerald (dark)
-  dataquality: "#0891b2", // Cyan (dark)
-  secrets: "#dc2626",     // Red (dark)
-  voice: "#7c3aed",       // Violet
-  insurance: "#0d9488",   // Teal (dark)
-  ms365: "#0078d4",       // Microsoft Blue
-  default: "#6b7280",     // Gray
+  trigger: '#10b981', // Emerald
+  web: '#3b82f6', // Blue
+  email: '#f59e0b', // Amber
+  excel: '#22c55e', // Green
+  files: '#8b5cf6', // Violet
+  pdf: '#ef4444', // Red
+  api: '#06b6d4', // Cyan
+  database: '#f97316', // Orange
+  data: '#06b6d4', // Cyan (same as api)
+  ai: '#a855f7', // Purple
+  control: '#64748b', // Slate
+  logging: '#71717a', // Zinc
+  variables: '#14b8a6', // Teal
+  json: '#eab308', // Yellow
+  compliance: '#059669', // Emerald (dark)
+  dataquality: '#0891b2', // Cyan (dark)
+  secrets: '#dc2626', // Red (dark)
+  voice: '#7c3aed', // Violet
+  insurance: '#0d9488', // Teal (dark)
+  ms365: '#0078d4', // Microsoft Blue
+  default: '#6b7280', // Gray
 };
 
 // ============================================================
@@ -87,26 +87,26 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
 // ============================================================
 
 const CATEGORY_LABELS: Record<string, string> = {
-  trigger: "Triggers",
-  web: "Web Automation",
-  email: "Email",
-  excel: "Excel",
-  files: "Files",
-  pdf: "PDF",
-  api: "API",
-  database: "Database",
-  data: "Data Integration",
-  ai: "AI",
-  control: "Control Flow",
-  logging: "Logging",
-  variables: "Variables",
-  json: "JSON",
-  compliance: "Compliance",
-  dataquality: "Data Quality",
-  secrets: "Secrets",
-  voice: "Voice & Telephony",
-  insurance: "Insurance",
-  ms365: "Microsoft 365",
+  trigger: 'Triggers',
+  web: 'Web Automation',
+  email: 'Email',
+  excel: 'Excel',
+  files: 'Files',
+  pdf: 'PDF',
+  api: 'API',
+  database: 'Database',
+  data: 'Data Integration',
+  ai: 'AI',
+  control: 'Control Flow',
+  logging: 'Logging',
+  variables: 'Variables',
+  json: 'JSON',
+  compliance: 'Compliance',
+  dataquality: 'Data Quality',
+  secrets: 'Secrets',
+  voice: 'Voice & Telephony',
+  insurance: 'Insurance',
+  ms365: 'Microsoft 365',
 };
 
 // ============================================================

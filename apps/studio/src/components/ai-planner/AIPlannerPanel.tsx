@@ -3,16 +3,16 @@
  * Main sliding panel for the AI-powered RPA planning assistant
  */
 
-import { useEffect, useCallback } from "react";
-import { X, Bot, Sparkles, Settings, Play, Loader2 } from "lucide-react";
-import { Button } from "../ui/Button";
-import { useAIPlannerStore } from "../../store/aiPlannerStore";
-import { useLicenseStore, useCanUseAIPlanner } from "../../store/licenseStore";
-import { PlannerInput } from "./PlannerInput";
-import { PlanStepList } from "./PlanStepList";
-import { RefinementInput } from "./RefinementInput";
-import { LLMConfigDialog } from "./LLMConfigDialog";
-import { useState } from "react";
+import { useEffect, useCallback } from 'react';
+import { X, Bot, Sparkles, Settings, Play, Loader2 } from 'lucide-react';
+import { Button } from '../ui/Button';
+import { useAIPlannerStore } from '../../store/aiPlannerStore';
+import { useLicenseStore, useCanUseAIPlanner } from '../../store/licenseStore';
+import { PlannerInput } from './PlannerInput';
+import { PlanStepList } from './PlanStepList';
+import { RefinementInput } from './RefinementInput';
+import { LLMConfigDialog } from './LLMConfigDialog';
+import { useState } from 'react';
 
 export function AIPlannerPanel() {
   const {
@@ -39,13 +39,13 @@ export function AIPlannerPanel() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Escape to close
-      if (e.key === "Escape" && isPanelOpen) {
+      if (e.key === 'Escape' && isPanelOpen) {
         closePanel();
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isPanelOpen, closePanel]);
 
   if (!isPanelOpen) return null;
@@ -53,10 +53,7 @@ export function AIPlannerPanel() {
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/20 z-40"
-        onClick={closePanel}
-      />
+      <div className="fixed inset-0 bg-black/20 z-40" onClick={closePanel} />
 
       {/* Panel */}
       <div className="fixed right-0 top-0 h-full w-[500px] bg-white shadow-2xl z-50 flex flex-col animate-slide-in-right">
@@ -69,9 +66,9 @@ export function AIPlannerPanel() {
             <div>
               <h2 className="font-semibold text-slate-800">AI Planner</h2>
               <p className="text-xs text-slate-500">
-                {currentPhase === "input" && "Describe your automation"}
-                {currentPhase === "plan" && `${planSteps.length} steps generated`}
-                {currentPhase === "refining" && "Refining plan..."}
+                {currentPhase === 'input' && 'Describe your automation'}
+                {currentPhase === 'plan' && `${planSteps.length} steps generated`}
+                {currentPhase === 'refining' && 'Refining plan...'}
               </p>
             </div>
           </div>
@@ -98,8 +95,7 @@ export function AIPlannerPanel() {
             <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
               <h3 className="font-medium text-amber-800 mb-2">License Required</h3>
               <p className="text-sm text-amber-700 mb-3">
-                SkuldBot Studio requires a license to use. Please activate your license
-                to continue.
+                SkuldBot Studio requires a license to use. Please activate your license to continue.
               </p>
               <Button variant="outline" size="sm">
                 Activate License
@@ -113,12 +109,10 @@ export function AIPlannerPanel() {
               <div className="flex items-start gap-3">
                 <Sparkles className="w-5 h-5 text-primary-500 mt-0.5" />
                 <div>
-                  <h3 className="font-medium text-primary-800 mb-2">
-                    Upgrade to SkuldAI
-                  </h3>
+                  <h3 className="font-medium text-primary-800 mb-2">Upgrade to SkuldAI</h3>
                   <p className="text-sm text-primary-700 mb-3">
-                    AI Planner is a premium feature that helps you design automations
-                    using natural language. Upgrade to unlock this feature.
+                    AI Planner is a premium feature that helps you design automations using natural
+                    language. Upgrade to unlock this feature.
                   </p>
                   <Button variant="default" size="sm">
                     Upgrade Now
@@ -132,12 +126,10 @@ export function AIPlannerPanel() {
           {canUseAI && (
             <>
               {/* Input Phase */}
-              {currentPhase === "input" && (
-                <PlannerInput />
-              )}
+              {currentPhase === 'input' && <PlannerInput />}
 
               {/* Plan Phase */}
-              {(currentPhase === "plan" || currentPhase === "refining") && (
+              {(currentPhase === 'plan' || currentPhase === 'refining') && (
                 <>
                   <PlanStepList />
 
@@ -153,13 +145,9 @@ export function AIPlannerPanel() {
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
-          {currentPhase === "input" ? (
+          {currentPhase === 'input' ? (
             <div className="flex gap-3">
-              <Button
-                variant="ghost"
-                onClick={reset}
-                className="flex-1"
-              >
+              <Button variant="ghost" onClick={reset} className="flex-1">
                 Clear
               </Button>
               <Button
@@ -183,11 +171,7 @@ export function AIPlannerPanel() {
             </div>
           ) : (
             <div className="flex gap-3">
-              <Button
-                variant="ghost"
-                onClick={reset}
-                className="flex-1"
-              >
+              <Button variant="ghost" onClick={reset} className="flex-1">
                 Start Over
               </Button>
               <Button
@@ -205,10 +189,7 @@ export function AIPlannerPanel() {
       </div>
 
       {/* LLM Config Dialog */}
-      <LLMConfigDialog
-        isOpen={showLLMConfig}
-        onClose={() => setShowLLMConfig(false)}
-      />
+      <LLMConfigDialog isOpen={showLLMConfig} onClose={() => setShowLLMConfig(false)} />
     </>
   );
 }

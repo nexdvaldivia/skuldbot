@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /*
  * ═══════════════════════════════════════════════════════════════════════════
@@ -296,7 +296,12 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-montserrat), 'Montserrat', system-ui, -apple-system, sans-serif;
+  font-family:
+    var(--font-montserrat),
+    'Montserrat',
+    system-ui,
+    -apple-system,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

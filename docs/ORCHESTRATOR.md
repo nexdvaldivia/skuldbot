@@ -3,6 +3,7 @@
 ## Visión General
 
 El Orchestrator es el componente backend centralizado que gestiona:
+
 - Almacenamiento y versionado de bots
 - Scheduling y dispatching de ejecuciones
 - Gestión de usuarios y permisos
@@ -33,14 +34,14 @@ El Orchestrator es el componente backend centralizado que gestiona:
 
 ## Tecnologías
 
-| Componente | Tecnología |
-|------------|------------|
-| API | NestJS (TypeScript) |
-| UI | Next.js |
-| Base de datos | PostgreSQL |
-| Storage | S3-compatible (MinIO, AWS S3) |
-| Cache | Redis |
-| Autenticación | JWT + Refresh tokens |
+| Componente    | Tecnología                    |
+| ------------- | ----------------------------- |
+| API           | NestJS (TypeScript)           |
+| UI            | Next.js                       |
+| Base de datos | PostgreSQL                    |
+| Storage       | S3-compatible (MinIO, AWS S3) |
+| Cache         | Redis                         |
+| Autenticación | JWT + Refresh tokens          |
 
 ---
 
@@ -79,6 +80,7 @@ GET /api/forms/:formId
 ```
 
 **Response:**
+
 ```json
 {
   "formId": "form-abc123",
@@ -129,41 +131,47 @@ GET /forms/:formId
 ```
 
 Retorna HTML renderizado del formulario, usando:
+
 - El engine `SkuldForms.Generate Form HTML` para generar el HTML
 - CSS framework configurable (Tailwind, Bootstrap, etc.)
 - Validación client-side
 - CSRF protection
 
 **Ejemplo de HTML generado:**
+
 ```html
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Solicitud de Reembolso</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center">
-  <form action="/api/forms/form-abc123/submit" method="POST"
-        class="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
-    <h1 class="text-2xl font-bold mb-4">Solicitud de Reembolso</h1>
-    <p class="text-gray-600 mb-6">Complete este formulario...</p>
+  <head>
+    <title>Solicitud de Reembolso</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <form
+      action="/api/forms/form-abc123/submit"
+      method="POST"
+      class="bg-white p-8 rounded-lg shadow-md max-w-md w-full"
+    >
+      <h1 class="text-2xl font-bold mb-4">Solicitud de Reembolso</h1>
+      <p class="text-gray-600 mb-6">Complete este formulario...</p>
 
-    <div class="mb-4">
-      <label class="block text-sm font-medium mb-1">
-        Nombre completo <span class="text-red-500">*</span>
-      </label>
-      <input type="text" name="field-1" required
-             class="w-full border rounded px-3 py-2">
-    </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-1">
+          Nombre completo <span class="text-red-500">*</span>
+        </label>
+        <input type="text" name="field-1" required class="w-full border rounded px-3 py-2" />
+      </div>
 
-    <!-- Más campos... -->
+      <!-- Más campos... -->
 
-    <button type="submit"
-            class="w-full bg-emerald-500 text-white py-2 rounded hover:bg-emerald-600">
-      Enviar Solicitud
-    </button>
-  </form>
-</body>
+      <button
+        type="submit"
+        class="w-full bg-emerald-500 text-white py-2 rounded hover:bg-emerald-600"
+      >
+        Enviar Solicitud
+      </button>
+    </form>
+  </body>
 </html>
 ```
 
@@ -175,6 +183,7 @@ Content-Type: application/json (o multipart/form-data para archivos)
 ```
 
 **Request Body:**
+
 ```json
 {
   "field-1": "Juan Pérez",
@@ -185,6 +194,7 @@ Content-Type: application/json (o multipart/form-data para archivos)
 ```
 
 **Response (Success):**
+
 ```json
 {
   "success": true,
@@ -195,6 +205,7 @@ Content-Type: application/json (o multipart/form-data para archivos)
 ```
 
 **Response (Validation Error):**
+
 ```json
 {
   "success": false,
@@ -214,15 +225,14 @@ GET /api/jobs/:jobId/status
 ```
 
 **Response:**
+
 ```json
 {
   "jobId": "job-123456",
   "status": "running",
   "progress": 45,
   "startedAt": "2025-12-17T10:30:00Z",
-  "logs": [
-    {"level": "info", "message": "Procesando solicitud...", "timestamp": "..."}
-  ]
+  "logs": [{ "level": "info", "message": "Procesando solicitud...", "timestamp": "..." }]
 }
 ```
 
@@ -330,13 +340,13 @@ await this.formsService.create({
   id: formId,
   botId: botId,
   nodeId: formNodeId,
-  ...formDefinition
+  ...formDefinition,
 });
 
 // Retornar URL al Studio
 return {
   formUrl: publicUrl,
-  formId: formId
+  formId: formId,
 };
 ```
 
@@ -364,14 +374,14 @@ Background job que hace polling a endpoints configurados.
 
 ## Estado de Implementación
 
-| Feature | Estado |
-|---------|--------|
+| Feature           | Estado       |
+| ----------------- | ------------ |
 | API Base (NestJS) | 🔜 Pendiente |
 | Autenticación JWT | 🔜 Pendiente |
-| CRUD de Bots | 🔜 Pendiente |
-| Job Scheduler | 🔜 Pendiente |
-| **Form Service** | 🔜 Pendiente |
-| UI Dashboard | 🔜 Pendiente |
+| CRUD de Bots      | 🔜 Pendiente |
+| Job Scheduler     | 🔜 Pendiente |
+| **Form Service**  | 🔜 Pendiente |
+| UI Dashboard      | 🔜 Pendiente |
 
 ---
 

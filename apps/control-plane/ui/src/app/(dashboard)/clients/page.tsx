@@ -214,12 +214,17 @@ export default function ClientsPage() {
             <div className="px-5 py-12 text-center">
               <Building2 className="mx-auto mb-3 h-10 w-10 text-zinc-300" />
               <p className="text-sm font-medium text-zinc-900">No clients found</p>
-              <p className="mt-1 text-sm text-zinc-500">Try adjusting filters or create a new client.</p>
+              <p className="mt-1 text-sm text-zinc-500">
+                Try adjusting filters or create a new client.
+              </p>
             </div>
           ) : (
             <div className="divide-y divide-zinc-100">
               {filteredClients.map((client) => (
-                <div key={client.id} className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-zinc-50">
+                <div
+                  key={client.id}
+                  className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-zinc-50"
+                >
                   <div className="min-w-0">
                     <p className="truncate font-medium text-zinc-900">{client.name}</p>
                     <p className="truncate text-sm text-zinc-500">{client.slug}</p>
@@ -229,7 +234,10 @@ export default function ClientsPage() {
                     <Badge className={statusStyles[client.status]}>{client.status}</Badge>
                     <Badge variant="secondary">{planLabels[client.plan]}</Badge>
                     <Badge variant="outline">{client.tenantsCount} orch</Badge>
-                    <Link href={`/tenants?clientId=${client.id}`} className="text-sm font-medium text-indigo-600">
+                    <Link
+                      href={`/tenants?clientId=${client.id}`}
+                      className="text-sm font-medium text-indigo-600"
+                    >
                       View
                     </Link>
                   </div>
@@ -250,9 +258,7 @@ export default function ClientsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create Client</DialogTitle>
-            <DialogDescription>
-              Add a new enterprise client in Control Plane.
-            </DialogDescription>
+            <DialogDescription>Add a new enterprise client in Control Plane.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -285,7 +291,9 @@ export default function ClientsPage() {
               <Input
                 type="email"
                 value={form.billingEmail}
-                onChange={(event) => setForm((prev) => ({ ...prev, billingEmail: event.target.value }))}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, billingEmail: event.target.value }))
+                }
                 placeholder="billing@acme.com"
               />
             </div>

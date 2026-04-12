@@ -14,5 +14,3 @@ export class MCPCapabilitiesDto {
     vendor?: string;
   };
 }
-
-

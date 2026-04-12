@@ -103,13 +103,13 @@ Each prompt file uses Markdown with YAML frontmatter for metadata:
 
 ```markdown
 ---
-version: "1.0"
-created: "2025-12-18"
-author: "Skuldbot Team"
-node: "ai.repair_data"
-description: "System prompt for AI data repair"
+version: '1.0'
+created: '2025-12-18'
+author: 'Skuldbot Team'
+node: 'ai.repair_data'
+description: 'System prompt for AI data repair'
 audit_required: true
-compliance_tags: ["HIPAA", "SOC2"]
+compliance_tags: ['HIPAA', 'SOC2']
 ---
 
 Your prompt content here...
@@ -117,28 +117,30 @@ Your prompt content here...
 
 ### Metadata Fields
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| version | Yes | Semantic version of the prompt |
-| created | Yes | Creation date (YYYY-MM-DD) |
-| author | Yes | Author or team name |
-| node | Yes | Associated node type |
-| description | Yes | Brief description |
-| audit_required | No | Whether usage should be audited (default: true) |
-| compliance_tags | No | Relevant compliance frameworks |
+| Field           | Required | Description                                     |
+| --------------- | -------- | ----------------------------------------------- |
+| version         | Yes      | Semantic version of the prompt                  |
+| created         | Yes      | Creation date (YYYY-MM-DD)                      |
+| author          | Yes      | Author or team name                             |
+| node            | Yes      | Associated node type                            |
+| description     | Yes      | Brief description                               |
+| audit_required  | No       | Whether usage should be audited (default: true) |
+| compliance_tags | No       | Relevant compliance frameworks                  |
 
 ## Adding a New Prompt Version
 
 1. **Create new version file:**
+
    ```bash
    cp prompts/repair/system_v1.md prompts/repair/system_v2.md
    ```
 
 2. **Update metadata:**
+
    ```yaml
    ---
-   version: "2.0"
-   created: "2025-01-15"
+   version: '2.0'
+   created: '2025-01-15'
    ...
    ```
 
@@ -162,6 +164,7 @@ Your prompt content here...
 If a new prompt version causes issues:
 
 1. **Update version reference:**
+
    ```python
    # In ai.py, change:
    prompt_result = build_full_prompt(
@@ -183,12 +186,14 @@ The versioned file system makes rollback trivial.
 ### For Regulated Industries (HIPAA, SOX, PCI-DSS)
 
 **Recommended: Azure OpenAI Service**
+
 - Data stays in your Azure tenant
 - BAA available for HIPAA
 - SOC2, ISO 27001 certified
 - Full audit logs
 
 **Alternative: Ollama (On-Premise)**
+
 - Data never leaves your network
 - Complete control over infrastructure
 - Models: llama2, mistral, mixtral
@@ -197,6 +202,7 @@ The versioned file system makes rollback trivial.
 ### For Non-Regulated Data
 
 Any provider can be used:
+
 - OpenAI API
 - Anthropic Claude API
 - Azure OpenAI
@@ -277,6 +283,7 @@ Each prompt load generates a structured log entry:
 ## Support
 
 For questions about the prompt management system:
+
 - Review this documentation
 - Check the PromptLoader code in `skuldbot/ai/prompt_loader.py`
 - Contact the Skuldbot team

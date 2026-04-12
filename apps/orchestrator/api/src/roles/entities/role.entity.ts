@@ -12,8 +12,8 @@ import { Permission } from './permission.entity';
 import { User } from '../../users/entities/user.entity';
 
 export enum RoleType {
-  SYSTEM = 'system',   // Built-in roles (cannot be deleted)
-  CUSTOM = 'custom',   // Tenant-created roles
+  SYSTEM = 'system', // Built-in roles (cannot be deleted)
+  CUSTOM = 'custom', // Tenant-created roles
 }
 
 /**
@@ -113,11 +113,21 @@ export const DEFAULT_ROLES = {
     type: RoleType.SYSTEM,
     priority: 50,
     permissions: [
-      'bots:read', 'bots:write', 'bots:execute',
-      'runs:read', 'runs:write', 'runs:cancel', 'runs:retry', 'runs:logs',
+      'bots:read',
+      'bots:write',
+      'bots:execute',
+      'runs:read',
+      'runs:write',
+      'runs:cancel',
+      'runs:retry',
+      'runs:logs',
       'runners:read',
-      'schedules:read', 'schedules:write', 'schedules:delete', 'schedules:trigger',
-      'credentials:read', 'credentials:use',
+      'schedules:read',
+      'schedules:write',
+      'schedules:delete',
+      'schedules:trigger',
+      'credentials:read',
+      'credentials:use',
     ],
   },
   DEVELOPER: {
@@ -127,11 +137,15 @@ export const DEFAULT_ROLES = {
     type: RoleType.SYSTEM,
     priority: 30,
     permissions: [
-      'bots:read', 'bots:write', 'bots:export',
-      'runs:read', 'runs:logs',
+      'bots:read',
+      'bots:write',
+      'bots:export',
+      'runs:read',
+      'runs:logs',
       'runners:read',
       'schedules:read',
-      'credentials:read', 'credentials:use',
+      'credentials:read',
+      'credentials:use',
     ],
   },
   VIEWER: {
@@ -140,11 +154,6 @@ export const DEFAULT_ROLES = {
     description: 'Read-only access to view bots, runs, and schedules',
     type: RoleType.SYSTEM,
     priority: 10,
-    permissions: [
-      'bots:read',
-      'runs:read', 'runs:logs',
-      'runners:read',
-      'schedules:read',
-    ],
+    permissions: ['bots:read', 'runs:read', 'runs:logs', 'runners:read', 'schedules:read'],
   },
 };

@@ -1,10 +1,4 @@
-import {
-  IsString,
-  IsOptional,
-  IsObject,
-  IsArray,
-  IsEnum,
-} from 'class-validator';
+import { IsString, IsOptional, IsObject, IsArray, IsEnum } from 'class-validator';
 import { RunnerStatus } from '../entities/runner.entity';
 
 /**

@@ -5,7 +5,14 @@ import * as crypto from 'crypto';
 /**
  * Compliance Framework definitions
  */
-export type ComplianceFramework = 'HIPAA' | 'SOC2' | 'PCI-DSS' | 'GDPR' | 'SOX' | 'ISO27001' | 'NIST';
+export type ComplianceFramework =
+  | 'HIPAA'
+  | 'SOC2'
+  | 'PCI-DSS'
+  | 'GDPR'
+  | 'SOX'
+  | 'ISO27001'
+  | 'NIST';
 
 /**
  * Attestation Record
@@ -427,10 +434,7 @@ export class AttestationService {
       attestedBy: attestation.attestedBy,
     };
 
-    return crypto
-      .createHash('sha256')
-      .update(JSON.stringify(data))
-      .digest('hex');
+    return crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex');
   }
 
   private evaluateControl(

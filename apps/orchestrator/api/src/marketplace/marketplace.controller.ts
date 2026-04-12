@@ -1,13 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Param,
-  Body,
-  Query,
-} from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query } from '@nestjs/common';
 import { CatalogService } from './catalog.service';
 import type { CatalogBot, CatalogResponse } from './catalog.service';
 import { InstallationService } from './installation.service';
@@ -242,20 +233,12 @@ export class MarketplaceController {
     },
   ): Promise<{ success: boolean }> {
     // Record run stats
-    await this.installationService.recordRun(
-      installationId,
-      body.success,
-      body.durationSeconds,
-    );
+    await this.installationService.recordRun(installationId, body.success, body.durationSeconds);
 
     // Record usage events for billing
     if (body.usage) {
       for (const event of body.usage) {
-        await this.installationService.recordUsage(
-          installationId,
-          event.metric,
-          event.quantity,
-        );
+        await this.installationService.recordUsage(installationId, event.metric, event.quantity);
       }
     }
 

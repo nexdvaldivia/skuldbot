@@ -1,30 +1,38 @@
 # Nexion -> Skuldbot Reuse Matrix
 
 Documento complementario de escaneo completo:
+
 - `docs/NEXION_FULL_SCAN_ADAPTATION_BLUEPRINT.md`
 - `docs/NEXION_NEXIONONE_DEEP_SCAN_2026-02-22.md`
 - `docs/NEXION_SKULD_MODULE_DECISION_MATRIX.md`
 
 ## 1) Confirmación de acceso
+
 Repositorio fuente oficial enterprise detectado y accesible:
+
 - `/Users/dubielvaldivia/Documents/khipus/nexion/nexion-one/backend`
 
 Puntos fuertes observados:
+
 - `app/` con dominio, servicios, esquemas y API madura.
 - `app/services/` y `app/models/` con secretos, seguridad, licencias, metering y telemetría.
 
 Regla de fuente de verdad:
+
 - Para arquitectura enterprise, usar solo `nexion-one`.
 - `nexion/backend` queda fuera del alcance de migración salvo comparación puntual.
 
 ---
 
 ## 2) Regla de migración
+
 No hacer copia ciega de backend completo porque hay diferencia de stack:
+
 - Skuldbot `Control Plane + Orchestrator`: NestJS/TypeScript.
 - Nexion One backend: FastAPI/Python.
 
 Estrategia correcta:
+
 - `copiar dominio y reglas` (lógica, modelos, políticas),
 - `adaptar capa API/infra` al stack de Skuldbot,
 - `reusar Python directo` solo donde encaja natural (engine/runner/libs Python).
@@ -34,7 +42,9 @@ Estrategia correcta:
 ## 3) Reutilización por prioridad
 
 ## P0 - Importar ya (alto ROI, bajo riesgo)
+
 1. Secrets governance / manifest
+
 - Fuente: `/Users/dubielvaldivia/Documents/khipus/nexion/nexion-one/backend/app/services/secrets_service.py`
 - Destino sugerido:
   - `orchestrator/api/src/credentials/*` (contratos/validaciones/políticas),
@@ -42,6 +52,7 @@ Estrategia correcta:
 - Valor: estandariza secretos por cloud y reduce errores de despliegue.
 
 2. Compliance templates (HIPAA/SOC2/etc.)
+
 - Fuente:
   - `/Users/dubielvaldivia/Documents/khipus/nexion/nexion-one/backend/app/services/security_service.py`
   - `/Users/dubielvaldivia/Documents/khipus/nexion/nexion-one/backend/app/api/v1/admin/security.py`
@@ -51,6 +62,7 @@ Estrategia correcta:
 - Valor: acelera policy packs regulados enterprise.
 
 3. PHI/protection utilities
+
 - Fuente:
   - `/Users/dubielvaldivia/Documents/khipus/nexion/nexion-one/backend/app/services/security_service.py`
   - `/Users/dubielvaldivia/Documents/khipus/nexion/nexion-one/backend/app/services/secrets_service.py`
@@ -60,7 +72,9 @@ Estrategia correcta:
 - Valor: protección de datos sensible en ejecución.
 
 ## P1 - Adaptar (alto valor, requiere traducción fuerte)
+
 4. Esquemas de licencia/cuotas
+
 - Fuente:
   - `/Users/dubielvaldivia/Documents/khipus/nexion/nexion-one/backend/app/models/license.py`
   - `/Users/dubielvaldivia/Documents/khipus/nexion/nexion-one/backend/app/api/v1/licenses.py`
@@ -71,6 +85,7 @@ Estrategia correcta:
 - Valor: mejorar contratos de validación y uso de cuotas.
 
 5. Auditoría y tracking de uso
+
 - Fuente:
   - `/Users/dubielvaldivia/Documents/khipus/nexion/nexion-one/backend/app/models/usage.py`
   - `/Users/dubielvaldivia/Documents/khipus/nexion/nexion-one/backend/app/models/usage_event.py`
@@ -82,6 +97,7 @@ Estrategia correcta:
 - Valor: telemetría y monetización más robustas.
 
 6. Dominio comercial (Sales CRM + Email Marketing)
+
 - Fuente principal (Nexion One):
   - `/Users/dubielvaldivia/Documents/khipus/nexion/nexion-one/backend/app/api/v1/admin/sales.py`
   - `/Users/dubielvaldivia/Documents/khipus/nexion/nexion-one/backend/app/api/v1/admin/leads.py`
@@ -110,11 +126,14 @@ Estrategia correcta:
   - integra señales comerciales con licenciamiento/billing/marketplace ya existentes.
 
 ## P2 - No migrar 1:1 (solo patrones)
+
 7. API FastAPI completa (`app/api/*`)
+
 - Razón: capa HTTP no portable a NestJS.
 - Acción: mapear contratos y reimplementar endpoints en TypeScript.
 
 8. Infra específica de Nexion no alineada al producto actual
+
 - Ejemplo: subdominios verticales de analytics no relacionados con roadmap inmediato.
 - Acción: extraer ideas, no código.
 
@@ -123,23 +142,28 @@ Estrategia correcta:
 ## 4) Plan de importación recomendado (rápido)
 
 Semana 1:
+
 - Generar `shared policy contracts` (secrets/compliance) desde Nexion One.
 - Integrar manifest de secretos en Orchestrator (sin romper APIs actuales).
 
 Semana 2:
+
 - Portar templates HIPAA/SOC2 a policy packs de Skuldbot.
 - Integrar redacción/tokenización en runtime de engine/runner.
 
 Semana 3:
+
 - Reforzar licenciamiento/cuotas/usage con modelos maduros inspirados en Nexion One.
 - Cerrar pruebas de regresión y seguridad.
 
 Semana 4-5:
+
 - Portar dominio comercial core: `Lead`, `LeadActivity`, `SalesRep` y `Pipeline/Funnel`.
 - Exponer APIs admin/public para captación de leads y asignación.
 - Integrar actividad comercial con auditoría y tenancy enterprise.
 
 Semana 6-7:
+
 - Portar `EmailCampaign`, `EmailTemplate`, `EmailList`, `EmailListMember`, `EmailAccount`.
 - Conectar webhooks de eventos (open/click/bounce/unsubscribe/complaint).
 - Integrar metering: campañas, envíos, engagement y uso por tenant para billing.
@@ -147,6 +171,7 @@ Semana 6-7:
 ---
 
 ## 5) Criterio de aceptación de migración
+
 - Ningún secreto en claro en artefactos/DSL/logs.
 - Policy packs HIPAA/SOC2 activables por tenant.
 - Uso y billing con idempotencia y trazabilidad consistente.

@@ -30,12 +30,9 @@ export class SettingsService {
     });
 
     const defaultSlug =
-      this.licenseService.getTenantSlug() ||
-      this.licenseService.getTenantId() ||
-      tenantId;
+      this.licenseService.getTenantSlug() || this.licenseService.getTenantId() || tenantId;
 
-    const defaultName =
-      this.toDisplayName(defaultSlug) || this.toDisplayName(tenantId);
+    const defaultName = this.toDisplayName(defaultSlug) || this.toDisplayName(tenantId);
 
     return {
       id: settings?.id || null,
@@ -49,10 +46,7 @@ export class SettingsService {
     };
   }
 
-  async updateSettings(
-    tenantId: string,
-    dto: UpdateSettingsDto,
-  ): Promise<TenantSettingsResponse> {
+  async updateSettings(tenantId: string, dto: UpdateSettingsDto): Promise<TenantSettingsResponse> {
     const existing = await this.settingsRepository.findOne({
       where: { tenantId },
     });

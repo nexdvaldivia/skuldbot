@@ -1,16 +1,13 @@
-import { useEffect, useRef, useCallback } from "react";
-import { useProjectStore } from "../store/projectStore";
-import { useTabsStore } from "../store/tabsStore";
+import { useEffect, useRef, useCallback } from 'react';
+import { useProjectStore } from '../store/projectStore';
+import { useTabsStore } from '../store/tabsStore';
 
 interface AutoSaveManagerProps {
   enabled?: boolean;
   intervalMs?: number;
 }
 
-export function AutoSaveManager({
-  enabled = true,
-  intervalMs = 5000,
-}: AutoSaveManagerProps) {
+export function AutoSaveManager({ enabled = true, intervalMs = 5000 }: AutoSaveManagerProps) {
   const { bots, project, saveBot } = useProjectStore();
   const { setTabDirty } = useTabsStore();
   const lastSaveTimeRef = useRef<number>(Date.now());
@@ -87,13 +84,13 @@ export function AutoSaveManager({
       const dirtyBots = getDirtyBots();
       if (dirtyBots.length > 0) {
         e.preventDefault();
-        e.returnValue = "You have unsaved changes. Are you sure you want to leave?";
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
         return e.returnValue;
       }
     };
 
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [getDirtyBots]);
 
   // Cleanup

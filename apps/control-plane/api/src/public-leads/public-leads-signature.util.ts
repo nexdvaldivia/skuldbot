@@ -27,9 +27,7 @@ export function computeGatewaySignature(
   timestamp: string,
 ): string {
   const canonicalPayload = canonicalStringify(payload);
-  return createHmac('sha256', secret)
-    .update(`${timestamp}.${canonicalPayload}`)
-    .digest('hex');
+  return createHmac('sha256', secret).update(`${timestamp}.${canonicalPayload}`).digest('hex');
 }
 
 export function verifyGatewaySignature(params: {
@@ -38,11 +36,7 @@ export function verifyGatewaySignature(params: {
   timestamp: string;
   signature: string;
 }): boolean {
-  const expected = computeGatewaySignature(
-    params.payload,
-    params.secret,
-    params.timestamp,
-  );
+  const expected = computeGatewaySignature(params.payload, params.secret, params.timestamp);
   const received = params.signature.replace(/^sha256=/i, '');
 
   if (expected.length !== received.length) {

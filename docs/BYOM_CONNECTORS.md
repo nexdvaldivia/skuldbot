@@ -11,6 +11,7 @@ BYOM no es solo Ollama. Es dar al cliente **total libertad** de usar cualquier L
 ### Cloud Providers with BAA Support
 
 #### 1. **Azure AI Foundry** (Microsoft)
+
 ```yaml
 provider: azure-ai-foundry
 endpoint: https://your-resource.openai.azure.com
@@ -23,6 +24,7 @@ data_residency: us-east-1
 ```
 
 **Models Available:**
+
 - GPT-4 Turbo, GPT-4, GPT-3.5 Turbo
 - Claude 3 (Sonnet, Opus, Haiku)
 - Llama 3 70B, Mistral Large
@@ -35,6 +37,7 @@ data_residency: us-east-1
 ---
 
 #### 2. **AWS Bedrock** (Amazon)
+
 ```yaml
 provider: aws-bedrock
 region: us-east-1
@@ -46,6 +49,7 @@ hipaa_compliant: true
 ```
 
 **Models Available:**
+
 - Claude 3 (Opus, Sonnet, Haiku)
 - Llama 3 70B/8B
 - Mistral Large/7B
@@ -59,6 +63,7 @@ hipaa_compliant: true
 ---
 
 #### 3. **Google Vertex AI** (GCP)
+
 ```yaml
 provider: vertex-ai
 project_id: your-project-id
@@ -70,6 +75,7 @@ hipaa_compliant: true
 ```
 
 **Models Available:**
+
 - Gemini 1.5 Pro/Flash
 - Claude 3 (Opus, Sonnet)
 - Llama 3 70B
@@ -82,17 +88,19 @@ hipaa_compliant: true
 ---
 
 #### 4. **OpenAI** (with BAA)
+
 ```yaml
 provider: openai
 endpoint: https://api.openai.com/v1
 api_key: ${OPENAI_API_KEY}
 model: gpt-4-turbo-preview
 organization_id: org-xxx
-baa_signed: true  # Enterprise only
-hipaa_compliant: true  # With BAA
+baa_signed: true # Enterprise only
+hipaa_compliant: true # With BAA
 ```
 
 **Models Available:**
+
 - GPT-4 Turbo, GPT-4, GPT-3.5 Turbo
 
 **Pricing:** $0.01-0.12/1K tokens  
@@ -102,16 +110,18 @@ hipaa_compliant: true  # With BAA
 ---
 
 #### 5. **Anthropic** (with BAA)
+
 ```yaml
 provider: anthropic
 endpoint: https://api.anthropic.com/v1
 api_key: ${ANTHROPIC_API_KEY}
 model: claude-3-opus-20240229
-baa_signed: true  # Enterprise only
-hipaa_compliant: true  # With BAA
+baa_signed: true # Enterprise only
+hipaa_compliant: true # With BAA
 ```
 
 **Models Available:**
+
 - Claude 3 (Opus, Sonnet, Haiku)
 
 **Pricing:** $0.003-0.075/1K tokens  
@@ -123,12 +133,13 @@ hipaa_compliant: true  # With BAA
 ### Self-Hosted Options (No BAA Needed)
 
 #### 6. **Ollama** (Easiest)
+
 ```yaml
 provider: ollama
 endpoint: http://localhost:11434
 model: llama3:70b-instruct
 baa_required: false
-hipaa_compliant: true  # Data never leaves VPC
+hipaa_compliant: true # Data never leaves VPC
 data_residency: local
 ```
 
@@ -139,6 +150,7 @@ data_residency: local
 ---
 
 #### 7. **vLLM** (High Performance)
+
 ```yaml
 provider: vllm
 endpoint: https://vllm.internal:8000
@@ -156,6 +168,7 @@ data_residency: us-east-1
 ---
 
 #### 8. **Text Generation Inference (TGI)** (HuggingFace)
+
 ```yaml
 provider: tgi
 endpoint: https://tgi.internal:80
@@ -173,6 +186,7 @@ hipaa_compliant: true
 ---
 
 #### 9. **llama.cpp** (CPU-Optimized)
+
 ```yaml
 provider: llamacpp
 endpoint: http://localhost:8080
@@ -189,6 +203,7 @@ data_residency: local
 ---
 
 #### 10. **LM Studio** (Developer Tool)
+
 ```yaml
 provider: lmstudio
 endpoint: http://localhost:1234/v1
@@ -205,6 +220,7 @@ data_residency: local
 ---
 
 #### 11. **LocalAI** (OpenAI Compatible)
+
 ```yaml
 provider: localai
 endpoint: http://localhost:8080
@@ -221,6 +237,7 @@ hipaa_compliant: true
 ---
 
 #### 12. **Custom / Any OpenAI-Compatible API**
+
 ```yaml
 provider: custom
 endpoint: https://your-llm.internal:8080/v1
@@ -229,8 +246,8 @@ model: your-custom-model
 headers:
   X-Custom-Header: value
   X-Tenant-ID: acme
-baa_required: false  # Your responsibility
-hipaa_compliant: true  # Your responsibility
+baa_required: false # Your responsibility
+hipaa_compliant: true # Your responsibility
 ```
 
 **Models Available:** Whatever you host  
@@ -245,17 +262,27 @@ hipaa_compliant: true  # Your responsibility
 
 ```typescript
 interface LLMProviderConfig {
-  id: string;                    // 'azure-prod-1'
-  name: string;                  // 'Azure AI Foundry - Production'
-  tenantId: string;              // 'acme-insurance'
-  
+  id: string; // 'azure-prod-1'
+  name: string; // 'Azure AI Foundry - Production'
+  tenantId: string; // 'acme-insurance'
+
   // Provider Details
-  provider: 'azure-ai-foundry' | 'aws-bedrock' | 'vertex-ai' | 
-            'openai' | 'anthropic' | 'ollama' | 'vllm' | 
-            'tgi' | 'llamacpp' | 'lmstudio' | 'localai' | 'custom';
-  endpoint: string;              // API endpoint
-  model: string;                 // Model name/ID
-  
+  provider:
+    | 'azure-ai-foundry'
+    | 'aws-bedrock'
+    | 'vertex-ai'
+    | 'openai'
+    | 'anthropic'
+    | 'ollama'
+    | 'vllm'
+    | 'tgi'
+    | 'llamacpp'
+    | 'lmstudio'
+    | 'localai'
+    | 'custom';
+  endpoint: string; // API endpoint
+  model: string; // Model name/ID
+
   // Authentication
   apiKey?: string;
   credentials?: {
@@ -265,18 +292,18 @@ interface LLMProviderConfig {
     googleServiceAccount?: string;
   };
   headers?: Record<string, string>;
-  
+
   // Compliance
-  baaRequired: boolean;          // Does this need BAA?
-  baaSigned: boolean;            // Do we have signed BAA?
-  hipaaCompliant: boolean;       // Is it HIPAA compliant?
-  dataResidency: string;         // 'us-east-1', 'local', etc.
-  
+  baaRequired: boolean; // Does this need BAA?
+  baaSigned: boolean; // Do we have signed BAA?
+  hipaaCompliant: boolean; // Is it HIPAA compliant?
+  dataResidency: string; // 'us-east-1', 'local', etc.
+
   // Routing Rules
   allowedDataClassifications: DataClassification[];
-  priority: number;              // 1-10 (higher = preferred)
-  fallbackTo?: string;           // Fallback provider ID
-  
+  priority: number; // 1-10 (higher = preferred)
+  fallbackTo?: string; // Fallback provider ID
+
   // Capabilities
   capabilities: {
     chat: boolean;
@@ -286,7 +313,7 @@ interface LLMProviderConfig {
     vision: boolean;
     jsonMode: boolean;
   };
-  
+
   // Limits & Quotas
   limits: {
     maxTokens: number;
@@ -296,23 +323,23 @@ interface LLMProviderConfig {
       tokensPerMinute: number;
     };
   };
-  
+
   // Cost Tracking
   pricing: {
-    inputTokens: number;         // $ per 1K tokens
+    inputTokens: number; // $ per 1K tokens
     outputTokens: number;
     currency: 'USD';
   };
-  
+
   // Health
   healthCheck: {
     status: 'healthy' | 'degraded' | 'down';
     lastCheck: string;
     latencyMs: number;
     errorRate: number;
-    uptime: number;              // %
+    uptime: number; // %
   };
-  
+
   // Metadata
   metadata?: Record<string, any>;
   createdAt: string;
@@ -336,7 +363,7 @@ const providerPriority = [
     model: 'gpt-4-turbo',
     allowedData: ['PHI', 'PII', 'PUBLIC'],
     priority: 10,
-    cost: 0.01,  // per 1K tokens
+    cost: 0.01, // per 1K tokens
   },
   {
     // Priority 2: AWS Bedrock Claude (BAA signed, fallback)
@@ -355,7 +382,7 @@ const providerPriority = [
     model: 'llama3:70b',
     allowedData: ['PHI', 'PII', 'PUBLIC'],
     priority: 8,
-    cost: 0,  // Fixed infrastructure cost
+    cost: 0, // Fixed infrastructure cost
   },
 ];
 ```
@@ -366,20 +393,20 @@ const providerPriority = [
 // Routing logic
 function routeLLM(dataClassification: DataClassification): LLMProvider {
   // Get all providers that allow this data type
-  const allowedProviders = providerPriority.filter(p => 
-    p.allowedData.includes(dataClassification)
+  const allowedProviders = providerPriority.filter((p) =>
+    p.allowedData.includes(dataClassification),
   );
-  
+
   // Sort by priority
   allowedProviders.sort((a, b) => b.priority - a.priority);
-  
+
   // Check health and pick first healthy
   for (const provider of allowedProviders) {
     if (provider.healthCheck.status === 'healthy') {
       return provider;
     }
   }
-  
+
   // All down? Use fallback
   return fallbackProvider;
 }
@@ -503,6 +530,7 @@ function routeLLM(dataClassification: DataClassification): LLMProvider {
 ## 🚀 Quick Setup Examples
 
 ### Azure AI Foundry
+
 ```bash
 # 1. Get credentials from Azure Portal
 AZURE_OPENAI_KEY="your-key"
@@ -522,6 +550,7 @@ curl ${AZURE_ENDPOINT}/openai/deployments/gpt-4-turbo/chat/completions \
 ```
 
 ### AWS Bedrock
+
 ```bash
 # 1. Configure AWS credentials
 aws configure
@@ -542,6 +571,7 @@ aws bedrock-runtime invoke-model \
 ```
 
 ### Ollama (Self-Hosted)
+
 ```bash
 # 1. Install
 curl -fsSL https://ollama.com/install.sh | sh
@@ -565,6 +595,7 @@ curl http://localhost:11434/api/generate \
 ## ✅ Final Checklist
 
 ### For Each Provider
+
 - [ ] Credentials configured
 - [ ] Endpoint tested
 - [ ] Model available
@@ -576,6 +607,7 @@ curl http://localhost:11434/api/generate \
 - [ ] Health checks working
 
 ### HIPAA Compliance
+
 - [ ] PHI routes to compliant providers only
 - [ ] All cloud providers have BAAs
 - [ ] Audit logs enabled
@@ -587,21 +619,18 @@ curl http://localhost:11434/api/generate \
 
 ## 📚 Provider Comparison
 
-| Provider | Setup | Cost | BAA | Best For |
-|----------|-------|------|-----|----------|
-| **Azure AI Foundry** | ⭐⭐ | 💰💰 | ✅ | Enterprise with MS stack |
-| **AWS Bedrock** | ⭐⭐ | 💰 | ✅ | Enterprise with AWS |
-| **Vertex AI** | ⭐⭐ | 💰 | ✅ | Enterprise with GCP |
-| **OpenAI** | ⭐ | 💰💰💰 | ✅ | Highest quality |
-| **Anthropic** | ⭐ | 💰💰 | ✅ | Long context |
-| **Ollama** | ⭐ | $ | ❌ | Self-hosted, no BAA needed |
-| **vLLM** | ⭐⭐⭐ | $$ | ❌ | High performance |
+| Provider             | Setup  | Cost   | BAA | Best For                   |
+| -------------------- | ------ | ------ | --- | -------------------------- |
+| **Azure AI Foundry** | ⭐⭐   | 💰💰   | ✅  | Enterprise with MS stack   |
+| **AWS Bedrock**      | ⭐⭐   | 💰     | ✅  | Enterprise with AWS        |
+| **Vertex AI**        | ⭐⭐   | 💰     | ✅  | Enterprise with GCP        |
+| **OpenAI**           | ⭐     | 💰💰💰 | ✅  | Highest quality            |
+| **Anthropic**        | ⭐     | 💰💰   | ✅  | Long context               |
+| **Ollama**           | ⭐     | $      | ❌  | Self-hosted, no BAA needed |
+| **vLLM**             | ⭐⭐⭐ | $$     | ❌  | High performance           |
 
 ---
 
 **Status:** Architecture complete  
 **Implementation:** Next phase  
 **Client Freedom:** 100% - ANY LLM they want 🚀
-
-
-

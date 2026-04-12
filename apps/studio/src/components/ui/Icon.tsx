@@ -1,5 +1,5 @@
-import * as LucideIcons from "lucide-react";
-import { cn } from "../../lib/utils";
+import * as LucideIcons from 'lucide-react';
+import { cn } from '../../lib/utils';
 
 interface IconProps {
   name: string;
@@ -15,8 +15,8 @@ export function Icon({ name, size = 16, strokeWidth = 1.75, className }: IconPro
 
 // Icon with background container
 interface IconBoxProps extends IconProps {
-  variant?: "default" | "muted";
-  boxSize?: "sm" | "md" | "lg";
+  variant?: 'default' | 'muted';
+  boxSize?: 'sm' | 'md' | 'lg';
   bgClassName?: string;
 }
 
@@ -25,14 +25,14 @@ export function IconBox({
   size,
   strokeWidth = 1.75,
   className,
-  variant = "default",
-  boxSize = "md",
+  variant = 'default',
+  boxSize = 'md',
   bgClassName,
 }: IconBoxProps) {
   const boxSizes = {
-    sm: "w-7 h-7",
-    md: "w-9 h-9",
-    lg: "w-10 h-10",
+    sm: 'w-7 h-7',
+    md: 'w-9 h-9',
+    lg: 'w-10 h-10',
   };
 
   const iconSizes = {
@@ -42,12 +42,14 @@ export function IconBox({
   };
 
   return (
-    <div className={cn(
-      "rounded-lg flex items-center justify-center flex-shrink-0",
-      boxSizes[boxSize],
-      variant === "muted" && "bg-neutral-100",
-      bgClassName
-    )}>
+    <div
+      className={cn(
+        'rounded-lg flex items-center justify-center flex-shrink-0',
+        boxSizes[boxSize],
+        variant === 'muted' && 'bg-neutral-100',
+        bgClassName,
+      )}
+    >
       <Icon
         name={name}
         size={size || iconSizes[boxSize]}

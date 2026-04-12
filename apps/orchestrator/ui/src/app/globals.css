@@ -54,7 +54,13 @@
   }
 
   html {
-    font-family: 'Montserrat', 'Inter var', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-family:
+      'Montserrat',
+      'Inter var',
+      -apple-system,
+      BlinkMacSystemFont,
+      system-ui,
+      sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -115,8 +121,13 @@
 
 /* Animations */
 @keyframes pulse-status {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .animate-pulse-status {
@@ -124,8 +135,12 @@
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .animate-fade-in {

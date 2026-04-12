@@ -142,14 +142,8 @@ export class SubscriptionController {
    * Get payment history for a tenant
    */
   @Get('subscriptions/:tenantId/payments')
-  async getPaymentHistory(
-    @Param('tenantId') tenantId: string,
-    @Query('limit') limit?: string,
-  ) {
-    return this.subscriptionService.getPaymentHistory(
-      tenantId,
-      limit ? parseInt(limit, 10) : 20,
-    );
+  async getPaymentHistory(@Param('tenantId') tenantId: string, @Query('limit') limit?: string) {
+    return this.subscriptionService.getPaymentHistory(tenantId, limit ? parseInt(limit, 10) : 20);
   }
 
   /**
@@ -161,10 +155,7 @@ export class SubscriptionController {
     @Param('tenantId') tenantId: string,
     @Body() body: { reactivatedBy: string },
   ) {
-    return this.subscriptionService.reactivateSubscription(
-      tenantId,
-      body.reactivatedBy,
-    );
+    return this.subscriptionService.reactivateSubscription(tenantId, body.reactivatedBy);
   }
 
   // ============================================================================
@@ -258,9 +249,7 @@ export class SubscriptionController {
   /**
    * Handle successful invoice payment (recurring subscription payment)
    */
-  private async handleInvoicePaymentSucceeded(
-    invoice: Record<string, unknown>,
-  ): Promise<void> {
+  private async handleInvoicePaymentSucceeded(invoice: Record<string, unknown>): Promise<void> {
     const customerId = invoice.customer as string;
     const subscriptionId = invoice.subscription as string;
     const paymentIntentId = invoice.payment_intent as string;
@@ -287,17 +276,13 @@ export class SubscriptionController {
       invoicePeriod,
     );
 
-    this.logger.log(
-      `Invoice payment succeeded for tenant ${tenantId}: $${amountPaid}`,
-    );
+    this.logger.log(`Invoice payment succeeded for tenant ${tenantId}: $${amountPaid}`);
   }
 
   /**
    * Handle failed invoice payment
    */
-  private async handleInvoicePaymentFailed(
-    invoice: Record<string, unknown>,
-  ): Promise<void> {
+  private async handleInvoicePaymentFailed(invoice: Record<string, unknown>): Promise<void> {
     const customerId = invoice.customer as string;
     const paymentIntentId = invoice.payment_intent as string;
     const amountDue = (invoice.amount_due as number) / 100;
@@ -354,9 +339,7 @@ export class SubscriptionController {
   /**
    * Handle failed payment intent
    */
-  private async handlePaymentIntentFailed(
-    paymentIntent: Record<string, unknown>,
-  ): Promise<void> {
+  private async handlePaymentIntentFailed(paymentIntent: Record<string, unknown>): Promise<void> {
     const tenantId = (paymentIntent.metadata as Record<string, string>)?.tenantId;
 
     if (!tenantId) {
@@ -380,9 +363,7 @@ export class SubscriptionController {
   /**
    * Handle subscription status updates from Stripe
    */
-  private async handleSubscriptionUpdated(
-    subscription: Record<string, unknown>,
-  ): Promise<void> {
+  private async handleSubscriptionUpdated(subscription: Record<string, unknown>): Promise<void> {
     const status = subscription.status as string;
     const tenantId = (subscription.metadata as Record<string, string>)?.tenantId;
 
@@ -401,9 +382,7 @@ export class SubscriptionController {
   /**
    * Handle subscription deletion/cancellation
    */
-  private async handleSubscriptionDeleted(
-    subscription: Record<string, unknown>,
-  ): Promise<void> {
+  private async handleSubscriptionDeleted(subscription: Record<string, unknown>): Promise<void> {
     const tenantId = (subscription.metadata as Record<string, string>)?.tenantId;
 
     if (!tenantId) {

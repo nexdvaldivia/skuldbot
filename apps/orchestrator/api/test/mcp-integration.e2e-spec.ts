@@ -5,11 +5,11 @@ import { AppModule } from '../src/app.module';
 
 /**
  * Orchestrator MCP Integration Tests (E2E)
- * 
+ *
  * Tests the complete flow of tenant-specific MCP operations:
  * 1. Compliance: Classify PHI/PII data, route LLM calls, audit
  * 2. Workflows: Create templates, instantiate, customize
- * 
+ *
  * These tests validate HIPAA compliance requirements and
  * data residency within tenant's VPC.
  */
@@ -54,7 +54,7 @@ describe('Orchestrator MCP Integration (E2E)', () => {
       expect(response.body.result.classification).toBeDefined();
       expect(response.body.result.classification.level).toBe('PHI');
       expect(response.body.result.fields).toBeDefined();
-      
+
       // Verify specific fields are detected
       const fieldNames = Object.keys(response.body.result.fields);
       expect(fieldNames).toContain('patientName');
@@ -106,14 +106,14 @@ describe('Orchestrator MCP Integration (E2E)', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.result.redactedData).toBeDefined();
-      
+
       // Verify PHI is redacted
       expect(response.body.result.redactedData.patientName).toContain('[REDACTED');
       expect(response.body.result.redactedData.ssn).toContain('[REDACTED');
-      
+
       // Non-PHI fields should remain
       expect(response.body.result.redactedData.claimId).toBe('CLM-2026-001');
-      
+
       expect(response.body.result.redactedFields).toBeDefined();
       expect(response.body.result.redactedFields.length).toBeGreaterThan(0);
     });
@@ -141,7 +141,7 @@ describe('Orchestrator MCP Integration (E2E)', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.result.logId).toBeDefined();
       expect(response.body.result.timestamp).toBeDefined();
-      
+
       auditLogId = response.body.result.logId;
     });
 
@@ -186,7 +186,7 @@ describe('Orchestrator MCP Integration (E2E)', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.result.allowed).toBeDefined();
       expect(response.body.result.requirements).toBeDefined();
-      
+
       if (!response.body.result.allowed) {
         expect(response.body.result.violations).toBeDefined();
         expect(response.body.result.recommendations).toBeDefined();
@@ -272,7 +272,7 @@ describe('Orchestrator MCP Integration (E2E)', () => {
       expect(response.body.result.templateId).toBeDefined();
       expect(response.body.result.template).toBeDefined();
       expect(response.body.result.template.name).toBe('ACME Claims Processing');
-      
+
       workflowTemplateId = response.body.result.templateId;
     });
 
@@ -291,11 +291,9 @@ describe('Orchestrator MCP Integration (E2E)', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.result.templates).toBeDefined();
       expect(Array.isArray(response.body.result.templates)).toBe(true);
-      
+
       // Verify our template is in the list
-      const ourTemplate = response.body.result.templates.find(
-        t => t.id === workflowTemplateId,
-      );
+      const ourTemplate = response.body.result.templates.find((t) => t.id === workflowTemplateId);
       expect(ourTemplate).toBeDefined();
     });
 
@@ -345,7 +343,7 @@ describe('Orchestrator MCP Integration (E2E)', () => {
             name: 'ACME Auto Claims - Production',
             variableValues: {
               llmModel: 'anthropic-claude-sonnet',
-              classificationThreshold: 0.90,
+              classificationThreshold: 0.9,
               autoApprovalLimit: 10000,
             },
           },
@@ -356,17 +354,13 @@ describe('Orchestrator MCP Integration (E2E)', () => {
       expect(response.body.result.workflowId).toBeDefined();
       expect(response.body.result.workflow).toBeDefined();
       expect(response.body.result.workflow.name).toBe('ACME Auto Claims - Production');
-      
+
       // Verify variable substitution
-      const classifyNode = response.body.result.workflow.dsl.nodes.find(
-        n => n.id === 'classify',
-      );
+      const classifyNode = response.body.result.workflow.dsl.nodes.find((n) => n.id === 'classify');
       expect(classifyNode.config.model).toBe('anthropic-claude-sonnet');
-      expect(classifyNode.config.threshold).toBe(0.90);
-      
-      const approveNode = response.body.result.workflow.dsl.nodes.find(
-        n => n.id === 'approve',
-      );
+      expect(classifyNode.config.threshold).toBe(0.9);
+
+      const approveNode = response.body.result.workflow.dsl.nodes.find((n) => n.id === 'approve');
       expect(approveNode.config.condition).toContain('10000');
     });
 
@@ -413,7 +407,7 @@ describe('Orchestrator MCP Integration (E2E)', () => {
 
       expect(response.body.uri).toBeDefined();
       expect(response.body.content).toBeDefined();
-      
+
       const content = JSON.parse(response.body.content);
       expect(content.templates).toBeDefined();
       expect(Array.isArray(content.templates)).toBe(true);
@@ -474,7 +468,7 @@ describe('Orchestrator MCP Integration (E2E)', () => {
         });
 
       expect(routeResponse.body.success).toBe(true);
-      
+
       // PHI should route to HIPAA-compliant LLM
       if (classification === 'PHI') {
         expect(routeResponse.body.result.hipaaCompliant).toBe(true);
@@ -505,8 +499,9 @@ describe('Orchestrator MCP Integration (E2E)', () => {
             resourceId: workflowTemplateId || 'test-workflow',
             metadata: {
               dataClassification: classifyResponse.body.result.classification.level,
-              phiFields: classifyResponse.body.result.fields ? 
-                Object.keys(classifyResponse.body.result.fields) : [],
+              phiFields: classifyResponse.body.result.fields
+                ? Object.keys(classifyResponse.body.result.fields)
+                : [],
             },
           },
         });
@@ -517,28 +512,24 @@ describe('Orchestrator MCP Integration (E2E)', () => {
 
   describe('Health and Observability', () => {
     it('should have healthy MCP endpoint', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/api/v1/mcp/health')
-        .expect(200);
+      const response = await request(app.getHttpServer()).get('/api/v1/mcp/health').expect(200);
 
       expect(response.body.status).toBe('healthy');
       expect(response.body.servers).toBeDefined();
     });
 
     it('should list all available tools', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/api/v1/mcp/tools')
-        .expect(200);
+      const response = await request(app.getHttpServer()).get('/api/v1/mcp/tools').expect(200);
 
       expect(response.body.tools).toBeDefined();
-      const toolNames = response.body.tools.map(t => t.name);
-      
+      const toolNames = response.body.tools.map((t) => t.name);
+
       // Compliance tools
       expect(toolNames).toContain('classify_data');
       expect(toolNames).toContain('route_llm');
       expect(toolNames).toContain('redact_data');
       expect(toolNames).toContain('log_audit');
-      
+
       // Workflow tools
       expect(toolNames).toContain('create_workflow_template');
       expect(toolNames).toContain('instantiate_template');
@@ -618,7 +609,7 @@ describe('Orchestrator MCP Integration (E2E)', () => {
 
       expect(response.body.success).toBe(true);
       const fields = response.body.result.fields;
-      
+
       expect(fields.ssn.level).toBe('PHI');
       expect(fields.dob.level).toBe('PHI');
       expect(fields.medicalRecordNumber.level).toBe('PHI');
@@ -642,7 +633,7 @@ describe('Orchestrator MCP Integration (E2E)', () => {
       expect(response.body.result.hipaaCompliant).toBe(true);
       expect(response.body.result.requiresBAA).toBe(true);
       expect(response.body.result.dataResidency).toBe('us-east-1'); // Tenant VPC
-      
+
       // Should NOT route to public cloud LLMs
       expect(['openai', 'anthropic']).not.toContain(response.body.result.provider);
     });
@@ -677,14 +668,14 @@ describe('Orchestrator MCP Integration (E2E)', () => {
 
       expect(reportResponse.body.success).toBe(true);
       const report = reportResponse.body.result.report;
-      
+
       // Verify audit trail completeness
       expect(report.totalEvents).toBeGreaterThan(0);
       expect(report.phiAccess).toBeDefined();
       expect(report.auditLogs).toBeDefined();
-      
+
       // Each log should have required fields
-      report.auditLogs.forEach(log => {
+      report.auditLogs.forEach((log) => {
         expect(log.timestamp).toBeDefined();
         expect(log.userId).toBeDefined();
         expect(log.action).toBeDefined();
@@ -693,5 +684,3 @@ describe('Orchestrator MCP Integration (E2E)', () => {
     });
   });
 });
-
-

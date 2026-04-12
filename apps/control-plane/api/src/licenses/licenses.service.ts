@@ -1,17 +1,9 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
-import {
-  License,
-  LicenseFeatures,
-} from './entities/license.entity';
+import { License, LicenseFeatures } from './entities/license.entity';
 import { LicenseTypeFeature } from './entities/license-type-feature.entity';
 import { QuotaPolicy, UsageCounter } from './entities/quota.entity';
 import {
@@ -214,7 +206,7 @@ export class LicensesService {
     license.lastValidatedAt = new Date();
     await this.licenseRepository.save(license);
 
-      if (!license.isValid()) {
+    if (!license.isValid()) {
       let message = 'License is not valid';
       if (license.status !== 'active') {
         message = `License is ${license.status}`;
@@ -276,14 +268,9 @@ export class LicensesService {
     const daysRemaining = Math.ceil(millisRemaining / (1000 * 60 * 60 * 24));
 
     const isActive = license.isValid();
-    const isBlockedStatus =
-      await this.licenseStatusBlocksUsage(license.status);
+    const isBlockedStatus = await this.licenseStatusBlocksUsage(license.status);
     const quotaState: string =
-      !isActive || isBlockedStatus
-        ? 'blocked'
-        : daysRemaining <= 7
-          ? 'grace'
-          : 'normal';
+      !isActive || isBlockedStatus ? 'blocked' : daysRemaining <= 7 ? 'grace' : 'normal';
 
     return {
       tenantId,
@@ -306,9 +293,7 @@ export class LicensesService {
     requestedCount: number,
     context?: RuntimeDecisionContext,
   ): Promise<EntitlementCheckResponseDto> {
-    const requested = Number.isFinite(requestedCount)
-      ? Math.max(0, requestedCount)
-      : 0;
+    const requested = Number.isFinite(requestedCount) ? Math.max(0, requestedCount) : 0;
     const quota = await this.checkQuota(
       tenantId,
       resourceType,
@@ -365,9 +350,7 @@ export class LicensesService {
   ): Promise<QuotaCheckResponseDto> {
     const normalizedResourceType = resourceType.trim().toLowerCase();
     const normalizedPeriod = period ?? this.getCurrentPeriod();
-    const requested = Number.isFinite(requestedAmount)
-      ? Math.max(0, requestedAmount)
-      : 0;
+    const requested = Number.isFinite(requestedAmount) ? Math.max(0, requestedAmount) : 0;
 
     const license = await this.licenseRepository.findOne({
       where: { tenantId },
@@ -413,10 +396,7 @@ export class LicensesService {
     const policy = await this.quotaPolicyRepository.findOne({
       where: { tenantId, resourceType: normalizedResourceType },
     });
-    const defaultLimit = this.resolveLicenseLimit(
-      license.features,
-      normalizedResourceType,
-    );
+    const defaultLimit = this.resolveLicenseLimit(license.features, normalizedResourceType);
     const effectiveLimit = policy?.limitValue ?? defaultLimit;
     const warningThresholdPercent = policy?.warningThresholdPercent ?? 80;
     const graceThresholdPercent = policy?.graceThresholdPercent ?? 110;
@@ -437,9 +417,7 @@ export class LicensesService {
       warningThresholdPercent,
       graceThresholdPercent,
     );
-    const allowed =
-      state !== 'blocked' &&
-      (!policy?.blockWhenExceeded || state !== 'grace');
+    const allowed = state !== 'blocked' && (!policy?.blockWhenExceeded || state !== 'grace');
     const reason = this.buildQuotaReason(state, effectiveLimit);
 
     const response = {
@@ -591,10 +569,7 @@ export class LicensesService {
       });
     }
 
-    const decisions = await query
-      .orderBy('decision.createdAt', 'DESC')
-      .take(limit)
-      .getMany();
+    const decisions = await query.orderBy('decision.createdAt', 'DESC').take(limit).getMany();
 
     return decisions.map((decision) => ({
       id: decision.id,
@@ -604,9 +579,7 @@ export class LicensesService {
       requested: Number(decision.requested || 0),
       projected: Number(decision.projected || 0),
       limit:
-        decision.limit === null || decision.limit === undefined
-          ? null
-          : Number(decision.limit),
+        decision.limit === null || decision.limit === undefined ? null : Number(decision.limit),
       period: decision.period,
       state: decision.state,
       allowed: decision.allowed,
@@ -662,9 +635,7 @@ export class LicensesService {
       const isBoolean = typeof rawValue === 'boolean';
       const isNumber = typeof rawValue === 'number' && Number.isFinite(rawValue);
       if (!isBoolean && !isNumber) {
-        throw new BadRequestException(
-          `Feature "${featureKey}" must be a boolean or finite number`,
-        );
+        throw new BadRequestException(`Feature "${featureKey}" must be a boolean or finite number`);
       }
 
       const existing = await this.licenseTypeFeatureRepository.findOne({
@@ -762,9 +733,7 @@ export class LicensesService {
     }
   }
 
-  private async getLicenseTemplateFeatures(
-    licenseType: string,
-  ): Promise<LicenseFeatures> {
+  private async getLicenseTemplateFeatures(licenseType: string): Promise<LicenseFeatures> {
     const targetLookupValue = await this.getLicenseTypeLookupValueOrThrow(licenseType);
 
     const rows = await this.licenseTypeFeatureRepository.find({
@@ -776,9 +745,7 @@ export class LicensesService {
     });
 
     if (rows.length === 0) {
-      throw new BadRequestException(
-        `License type "${licenseType}" has no feature template rows`,
-      );
+      throw new BadRequestException(`License type "${licenseType}" has no feature template rows`);
     }
 
     const features: Record<string, unknown> = {};
@@ -786,8 +753,7 @@ export class LicensesService {
       if (row.valueType === 'boolean') {
         features[row.featureKey] = Boolean(row.booleanValue);
       } else {
-        features[row.featureKey] =
-          row.numberValue === null ? 0 : Number(row.numberValue);
+        features[row.featureKey] = row.numberValue === null ? 0 : Number(row.numberValue);
       }
     }
 
@@ -808,25 +774,17 @@ export class LicensesService {
       (value) => value.code === normalized && value.isActive,
     );
     if (!targetLookupValue) {
-      throw new BadRequestException(
-        `Lookup license type "${licenseType}" not found`,
-      );
+      throw new BadRequestException(`Lookup license type "${licenseType}" not found`);
     }
     return targetLookupValue;
   }
 
   private async licenseStatusBlocksUsage(status: string): Promise<boolean> {
-    const metadata = await this.lookupsService.getMetadata(
-      LOOKUP_DOMAIN_LICENSE_STATUS,
-      status,
-    );
+    const metadata = await this.lookupsService.getMetadata(LOOKUP_DOMAIN_LICENSE_STATUS, status);
     return metadata?.['blocksUsage'] === true;
   }
 
-  private resolveLicenseLimit(
-    features: LicenseFeatures,
-    resourceType: string,
-  ): number | null {
+  private resolveLicenseLimit(features: LicenseFeatures, resourceType: string): number | null {
     const featureKey = RESOURCE_LIMIT_MAP[resourceType];
     if (!featureKey) {
       return null;
@@ -922,9 +880,7 @@ export class LicensesService {
       this.configService.get<string>('INTEGRATIONS_ENCRYPTION_KEY');
 
     if (!key) {
-      throw new Error(
-        'SSO_ENCRYPTION_KEY or INTEGRATIONS_ENCRYPTION_KEY must be configured.',
-      );
+      throw new Error('SSO_ENCRYPTION_KEY or INTEGRATIONS_ENCRYPTION_KEY must be configured.');
     }
 
     return key;
@@ -949,16 +905,9 @@ export class LicensesService {
         tenantId: input.tenantId,
         decisionType: input.decisionType,
         resourceType: input.resourceType.trim().toLowerCase(),
-        requested: Number.isFinite(input.requested)
-          ? Math.max(0, input.requested)
-          : 0,
-        projected: Number.isFinite(input.projected)
-          ? Math.max(0, input.projected)
-          : 0,
-        limit:
-          input.limit === null || input.limit === undefined
-            ? null
-            : Number(input.limit),
+        requested: Number.isFinite(input.requested) ? Math.max(0, input.requested) : 0,
+        projected: Number.isFinite(input.projected) ? Math.max(0, input.projected) : 0,
+        limit: input.limit === null || input.limit === undefined ? null : Number(input.limit),
         period: input.period,
         state: input.state,
         allowed: input.allowed,

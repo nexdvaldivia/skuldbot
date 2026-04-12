@@ -29,16 +29,7 @@ import {
 } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { formatRelativeTime } from '@/lib/utils';
-import {
-  Server,
-  Plus,
-  MoreVertical,
-  Trash2,
-  Key,
-  RefreshCw,
-  Cpu,
-  HardDrive,
-} from 'lucide-react';
+import { Server, Plus, MoreVertical, Trash2, Key, RefreshCw, Cpu, HardDrive } from 'lucide-react';
 import Link from 'next/link';
 
 function parseCapabilities(rawValue: string): string[] | undefined {
@@ -140,9 +131,7 @@ export default function RunnersPage() {
         variant: 'destructive',
         title: 'Failed to register runner',
         description:
-          error instanceof Error
-            ? error.message
-            : 'Please verify your data and try again.',
+          error instanceof Error ? error.message : 'Please verify your data and try again.',
       });
     }
   };
@@ -180,8 +169,7 @@ export default function RunnersPage() {
       toast({
         variant: 'destructive',
         title: 'Failed to regenerate key',
-        description:
-          error instanceof Error ? error.message : 'Please try again.',
+        description: error instanceof Error ? error.message : 'Please try again.',
       });
     }
   };
@@ -237,9 +225,7 @@ export default function RunnersPage() {
           <Card>
             <CardContent className="py-12 text-center">
               <Server className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-foreground">
-                No runners registered
-              </h3>
+              <h3 className="text-lg font-medium text-foreground">No runners registered</h3>
               <p className="text-muted-foreground mt-1">
                 Install and configure the runner agent on your machines.
               </p>
@@ -358,9 +344,7 @@ export default function RunnersPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Runner API Key</DialogTitle>
-            <DialogDescription>
-              Store this key securely. It is shown only once.
-            </DialogDescription>
+            <DialogDescription>Store this key securely. It is shown only once.</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
@@ -505,10 +489,7 @@ function RunnerCard({
         {runner.currentRunId && (
           <div className="mt-4 p-2 bg-primary/5 rounded-lg border border-primary/20 text-xs text-primary">
             Running:{' '}
-            <Link
-              href={`/runs/${runner.currentRunId}`}
-              className="font-medium hover:underline"
-            >
+            <Link href={`/runs/${runner.currentRunId}`} className="font-medium hover:underline">
               {runner.currentRunId.slice(0, 8)}...
             </Link>
           </div>

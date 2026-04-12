@@ -20,22 +20,22 @@ const badgeVariants = cva(
     defaultVariants: {
       variant: 'default',
     },
-  }
+  },
 );
 
 export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeVariants> {}
+  extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {}
 
 function Badge({ className, variant, ...props }: BadgeProps) {
-  return (
-    <div className={cn(badgeVariants({ variant }), className)} {...props} />
-  );
+  return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
 }
 
 // Status-specific badges with icons
 function StatusBadge({ status }: { status: string }) {
-  const statusConfig: Record<string, { variant: 'success' | 'warning' | 'error' | 'info' | 'secondary'; label: string }> = {
+  const statusConfig: Record<
+    string,
+    { variant: 'success' | 'warning' | 'error' | 'info' | 'secondary'; label: string }
+  > = {
     // Runner statuses
     online: { variant: 'success', label: 'Online' },
     offline: { variant: 'secondary', label: 'Offline' },
@@ -83,14 +83,16 @@ function StatusBadge({ status }: { status: string }) {
 
   return (
     <Badge variant={config.variant} className="gap-1">
-      <span className={cn(
-        'w-1.5 h-1.5 rounded-full',
-        config.variant === 'success' && 'bg-brand-500',
-        config.variant === 'warning' && 'bg-warning-500',
-        config.variant === 'error' && 'bg-error-500',
-        config.variant === 'info' && 'bg-info-500',
-        config.variant === 'secondary' && 'bg-zinc-400',
-      )} />
+      <span
+        className={cn(
+          'w-1.5 h-1.5 rounded-full',
+          config.variant === 'success' && 'bg-brand-500',
+          config.variant === 'warning' && 'bg-warning-500',
+          config.variant === 'error' && 'bg-error-500',
+          config.variant === 'info' && 'bg-info-500',
+          config.variant === 'secondary' && 'bg-zinc-400',
+        )}
+      />
       {config.label}
     </Badge>
   );

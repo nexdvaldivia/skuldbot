@@ -7,6 +7,7 @@ Editor visual de flujos RPA - Aplicación desktop con Tauri + React.
 **✅ El Studio está completamente integrado con el Engine**
 
 Puedes:
+
 - ✅ Crear flujos visualmente
 - ✅ **Compilar bots realmente** (genera Bot Package)
 - ✅ **Ejecutar bots realmente** (usa el Engine)
@@ -48,6 +49,7 @@ npm run tauri:dev
 ## 🎯 Features
 
 ### Editor Visual
+
 - ✅ Drag & drop de nodos
 - ✅ Conectar nodos (success/error)
 - ✅ Configuración de nodos en panel
@@ -55,18 +57,21 @@ npm run tauri:dev
 - ✅ Eliminar nodos
 
 ### Integración con Engine
+
 - ✅ **Compilar**: DSL → Bot Package vía Tauri
 - ✅ **Ejecutar**: Run bot con Engine real
 - ✅ **Validar**: Validación de DSL
 - ✅ **Indicador de estado**: Verde = Engine conectado
 
 ### File System
+
 - ✅ Export DSL a JSON
 - ✅ Import DSL desde JSON (con file picker nativo)
 - ✅ Guardar proyectos
 - ✅ Cargar proyectos
 
 ### 12 Tipos de Nodos
+
 - **Control**: log, wait, set_variable
 - **Browser**: open, click, fill, close
 - **Excel**: open, read, close
@@ -76,6 +81,7 @@ npm run tauri:dev
 Ver [TEST_INTEGRATION.md](./TEST_INTEGRATION.md) para guía completa.
 
 **TL;DR:**
+
 ```bash
 # Instalar
 npm install
@@ -172,6 +178,7 @@ npm run lint
 ### Indicator Rojo (Engine no conectado)
 
 1. Verifica Python:
+
 ```bash
 python3 --version
 cd ../engine
@@ -179,12 +186,14 @@ python3 -c "from skuldbot import Compiler; print('OK')"
 ```
 
 2. Instala dependencias del Engine:
+
 ```bash
 cd ../engine
 pip3 install --user -e .
 ```
 
 3. Reinicia Tauri:
+
 ```bash
 # Ctrl+C
 npm run tauri:dev
@@ -203,6 +212,7 @@ xcode-select --install
 ### "Failed to execute Python"
 
 Edita `src-tauri/src/main.rs` y ajusta:
+
 ```rust
 fn get_python_executable() -> String {
     "/usr/bin/python3".to_string()  // Tu path a python
@@ -214,31 +224,37 @@ Ver [TEST_INTEGRATION.md](./TEST_INTEGRATION.md) para más soluciones.
 ## 🎯 Uso
 
 ### 1. Crear Bot
+
 - Arrastra nodos desde sidebar
 - Conecta nodos (verde=success, rojo=error)
 - Click en nodo para configurar
 
 ### 2. Compilar
+
 - Click en "Compilar"
 - Ve la ruta del Bot Package generado
 
 ### 3. Ejecutar
+
 - Click en "▶️ Ejecutar"
 - Ve los logs de ejecución
 
 ### 4. Guardar/Cargar
+
 - Export: Botón 📥
 - Import: Botón 📤 (file picker nativo)
 
 ## 🚀 Próximas Features
 
 ### Corto Plazo
+
 - [ ] Logs en tiempo real (streaming)
 - [ ] Better error display
 - [ ] Undo/Redo
 - [ ] Keyboard shortcuts
 
 ### Mediano Plazo
+
 - [ ] Breakpoints en debug
 - [ ] Step-by-step execution
 - [ ] Variables inspector
@@ -257,13 +273,13 @@ Ver [TEST_INTEGRATION.md](./TEST_INTEGRATION.md) para más soluciones.
 
 ## 📊 Estado
 
-| Componente | Estado |
-|------------|--------|
-| UI Components | ✅ 100% |
-| Tauri Integration | ✅ 100% |
+| Componente         | Estado  |
+| ------------------ | ------- |
+| UI Components      | ✅ 100% |
+| Tauri Integration  | ✅ 100% |
 | Engine Integration | ✅ 100% |
-| File System | ✅ 100% |
-| Debug Features | 🔜 0% |
+| File System        | ✅ 100% |
+| Debug Features     | 🔜 0%   |
 
 **Progreso Total**: 80% ✅
 

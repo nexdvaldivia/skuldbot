@@ -13,7 +13,12 @@ import { User, UserStatus, AuthProvider } from '../users/entities/user.entity';
 import { RefreshToken } from '../users/entities/api-key.entity';
 import { Session } from '../users/entities/api-key.entity';
 import { Role } from '../roles/entities/role.entity';
-import { AuditLog, AuditCategory, AuditAction, AuditResult } from '../audit/entities/audit-log.entity';
+import {
+  AuditLog,
+  AuditCategory,
+  AuditAction,
+  AuditResult,
+} from '../audit/entities/audit-log.entity';
 import { PasswordService, TokenService } from '../common/crypto/password.service';
 import { JwtPayload } from './strategies/jwt.strategy';
 import {
@@ -168,7 +173,7 @@ export class AuthService {
       // Verify MFA
       const mfaValid = dto.backupCode
         ? await this.verifyBackupCode(user, dto.backupCode)
-        : this.verifyTotpCode(user, dto.mfaCode!);
+        : this.verifyTotpCode(user, dto.mfaCode);
 
       if (!mfaValid) {
         await this.handleFailedLogin(user, clientInfo);
@@ -199,8 +204,7 @@ export class AuthService {
   async register(_dto: RegisterDto): Promise<RegisterResponseDto> {
     throw new ForbiddenException({
       code: 'SELF_REGISTRATION_DISABLED',
-      message:
-        'Self-registration is disabled. Accounts must be provisioned by an administrator.',
+      message: 'Self-registration is disabled. Accounts must be provisioned by an administrator.',
     });
   }
 
@@ -351,16 +355,14 @@ export class AuthService {
   async forgotPassword(_dto: ForgotPasswordDto): Promise<{ message: string }> {
     throw new ForbiddenException({
       code: 'PASSWORD_RECOVERY_DISABLED',
-      message:
-        'Password recovery is disabled. Contact your administrator for credential reset.',
+      message: 'Password recovery is disabled. Contact your administrator for credential reset.',
     });
   }
 
   async resetPassword(_dto: ResetPasswordDto): Promise<{ message: string }> {
     throw new ForbiddenException({
       code: 'PASSWORD_RECOVERY_DISABLED',
-      message:
-        'Password reset via self-service is disabled. Contact your administrator.',
+      message: 'Password reset via self-service is disabled. Contact your administrator.',
     });
   }
 
@@ -380,7 +382,7 @@ export class AuthService {
     // Verify current password
     const currentPasswordValid = await this.passwordService.verifyPassword(
       dto.currentPassword,
-      user.passwordHash!,
+      user.passwordHash,
     );
 
     if (!currentPasswordValid) {
@@ -491,10 +493,7 @@ export class AuthService {
     }
 
     // Verify password
-    const passwordValid = await this.passwordService.verifyPassword(
-      password,
-      user.passwordHash!,
-    );
+    const passwordValid = await this.passwordService.verifyPassword(password, user.passwordHash);
 
     if (!passwordValid) {
       throw new UnauthorizedException({
@@ -517,7 +516,7 @@ export class AuthService {
     });
 
     // Generate QR code
-    const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url!);
+    const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url);
 
     // Generate backup codes
     const backupCodes = this.tokenService.generateBackupCodes(10);
@@ -587,10 +586,7 @@ export class AuthService {
     }
 
     // Verify password
-    const passwordValid = await this.passwordService.verifyPassword(
-      password,
-      user.passwordHash!,
-    );
+    const passwordValid = await this.passwordService.verifyPassword(password, user.passwordHash);
 
     if (!passwordValid) {
       throw new UnauthorizedException({
@@ -616,12 +612,7 @@ export class AuthService {
 
     await this.userRepository.save(user);
 
-    await this.auditSecurityEvent(
-      user,
-      'MFA_DISABLED',
-      'User disabled MFA',
-      clientInfo,
-    );
+    await this.auditSecurityEvent(user, 'MFA_DISABLED', 'User disabled MFA', clientInfo);
 
     return { message: 'MFA has been disabled.' };
   }
@@ -644,10 +635,7 @@ export class AuthService {
     }
 
     // Verify password and MFA
-    const passwordValid = await this.passwordService.verifyPassword(
-      password,
-      user.passwordHash!,
-    );
+    const passwordValid = await this.passwordService.verifyPassword(password, user.passwordHash);
 
     if (!passwordValid) {
       throw new UnauthorizedException('Invalid password');

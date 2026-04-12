@@ -3,13 +3,13 @@
  * Shows the generated workflow with step-by-step execution plan
  */
 
-import { useState } from "react";
-import { Play, CheckCircle, AlertCircle, ChevronRight, Eye, Download } from "lucide-react";
-import { Card, CardContent } from "../../ui/card";
-import { Badge } from "../../ui/Badge";
-import { Button } from "../../ui/Button";
-import { ScrollArea } from "../../ui/scroll-area";
-import { useAIPlannerV2Store } from "../../../store/aiPlannerV2Store";
+import { useState } from 'react';
+import { Play, CheckCircle, AlertCircle, ChevronRight, Eye, Download } from 'lucide-react';
+import { Card, CardContent } from '../../ui/card';
+import { Badge } from '../../ui/Badge';
+import { Button } from '../../ui/Button';
+import { ScrollArea } from '../../ui/scroll-area';
+import { useAIPlannerV2Store } from '../../../store/aiPlannerV2Store';
 
 export function PreviewPanel() {
   const { currentPlan, confidence, applyToCanvas } = useAIPlannerV2Store();
@@ -22,9 +22,7 @@ export function PreviewPanel() {
         <div className="w-16 h-16 rounded-xl bg-primary-50 flex items-center justify-center mb-4">
           <Play className="w-8 h-8 text-primary-400" />
         </div>
-        <h3 className="text-lg font-semibold text-neutral-900 mb-2">
-          No Workflow Yet
-        </h3>
+        <h3 className="text-lg font-semibold text-neutral-900 mb-2">No Workflow Yet</h3>
         <p className="text-sm text-neutral-600 max-w-sm">
           Generate a plan in the Chat tab to see the workflow preview here
         </p>
@@ -33,31 +31,32 @@ export function PreviewPanel() {
   }
 
   const selectedStep = selectedStepIndex !== null ? currentPlan.tasks[selectedStepIndex] : null;
-  const validCount = currentPlan.tasks.filter(t => 
-    !currentPlan.validation.errors.some(e => e.nodeId === t.id) &&
-    !currentPlan.validation.warnings.some(w => w.nodeId === t.id)
+  const validCount = currentPlan.tasks.filter(
+    (t) =>
+      !currentPlan.validation.errors.some((e) => e.nodeId === t.id) &&
+      !currentPlan.validation.warnings.some((w) => w.nodeId === t.id),
   ).length;
-  const warningCount = currentPlan.tasks.filter(t => 
-    currentPlan.validation.warnings.some(w => w.nodeId === t.id)
+  const warningCount = currentPlan.tasks.filter((t) =>
+    currentPlan.validation.warnings.some((w) => w.nodeId === t.id),
   ).length;
-  const errorCount = currentPlan.tasks.filter(t => 
-    currentPlan.validation.errors.some(e => e.nodeId === t.id)
+  const errorCount = currentPlan.tasks.filter((t) =>
+    currentPlan.validation.errors.some((e) => e.nodeId === t.id),
   ).length;
 
   const getNodeCategoryColor = (nodeType: string) => {
-    const [category] = nodeType.split(".");
+    const [category] = nodeType.split('.');
     const colors: Record<string, string> = {
-      trigger: "bg-blue-100 text-blue-700 border-blue-200",
-      email: "bg-purple-100 text-purple-700 border-purple-200",
-      control: "bg-amber-100 text-amber-700 border-amber-200",
-      files: "bg-cyan-100 text-cyan-700 border-cyan-200",
-      storage: "bg-emerald-100 text-emerald-700 border-emerald-200",
-      cloud: "bg-emerald-100 text-emerald-700 border-emerald-200",
-      logging: "bg-neutral-100 text-neutral-700 border-neutral-200",
-      ai: "bg-pink-100 text-pink-700 border-pink-200",
-      vectordb: "bg-indigo-100 text-indigo-700 border-indigo-200",
+      trigger: 'bg-blue-100 text-blue-700 border-blue-200',
+      email: 'bg-purple-100 text-purple-700 border-purple-200',
+      control: 'bg-amber-100 text-amber-700 border-amber-200',
+      files: 'bg-cyan-100 text-cyan-700 border-cyan-200',
+      storage: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+      cloud: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+      logging: 'bg-neutral-100 text-neutral-700 border-neutral-200',
+      ai: 'bg-pink-100 text-pink-700 border-pink-200',
+      vectordb: 'bg-indigo-100 text-indigo-700 border-indigo-200',
     };
-    return colors[category] || "bg-neutral-100 text-neutral-700 border-neutral-200";
+    return colors[category] || 'bg-neutral-100 text-neutral-700 border-neutral-200';
   };
 
   return (
@@ -67,17 +66,13 @@ export function PreviewPanel() {
         {/* Header */}
         <div className="p-4 border-b border-neutral-200 bg-white">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-neutral-900">
-              {currentPlan.goal}
-            </h3>
+            <h3 className="text-sm font-semibold text-neutral-900">{currentPlan.goal}</h3>
             <Badge className="bg-primary-50 text-primary-700 border-primary-200">
               {currentPlan.tasks.length} steps
             </Badge>
           </div>
-          <p className="text-xs text-neutral-600 leading-relaxed mb-3">
-            {currentPlan.description}
-          </p>
-          
+          <p className="text-xs text-neutral-600 leading-relaxed mb-3">{currentPlan.description}</p>
+
           {/* Confidence */}
           <div className="mb-3 flex items-center gap-2">
             <span className="text-xs font-medium text-neutral-700">Confidence:</span>
@@ -85,10 +80,10 @@ export function PreviewPanel() {
               <div
                 className={`h-full transition-all ${
                   confidence >= 0.8
-                    ? "bg-green-500"
+                    ? 'bg-green-500'
                     : confidence >= 0.5
-                    ? "bg-yellow-500"
-                    : "bg-red-500"
+                      ? 'bg-yellow-500'
+                      : 'bg-red-500'
                 }`}
                 style={{ width: `${confidence * 100}%` }}
               />
@@ -125,8 +120,8 @@ export function PreviewPanel() {
         <ScrollArea className="flex-1">
           <div className="p-3 space-y-2">
             {currentPlan.tasks.map((step, index) => {
-              const hasError = currentPlan.validation.errors.some(e => e.nodeId === step.id);
-              const hasWarning = currentPlan.validation.warnings.some(w => w.nodeId === step.id);
+              const hasError = currentPlan.validation.errors.some((e) => e.nodeId === step.id);
+              const hasWarning = currentPlan.validation.warnings.some((w) => w.nodeId === step.id);
               const isSelected = selectedStepIndex === index;
 
               return (
@@ -135,17 +130,15 @@ export function PreviewPanel() {
                   onClick={() => setSelectedStepIndex(index)}
                   className={`w-full text-left transition-all ${
                     isSelected
-                      ? "bg-white shadow-sm border-primary-200"
-                      : "bg-white border-neutral-200 hover:border-neutral-300"
+                      ? 'bg-white shadow-sm border-primary-200'
+                      : 'bg-white border-neutral-200 hover:border-neutral-300'
                   } border rounded-lg p-3`}
                 >
                   <div className="flex items-start gap-3">
                     {/* Step Number */}
                     <div
                       className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                        isSelected
-                          ? "bg-primary-400 text-white"
-                          : "bg-neutral-100 text-neutral-600"
+                        isSelected ? 'bg-primary-400 text-white' : 'bg-neutral-100 text-neutral-600'
                       }`}
                     >
                       {index + 1}
@@ -170,7 +163,9 @@ export function PreviewPanel() {
                       <p className="text-xs text-neutral-500 line-clamp-1 mb-2">
                         {step.description}
                       </p>
-                      <span className={`inline-flex px-2 py-0.5 text-[11px] font-medium rounded-md border ${getNodeCategoryColor(step.nodeType)}`}>
+                      <span
+                        className={`inline-flex px-2 py-0.5 text-[11px] font-medium rounded-md border ${getNodeCategoryColor(step.nodeType)}`}
+                      >
                         {step.nodeType}
                       </span>
                     </div>
@@ -188,7 +183,7 @@ export function PreviewPanel() {
 
         {/* Actions */}
         <div className="p-4 border-t border-neutral-200 bg-white space-y-2">
-          <Button 
+          <Button
             onClick={applyToCanvas}
             className="w-full bg-primary-500 hover:bg-primary-600 text-white shadow-sm"
             size="sm"
@@ -202,13 +197,14 @@ export function PreviewPanel() {
               <Eye className="w-4 h-4 mr-2" />
               Preview
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               className="flex-1"
               onClick={() => {
                 const dataStr = JSON.stringify(currentPlan.dsl, null, 2);
-                const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+                const dataUri =
+                  'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
                 const exportFileDefaultName = `${currentPlan.goal.replace(/\s+/g, '-').toLowerCase()}.json`;
                 const linkElement = document.createElement('a');
                 linkElement.setAttribute('href', dataUri);
@@ -229,12 +225,8 @@ export function PreviewPanel() {
           <>
             {/* Details Header */}
             <div className="p-4 border-b border-neutral-200">
-              <h3 className="font-semibold text-neutral-900 text-sm mb-1">
-                Step Details
-              </h3>
-              <p className="text-xs text-neutral-500">
-                Configuration and properties
-              </p>
+              <h3 className="font-semibold text-neutral-900 text-sm mb-1">Step Details</h3>
+              <p className="text-xs text-neutral-500">Configuration and properties</p>
             </div>
 
             <ScrollArea className="flex-1">
@@ -248,17 +240,23 @@ export function PreviewPanel() {
                     <CardContent className="p-4 space-y-3">
                       <div>
                         <div className="text-xs text-neutral-500 mb-1">Type</div>
-                        <span className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-md border ${getNodeCategoryColor(selectedStep.nodeType)}`}>
+                        <span
+                          className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-md border ${getNodeCategoryColor(selectedStep.nodeType)}`}
+                        >
                           {selectedStep.nodeType}
                         </span>
                       </div>
                       <div>
                         <div className="text-xs text-neutral-500 mb-1">Label</div>
-                        <div className="text-sm font-medium text-neutral-900">{selectedStep.label}</div>
+                        <div className="text-sm font-medium text-neutral-900">
+                          {selectedStep.label}
+                        </div>
                       </div>
                       <div>
                         <div className="text-xs text-neutral-500 mb-1">Description</div>
-                        <div className="text-sm text-neutral-700 leading-relaxed">{selectedStep.description}</div>
+                        <div className="text-sm text-neutral-700 leading-relaxed">
+                          {selectedStep.description}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -280,9 +278,13 @@ export function PreviewPanel() {
 
                 {/* Validation Issues */}
                 {(() => {
-                  const stepErrors = currentPlan.validation.errors.filter(e => e.nodeId === selectedStep.id);
-                  const stepWarnings = currentPlan.validation.warnings.filter(w => w.nodeId === selectedStep.id);
-                  
+                  const stepErrors = currentPlan.validation.errors.filter(
+                    (e) => e.nodeId === selectedStep.id,
+                  );
+                  const stepWarnings = currentPlan.validation.warnings.filter(
+                    (w) => w.nodeId === selectedStep.id,
+                  );
+
                   if (stepErrors.length === 0 && stepWarnings.length === 0) {
                     return (
                       <div>
@@ -316,8 +318,12 @@ export function PreviewPanel() {
                               <div className="flex items-start gap-2">
                                 <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
                                 <div>
-                                  <div className="text-xs font-semibold text-red-700 mb-1">Error</div>
-                                  <p className="text-xs text-red-600 leading-relaxed">{error.message}</p>
+                                  <div className="text-xs font-semibold text-red-700 mb-1">
+                                    Error
+                                  </div>
+                                  <p className="text-xs text-red-600 leading-relaxed">
+                                    {error.message}
+                                  </p>
                                 </div>
                               </div>
                             </CardContent>
@@ -329,8 +335,12 @@ export function PreviewPanel() {
                               <div className="flex items-start gap-2">
                                 <AlertCircle className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
                                 <div>
-                                  <div className="text-xs font-semibold text-yellow-700 mb-1">Warning</div>
-                                  <p className="text-xs text-yellow-600 leading-relaxed">{warning.message}</p>
+                                  <div className="text-xs font-semibold text-yellow-700 mb-1">
+                                    Warning
+                                  </div>
+                                  <p className="text-xs text-yellow-600 leading-relaxed">
+                                    {warning.message}
+                                  </p>
                                 </div>
                               </div>
                             </CardContent>
@@ -349,9 +359,7 @@ export function PreviewPanel() {
               <div className="w-16 h-16 rounded-xl bg-neutral-100 flex items-center justify-center mx-auto mb-4">
                 <Eye className="w-8 h-8 text-neutral-400" />
               </div>
-              <h3 className="font-semibold text-neutral-900 mb-2">
-                Select a Step
-              </h3>
+              <h3 className="font-semibold text-neutral-900 mb-2">Select a Step</h3>
               <p className="text-sm text-neutral-500 leading-relaxed">
                 Click on any workflow step to view its configuration and validation details.
               </p>

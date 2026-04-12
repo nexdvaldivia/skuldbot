@@ -105,10 +105,7 @@ interface UseRunWebSocketOptions {
   onComplete?: (event: RunCompleteEvent) => void;
 }
 
-export function useRunWebSocket(
-  runId: string | undefined,
-  options: UseRunWebSocketOptions = {}
-) {
+export function useRunWebSocket(runId: string | undefined, options: UseRunWebSocketOptions = {}) {
   const queryClient = useQueryClient();
   const { onLog, onStatus, onStep, onComplete } = options;
 
@@ -214,9 +211,7 @@ interface UseRunnersWebSocketOptions {
 export function useRunnersWebSocket(options: UseRunnersWebSocketOptions = {}) {
   const queryClient = useQueryClient();
   const [isConnected, setIsConnected] = useState(false);
-  const [runners, setRunners] = useState<Map<string, RunnerStatusEvent>>(
-    new Map()
-  );
+  const [runners, setRunners] = useState<Map<string, RunnerStatusEvent>>(new Map());
 
   const optionsRef = useRef(options);
   optionsRef.current = options;

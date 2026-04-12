@@ -101,7 +101,7 @@ export class InstallationService {
       isTrialing: (bot.pricing.trialDays ?? 0) > 0,
       trialEndDate:
         (bot.pricing.trialDays ?? 0) > 0
-          ? new Date(Date.now() + bot.pricing.trialDays! * 24 * 60 * 60 * 1000)
+          ? new Date(Date.now() + bot.pricing.trialDays * 24 * 60 * 60 * 1000)
           : undefined,
     });
 
@@ -118,10 +118,7 @@ export class InstallationService {
   /**
    * Configure an installation (vault mappings, etc.)
    */
-  async configureInstallation(
-    id: string,
-    dto: ConfigureInstallationDto,
-  ): Promise<BotInstallation> {
+  async configureInstallation(id: string, dto: ConfigureInstallationDto): Promise<BotInstallation> {
     const installation = await this.getInstallationById(id);
 
     if (dto.vaultMappings) {
@@ -206,11 +203,13 @@ export class InstallationService {
   /**
    * Get all installations for tenant
    */
-  async getInstallations(options: {
-    status?: InstallationStatus;
-    page?: number;
-    limit?: number;
-  } = {}): Promise<{ data: BotInstallation[]; total: number }> {
+  async getInstallations(
+    options: {
+      status?: InstallationStatus;
+      page?: number;
+      limit?: number;
+    } = {},
+  ): Promise<{ data: BotInstallation[]; total: number }> {
     const tenantId = this.licenseService.getTenantId();
     if (!tenantId) {
       return { data: [], total: 0 };
@@ -302,11 +301,7 @@ export class InstallationService {
   /**
    * Record usage event for metered billing
    */
-  async recordUsage(
-    installationId: string,
-    metric: string,
-    quantity: number,
-  ): Promise<void> {
+  async recordUsage(installationId: string, metric: string, quantity: number): Promise<void> {
     const installation = await this.installationRepository.findOne({
       where: { id: installationId },
     });
@@ -316,12 +311,10 @@ export class InstallationService {
     }
 
     // Update current period usage
-    installation.usageThisPeriod[metric] =
-      (installation.usageThisPeriod[metric] || 0) + quantity;
+    installation.usageThisPeriod[metric] = (installation.usageThisPeriod[metric] || 0) + quantity;
 
     // Update lifetime usage
-    installation.usageLifetime[metric] =
-      (installation.usageLifetime[metric] || 0) + quantity;
+    installation.usageLifetime[metric] = (installation.usageLifetime[metric] || 0) + quantity;
 
     installation.lastUsageReportedAt = new Date();
 
@@ -410,28 +403,28 @@ export class InstallationService {
     return requiredSecrets.every((secret) => configuredSecrets.includes(secret));
   }
 
-  private async notifyInstallation(
-    installation: BotInstallation,
-    _bot: CatalogBot,
-  ): Promise<void> {
+  private async notifyInstallation(installation: BotInstallation, _bot: CatalogBot): Promise<void> {
     const controlPlaneUrl = this.configService.get<string>('CONTROL_PLANE_URL');
     if (!controlPlaneUrl) {
       return;
     }
 
     try {
-      await fetch(`${controlPlaneUrl}/api/marketplace/bots/${installation.marketplaceBotId}/install`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-License-Key': this.configService.get<string>('LICENSE_KEY', ''),
+      await fetch(
+        `${controlPlaneUrl}/api/marketplace/bots/${installation.marketplaceBotId}/install`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-License-Key': this.configService.get<string>('LICENSE_KEY', ''),
+          },
+          body: JSON.stringify({
+            tenantId: installation.tenantId,
+            installationId: installation.id,
+            version: installation.installedVersion,
+          }),
         },
-        body: JSON.stringify({
-          tenantId: installation.tenantId,
-          installationId: installation.id,
-          version: installation.installedVersion,
-        }),
-      });
+      );
     } catch (error) {
       this.logger.warn(`Failed to notify Control-Plane of installation: ${error}`);
     }
@@ -444,17 +437,20 @@ export class InstallationService {
     }
 
     try {
-      await fetch(`${controlPlaneUrl}/api/marketplace/bots/${installation.marketplaceBotId}/uninstall`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-License-Key': this.configService.get<string>('LICENSE_KEY', ''),
+      await fetch(
+        `${controlPlaneUrl}/api/marketplace/bots/${installation.marketplaceBotId}/uninstall`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-License-Key': this.configService.get<string>('LICENSE_KEY', ''),
+          },
+          body: JSON.stringify({
+            tenantId: installation.tenantId,
+            installationId: installation.id,
+          }),
         },
-        body: JSON.stringify({
-          tenantId: installation.tenantId,
-          installationId: installation.id,
-        }),
-      });
+      );
     } catch (error) {
       this.logger.warn(`Failed to notify Control-Plane of uninstallation: ${error}`);
     }

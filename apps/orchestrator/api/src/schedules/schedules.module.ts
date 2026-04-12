@@ -54,11 +54,7 @@ import { DispatchModule } from '../dispatch/dispatch.module';
     ]),
     forwardRef(() => DispatchModule),
   ],
-  controllers: [
-    SchedulesController,
-    BotSchedulesController,
-    SchedulerAdminController,
-  ],
+  controllers: [SchedulesController, BotSchedulesController, SchedulerAdminController],
   providers: [SchedulesService, SchedulerService],
   exports: [SchedulesService, SchedulerService],
 })

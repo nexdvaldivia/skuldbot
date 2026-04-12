@@ -82,10 +82,7 @@ export class IntegrityService {
   /**
    * Generate a Merkle inclusion proof for a specific file.
    */
-  generateProof(
-    fileHashes: Record<string, string>,
-    targetFile: string,
-  ): MerkleProof | null {
+  generateProof(fileHashes: Record<string, string>, targetFile: string): MerkleProof | null {
     const sortedFiles = Object.keys(fileHashes).sort();
     const fileIndex = sortedFiles.indexOf(targetFile);
 

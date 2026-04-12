@@ -6,7 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -15,12 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
-import {
-  clientsApi,
-  usersApi,
-  type Client,
-  type User,
-} from '@/lib/api';
+import { clientsApi, usersApi, type Client, type User } from '@/lib/api';
 import { rbacApi, type RbacRole } from '@/services/rbac-api';
 import {
   Users,
@@ -123,9 +125,7 @@ export default function UsersPage() {
         variant: 'error',
         title: 'Failed to load data',
         description:
-          error instanceof Error
-            ? error.message
-            : 'Could not fetch users, clients and roles.',
+          error instanceof Error ? error.message : 'Could not fetch users, clients and roles.',
       });
     } finally {
       setLoading(false);
@@ -293,9 +293,7 @@ export default function UsersPage() {
 
   const toggleAssignRole = (roleId: string) => {
     setAssignRoleIds((prev) =>
-      prev.includes(roleId)
-        ? prev.filter((id) => id !== roleId)
-        : [...prev, roleId],
+      prev.includes(roleId) ? prev.filter((id) => id !== roleId) : [...prev, roleId],
     );
   };
 
@@ -357,7 +355,13 @@ export default function UsersPage() {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatCard label="Active Users" value={activeCount} icon={Users} color="brand" />
-          <StatCard label="Pending Invites" value={pendingCount} icon={Mail} color="warning" highlight={pendingCount > 0} />
+          <StatCard
+            label="Pending Invites"
+            value={pendingCount}
+            icon={Mail}
+            color="warning"
+            highlight={pendingCount > 0}
+          />
           <StatCard label="Skuld Admins" value={adminCount} icon={ShieldCheck} color="brand" />
           <StatCard label="Skuld Support" value={supportCount} icon={UserCog} color="info" />
         </div>
@@ -434,7 +438,9 @@ export default function UsersPage() {
                             {user.lastName[0]}
                           </div>
                           <div className="min-w-0">
-                            <p className="font-medium text-zinc-900">{user.firstName} {user.lastName}</p>
+                            <p className="font-medium text-zinc-900">
+                              {user.firstName} {user.lastName}
+                            </p>
                             <p className="text-sm text-zinc-500 truncate flex items-center gap-1">
                               <Mail className="h-3 w-3" />
                               {user.email}
@@ -460,7 +466,10 @@ export default function UsersPage() {
                               {status.label}
                             </Badge>
                             {user.mfaEnabled && (
-                              <Badge variant="outline" className="gap-1 border-brand-200 bg-brand-50 text-brand-700">
+                              <Badge
+                                variant="outline"
+                                className="gap-1 border-brand-200 bg-brand-50 text-brand-700"
+                              >
                                 <KeyRound className="h-3 w-3" />
                                 MFA
                               </Badge>
@@ -512,7 +521,9 @@ export default function UsersPage() {
                               {user.lastName[0]}
                             </div>
                             <div>
-                              <p className="font-medium text-zinc-900">{user.firstName} {user.lastName}</p>
+                              <p className="font-medium text-zinc-900">
+                                {user.firstName} {user.lastName}
+                              </p>
                               <p className="text-sm text-zinc-500">{user.email}</p>
                             </div>
                           </div>
@@ -556,7 +567,9 @@ export default function UsersPage() {
                             </Badge>
                             {user.mfaEnabled && <KeyRound className="h-3.5 w-3.5 text-brand-600" />}
                           </div>
-                          <span className="text-xs text-zinc-500">{formatLastLogin(user.lastLoginAt)}</span>
+                          <span className="text-xs text-zinc-500">
+                            {formatLastLogin(user.lastLoginAt)}
+                          </span>
                         </div>
                         <div className="flex items-center gap-1.5 mt-2 text-sm text-zinc-500">
                           <Briefcase className="h-3.5 w-3.5" />
@@ -591,7 +604,9 @@ export default function UsersPage() {
 
           <form className="space-y-4" onSubmit={handleCreateUser}>
             <div className="space-y-1.5">
-              <label htmlFor="cp-user-email" className="text-sm font-medium text-zinc-700">Email</label>
+              <label htmlFor="cp-user-email" className="text-sm font-medium text-zinc-700">
+                Email
+              </label>
               <Input
                 id="cp-user-email"
                 type="email"
@@ -603,27 +618,37 @@ export default function UsersPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label htmlFor="cp-user-first-name" className="text-sm font-medium text-zinc-700">First Name</label>
+                <label htmlFor="cp-user-first-name" className="text-sm font-medium text-zinc-700">
+                  First Name
+                </label>
                 <Input
                   id="cp-user-first-name"
                   value={form.firstName}
-                  onChange={(event) => setForm((prev) => ({ ...prev, firstName: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, firstName: event.target.value }))
+                  }
                   placeholder="Jane"
                 />
               </div>
               <div className="space-y-1.5">
-                <label htmlFor="cp-user-last-name" className="text-sm font-medium text-zinc-700">Last Name</label>
+                <label htmlFor="cp-user-last-name" className="text-sm font-medium text-zinc-700">
+                  Last Name
+                </label>
                 <Input
                   id="cp-user-last-name"
                   value={form.lastName}
-                  onChange={(event) => setForm((prev) => ({ ...prev, lastName: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, lastName: event.target.value }))
+                  }
                   placeholder="Doe"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="cp-user-role" className="text-sm font-medium text-zinc-700">Role</label>
+              <label htmlFor="cp-user-role" className="text-sm font-medium text-zinc-700">
+                Role
+              </label>
               <Select
                 value={form.role}
                 onValueChange={(value) =>
@@ -666,7 +691,9 @@ export default function UsersPage() {
 
             {isClientRole(form.role) && (
               <div className="space-y-1.5">
-                <label htmlFor="cp-user-client" className="text-sm font-medium text-zinc-700">Client</label>
+                <label htmlFor="cp-user-client" className="text-sm font-medium text-zinc-700">
+                  Client
+                </label>
                 <Select
                   value={form.clientId || undefined}
                   onValueChange={(value) => setForm((prev) => ({ ...prev, clientId: value }))}
@@ -686,7 +713,9 @@ export default function UsersPage() {
             )}
 
             <div className="space-y-1.5">
-              <label htmlFor="cp-user-password" className="text-sm font-medium text-zinc-700">Password (optional)</label>
+              <label htmlFor="cp-user-password" className="text-sm font-medium text-zinc-700">
+                Password (optional)
+              </label>
               <Input
                 id="cp-user-password"
                 type="password"
@@ -741,7 +770,8 @@ export default function UsersPage() {
                   <span>
                     <span className="font-medium text-zinc-900 block">{role.displayName}</span>
                     <span className="text-xs text-zinc-500">
-                      {role.name} {role.scopeType === 'client' ? '• client scope' : '• platform scope'}
+                      {role.name}{' '}
+                      {role.scopeType === 'client' ? '• client scope' : '• platform scope'}
                     </span>
                   </span>
                 </label>
@@ -795,11 +825,15 @@ function StatCard({
     <Card className={highlight ? 'border-warning-200 bg-warning-50/30' : ''}>
       <CardContent className="p-4">
         <div className="flex items-center gap-3 mb-3">
-          <div className={`h-8 w-8 rounded-lg ${colorClasses[color]} flex items-center justify-center`}>
+          <div
+            className={`h-8 w-8 rounded-lg ${colorClasses[color]} flex items-center justify-center`}
+          >
             <Icon className="h-4 w-4" />
           </div>
         </div>
-        <p className={`text-2xl font-semibold ${highlight ? 'text-warning-700' : 'text-zinc-900'}`}>{value}</p>
+        <p className={`text-2xl font-semibold ${highlight ? 'text-warning-700' : 'text-zinc-900'}`}>
+          {value}
+        </p>
         <p className="text-sm text-zinc-500 mt-0.5">{label}</p>
       </CardContent>
     </Card>

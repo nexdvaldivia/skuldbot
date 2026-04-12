@@ -10,10 +10,10 @@ import {
 
 /**
  * Workflow MCP Server
- * 
+ *
  * Manages tenant-specific workflow templates and bot configurations.
  * Runs in tenant's Orchestrator (their VPC).
- * 
+ *
  * Capabilities:
  * - Store/retrieve workflow templates
  * - Customize templates with tenant-specific variables
@@ -274,9 +274,7 @@ export class WorkflowServer {
           );
 
         case 'delete_workflow_template':
-          return await this.deleteWorkflowTemplate(
-            toolCall.arguments.templateId,
-          );
+          return await this.deleteWorkflowTemplate(toolCall.arguments.templateId);
 
         case 'instantiate_template':
           return await this.instantiateTemplate(
@@ -317,14 +315,9 @@ export class WorkflowServer {
     }
 
     // workflow://tenant/{tenantId}/templates/{category}
-    const categoryMatch = uri.match(
-      /workflow:\/\/tenant\/([^/]+)\/templates\/([^/]+)/,
-    );
+    const categoryMatch = uri.match(/workflow:\/\/tenant\/([^/]+)\/templates\/([^/]+)/);
     if (categoryMatch) {
-      return await this.getTemplatesByCategoryResource(
-        categoryMatch[1],
-        categoryMatch[2],
-      );
+      return await this.getTemplatesByCategoryResource(categoryMatch[1], categoryMatch[2]);
     }
 
     // workflow://templates/{templateId}
@@ -346,9 +339,7 @@ export class WorkflowServer {
   // Tool Implementations
   // ============================================================
 
-  private async createWorkflowTemplate(
-    data: Partial<WorkflowTemplate>,
-  ): Promise<ToolResult> {
+  private async createWorkflowTemplate(data: Partial<WorkflowTemplate>): Promise<ToolResult> {
     const id = `tpl-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     const template: WorkflowTemplate = {
@@ -526,10 +517,7 @@ export class WorkflowServer {
 
     for (const [key, value] of Object.entries(values)) {
       // Replace {{variable}} placeholders
-      replaced = replaced.replace(
-        new RegExp(`{{${key}}}`, 'g'),
-        String(value),
-      );
+      replaced = replaced.replace(new RegExp(`{{${key}}}`, 'g'), String(value));
     }
 
     return JSON.parse(replaced);
@@ -552,9 +540,7 @@ export class WorkflowServer {
   // Resource Implementations
   // ============================================================
 
-  private async getTenantTemplatesResource(
-    tenantId: string,
-  ): Promise<ResourceContent> {
+  private async getTenantTemplatesResource(tenantId: string): Promise<ResourceContent> {
     const result = await this.listWorkflowTemplates(tenantId);
 
     return {
@@ -577,9 +563,7 @@ export class WorkflowServer {
     };
   }
 
-  private async getTemplateResource(
-    templateId: string,
-  ): Promise<ResourceContent> {
+  private async getTemplateResource(templateId: string): Promise<ResourceContent> {
     const result = await this.getWorkflowTemplate(templateId);
 
     return {
@@ -589,9 +573,7 @@ export class WorkflowServer {
     };
   }
 
-  private async getTemplateDSLResource(
-    templateId: string,
-  ): Promise<ResourceContent> {
+  private async getTemplateDSLResource(templateId: string): Promise<ResourceContent> {
     const template = this.templates.get(templateId);
 
     if (!template) {
@@ -683,4 +665,3 @@ export class WorkflowServer {
     });
   }
 }
-

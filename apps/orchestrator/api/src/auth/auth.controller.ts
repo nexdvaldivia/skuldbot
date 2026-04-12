@@ -117,10 +117,7 @@ export class AuthController {
   @Post('refresh')
   @Public()
   @HttpCode(HttpStatus.OK)
-  async refresh(
-    @Body() dto: RefreshTokenDto,
-    @Req() request: Request,
-  ): Promise<TokenResponseDto> {
+  async refresh(@Body() dto: RefreshTokenDto, @Req() request: Request): Promise<TokenResponseDto> {
     const clientInfo = {
       ip: this.getClientIp(request),
       userAgent: request.headers['user-agent'] || '',
@@ -132,9 +129,7 @@ export class AuthController {
   @Post('forgot-password')
   @Public()
   @HttpCode(HttpStatus.FORBIDDEN)
-  async forgotPassword(
-    @Body() dto: ForgotPasswordDto,
-  ): Promise<{ message: string }> {
+  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<{ message: string }> {
     return this.authService.forgotPassword(dto);
   }
 
@@ -146,9 +141,7 @@ export class AuthController {
     action: AuditAction.UPDATE,
     resourceType: 'password',
   })
-  async resetPassword(
-    @Body() dto: ResetPasswordDto,
-  ): Promise<{ message: string }> {
+  async resetPassword(@Body() dto: ResetPasswordDto): Promise<{ message: string }> {
     return this.authService.resetPassword(dto);
   }
 
@@ -162,9 +155,7 @@ export class AuthController {
   @Post('resend-verification')
   @Public()
   @HttpCode(HttpStatus.OK)
-  async resendVerification(
-    @Body() dto: ResendVerificationDto,
-  ): Promise<{ message: string }> {
+  async resendVerification(@Body() dto: ResendVerificationDto): Promise<{ message: string }> {
     return this.authService.resendVerification(dto.email);
   }
 
@@ -260,10 +251,7 @@ export class AuthController {
     @Body() dto?: RevokeAllSessionsDto,
   ): Promise<{ message: string }> {
     // TODO: Pass current session ID if exceptCurrent is true
-    await this.authService.revokeAllSessions(
-      user.id,
-      dto?.exceptCurrent ? undefined : undefined,
-    );
+    await this.authService.revokeAllSessions(user.id, dto?.exceptCurrent ? undefined : undefined);
     return { message: 'All sessions revoked successfully.' };
   }
 
@@ -322,12 +310,7 @@ export class AuthController {
       userAgent: request.headers['user-agent'] || '',
     };
 
-    return this.authService.disableMfa(
-      user.id,
-      dto.password,
-      dto.code,
-      clientInfo,
-    );
+    return this.authService.disableMfa(user.id, dto.password, dto.code, clientInfo);
   }
 
   @Post('mfa/backup-codes')
@@ -343,11 +326,7 @@ export class AuthController {
     @CurrentUser() user: User,
     @Body() dto: RegenerateBackupCodesDto,
   ): Promise<{ backupCodes: string[] }> {
-    return this.authService.regenerateBackupCodes(
-      user.id,
-      dto.password,
-      dto.code,
-    );
+    return this.authService.regenerateBackupCodes(user.id, dto.password, dto.code);
   }
 
   // ============================================================================

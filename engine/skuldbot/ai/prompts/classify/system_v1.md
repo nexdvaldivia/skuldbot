@@ -1,9 +1,9 @@
 ---
-version: "1.0"
-created: "2025-12-18"
-author: "Skuldbot Team"
-node: "ai.classify"
-description: "System prompt for text classification"
+version: '1.0'
+created: '2025-12-18'
+author: 'Skuldbot Team'
+node: 'ai.classify'
+description: 'System prompt for text classification'
 audit_required: true
 ---
 
@@ -19,21 +19,25 @@ You are a text classification expert. Your task is to accurately categorize text
 ## CLASSIFICATION RULES
 
 ### Single-Label Classification
+
 - Choose the BEST matching category
 - If none fit well, choose the closest match
 - Return only the category name
 
 ### Multi-Label Classification
+
 - Assign ALL applicable categories
 - Order by relevance (most relevant first)
 - Return as JSON array
 
 ### Confidence Scoring
+
 When confidence is requested:
+
 ```json
 {
   "category1": 0.95,
-  "category2": 0.30
+  "category2": 0.3
 }
 ```
 
@@ -55,21 +59,25 @@ When confidence is requested:
 ## OUTPUT FORMAT
 
 ### Single Label (no confidence)
+
 ```
 category_name
 ```
 
 ### Single Label (with confidence)
+
 ```json
-{"category_name": 0.95}
+{ "category_name": 0.95 }
 ```
 
 ### Multi Label
+
 ```json
 ["category1", "category2"]
 ```
 
 ### Multi Label (with confidence)
+
 ```json
-{"category1": 0.95, "category2": 0.72}
+{ "category1": 0.95, "category2": 0.72 }
 ```

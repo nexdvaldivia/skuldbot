@@ -10,12 +10,7 @@ import {
   HttpStatus,
   BadRequestException,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 
 import {
   EvidencePackService,
@@ -29,10 +24,7 @@ import {
   ComplianceFramework,
   AttestationRecord,
 } from './attestation/attestation.service';
-import {
-  RetentionService,
-  RetentionPolicy,
-} from './retention/retention.service';
+import { RetentionService, RetentionPolicy } from './retention/retention.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CurrentTenant } from '../common/decorators/current-tenant.decorator';
@@ -226,9 +218,7 @@ export class EvidenceController {
   @Get(':packId/attestations')
   @ApiOperation({ summary: 'Get attestations for an evidence pack' })
   @ApiResponse({ status: 200, description: 'List of attestations' })
-  async getAttestations(
-    @Param('packId') packId: string,
-  ): Promise<AttestationRecord[]> {
+  async getAttestations(@Param('packId') packId: string): Promise<AttestationRecord[]> {
     return this.attestationService.getPackAttestations(packId);
   }
 
@@ -249,10 +239,7 @@ export class EvidenceController {
     }
 
     // Get manifest to evaluate
-    const manifest = await this.evidencePackService.getManifest(
-      tenantId,
-      packId,
-    );
+    const manifest = await this.evidencePackService.getManifest(tenantId, packId);
 
     // Generate attestation based on manifest contents
     return this.attestationService.generateAttestation({

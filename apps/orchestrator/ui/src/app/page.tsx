@@ -4,15 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/badge';
 import { useRunStats, useRunnerStats, useRuns, useBots } from '@/hooks/use-api';
 import { formatRelativeTime, formatDuration } from '@/lib/utils';
-import {
-  Bot,
-  Play,
-  Server,
-  CheckCircle,
-  XCircle,
-  Clock,
-  TrendingUp,
-} from 'lucide-react';
+import { Bot, Play, Server, CheckCircle, XCircle, Clock, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 
 export default function DashboardPage() {
@@ -33,12 +25,7 @@ export default function DashboardPage() {
 
       {/* Stats cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatsCard
-          title="Total Bots"
-          value={bots?.length || 0}
-          icon={Bot}
-          color="primary"
-        />
+        <StatsCard title="Total Bots" value={bots?.length || 0} icon={Bot} color="primary" />
         <StatsCard
           title="Runs Today"
           value={runStats?.total || 0}
@@ -49,9 +36,7 @@ export default function DashboardPage() {
         <StatsCard
           title="Success Rate"
           value={
-            runStats?.total
-              ? `${Math.round((runStats.success / runStats.total) * 100)}%`
-              : '0%'
+            runStats?.total ? `${Math.round((runStats.success / runStats.total) * 100)}%` : '0%'
           }
           icon={TrendingUp}
           color="success"
@@ -188,9 +173,7 @@ function StatsCard({
           <div>
             <p className="text-sm text-muted-foreground">{title}</p>
             <p className="text-2xl font-bold text-foreground mt-1">{value}</p>
-            {subtitle && (
-              <p className="text-xs text-muted-foreground/70 mt-1">{subtitle}</p>
-            )}
+            {subtitle && <p className="text-xs text-muted-foreground/70 mt-1">{subtitle}</p>}
           </div>
           <div className={`p-3 rounded-lg ${colorStyles[color]}`}>
             <Icon className="h-6 w-6" />

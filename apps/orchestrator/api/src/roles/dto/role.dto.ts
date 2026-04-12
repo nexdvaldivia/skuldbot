@@ -22,7 +22,8 @@ export class CreateRoleDto {
   @MinLength(2)
   @MaxLength(50)
   @Matches(/^[a-z][a-z0-9_]*$/, {
-    message: 'Role name must start with a letter and contain only lowercase letters, numbers, and underscores',
+    message:
+      'Role name must start with a letter and contain only lowercase letters, numbers, and underscores',
   })
   name: string;
 
@@ -72,7 +73,8 @@ export class CloneRoleDto {
   @MinLength(2)
   @MaxLength(50)
   @Matches(/^[a-z][a-z0-9_]*$/, {
-    message: 'Role name must start with a letter and contain only lowercase letters, numbers, and underscores',
+    message:
+      'Role name must start with a letter and contain only lowercase letters, numbers, and underscores',
   })
   name: string;
 

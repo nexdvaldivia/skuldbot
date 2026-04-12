@@ -4,15 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import {
-  Bell,
-  Search,
-  Command,
-  ChevronDown,
-  LogOut,
-  Settings,
-  Menu,
-} from 'lucide-react';
+import { Bell, Search, Command, ChevronDown, LogOut, Settings, Menu } from 'lucide-react';
 
 interface TopHeaderProps {
   sidebarCollapsed: boolean;
@@ -63,7 +55,7 @@ export function TopHeader({ sidebarCollapsed, onMenuClick }: TopHeaderProps) {
       <header
         className={cn(
           'fixed top-0 right-0 z-30 h-14 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 border-b border-zinc-200/80 transition-all duration-300',
-          sidebarCollapsed ? 'left-[68px]' : 'left-60'
+          sidebarCollapsed ? 'left-[68px]' : 'left-60',
         )}
       >
         <div className="flex h-full items-center justify-between px-4 lg:px-6">
@@ -122,10 +114,12 @@ export function TopHeader({ sidebarCollapsed, onMenuClick }: TopHeaderProps) {
                   <p className="text-[13px] font-medium text-zinc-900 leading-none">Admin</p>
                   <p className="text-[11px] text-zinc-500 leading-none mt-0.5">admin@skuld.io</p>
                 </div>
-                <ChevronDown className={cn(
-                  'h-3.5 w-3.5 text-zinc-400 transition-transform',
-                  userMenuOpen && 'rotate-180'
-                )} />
+                <ChevronDown
+                  className={cn(
+                    'h-3.5 w-3.5 text-zinc-400 transition-transform',
+                    userMenuOpen && 'rotate-180',
+                  )}
+                />
               </button>
 
               {/* Dropdown */}

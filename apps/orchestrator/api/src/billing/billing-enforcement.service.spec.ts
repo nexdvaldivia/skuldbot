@@ -50,27 +50,25 @@ describe('BillingEnforcementService', () => {
   });
 
   it('throws ForbiddenException when quota check is denied', async () => {
-    const fetchSpy = jest
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            allowed: false,
-            reason: 'Quota exceeded and blocked (limit 1000)',
-            state: 'blocked',
-            limit: 1000,
-            projectedUsage: 1001,
-          }),
-          {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          },
-        ),
-      );
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          allowed: false,
+          reason: 'Quota exceeded and blocked (limit 1000)',
+          state: 'blocked',
+          limit: 1000,
+          projectedUsage: 1001,
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
 
-    await expect(
-      service.checkQuota(tenantId, 'runs_per_month', 1),
-    ).rejects.toThrow(ForbiddenException);
+    await expect(service.checkQuota(tenantId, 'runs_per_month', 1)).rejects.toThrow(
+      ForbiddenException,
+    );
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(fetchSpy).toHaveBeenCalledWith(

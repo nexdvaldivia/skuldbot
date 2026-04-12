@@ -196,10 +196,9 @@ export class MarketplaceService {
     }
 
     if (filters.search) {
-      query = query.andWhere(
-        '(bot.name ILIKE :search OR bot.description ILIKE :search)',
-        { search: `%${filters.search}%` },
-      );
+      query = query.andWhere('(bot.name ILIKE :search OR bot.description ILIKE :search)', {
+        search: `%${filters.search}%`,
+      });
     }
 
     // Apply sorting
@@ -324,10 +323,7 @@ export class MarketplaceService {
     }
 
     // Can't update published bots directly (need new version)
-    if (
-      bot.status === MarketplaceBotStatus.PUBLISHED &&
-      (dto.pricing || dto.requirements)
-    ) {
+    if (bot.status === MarketplaceBotStatus.PUBLISHED && (dto.pricing || dto.requirements)) {
       throw new BadRequestException(
         'Cannot modify pricing or requirements of published bot. Create a new version.',
       );
@@ -645,9 +641,7 @@ export class MarketplaceService {
     await this.partnerRepository.increment({ id: bot.publisherId }, 'totalInstalls', 1);
   }
 
-  async listTenantSubscriptions(
-    tenantId: string,
-  ): Promise<MarketplaceSubscription[]> {
+  async listTenantSubscriptions(tenantId: string): Promise<MarketplaceSubscription[]> {
     return this.subscriptionRepository.find({
       where: { tenantId, status: MarketplaceSubscriptionStatus.ACTIVE },
       relations: ['marketplaceBot', 'marketplaceBot.publisher'],
@@ -717,10 +711,7 @@ export class MarketplaceService {
     });
   }
 
-  async resolveBotVersion(
-    botId: string,
-    version?: string,
-  ): Promise<BotVersion | null> {
+  async resolveBotVersion(botId: string, version?: string): Promise<BotVersion | null> {
     if (version?.trim()) {
       return this.versionRepository.findOne({
         where: { marketplaceBotId: botId, version: version.trim() },
@@ -733,11 +724,7 @@ export class MarketplaceService {
     });
   }
 
-  async recordBotDownload(params: {
-    tenantId: string;
-    botId: string;
-    version?: string;
-  }): Promise<{
+  async recordBotDownload(params: { tenantId: string; botId: string; version?: string }): Promise<{
     subscription: MarketplaceSubscription;
     version: BotVersion | null;
   }> {

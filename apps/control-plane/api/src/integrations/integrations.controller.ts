@@ -36,18 +36,14 @@ export class IntegrationsController {
   @Get()
   @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT, UserRole.CLIENT_ADMIN)
   @RequirePermissions(CP_PERMISSIONS.INTEGRATIONS_READ)
-  async list(
-    @Query() query: ListProviderConfigsQueryDto,
-  ): Promise<SanitizedProviderConfig[]> {
+  async list(@Query() query: ListProviderConfigsQueryDto): Promise<SanitizedProviderConfig[]> {
     return this.integrationsService.listConfigs(query);
   }
 
   @Get(':id')
   @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT, UserRole.CLIENT_ADMIN)
   @RequirePermissions(CP_PERMISSIONS.INTEGRATIONS_READ)
-  async getById(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<SanitizedProviderConfig> {
+  async getById(@Param('id', ParseUUIDPipe) id: string): Promise<SanitizedProviderConfig> {
     return this.integrationsService.getConfig(id);
   }
 
@@ -83,9 +79,7 @@ export class IntegrationsController {
   @Post(':id/test')
   @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT, UserRole.CLIENT_ADMIN)
   @RequirePermissions(CP_PERMISSIONS.INTEGRATIONS_TEST)
-  async test(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<{
+  async test(@Param('id', ParseUUIDPipe) id: string): Promise<{
     success: boolean;
     message: string;
     checkedAt: string;
@@ -94,4 +88,3 @@ export class IntegrationsController {
     return this.integrationsService.testConfig(id);
   }
 }
-

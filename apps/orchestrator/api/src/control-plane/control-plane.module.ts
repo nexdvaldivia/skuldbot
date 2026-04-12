@@ -51,7 +51,12 @@ import { LicenseModule } from '../license/license.module';
       name: 'control-plane',
     }),
   ],
-  providers: [ControlPlaneSyncService, UsageReporterService, UsageBatchProcessor, HealthReporterService],
+  providers: [
+    ControlPlaneSyncService,
+    UsageReporterService,
+    UsageBatchProcessor,
+    HealthReporterService,
+  ],
   exports: [ControlPlaneSyncService, UsageReporterService, HealthReporterService],
 })
 export class ControlPlaneModule {}

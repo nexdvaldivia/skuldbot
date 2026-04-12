@@ -116,7 +116,9 @@ async function seed() {
           description: config.description,
         });
         await paymentConfigRepository.save(paymentConfig);
-        console.log(`   ✓ ${config.productType}: ACH=${config.achEnabled}, Card=${config.cardEnabled}`);
+        console.log(
+          `   ✓ ${config.productType}: ACH=${config.achEnabled}, Card=${config.cardEnabled}`,
+        );
       }
 
       console.log('\n✅ Payment configurations created\n');
@@ -317,14 +319,46 @@ async function seed() {
       sortOrder: number;
       metadata?: Record<string, unknown>;
     }> = [
-      { domainCode: LOOKUP_DOMAIN_CLIENT_PLAN, code: 'free', label: 'Free', sortOrder: 10, metadata: { isDefault: true } },
+      {
+        domainCode: LOOKUP_DOMAIN_CLIENT_PLAN,
+        code: 'free',
+        label: 'Free',
+        sortOrder: 10,
+        metadata: { isDefault: true },
+      },
       { domainCode: LOOKUP_DOMAIN_CLIENT_PLAN, code: 'starter', label: 'Starter', sortOrder: 20 },
-      { domainCode: LOOKUP_DOMAIN_CLIENT_PLAN, code: 'professional', label: 'Professional', sortOrder: 30 },
-      { domainCode: LOOKUP_DOMAIN_CLIENT_PLAN, code: 'enterprise', label: 'Enterprise', sortOrder: 40 },
-      { domainCode: LOOKUP_DOMAIN_CLIENT_STATUS, code: 'pending', label: 'Pending', sortOrder: 10, metadata: { isDefault: true } },
+      {
+        domainCode: LOOKUP_DOMAIN_CLIENT_PLAN,
+        code: 'professional',
+        label: 'Professional',
+        sortOrder: 30,
+      },
+      {
+        domainCode: LOOKUP_DOMAIN_CLIENT_PLAN,
+        code: 'enterprise',
+        label: 'Enterprise',
+        sortOrder: 40,
+      },
+      {
+        domainCode: LOOKUP_DOMAIN_CLIENT_STATUS,
+        code: 'pending',
+        label: 'Pending',
+        sortOrder: 10,
+        metadata: { isDefault: true },
+      },
       { domainCode: LOOKUP_DOMAIN_CLIENT_STATUS, code: 'active', label: 'Active', sortOrder: 20 },
-      { domainCode: LOOKUP_DOMAIN_CLIENT_STATUS, code: 'suspended', label: 'Suspended', sortOrder: 30 },
-      { domainCode: LOOKUP_DOMAIN_CLIENT_STATUS, code: 'canceled', label: 'Canceled', sortOrder: 40 },
+      {
+        domainCode: LOOKUP_DOMAIN_CLIENT_STATUS,
+        code: 'suspended',
+        label: 'Suspended',
+        sortOrder: 30,
+      },
+      {
+        domainCode: LOOKUP_DOMAIN_CLIENT_STATUS,
+        code: 'canceled',
+        label: 'Canceled',
+        sortOrder: 40,
+      },
       {
         domainCode: LOOKUP_DOMAIN_LICENSE_TYPE,
         code: 'trial',
@@ -350,10 +384,34 @@ async function seed() {
         label: 'Enterprise',
         sortOrder: 40,
       },
-      { domainCode: LOOKUP_DOMAIN_LICENSE_STATUS, code: 'active', label: 'Active', sortOrder: 10, metadata: { isDefault: true } },
-      { domainCode: LOOKUP_DOMAIN_LICENSE_STATUS, code: 'expired', label: 'Expired', sortOrder: 20, metadata: { blocksUsage: true } },
-      { domainCode: LOOKUP_DOMAIN_LICENSE_STATUS, code: 'revoked', label: 'Revoked', sortOrder: 30, metadata: { blocksUsage: true } },
-      { domainCode: LOOKUP_DOMAIN_LICENSE_STATUS, code: 'suspended', label: 'Suspended', sortOrder: 40, metadata: { blocksUsage: true } },
+      {
+        domainCode: LOOKUP_DOMAIN_LICENSE_STATUS,
+        code: 'active',
+        label: 'Active',
+        sortOrder: 10,
+        metadata: { isDefault: true },
+      },
+      {
+        domainCode: LOOKUP_DOMAIN_LICENSE_STATUS,
+        code: 'expired',
+        label: 'Expired',
+        sortOrder: 20,
+        metadata: { blocksUsage: true },
+      },
+      {
+        domainCode: LOOKUP_DOMAIN_LICENSE_STATUS,
+        code: 'revoked',
+        label: 'Revoked',
+        sortOrder: 30,
+        metadata: { blocksUsage: true },
+      },
+      {
+        domainCode: LOOKUP_DOMAIN_LICENSE_STATUS,
+        code: 'suspended',
+        label: 'Suspended',
+        sortOrder: 40,
+        metadata: { blocksUsage: true },
+      },
     ];
 
     for (const value of lookupValues) {
@@ -387,9 +445,7 @@ async function seed() {
           where: { domainId: licenseTypeDomain.id },
         })
       : [];
-    const licenseTypeByCode = new Map(
-      licenseTypeValues.map((value) => [value.code, value]),
-    );
+    const licenseTypeByCode = new Map(licenseTypeValues.map((value) => [value.code, value]));
 
     const featureTemplateByType: Record<string, Record<string, number | boolean>> = {
       trial: {

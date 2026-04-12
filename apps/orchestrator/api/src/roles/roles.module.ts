@@ -40,9 +40,7 @@ import { AuditLog } from '../audit/entities/audit-log.entity';
  * - CREDENTIALS: Credential vault
  */
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Role, Permission, User, AuditLog]),
-  ],
+  imports: [TypeOrmModule.forFeature([Role, Permission, User, AuditLog])],
   controllers: [RolesController],
   providers: [RolesService],
   exports: [RolesService],

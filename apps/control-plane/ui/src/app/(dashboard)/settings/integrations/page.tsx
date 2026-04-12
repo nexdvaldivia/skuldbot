@@ -127,9 +127,7 @@ function findProvider(
   return providers.find((provider) => provider.type === type && provider.name === name);
 }
 
-function toProviderStatus(
-  provider?: IntegrationProviderConfig,
-): ProviderStatus {
+function toProviderStatus(provider?: IntegrationProviderConfig): ProviderStatus {
   if (!provider) {
     return 'not_configured';
   }
@@ -243,7 +241,9 @@ export default function IntegrationsPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-zinc-900">Integrations</h1>
-        <p className="text-zinc-500 mt-1">Configure external service providers for payments, email, and storage</p>
+        <p className="text-zinc-500 mt-1">
+          Configure external service providers for payments, email, and storage
+        </p>
       </div>
 
       {/* Tabs */}
@@ -258,9 +258,7 @@ export default function IntegrationsPage() {
                 setActiveTab(tab.id);
               }}
               className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                isActive
-                  ? 'bg-white text-zinc-900 shadow-sm'
-                  : 'text-zinc-600 hover:text-zinc-900'
+                isActive ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-600 hover:text-zinc-900'
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -326,10 +324,7 @@ function PaymentProviderConfig({
   saving,
   testing,
 }: ConfigProps) {
-  const stripeProvider = useMemo(
-    () => findProvider(providers, 'payment', 'stripe'),
-    [providers],
-  );
+  const stripeProvider = useMemo(() => findProvider(providers, 'payment', 'stripe'), [providers]);
   const [config, setConfig] = useState(initialPaymentConfig);
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
@@ -372,7 +367,7 @@ function PaymentProviderConfig({
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-lg bg-[#635BFF]/10 flex items-center justify-center">
                 <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#635BFF]" fill="currentColor">
-                  <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z"/>
+                  <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z" />
                 </svg>
               </div>
               <div>
@@ -391,7 +386,9 @@ function PaymentProviderConfig({
                 <p className="text-xs text-zinc-500">Switch between test and production mode</p>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`text-sm ${config.environment === 'test' ? 'text-amber-600 font-medium' : 'text-zinc-400'}`}>
+                <span
+                  className={`text-sm ${config.environment === 'test' ? 'text-amber-600 font-medium' : 'text-zinc-400'}`}
+                >
                   Test
                 </span>
                 <Switch
@@ -400,7 +397,9 @@ function PaymentProviderConfig({
                     updateConfig({ environment: checked ? 'production' : 'test' })
                   }
                 />
-                <span className={`text-sm ${config.environment === 'production' ? 'text-emerald-600 font-medium' : 'text-zinc-400'}`}>
+                <span
+                  className={`text-sm ${config.environment === 'production' ? 'text-emerald-600 font-medium' : 'text-zinc-400'}`}
+                >
                   Production
                 </span>
               </div>
@@ -440,11 +439,11 @@ function PaymentProviderConfig({
                 </span>
               </label>
               <div className="relative">
-              <Input
-                type={showSecretKey ? 'text' : 'password'}
-                value={config.secretKey}
-                onChange={(e) => updateConfig({ secretKey: e.target.value })}
-                placeholder={config.environment === 'test' ? 'sk_test_...' : 'sk_live_...'}
+                <Input
+                  type={showSecretKey ? 'text' : 'password'}
+                  value={config.secretKey}
+                  onChange={(e) => updateConfig({ secretKey: e.target.value })}
+                  placeholder={config.environment === 'test' ? 'sk_test_...' : 'sk_live_...'}
                   className="pr-10"
                 />
                 <button
@@ -489,7 +488,8 @@ function PaymentProviderConfig({
                 </p>
               )}
               <p className="text-xs text-zinc-500 mt-1">
-                Webhook endpoint: <code className="bg-zinc-100 px-1.5 py-0.5 rounded text-zinc-600">
+                Webhook endpoint:{' '}
+                <code className="bg-zinc-100 px-1.5 py-0.5 rounded text-zinc-600">
                   https://api.skuld.io/webhooks/stripe
                 </code>
               </p>
@@ -500,7 +500,9 @@ function PaymentProviderConfig({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-zinc-900">Stripe Connect</p>
-                  <p className="text-xs text-zinc-500">Enable partner payouts for marketplace revenue share</p>
+                  <p className="text-xs text-zinc-500">
+                    Enable partner payouts for marketplace revenue share
+                  </p>
                 </div>
                 <Switch
                   checked={config.connectEnabled}
@@ -535,7 +537,11 @@ function PaymentProviderConfig({
                 Test Connection
               </Button>
               <Button onClick={() => void handleSaveClick()} disabled={saving || loading}>
-                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                {saving ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
                 Save Configuration
               </Button>
             </div>
@@ -550,30 +556,21 @@ function PaymentProviderConfig({
 // EMAIL PROVIDER CONFIG
 // ============================================
 
-function EmailProviderConfig({
-  onSave,
-  onTest,
-  providers,
-  loading,
-  saving,
-  testing,
-}: ConfigProps) {
+function EmailProviderConfig({ onSave, onTest, providers, loading, saving, testing }: ConfigProps) {
   const [activeProvider, setActiveProvider] = useState<'sendgrid' | 'microsoft_graph'>('sendgrid');
   const [sendGridConfig, setSendGridConfig] = useState(initialSendGridConfig);
   const [msGraphConfig, setMsGraphConfig] = useState(initialMsGraphConfig);
   const [showApiKey, setShowApiKey] = useState(false);
   const [showClientSecret, setShowClientSecret] = useState(false);
-  const sendGridProvider = useMemo(
-    () => findProvider(providers, 'email', 'sendgrid'),
-    [providers],
-  );
+  const sendGridProvider = useMemo(() => findProvider(providers, 'email', 'sendgrid'), [providers]);
   const msGraphProvider = useMemo(
     () => findProvider(providers, 'graph', 'microsoft_graph'),
     [providers],
   );
-  const status = activeProvider === 'sendgrid'
-    ? toProviderStatus(sendGridProvider)
-    : toProviderStatus(msGraphProvider);
+  const status =
+    activeProvider === 'sendgrid'
+      ? toProviderStatus(sendGridProvider)
+      : toProviderStatus(msGraphProvider);
 
   const handleSaveSendGrid = async () => {
     await onSave({
@@ -624,9 +621,14 @@ function EmailProviderConfig({
       <Card>
         <CardContent className="p-6">
           <h3 className="text-lg font-semibold text-zinc-900 mb-1">Email Provider</h3>
-          <p className="text-sm text-zinc-500 mb-4">Select and configure your email service provider</p>
+          <p className="text-sm text-zinc-500 mb-4">
+            Select and configure your email service provider
+          </p>
 
-          <Select value={activeProvider} onValueChange={(value: 'sendgrid' | 'microsoft_graph') => setActiveProvider(value)}>
+          <Select
+            value={activeProvider}
+            onValueChange={(value: 'sendgrid' | 'microsoft_graph') => setActiveProvider(value)}
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select provider" />
             </SelectTrigger>
@@ -663,7 +665,9 @@ function EmailProviderConfig({
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-zinc-900">SendGrid</h3>
-                  <p className="text-sm text-zinc-500">Transactional and marketing email delivery</p>
+                  <p className="text-sm text-zinc-500">
+                    Transactional and marketing email delivery
+                  </p>
                 </div>
               </div>
               <StatusBadge status={status} />
@@ -676,7 +680,9 @@ function EmailProviderConfig({
                   <Input
                     type={showApiKey ? 'text' : 'password'}
                     value={sendGridConfig.apiKey}
-                    onChange={(e) => setSendGridConfig({ ...sendGridConfig, apiKey: e.target.value })}
+                    onChange={(e) =>
+                      setSendGridConfig({ ...sendGridConfig, apiKey: e.target.value })
+                    }
                     placeholder="SG.xxxxxxxxxxxxxxxxxxxxxxxx"
                     className="pr-10"
                   />
@@ -697,20 +703,28 @@ function EmailProviderConfig({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">From Email</label>
+                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                    From Email
+                  </label>
                   <Input
                     type="email"
                     value={sendGridConfig.fromEmail}
-                    onChange={(e) => setSendGridConfig({ ...sendGridConfig, fromEmail: e.target.value })}
+                    onChange={(e) =>
+                      setSendGridConfig({ ...sendGridConfig, fromEmail: e.target.value })
+                    }
                     placeholder="noreply@skuld.io"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">From Name</label>
+                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                    From Name
+                  </label>
                   <Input
                     type="text"
                     value={sendGridConfig.fromName}
-                    onChange={(e) => setSendGridConfig({ ...sendGridConfig, fromName: e.target.value })}
+                    onChange={(e) =>
+                      setSendGridConfig({ ...sendGridConfig, fromName: e.target.value })
+                    }
                     placeholder="Skuld"
                   />
                 </div>
@@ -723,7 +737,9 @@ function EmailProviderConfig({
                 </div>
                 <Switch
                   checked={sendGridConfig.sandboxMode}
-                  onCheckedChange={(checked) => setSendGridConfig({ ...sendGridConfig, sandboxMode: checked })}
+                  onCheckedChange={(checked) =>
+                    setSendGridConfig({ ...sendGridConfig, sandboxMode: checked })
+                  }
                 />
               </div>
             </div>
@@ -752,11 +768,12 @@ function EmailProviderConfig({
                   )}
                   Send Test Email
                 </Button>
-                <Button
-                  onClick={() => void handleSaveSendGrid()}
-                  disabled={saving || loading}
-                >
-                  {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                <Button onClick={() => void handleSaveSendGrid()} disabled={saving || loading}>
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
                   Save Configuration
                 </Button>
               </div>
@@ -773,12 +790,14 @@ function EmailProviderConfig({
               <div className="flex items-center gap-3">
                 <div className="h-12 w-12 rounded-lg bg-[#0078D4]/10 flex items-center justify-center">
                   <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#0078D4]" fill="currentColor">
-                    <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zm12.6 0H12.6V0H24v11.4z"/>
+                    <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zm12.6 0H12.6V0H24v11.4z" />
                   </svg>
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-zinc-900">Microsoft Graph</h3>
-                  <p className="text-sm text-zinc-500">Send emails via Microsoft 365 / Exchange Online</p>
+                  <p className="text-sm text-zinc-500">
+                    Send emails via Microsoft 365 / Exchange Online
+                  </p>
                 </div>
               </div>
               <StatusBadge status={status} />
@@ -796,7 +815,9 @@ function EmailProviderConfig({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-zinc-700 mb-1.5">Client ID (Application ID)</label>
+                <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                  Client ID (Application ID)
+                </label>
                 <Input
                   type="text"
                   value={msGraphConfig.clientId}
@@ -806,12 +827,16 @@ function EmailProviderConfig({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-zinc-700 mb-1.5">Client Secret</label>
+                <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                  Client Secret
+                </label>
                 <div className="relative">
                   <Input
                     type={showClientSecret ? 'text' : 'password'}
                     value={msGraphConfig.clientSecret}
-                    onChange={(e) => setMsGraphConfig({ ...msGraphConfig, clientSecret: e.target.value })}
+                    onChange={(e) =>
+                      setMsGraphConfig({ ...msGraphConfig, clientSecret: e.target.value })
+                    }
                     placeholder="Client secret value"
                     className="pr-10"
                   />
@@ -820,7 +845,11 @@ function EmailProviderConfig({
                     onClick={() => setShowClientSecret(!showClientSecret)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
                   >
-                    {showClientSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showClientSecret ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
                 {msGraphProvider?.hasCredentials && (
@@ -832,21 +861,31 @@ function EmailProviderConfig({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">From Email</label>
+                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                    From Email
+                  </label>
                   <Input
                     type="email"
                     value={msGraphConfig.fromEmail}
-                    onChange={(e) => setMsGraphConfig({ ...msGraphConfig, fromEmail: e.target.value })}
+                    onChange={(e) =>
+                      setMsGraphConfig({ ...msGraphConfig, fromEmail: e.target.value })
+                    }
                     placeholder="noreply@yourcompany.com"
                   />
-                  <p className="text-xs text-zinc-500 mt-1">Must be a valid mailbox in your tenant</p>
+                  <p className="text-xs text-zinc-500 mt-1">
+                    Must be a valid mailbox in your tenant
+                  </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">From Name</label>
+                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                    From Name
+                  </label>
                   <Input
                     type="text"
                     value={msGraphConfig.fromName}
-                    onChange={(e) => setMsGraphConfig({ ...msGraphConfig, fromName: e.target.value })}
+                    onChange={(e) =>
+                      setMsGraphConfig({ ...msGraphConfig, fromName: e.target.value })
+                    }
                     placeholder="Skuld"
                   />
                 </div>
@@ -856,7 +895,10 @@ function EmailProviderConfig({
               <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
                 <p className="text-sm font-medium text-blue-900 mb-2">Required API Permissions</p>
                 <ul className="text-xs text-blue-800 space-y-1">
-                  <li>• <code className="bg-blue-100 px-1 rounded">Mail.Send</code> - Application permission</li>
+                  <li>
+                    • <code className="bg-blue-100 px-1 rounded">Mail.Send</code> - Application
+                    permission
+                  </li>
                   <li>• Grant admin consent in Azure Portal</li>
                 </ul>
               </div>
@@ -890,7 +932,11 @@ function EmailProviderConfig({
                   onClick={() => void handleSaveMicrosoftGraph()}
                   disabled={saving || loading}
                 >
-                  {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
                   Save Configuration
                 </Button>
               </div>
@@ -920,23 +966,18 @@ function StorageProviderConfig({
   const [azureConfig, setAzureConfig] = useState(initialAzureBlobConfig);
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [showConnectionString, setShowConnectionString] = useState(false);
-  const localProvider = useMemo(
-    () => findProvider(providers, 'storage', 'local'),
-    [providers],
-  );
-  const s3Provider = useMemo(
-    () => findProvider(providers, 'storage', 's3'),
-    [providers],
-  );
+  const localProvider = useMemo(() => findProvider(providers, 'storage', 'local'), [providers]);
+  const s3Provider = useMemo(() => findProvider(providers, 'storage', 's3'), [providers]);
   const azureProvider = useMemo(
     () => findProvider(providers, 'storage', 'azure_blob'),
     [providers],
   );
-  const status = activeProvider === 'local'
-    ? toProviderStatus(localProvider)
-    : activeProvider === 's3'
-      ? toProviderStatus(s3Provider)
-      : toProviderStatus(azureProvider);
+  const status =
+    activeProvider === 'local'
+      ? toProviderStatus(localProvider)
+      : activeProvider === 's3'
+        ? toProviderStatus(s3Provider)
+        : toProviderStatus(azureProvider);
 
   const handleSaveLocal = async () => {
     await onSave({
@@ -1006,9 +1047,14 @@ function StorageProviderConfig({
       <Card>
         <CardContent className="p-6">
           <h3 className="text-lg font-semibold text-zinc-900 mb-1">Storage Provider</h3>
-          <p className="text-sm text-zinc-500 mb-4">Select and configure your storage service for artifacts and evidence packs</p>
+          <p className="text-sm text-zinc-500 mb-4">
+            Select and configure your storage service for artifacts and evidence packs
+          </p>
 
-          <Select value={activeProvider} onValueChange={(value: 'local' | 's3' | 'azure_blob') => setActiveProvider(value)}>
+          <Select
+            value={activeProvider}
+            onValueChange={(value: 'local' | 's3' | 'azure_blob') => setActiveProvider(value)}
+          >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select provider" />
             </SelectTrigger>
@@ -1053,7 +1099,9 @@ function StorageProviderConfig({
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-zinc-900">Local Filesystem</h3>
-                  <p className="text-sm text-zinc-500">Store files on the local server filesystem</p>
+                  <p className="text-sm text-zinc-500">
+                    Store files on the local server filesystem
+                  </p>
                 </div>
               </div>
               <StatusBadge status={status} />
@@ -1068,15 +1116,21 @@ function StorageProviderConfig({
                   onChange={(e) => setLocalConfig({ ...localConfig, basePath: e.target.value })}
                   placeholder="/var/skuldbot/storage"
                 />
-                <p className="text-xs text-zinc-500 mt-1">Absolute path where files will be stored</p>
+                <p className="text-xs text-zinc-500 mt-1">
+                  Absolute path where files will be stored
+                </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-zinc-700 mb-1.5">Max File Size (MB)</label>
+                <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                  Max File Size (MB)
+                </label>
                 <Input
                   type="number"
                   value={localConfig.maxFileSizeMb}
-                  onChange={(e) => setLocalConfig({ ...localConfig, maxFileSizeMb: parseInt(e.target.value) || 0 })}
+                  onChange={(e) =>
+                    setLocalConfig({ ...localConfig, maxFileSizeMb: parseInt(e.target.value) || 0 })
+                  }
                   placeholder="100"
                 />
               </div>
@@ -1085,9 +1139,12 @@ function StorageProviderConfig({
                 <div className="flex items-start gap-2">
                   <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-sm font-medium text-amber-800">Not recommended for production</p>
+                    <p className="text-sm font-medium text-amber-800">
+                      Not recommended for production
+                    </p>
                     <p className="text-xs text-amber-700 mt-1">
-                      Local storage is suitable for development. For production, use S3 or Azure Blob Storage for durability and scalability.
+                      Local storage is suitable for development. For production, use S3 or Azure
+                      Blob Storage for durability and scalability.
                     </p>
                   </div>
                 </div>
@@ -1109,7 +1166,11 @@ function StorageProviderConfig({
                 Test Connection
               </Button>
               <Button onClick={() => void handleSaveLocal()} disabled={saving || loading}>
-                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                {saving ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
                 Save Configuration
               </Button>
             </div>
@@ -1125,12 +1186,14 @@ function StorageProviderConfig({
               <div className="flex items-center gap-3">
                 <div className="h-12 w-12 rounded-lg bg-[#FF9900]/10 flex items-center justify-center">
                   <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#FF9900]" fill="currentColor">
-                    <path d="M6.763 10.036c0 .296.032.535.088.71.064.176.144.368.256.576.04.063.056.127.056.183 0 .08-.048.16-.152.24l-.503.335a.383.383 0 01-.208.072c-.08 0-.16-.04-.239-.112a2.47 2.47 0 01-.287-.375 6.18 6.18 0 01-.248-.471c-.622.734-1.405 1.101-2.347 1.101-.67 0-1.205-.191-1.596-.574-.391-.384-.59-.894-.59-1.533 0-.678.239-1.23.726-1.644.487-.415 1.133-.623 1.955-.623.272 0 .551.024.846.064.296.04.6.104.918.176v-.583c0-.607-.127-1.03-.375-1.277-.255-.248-.686-.367-1.3-.367-.28 0-.568.031-.863.103-.296.072-.583.16-.862.272a2.287 2.287 0 01-.28.104.488.488 0 01-.127.023c-.112 0-.168-.08-.168-.247v-.391c0-.128.016-.224.056-.28a.597.597 0 01.224-.167c.279-.144.614-.264 1.005-.36a4.84 4.84 0 011.246-.151c.95 0 1.644.216 2.091.647.439.43.662 1.085.662 1.963v2.586zm-3.24 1.214c.263 0 .534-.048.822-.144.287-.096.543-.271.758-.51.128-.152.224-.32.272-.512.047-.191.08-.423.08-.694v-.335a6.66 6.66 0 00-.735-.136 6.02 6.02 0 00-.75-.048c-.535 0-.926.104-1.19.32-.263.215-.39.518-.39.917 0 .375.095.655.295.846.191.2.47.296.838.296zm6.41.862c-.144 0-.24-.024-.304-.08-.064-.048-.12-.16-.168-.311L7.586 5.55a1.398 1.398 0 01-.072-.32c0-.128.064-.2.191-.2h.783c.151 0 .255.025.31.08.065.048.113.16.16.312l1.342 5.284 1.245-5.284c.04-.16.088-.264.151-.312a.549.549 0 01.32-.08h.638c.152 0 .256.025.32.08.063.048.12.16.151.312l1.261 5.348 1.381-5.348c.048-.16.104-.264.16-.312a.52.52 0 01.311-.08h.743c.127 0 .2.065.2.2 0 .04-.009.08-.017.128a1.137 1.137 0 01-.056.2l-1.923 6.17c-.048.16-.104.263-.168.311a.51.51 0 01-.303.08h-.687c-.151 0-.255-.024-.32-.08-.063-.056-.119-.16-.15-.32l-1.238-5.148-1.23 5.14c-.04.16-.087.264-.15.32-.065.056-.177.08-.32.08zm10.256.215c-.415 0-.83-.048-1.229-.143-.399-.096-.71-.2-.918-.32-.128-.071-.215-.151-.247-.223a.563.563 0 01-.048-.224v-.407c0-.167.064-.247.183-.247.048 0 .096.008.144.024.048.016.12.048.2.08.271.12.566.215.878.279.319.064.63.096.95.096.502 0 .894-.088 1.165-.264a.86.86 0 00.415-.758.777.777 0 00-.215-.559c-.144-.151-.416-.287-.807-.414l-1.157-.36c-.583-.183-1.014-.454-1.277-.813a1.902 1.902 0 01-.4-1.158c0-.335.073-.63.216-.886.144-.255.335-.479.575-.654.24-.184.51-.32.83-.415.32-.096.655-.136 1.006-.136.175 0 .359.008.535.032.183.024.35.056.518.088.16.04.312.08.455.127.144.048.256.096.336.144a.69.69 0 01.24.2.43.43 0 01.071.263v.375c0 .168-.064.256-.184.256a.83.83 0 01-.303-.096 3.652 3.652 0 00-1.532-.311c-.455 0-.815.071-1.062.223-.248.152-.375.383-.375.71 0 .224.08.416.24.567.159.152.454.304.877.44l1.134.358c.574.184.99.44 1.237.767.247.327.367.702.367 1.117 0 .343-.072.655-.207.926-.144.272-.336.511-.583.703-.248.2-.543.343-.886.447-.36.111-.734.167-1.142.167z"/>
+                    <path d="M6.763 10.036c0 .296.032.535.088.71.064.176.144.368.256.576.04.063.056.127.056.183 0 .08-.048.16-.152.24l-.503.335a.383.383 0 01-.208.072c-.08 0-.16-.04-.239-.112a2.47 2.47 0 01-.287-.375 6.18 6.18 0 01-.248-.471c-.622.734-1.405 1.101-2.347 1.101-.67 0-1.205-.191-1.596-.574-.391-.384-.59-.894-.59-1.533 0-.678.239-1.23.726-1.644.487-.415 1.133-.623 1.955-.623.272 0 .551.024.846.064.296.04.6.104.918.176v-.583c0-.607-.127-1.03-.375-1.277-.255-.248-.686-.367-1.3-.367-.28 0-.568.031-.863.103-.296.072-.583.16-.862.272a2.287 2.287 0 01-.28.104.488.488 0 01-.127.023c-.112 0-.168-.08-.168-.247v-.391c0-.128.016-.224.056-.28a.597.597 0 01.224-.167c.279-.144.614-.264 1.005-.36a4.84 4.84 0 011.246-.151c.95 0 1.644.216 2.091.647.439.43.662 1.085.662 1.963v2.586zm-3.24 1.214c.263 0 .534-.048.822-.144.287-.096.543-.271.758-.51.128-.152.224-.32.272-.512.047-.191.08-.423.08-.694v-.335a6.66 6.66 0 00-.735-.136 6.02 6.02 0 00-.75-.048c-.535 0-.926.104-1.19.32-.263.215-.39.518-.39.917 0 .375.095.655.295.846.191.2.47.296.838.296zm6.41.862c-.144 0-.24-.024-.304-.08-.064-.048-.12-.16-.168-.311L7.586 5.55a1.398 1.398 0 01-.072-.32c0-.128.064-.2.191-.2h.783c.151 0 .255.025.31.08.065.048.113.16.16.312l1.342 5.284 1.245-5.284c.04-.16.088-.264.151-.312a.549.549 0 01.32-.08h.638c.152 0 .256.025.32.08.063.048.12.16.151.312l1.261 5.348 1.381-5.348c.048-.16.104-.264.16-.312a.52.52 0 01.311-.08h.743c.127 0 .2.065.2.2 0 .04-.009.08-.017.128a1.137 1.137 0 01-.056.2l-1.923 6.17c-.048.16-.104.263-.168.311a.51.51 0 01-.303.08h-.687c-.151 0-.255-.024-.32-.08-.063-.056-.119-.16-.15-.32l-1.238-5.148-1.23 5.14c-.04.16-.087.264-.15.32-.065.056-.177.08-.32.08zm10.256.215c-.415 0-.83-.048-1.229-.143-.399-.096-.71-.2-.918-.32-.128-.071-.215-.151-.247-.223a.563.563 0 01-.048-.224v-.407c0-.167.064-.247.183-.247.048 0 .096.008.144.024.048.016.12.048.2.08.271.12.566.215.878.279.319.064.63.096.95.096.502 0 .894-.088 1.165-.264a.86.86 0 00.415-.758.777.777 0 00-.215-.559c-.144-.151-.416-.287-.807-.414l-1.157-.36c-.583-.183-1.014-.454-1.277-.813a1.902 1.902 0 01-.4-1.158c0-.335.073-.63.216-.886.144-.255.335-.479.575-.654.24-.184.51-.32.83-.415.32-.096.655-.136 1.006-.136.175 0 .359.008.535.032.183.024.35.056.518.088.16.04.312.08.455.127.144.048.256.096.336.144a.69.69 0 01.24.2.43.43 0 01.071.263v.375c0 .168-.064.256-.184.256a.83.83 0 01-.303-.096 3.652 3.652 0 00-1.532-.311c-.455 0-.815.071-1.062.223-.248.152-.375.383-.375.71 0 .224.08.416.24.567.159.152.454.304.877.44l1.134.358c.574.184.99.44 1.237.767.247.327.367.702.367 1.117 0 .343-.072.655-.207.926-.144.272-.336.511-.583.703-.248.2-.543.343-.886.447-.36.111-.734.167-1.142.167z" />
                   </svg>
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-zinc-900">Amazon S3 / S3-Compatible</h3>
-                  <p className="text-sm text-zinc-500">Works with AWS S3, MinIO, DigitalOcean Spaces, etc.</p>
+                  <p className="text-sm text-zinc-500">
+                    Works with AWS S3, MinIO, DigitalOcean Spaces, etc.
+                  </p>
                 </div>
               </div>
               <StatusBadge status={status} />
@@ -1139,7 +1202,9 @@ function StorageProviderConfig({
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">Access Key ID</label>
+                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                    Access Key ID
+                  </label>
                   <Input
                     type="text"
                     value={s3Config.accessKeyId}
@@ -1148,12 +1213,16 @@ function StorageProviderConfig({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">Secret Access Key</label>
+                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                    Secret Access Key
+                  </label>
                   <div className="relative">
                     <Input
                       type={showSecretKey ? 'text' : 'password'}
                       value={s3Config.secretAccessKey}
-                      onChange={(e) => setS3Config({ ...s3Config, secretAccessKey: e.target.value })}
+                      onChange={(e) =>
+                        setS3Config({ ...s3Config, secretAccessKey: e.target.value })
+                      }
                       placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
                       className="pr-10"
                     />
@@ -1176,7 +1245,10 @@ function StorageProviderConfig({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 mb-1.5">Region</label>
-                  <Select value={s3Config.region} onValueChange={(value) => setS3Config({ ...s3Config, region: value })}>
+                  <Select
+                    value={s3Config.region}
+                    onValueChange={(value) => setS3Config({ ...s3Config, region: value })}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select region" />
                     </SelectTrigger>
@@ -1193,7 +1265,9 @@ function StorageProviderConfig({
                   </Select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">Bucket Name</label>
+                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                    Bucket Name
+                  </label>
                   <Input
                     type="text"
                     value={s3Config.bucket}
@@ -1205,7 +1279,9 @@ function StorageProviderConfig({
 
               {/* S3-Compatible Options */}
               <div className="pt-4 border-t border-zinc-200">
-                <p className="text-sm font-medium text-zinc-900 mb-3">S3-Compatible Service Options</p>
+                <p className="text-sm font-medium text-zinc-900 mb-3">
+                  S3-Compatible Service Options
+                </p>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-zinc-700 mb-1.5">
@@ -1218,17 +1294,23 @@ function StorageProviderConfig({
                       onChange={(e) => setS3Config({ ...s3Config, endpoint: e.target.value })}
                       placeholder="https://minio.example.com"
                     />
-                    <p className="text-xs text-zinc-500 mt-1">Leave empty for AWS S3. Set for MinIO, DigitalOcean Spaces, etc.</p>
+                    <p className="text-xs text-zinc-500 mt-1">
+                      Leave empty for AWS S3. Set for MinIO, DigitalOcean Spaces, etc.
+                    </p>
                   </div>
 
                   <div className="flex items-center justify-between p-4 rounded-lg border border-zinc-200">
                     <div>
                       <p className="text-sm font-medium text-zinc-900">Force Path Style</p>
-                      <p className="text-xs text-zinc-500">Use path-style URLs instead of virtual-hosted style</p>
+                      <p className="text-xs text-zinc-500">
+                        Use path-style URLs instead of virtual-hosted style
+                      </p>
                     </div>
                     <Switch
                       checked={s3Config.forcePathStyle || false}
-                      onCheckedChange={(checked) => setS3Config({ ...s3Config, forcePathStyle: checked })}
+                      onCheckedChange={(checked) =>
+                        setS3Config({ ...s3Config, forcePathStyle: checked })
+                      }
                     />
                   </div>
                 </div>
@@ -1260,7 +1342,11 @@ function StorageProviderConfig({
                   Test Connection
                 </Button>
                 <Button onClick={() => void handleSaveS3()} disabled={saving || loading}>
-                  {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
                   Save Configuration
                 </Button>
               </div>
@@ -1277,7 +1363,7 @@ function StorageProviderConfig({
               <div className="flex items-center gap-3">
                 <div className="h-12 w-12 rounded-lg bg-[#0078D4]/10 flex items-center justify-center">
                   <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#0078D4]" fill="currentColor">
-                    <path d="M5.483 21.3H24L14.025 4.013l-3.038 8.347 5.836 6.938L5.483 21.3zM13.049 2.7L6.89 15.697l-5.638 2.98L13.049 2.7z"/>
+                    <path d="M5.483 21.3H24L14.025 4.013l-3.038 8.347 5.836 6.938L5.483 21.3zM13.049 2.7L6.89 15.697l-5.638 2.98L13.049 2.7z" />
                   </svg>
                 </div>
                 <div>
@@ -1290,12 +1376,16 @@ function StorageProviderConfig({
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-zinc-700 mb-1.5">Connection String</label>
+                <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                  Connection String
+                </label>
                 <div className="relative">
                   <Input
                     type={showConnectionString ? 'text' : 'password'}
                     value={azureConfig.connectionString}
-                    onChange={(e) => setAzureConfig({ ...azureConfig, connectionString: e.target.value })}
+                    onChange={(e) =>
+                      setAzureConfig({ ...azureConfig, connectionString: e.target.value })
+                    }
                     placeholder="DefaultEndpointsProtocol=https;AccountName=..."
                     className="pr-10"
                   />
@@ -1304,7 +1394,11 @@ function StorageProviderConfig({
                     onClick={() => setShowConnectionString(!showConnectionString)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
                   >
-                    {showConnectionString ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showConnectionString ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
                 {azureProvider?.hasCredentials && (
@@ -1319,20 +1413,28 @@ function StorageProviderConfig({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">Account Name</label>
+                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                    Account Name
+                  </label>
                   <Input
                     type="text"
                     value={azureConfig.accountName}
-                    onChange={(e) => setAzureConfig({ ...azureConfig, accountName: e.target.value })}
+                    onChange={(e) =>
+                      setAzureConfig({ ...azureConfig, accountName: e.target.value })
+                    }
                     placeholder="mystorageaccount"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">Container Name</label>
+                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                    Container Name
+                  </label>
                   <Input
                     type="text"
                     value={azureConfig.containerName}
-                    onChange={(e) => setAzureConfig({ ...azureConfig, containerName: e.target.value })}
+                    onChange={(e) =>
+                      setAzureConfig({ ...azureConfig, containerName: e.target.value })
+                    }
                     placeholder="skuld-artifacts"
                   />
                 </div>
@@ -1342,20 +1444,28 @@ function StorageProviderConfig({
               <div className="pt-4 border-t border-zinc-200">
                 <p className="text-sm font-medium text-zinc-900 mb-3">
                   Alternative Authentication
-                  <span className="text-zinc-400 font-normal ml-1">(optional, if not using connection string)</span>
+                  <span className="text-zinc-400 font-normal ml-1">
+                    (optional, if not using connection string)
+                  </span>
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 mb-1.5">Account Key</label>
+                    <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                      Account Key
+                    </label>
                     <Input
                       type="password"
                       value={azureConfig.accountKey || ''}
-                      onChange={(e) => setAzureConfig({ ...azureConfig, accountKey: e.target.value })}
+                      onChange={(e) =>
+                        setAzureConfig({ ...azureConfig, accountKey: e.target.value })
+                      }
                       placeholder="Account access key"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-zinc-700 mb-1.5">SAS Token</label>
+                    <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                      SAS Token
+                    </label>
                     <Input
                       type="password"
                       value={azureConfig.sasToken || ''}
@@ -1392,7 +1502,11 @@ function StorageProviderConfig({
                   Test Connection
                 </Button>
                 <Button onClick={() => void handleSaveAzure()} disabled={saving || loading}>
-                  {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
                   Save Configuration
                 </Button>
               </div>

@@ -9,10 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import { Tenant } from '../tenants/entities/tenant.entity';
-import {
-  License,
-  LicenseFeatures,
-} from '../licenses/entities/license.entity';
+import { License, LicenseFeatures } from '../licenses/entities/license.entity';
 import { User, UserRole } from '../users/entities/user.entity';
 import {
   ConfigureTenantSsoDto,
@@ -294,11 +291,7 @@ export class SsoService {
     return license;
   }
 
-  private ensureTenantAccess(
-    currentUser: User,
-    tenant: Tenant,
-    mode: 'read' | 'write',
-  ): void {
+  private ensureTenantAccess(currentUser: User, tenant: Tenant, mode: 'read' | 'write'): void {
     if (currentUser.role === UserRole.SKULD_ADMIN) {
       return;
     }
@@ -307,8 +300,7 @@ export class SsoService {
     const canReadSso = hasPermission(grantedPermissions, CP_PERMISSIONS.SSO_READ);
     const canWriteSso = hasPermission(grantedPermissions, CP_PERMISSIONS.SSO_WRITE);
     const isGlobalScope = currentUser.clientId === null;
-    const canAccessTenantScope =
-      isGlobalScope || currentUser.clientId === tenant.clientId;
+    const canAccessTenantScope = isGlobalScope || currentUser.clientId === tenant.clientId;
 
     if (mode === 'read' && canReadSso && canAccessTenantScope) {
       return;

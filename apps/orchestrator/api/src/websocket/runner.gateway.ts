@@ -219,10 +219,7 @@ export class RunnerGateway implements OnGatewayConnection, OnGatewayDisconnect {
           timestamp: new Date().toISOString(),
         });
 
-        await this.runnersService.markRunnerDisconnected(
-          runnerId,
-          this.getClientIp(client),
-        );
+        await this.runnersService.markRunnerDisconnected(runnerId, this.getClientIp(client));
       }
 
       this.socketToRunner.delete(client.id);
@@ -260,7 +257,9 @@ export class RunnerGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (this.runners.has(payload.runnerId)) {
         const oldRunner = this.runners.get(payload.runnerId);
         if (oldRunner) {
-          this.logger.warn(`Runner ${payload.runnerId} already connected, disconnecting old socket`);
+          this.logger.warn(
+            `Runner ${payload.runnerId} already connected, disconnecting old socket`,
+          );
           const oldSocket = this.server.sockets.sockets.get(oldRunner.socketId);
           if (oldSocket) {
             oldSocket.disconnect(true);
@@ -305,7 +304,10 @@ export class RunnerGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return { success: true };
     } catch (error) {
       this.logger.error(`Runner auth error: ${error}`);
-      return { success: false, error: error instanceof Error ? error.message : 'Authentication failed' };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Authentication failed',
+      };
     }
   }
 
@@ -315,7 +317,8 @@ export class RunnerGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('runner:heartbeat')
   async handleHeartbeat(
     @ConnectedSocket() client: Socket,
-    @MessageBody() payload: { runnerId: string; status: string; cpuUsage?: number; memoryUsage?: number },
+    @MessageBody()
+    payload: { runnerId: string; status: string; cpuUsage?: number; memoryUsage?: number },
   ): Promise<{ success: boolean }> {
     const authenticatedRunnerId = this.socketToRunner.get(client.id);
     if (!authenticatedRunnerId || authenticatedRunnerId !== payload.runnerId) {
@@ -332,14 +335,10 @@ export class RunnerGateway implements OnGatewayConnection, OnGatewayDisconnect {
         runner.status = payload.status;
       }
 
-      await this.runnersService.updateRunnerSocketHeartbeat(
-        authenticatedRunnerId,
-        runner.status,
-        {
-          cpuUsage: payload.cpuUsage,
-          memoryUsage: payload.memoryUsage,
-        },
-      );
+      await this.runnersService.updateRunnerSocketHeartbeat(authenticatedRunnerId, runner.status, {
+        cpuUsage: payload.cpuUsage,
+        memoryUsage: payload.memoryUsage,
+      });
 
       this.logger.debug(`Heartbeat from runner ${payload.runnerId}`);
 

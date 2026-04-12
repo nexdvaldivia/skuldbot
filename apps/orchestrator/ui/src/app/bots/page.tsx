@@ -76,9 +76,7 @@ export default function BotsPage() {
         variant: 'destructive',
         title: 'Failed to create bot',
         description:
-          error instanceof Error
-            ? error.message
-            : 'Please verify your data and try again.',
+          error instanceof Error ? error.message : 'Please verify your data and try again.',
       });
     }
   };
@@ -135,11 +133,7 @@ export default function BotsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {bots?.map((bot) => (
-              <BotCard
-                key={bot.id}
-                bot={bot}
-                onDelete={() => handleDelete(bot.id, bot.name)}
-              />
+              <BotCard key={bot.id} bot={bot} onDelete={() => handleDelete(bot.id, bot.name)} />
             ))}
           </div>
         )}
@@ -230,9 +224,7 @@ function BotCard({
               {bot.name}
             </Link>
             {bot.latestVersion && (
-              <p className="text-xs text-muted-foreground">
-                v{bot.latestVersion.version}
-              </p>
+              <p className="text-xs text-muted-foreground">v{bot.latestVersion.version}</p>
             )}
           </div>
         </div>

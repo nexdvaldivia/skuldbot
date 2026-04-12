@@ -36,6 +36,7 @@ Descripción más detallada si es necesaria.
 ```
 
 Tipos:
+
 - `feat`: Nueva funcionalidad
 - `fix`: Corrección de bug
 - `docs`: Cambios en documentación
@@ -68,6 +69,7 @@ ruff check skuldbot tests --fix
 ## Reportar Bugs
 
 Usa los GitHub Issues e incluye:
+
 - Descripción del problema
 - Steps to reproduce
 - Comportamiento esperado vs actual
@@ -77,6 +79,7 @@ Usa los GitHub Issues e incluye:
 ## Proponer Features
 
 Abre un Issue con:
+
 - Descripción del feature
 - Casos de uso
 - Propuesta de API/interfaz
@@ -85,8 +88,8 @@ Abre un Issue con:
 ## Preguntas
 
 Para preguntas, usa:
+
 - GitHub Discussions
 - Canal de Discord (próximamente)
 
 ¡Gracias por contribuir! 🎉
-

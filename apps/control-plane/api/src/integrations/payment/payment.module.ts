@@ -30,12 +30,7 @@ export const PAYMENT_PROVIDER = 'PAYMENT_PROVIDER';
 @Module({
   imports: [
     ConfigModule,
-    TypeOrmModule.forFeature([
-      SubscriptionEntity,
-      InvoiceEntity,
-      UsageRecordEntity,
-      PartnerEntity,
-    ]),
+    TypeOrmModule.forFeature([SubscriptionEntity, InvoiceEntity, UsageRecordEntity, PartnerEntity]),
   ],
   controllers: [WebhooksController],
   providers: [
@@ -45,11 +40,7 @@ export const PAYMENT_PROVIDER = 'PAYMENT_PROVIDER';
       useExisting: StripeProvider,
     },
   ],
-  exports: [
-    PAYMENT_PROVIDER,
-    StripeProvider,
-    TypeOrmModule,
-  ],
+  exports: [PAYMENT_PROVIDER, StripeProvider, TypeOrmModule],
 })
 export class PaymentModule implements NestModule {
   /**

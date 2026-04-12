@@ -109,10 +109,10 @@ export class ApiKeyGuard implements CanActivate {
     }
 
     // Check scopes against required permissions
-    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(
-      PERMISSIONS_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
     if (requiredPermissions && requiredPermissions.length > 0) {
       const missingScopes = requiredPermissions.filter(

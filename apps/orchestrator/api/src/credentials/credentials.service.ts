@@ -94,9 +94,7 @@ export class CredentialsService {
     });
 
     if (existing) {
-      throw new ConflictException(
-        `Credential with key '${dto.key}' already exists`,
-      );
+      throw new ConflictException(`Credential with key '${dto.key}' already exists`);
     }
 
     // Validate folder exists if specified
@@ -122,9 +120,7 @@ export class CredentialsService {
       encryptionKeyId = this.encryptionService.getCurrentKeyId();
     } else {
       if (!dto.vaultReference?.trim()) {
-        throw new BadRequestException(
-          'vaultReference is required for external vault credentials',
-        );
+        throw new BadRequestException('vaultReference is required for external vault credentials');
       }
       if (!dto.vaultConnectionId) {
         throw new BadRequestException(
@@ -142,9 +138,7 @@ export class CredentialsService {
       });
 
       if (!vaultConnection) {
-        throw new NotFoundException(
-          `Active vault connection not found: ${dto.vaultConnectionId}`,
-        );
+        throw new NotFoundException(`Active vault connection not found: ${dto.vaultConnectionId}`);
       }
 
       vaultReference = dto.vaultReference.trim();
@@ -303,10 +297,7 @@ export class CredentialsService {
     const total = await qb.getCount();
 
     // Apply sorting
-    const sortColumn =
-      sortBy === 'lastAccessedAt'
-        ? 'cred.lastAccessedAt'
-        : `cred.${sortBy}`;
+    const sortColumn = sortBy === 'lastAccessedAt' ? 'cred.lastAccessedAt' : `cred.${sortBy}`;
     qb.orderBy(sortColumn, sortOrder.toUpperCase() as 'ASC' | 'DESC');
 
     // Apply pagination
@@ -326,10 +317,7 @@ export class CredentialsService {
   /**
    * Get credential by ID
    */
-  async findOne(
-    tenantId: string,
-    credentialId: string,
-  ): Promise<CredentialDetailDto> {
+  async findOne(tenantId: string, credentialId: string): Promise<CredentialDetailDto> {
     const credential = await this.credentialRepository.findOne({
       where: { id: credentialId, tenantId },
     });
@@ -344,10 +332,7 @@ export class CredentialsService {
   /**
    * Get credential by key
    */
-  async findByKey(
-    tenantId: string,
-    key: string,
-  ): Promise<CredentialDetailDto> {
+  async findByKey(tenantId: string, key: string): Promise<CredentialDetailDto> {
     const credential = await this.credentialRepository.findOne({
       where: { key, tenantId },
     });
@@ -383,8 +368,7 @@ export class CredentialsService {
     if (dto.scope !== undefined) credential.scope = dto.scope;
     if (dto.labels !== undefined) credential.labels = dto.labels;
     if (dto.metadata !== undefined) credential.metadata = dto.metadata;
-    if (dto.allowedBotIds !== undefined)
-      credential.allowedBotIds = dto.allowedBotIds;
+    if (dto.allowedBotIds !== undefined) credential.allowedBotIds = dto.allowedBotIds;
     if (dto.allowedEnvironments !== undefined)
       credential.allowedEnvironments = dto.allowedEnvironments;
     if (dto.expiresAt !== undefined) {
@@ -412,9 +396,7 @@ export class CredentialsService {
 
     await this.credentialRepository.save(credential);
 
-    this.logger.log(
-      `Updated credential ${credentialId} for tenant ${tenantId}`,
-    );
+    this.logger.log(`Updated credential ${credentialId} for tenant ${tenantId}`);
 
     return this.toDetailDto(credential);
   }
@@ -437,15 +419,11 @@ export class CredentialsService {
     }
 
     if (credential.vaultProvider !== VaultProvider.INTERNAL) {
-      throw new BadRequestException(
-        'Cannot update value for external vault credentials',
-      );
+      throw new BadRequestException('Cannot update value for external vault credentials');
     }
 
     // Encrypt new value
-    credential.encryptedData = this.encryptionService.encryptCredentialValue(
-      dto.value,
-    );
+    credential.encryptedData = this.encryptionService.encryptCredentialValue(dto.value);
     credential.encryptionKeyId = this.encryptionService.getCurrentKeyId();
     credential.version += 1;
     credential.updatedBy = userId;
@@ -460,9 +438,7 @@ export class CredentialsService {
       context: { purpose: dto.reason || 'Value update' },
     });
 
-    this.logger.log(
-      `Updated value for credential ${credentialId}, version ${credential.version}`,
-    );
+    this.logger.log(`Updated value for credential ${credentialId}, version ${credential.version}`);
 
     return this.toDetailDto(credential);
   }
@@ -490,15 +466,11 @@ export class CredentialsService {
     try {
       if (dto.newValue) {
         // Manual rotation with new value provided
-        credential.encryptedData = this.encryptionService.encryptCredentialValue(
-          dto.newValue,
-        );
+        credential.encryptedData = this.encryptionService.encryptCredentialValue(dto.newValue);
         credential.encryptionKeyId = this.encryptionService.getCurrentKeyId();
       } else if (credential.encryptedData) {
         // Re-encrypt with current key (key rotation)
-        credential.encryptedData = this.encryptionService.reencrypt(
-          credential.encryptedData,
-        );
+        credential.encryptedData = this.encryptionService.reencrypt(credential.encryptedData);
         credential.encryptionKeyId = this.encryptionService.getCurrentKeyId();
       }
 
@@ -509,9 +481,7 @@ export class CredentialsService {
         credential.rotationConfig = {
           ...credential.rotationConfig,
           lastRotatedAt: new Date(),
-          nextRotationAt: this.calculateNextRotation(
-            credential.rotationConfig.intervalDays || 90,
-          ),
+          nextRotationAt: this.calculateNextRotation(credential.rotationConfig.intervalDays || 90),
           consecutiveFailures: 0,
         };
       }
@@ -565,11 +535,7 @@ export class CredentialsService {
   /**
    * Delete credential
    */
-  async delete(
-    tenantId: string,
-    credentialId: string,
-    userId: string,
-  ): Promise<void> {
+  async delete(tenantId: string, credentialId: string, userId: string): Promise<void> {
     const credential = await this.credentialRepository.findOne({
       where: { id: credentialId, tenantId },
     });
@@ -588,9 +554,7 @@ export class CredentialsService {
 
     await this.credentialRepository.remove(credential);
 
-    this.logger.log(
-      `Deleted credential ${credentialId} for tenant ${tenantId}`,
-    );
+    this.logger.log(`Deleted credential ${credentialId} for tenant ${tenantId}`);
   }
 
   /**
@@ -623,9 +587,7 @@ export class CredentialsService {
       context: { purpose: reason || 'Credential revocation' },
     });
 
-    this.logger.log(
-      `Revoked credential ${credentialId} for tenant ${tenantId}`,
-    );
+    this.logger.log(`Revoked credential ${credentialId} for tenant ${tenantId}`);
 
     return this.toDetailDto(credential);
   }
@@ -648,51 +610,26 @@ export class CredentialsService {
 
     if (!credential) {
       await this.logAccessDenied(tenantId, dto, 'Credential not found');
-      throw new NotFoundException(
-        `Credential not found: ${dto.credentialKey}`,
-      );
+      throw new NotFoundException(`Credential not found: ${dto.credentialKey}`);
     }
 
     // Check status
     if (credential.status !== CredentialStatus.ACTIVE) {
-      await this.logAccessDenied(
-        tenantId,
-        dto,
-        `Credential is ${credential.status}`,
-        credential,
-      );
-      throw new ForbiddenException(
-        `Credential '${dto.credentialKey}' is ${credential.status}`,
-      );
+      await this.logAccessDenied(tenantId, dto, `Credential is ${credential.status}`, credential);
+      throw new ForbiddenException(`Credential '${dto.credentialKey}' is ${credential.status}`);
     }
 
     // Check expiration
     if (credential.expiresAt && credential.expiresAt < new Date()) {
-      await this.logAccessDenied(
-        tenantId,
-        dto,
-        'Credential has expired',
-        credential,
-      );
-      throw new ForbiddenException(
-        `Credential '${dto.credentialKey}' has expired`,
-      );
+      await this.logAccessDenied(tenantId, dto, 'Credential has expired', credential);
+      throw new ForbiddenException(`Credential '${dto.credentialKey}' has expired`);
     }
 
     // Check access scope
-    const accessAllowed = await this.checkAccessScope(
-      credential,
-      dto.botId,
-      dto.environment,
-    );
+    const accessAllowed = await this.checkAccessScope(credential, dto.botId, dto.environment);
 
     if (!accessAllowed) {
-      await this.logAccessDenied(
-        tenantId,
-        dto,
-        'Access denied by scope policy',
-        credential,
-      );
+      await this.logAccessDenied(tenantId, dto, 'Access denied by scope policy', credential);
       throw new ForbiddenException(
         `Access to credential '${dto.credentialKey}' denied for this bot/environment`,
       );
@@ -705,9 +642,7 @@ export class CredentialsService {
       if (!credential.encryptedData) {
         throw new BadRequestException('Credential has no value');
       }
-      value = this.encryptionService.decryptCredentialValue(
-        credential.encryptedData,
-      );
+      value = this.encryptionService.decryptCredentialValue(credential.encryptedData);
     } else {
       // Fetch from external vault
       value = await this.fetchFromExternalVault(credential);
@@ -766,8 +701,7 @@ export class CredentialsService {
         });
         result.credentials[key] = credential;
       } catch (error) {
-        result.errors[key] =
-          error instanceof Error ? error.message : 'Unknown error';
+        result.errors[key] = error instanceof Error ? error.message : 'Unknown error';
       }
     }
 
@@ -805,13 +739,9 @@ export class CredentialsService {
   /**
    * Fetch credential from external vault
    */
-  private async fetchFromExternalVault(
-    credential: Credential,
-  ): Promise<Record<string, any>> {
+  private async fetchFromExternalVault(credential: Credential): Promise<Record<string, any>> {
     if (!credential.vaultReference?.trim()) {
-      throw new BadRequestException(
-        `Credential '${credential.key}' has no vaultReference`,
-      );
+      throw new BadRequestException(`Credential '${credential.key}' has no vaultReference`);
     }
 
     const config = await this.getDecryptedVaultConfig(credential);
@@ -832,22 +762,16 @@ export class CredentialsService {
           return this.fetchFromGcpSecretManager(vaultReference, config);
 
         default:
-          throw new BadRequestException(
-            `Unsupported vault provider: ${credential.vaultProvider}`,
-          );
+          throw new BadRequestException(`Unsupported vault provider: ${credential.vaultProvider}`);
       }
     } catch (error) {
       const message = this.sanitizeVaultError(error);
-      this.logger.warn(
-        `External vault fetch failed for credential ${credential.id}: ${message}`,
-      );
+      this.logger.warn(`External vault fetch failed for credential ${credential.id}: ${message}`);
       throw new BadRequestException(message);
     }
   }
 
-  private async getDecryptedVaultConfig(
-    credential: Credential,
-  ): Promise<Record<string, any>> {
+  private async getDecryptedVaultConfig(credential: Credential): Promise<Record<string, any>> {
     if (credential.vaultConfig) {
       return this.encryptionService.decryptCredentialValue(credential.vaultConfig);
     }
@@ -869,9 +793,7 @@ export class CredentialsService {
     });
 
     if (!connection) {
-      throw new NotFoundException(
-        `Active vault connection not found: ${vaultConnectionId}`,
-      );
+      throw new NotFoundException(`Active vault connection not found: ${vaultConnectionId}`);
     }
 
     return this.encryptionService.decryptCredentialValue(connection.encryptedConfig);
@@ -1029,9 +951,7 @@ export class CredentialsService {
     };
   }
 
-  private parseAzureSecretReference(
-    reference: string,
-  ): { secretName: string; version?: string } {
+  private parseAzureSecretReference(reference: string): { secretName: string; version?: string } {
     const normalized = reference.trim().replace(/^\/+/, '');
     if (!normalized) {
       throw new Error('vaultReference is empty');
@@ -1056,19 +976,14 @@ export class CredentialsService {
     };
   }
 
-  private resolveGcpSecretResource(
-    reference: string,
-    projectId?: string,
-  ): string {
+  private resolveGcpSecretResource(reference: string, projectId?: string): string {
     const normalized = reference.trim().replace(/^\/+/, '');
     if (!normalized) {
       throw new Error('vaultReference is empty');
     }
 
     if (normalized.startsWith('projects/')) {
-      return normalized.includes('/versions/')
-        ? normalized
-        : `${normalized}/versions/latest`;
+      return normalized.includes('/versions/') ? normalized : `${normalized}/versions/latest`;
     }
 
     if (!projectId) {
@@ -1096,25 +1011,18 @@ export class CredentialsService {
     const url = new URL(endpoint);
 
     const accessKeyId =
-      this.readOptionalString(config, 'accessKeyId') ||
-      process.env.AWS_ACCESS_KEY_ID;
+      this.readOptionalString(config, 'accessKeyId') || process.env.AWS_ACCESS_KEY_ID;
     const secretAccessKey =
-      this.readOptionalString(config, 'secretAccessKey') ||
-      process.env.AWS_SECRET_ACCESS_KEY;
+      this.readOptionalString(config, 'secretAccessKey') || process.env.AWS_SECRET_ACCESS_KEY;
     const sessionToken =
-      this.readOptionalString(config, 'sessionToken') ||
-      process.env.AWS_SESSION_TOKEN;
+      this.readOptionalString(config, 'sessionToken') || process.env.AWS_SESSION_TOKEN;
 
     if (!accessKeyId || !secretAccessKey) {
-      throw new Error(
-        'AWS credentials are required (accessKeyId/secretAccessKey)',
-      );
+      throw new Error('AWS credentials are required (accessKeyId/secretAccessKey)');
     }
 
     const body = JSON.stringify(
-      Object.fromEntries(
-        Object.entries(payload).filter(([, value]) => value !== undefined),
-      ),
+      Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined)),
     );
 
     const amzDate = this.formatAwsAmzDate(new Date());
@@ -1134,9 +1042,7 @@ export class CredentialsService {
     }
 
     const signedHeaderKeys = Object.keys(baseHeaders).sort();
-    const canonicalHeaders = signedHeaderKeys
-      .map((key) => `${key}:${baseHeaders[key]}`)
-      .join('\n');
+    const canonicalHeaders = signedHeaderKeys.map((key) => `${key}:${baseHeaders[key]}`).join('\n');
     const signedHeaders = signedHeaderKeys.join(';');
     const canonicalRequest = [
       'POST',
@@ -1209,8 +1115,7 @@ export class CredentialsService {
     const clientId = this.readRequiredString(config, 'clientId');
     const clientSecret = this.readRequiredString(config, 'clientSecret');
     const authorityHost =
-      this.readOptionalString(config, 'authorityHost') ||
-      'https://login.microsoftonline.com';
+      this.readOptionalString(config, 'authorityHost') || 'https://login.microsoftonline.com';
     const tokenUrl = `${authorityHost.replace(/\/+$/, '')}/${tenantId}/oauth2/v2.0/token`;
 
     const response = await fetch(tokenUrl, {
@@ -1248,18 +1153,12 @@ export class CredentialsService {
     }
 
     const clientEmail = this.readRequiredString(config, 'clientEmail');
-    const privateKey = this.readRequiredString(config, 'privateKey').replace(
-      /\\n/g,
-      '\n',
-    );
+    const privateKey = this.readRequiredString(config, 'privateKey').replace(/\\n/g, '\n');
     const tokenUri =
-      this.readOptionalString(config, 'tokenUri') ||
-      'https://oauth2.googleapis.com/token';
+      this.readOptionalString(config, 'tokenUri') || 'https://oauth2.googleapis.com/token';
     const now = Math.floor(Date.now() / 1000);
 
-    const jwtHeader = this.base64UrlEncode(
-      JSON.stringify({ alg: 'RS256', typ: 'JWT' }),
-    );
+    const jwtHeader = this.base64UrlEncode(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
     const jwtPayload = this.base64UrlEncode(
       JSON.stringify({
         iss: clientEmail,
@@ -1316,10 +1215,7 @@ export class CredentialsService {
     return { value: secretValue };
   }
 
-  private selectSecretField(
-    secretData: Record<string, any>,
-    field?: string,
-  ): Record<string, any> {
+  private selectSecretField(secretData: Record<string, any>, field?: string): Record<string, any> {
     if (!field) {
       return secretData;
     }
@@ -1349,18 +1245,9 @@ export class CredentialsService {
       .createHmac('sha256', `AWS4${secretAccessKey}`)
       .update(dateStamp, 'utf8')
       .digest();
-    const kRegion = crypto
-      .createHmac('sha256', kDate)
-      .update(regionName, 'utf8')
-      .digest();
-    const kService = crypto
-      .createHmac('sha256', kRegion)
-      .update(serviceName, 'utf8')
-      .digest();
-    return crypto
-      .createHmac('sha256', kService)
-      .update('aws4_request', 'utf8')
-      .digest();
+    const kRegion = crypto.createHmac('sha256', kDate).update(regionName, 'utf8').digest();
+    const kService = crypto.createHmac('sha256', kRegion).update(serviceName, 'utf8').digest();
+    return crypto.createHmac('sha256', kService).update('aws4_request', 'utf8').digest();
   }
 
   private base64UrlEncode(input: string | Buffer): string {
@@ -1387,10 +1274,7 @@ export class CredentialsService {
     return value;
   }
 
-  private readOptionalString(
-    config: Record<string, any>,
-    key: string,
-  ): string | undefined {
+  private readOptionalString(config: Record<string, any>, key: string): string | undefined {
     const value = config?.[key];
     if (typeof value !== 'string') {
       return undefined;
@@ -1437,9 +1321,7 @@ export class CredentialsService {
    */
   async getStats(tenantId: string): Promise<CredentialStatsDto> {
     const now = new Date();
-    const thirtyDaysFromNow = new Date(
-      now.getTime() + 30 * 24 * 60 * 60 * 1000,
-    );
+    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
@@ -1529,9 +1411,7 @@ export class CredentialsService {
     byScope.forEach((r) => (scopeRecord[r.scope] = parseInt(r.count)));
 
     const vaultRecord: Record<VaultProvider, number> = {} as any;
-    byVaultProvider.forEach(
-      (r) => (vaultRecord[r.provider] = parseInt(r.count)),
-    );
+    byVaultProvider.forEach((r) => (vaultRecord[r.provider] = parseInt(r.count)));
 
     return {
       total,
@@ -1670,11 +1550,7 @@ export class CredentialsService {
   /**
    * Create folder
    */
-  async createFolder(
-    tenantId: string,
-    userId: string,
-    dto: CreateFolderDto,
-  ): Promise<FolderDto> {
+  async createFolder(tenantId: string, userId: string, dto: CreateFolderDto): Promise<FolderDto> {
     let path = `/${dto.name}`;
 
     if (dto.parentId) {
@@ -1713,10 +1589,7 @@ export class CredentialsService {
   /**
    * List folders
    */
-  async listFolders(
-    tenantId: string,
-    parentId?: string,
-  ): Promise<FolderDto[]> {
+  async listFolders(tenantId: string, parentId?: string): Promise<FolderDto[]> {
     const whereClause: any = { tenantId };
     if (parentId) {
       whereClause.parentId = parentId;
@@ -1734,11 +1607,7 @@ export class CredentialsService {
   /**
    * Update folder
    */
-  async updateFolder(
-    tenantId: string,
-    folderId: string,
-    dto: UpdateFolderDto,
-  ): Promise<FolderDto> {
+  async updateFolder(tenantId: string, folderId: string, dto: UpdateFolderDto): Promise<FolderDto> {
     const folder = await this.folderRepository.findOne({
       where: { id: folderId, tenantId },
     });
@@ -1827,9 +1696,7 @@ export class CredentialsService {
     }
 
     // Encrypt connection config
-    const encryptedConfig = this.encryptionService.encryptCredentialValue(
-      dto.config,
-    );
+    const encryptedConfig = this.encryptionService.encryptCredentialValue(dto.config);
 
     const connection = this.vaultConnectionRepository.create({
       tenantId,
@@ -1871,9 +1738,7 @@ export class CredentialsService {
       throw new NotFoundException(`Vault connection not found: ${connectionId}`);
     }
 
-    const config = this.encryptionService.decryptCredentialValue(
-      connection.encryptedConfig,
-    );
+    const config = this.encryptionService.decryptCredentialValue(connection.encryptedConfig);
     const missingKeys = this.getMissingVaultConfigKeys(connection.provider, config);
     if (missingKeys.length > 0) {
       return {
@@ -1883,18 +1748,14 @@ export class CredentialsService {
     }
 
     try {
-      const message = await this.performVaultConnectivityCheck(
-        connection.provider,
-        config,
-      );
+      const message = await this.performVaultConnectivityCheck(connection.provider, config);
 
       const previousHealth = connection.healthCheck || { enabled: true };
       connection.lastConnectedAt = new Date();
       connection.lastError = null;
       connection.healthCheck = {
         ...previousHealth,
-        enabled:
-          previousHealth.enabled === undefined ? true : previousHealth.enabled,
+        enabled: previousHealth.enabled === undefined ? true : previousHealth.enabled,
         lastCheckAt: new Date(),
         lastCheckSuccess: true,
       };
@@ -1911,8 +1772,7 @@ export class CredentialsService {
       connection.lastError = sanitizedError;
       connection.healthCheck = {
         ...previousHealth,
-        enabled:
-          previousHealth.enabled === undefined ? true : previousHealth.enabled,
+        enabled: previousHealth.enabled === undefined ? true : previousHealth.enabled,
         lastCheckAt: new Date(),
         lastCheckSuccess: false,
       };
@@ -1948,9 +1808,7 @@ export class CredentialsService {
     }
   }
 
-  private async testHashicorpVaultConnection(
-    config: Record<string, any>,
-  ): Promise<string> {
+  private async testHashicorpVaultConnection(config: Record<string, any>): Promise<string> {
     const address = this.readRequiredString(config, 'address');
     const token = this.readRequiredString(config, 'token');
     const namespace = this.readOptionalString(config, 'namespace');
@@ -1974,20 +1832,12 @@ export class CredentialsService {
     return 'HashiCorp Vault connection verified successfully.';
   }
 
-  private async testAwsSecretsManagerConnection(
-    config: Record<string, any>,
-  ): Promise<string> {
-    await this.awsSecretsManagerRequest(
-      config,
-      'secretsmanager.ListSecrets',
-      { MaxResults: 1 },
-    );
+  private async testAwsSecretsManagerConnection(config: Record<string, any>): Promise<string> {
+    await this.awsSecretsManagerRequest(config, 'secretsmanager.ListSecrets', { MaxResults: 1 });
     return 'AWS Secrets Manager connection verified successfully.';
   }
 
-  private async testAzureKeyVaultConnection(
-    config: Record<string, any>,
-  ): Promise<string> {
+  private async testAzureKeyVaultConnection(config: Record<string, any>): Promise<string> {
     const vaultUrl = this.readRequiredString(config, 'vaultUrl').replace(/\/+$/, '');
     const accessToken = await this.getAzureAccessToken(config);
     const endpoint = `${vaultUrl}/secrets?api-version=7.4&maxresults=1`;
@@ -2009,9 +1859,7 @@ export class CredentialsService {
     return 'Azure Key Vault connection verified successfully.';
   }
 
-  private async testGcpSecretManagerConnection(
-    config: Record<string, any>,
-  ): Promise<string> {
+  private async testGcpSecretManagerConnection(config: Record<string, any>): Promise<string> {
     const projectId = this.readRequiredString(config, 'projectId');
     const accessToken = await this.getGcpAccessToken(config);
     const endpoint = `https://secretmanager.googleapis.com/v1/projects/${projectId}/secrets?pageSize=1`;
@@ -2118,8 +1966,7 @@ export class CredentialsService {
     },
   ): Promise<void> {
     if (!credential.auditConfig?.logAccess) return;
-    if (data.action === 'decrypt' && !credential.auditConfig?.logDecryption)
-      return;
+    if (data.action === 'decrypt' && !credential.auditConfig?.logDecryption) return;
 
     await this.accessLogRepository.save({
       credentialId: credential.id,

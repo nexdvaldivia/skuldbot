@@ -37,8 +37,7 @@ export const CP_PERMISSIONS = {
   ORCHESTRATORS_READ: 'orchestrators:read',
 } as const;
 
-export type ControlPlanePermission =
-  (typeof CP_PERMISSIONS)[keyof typeof CP_PERMISSIONS];
+export type ControlPlanePermission = (typeof CP_PERMISSIONS)[keyof typeof CP_PERMISSIONS];
 
 const ROLE_PERMISSION_MAP: Record<UserRole, string[]> = {
   [UserRole.SKULD_ADMIN]: ['*'],
@@ -138,9 +137,7 @@ export function getUserRoleNames(user: UserRbacLike | null | undefined): string[
   return Array.from(names);
 }
 
-export function getUserGrantedPermissions(
-  user: UserRbacLike | null | undefined,
-): string[] {
+export function getUserGrantedPermissions(user: UserRbacLike | null | undefined): string[] {
   if (!user) {
     return [];
   }

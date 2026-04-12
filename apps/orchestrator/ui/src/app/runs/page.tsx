@@ -111,9 +111,7 @@ export default function RunsPage() {
                       <td>
                         <StatusBadge status={run.status} />
                       </td>
-                      <td className="text-muted-foreground text-sm">
-                        {run.trigger}
-                      </td>
+                      <td className="text-muted-foreground text-sm">{run.trigger}</td>
                       <td className="text-muted-foreground text-sm">
                         {run.runnerId ? (
                           <Link

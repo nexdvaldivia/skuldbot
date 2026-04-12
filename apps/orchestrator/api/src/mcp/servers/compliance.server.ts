@@ -13,9 +13,9 @@ import {
 
 /**
  * Compliance MCP Server
- * 
+ *
  * CRITICAL for HIPAA compliance. Runs in tenant's VPC.
- * 
+ *
  * Capabilities:
  * - PHI/PII detection and classification
  * - LLM routing (cloud vs private vs local)
@@ -35,8 +35,7 @@ export class ComplianceServer {
     return [
       {
         name: 'classify_data',
-        description:
-          'Classify data fields to detect PHI, PII, PCI, or sensitive information',
+        description: 'Classify data fields to detect PHI, PII, PCI, or sensitive information',
         inputSchema: {
           type: 'object',
           properties: {
@@ -61,8 +60,7 @@ export class ComplianceServer {
       },
       {
         name: 'route_llm_request',
-        description:
-          'Determine which LLM route to use based on data classification',
+        description: 'Determine which LLM route to use based on data classification',
         inputSchema: {
           type: 'object',
           properties: {
@@ -88,8 +86,7 @@ export class ComplianceServer {
       },
       {
         name: 'redact_sensitive_data',
-        description:
-          'Redact sensitive data fields for logging or external transmission',
+        description: 'Redact sensitive data fields for logging or external transmission',
         inputSchema: {
           type: 'object',
           properties: {
@@ -158,8 +155,7 @@ export class ComplianceServer {
       },
       {
         name: 'check_compliance_policy',
-        description:
-          'Check if an action is allowed under tenant compliance policies',
+        description: 'Check if an action is allowed under tenant compliance policies',
         inputSchema: {
           type: 'object',
           properties: {
@@ -331,17 +327,13 @@ export class ComplianceServer {
     }
 
     // compliance://tenant/{tenantId}/classification-rules
-    const rulesMatch = uri.match(
-      /compliance:\/\/tenant\/([^/]+)\/classification-rules/,
-    );
+    const rulesMatch = uri.match(/compliance:\/\/tenant\/([^/]+)\/classification-rules/);
     if (rulesMatch) {
       return await this.getClassificationRulesResource(rulesMatch[1]);
     }
 
     // compliance://tenant/{tenantId}/llm-routing-config
-    const routingMatch = uri.match(
-      /compliance:\/\/tenant\/([^/]+)\/llm-routing-config/,
-    );
+    const routingMatch = uri.match(/compliance:\/\/tenant\/([^/]+)\/llm-routing-config/);
     if (routingMatch) {
       return await this.getLLMRoutingConfigResource(routingMatch[1]);
     }
@@ -367,13 +359,8 @@ export class ComplianceServer {
       fields.push(field);
 
       // Update highest classification
-      const classificationLevel = this.getClassificationLevel(
-        field.classification,
-      );
-      if (
-        classificationLevel >
-        this.getClassificationLevel(highestClassification)
-      ) {
+      const classificationLevel = this.getClassificationLevel(field.classification);
+      if (classificationLevel > this.getClassificationLevel(highestClassification)) {
         highestClassification = field.classification;
       }
     }
@@ -381,10 +368,9 @@ export class ComplianceServer {
     const result: ClassificationResult = {
       fields,
       overallClassification: highestClassification,
-      requiresPrivateLLM: [
-        DataClassification.PHI,
-        DataClassification.PCI,
-      ].includes(highestClassification),
+      requiresPrivateLLM: [DataClassification.PHI, DataClassification.PCI].includes(
+        highestClassification,
+      ),
       recommendedRoute: this.recommendLLMRoute(highestClassification),
       redactionRequired: highestClassification !== DataClassification.PUBLIC,
     };
@@ -413,9 +399,7 @@ export class ComplianceServer {
 
     // PHI patterns
     if (
-      /ssn|social.?security|medical.?record|mrn|patient.?id|diagnosis|prescription/.test(
-        fieldName,
-      )
+      /ssn|social.?security|medical.?record|mrn|patient.?id|diagnosis|prescription/.test(fieldName)
     ) {
       return {
         name,
@@ -438,11 +422,7 @@ export class ComplianceServer {
     }
 
     // PII patterns
-    if (
-      /email|phone|address|birth.?date|dob|first.?name|last.?name/.test(
-        fieldName,
-      )
-    ) {
+    if (/email|phone|address|birth.?date|dob|first.?name|last.?name/.test(fieldName)) {
       return {
         name,
         value: fieldValue,
@@ -498,9 +478,7 @@ export class ComplianceServer {
 
   private recommendLLMRoute(classification: DataClassification): LLMRoute {
     // PHI and PCI must use private or local LLM
-    if (
-      [DataClassification.PHI, DataClassification.PCI].includes(classification)
-    ) {
+    if ([DataClassification.PHI, DataClassification.PCI].includes(classification)) {
       return LLMRoute.PRIVATE;
     }
 
@@ -528,9 +506,7 @@ export class ComplianceServer {
     let actualRoute = recommended;
     if (preferredRoute && policies.allowedLLMRoutes.includes(preferredRoute as LLMRoute)) {
       // Only allow if it's as secure or more secure than recommended
-      const preferredLevel = this.getLLMRouteSecurityLevel(
-        preferredRoute as LLMRoute,
-      );
+      const preferredLevel = this.getLLMRouteSecurityLevel(preferredRoute as LLMRoute);
       const recommendedLevel = this.getLLMRouteSecurityLevel(recommended);
 
       if (preferredLevel >= recommendedLevel) {
@@ -570,10 +546,7 @@ export class ComplianceServer {
     return levels[route] || 0;
   }
 
-  private getRoutingExplanation(
-    classification: DataClassification,
-    route: LLMRoute,
-  ): string {
+  private getRoutingExplanation(classification: DataClassification, route: LLMRoute): string {
     if (classification === DataClassification.PHI) {
       return `PHI detected. Using ${route} LLM to maintain HIPAA compliance.`;
     }
@@ -603,11 +576,9 @@ export class ComplianceServer {
     // Redact each field based on classification
     for (const field of classification.fields) {
       if (
-        [
-          DataClassification.PHI,
-          DataClassification.PII,
-          DataClassification.PCI,
-        ].includes(field.classification)
+        [DataClassification.PHI, DataClassification.PII, DataClassification.PCI].includes(
+          field.classification,
+        )
       ) {
         redacted[field.name] = this.redactValue(field.value, redactionLevel);
       } else {
@@ -621,11 +592,9 @@ export class ComplianceServer {
         redacted,
         originalFieldCount: Object.keys(data).length,
         redactedFieldCount: classification.fields.filter((f) =>
-          [
-            DataClassification.PHI,
-            DataClassification.PII,
-            DataClassification.PCI,
-          ].includes(f.classification),
+          [DataClassification.PHI, DataClassification.PII, DataClassification.PCI].includes(
+            f.classification,
+          ),
         ).length,
       },
     };
@@ -682,10 +651,7 @@ export class ComplianceServer {
     const violations: string[] = [];
 
     // Example: Check external integrations
-    if (
-      action === 'external_api_call' &&
-      !policies.allowExternalIntegrations
-    ) {
+    if (action === 'external_api_call' && !policies.allowExternalIntegrations) {
       allowed = false;
       violations.push('External integrations are not allowed for this tenant');
     }
@@ -709,9 +675,7 @@ export class ComplianceServer {
     // Filter audit log
     const logs = this.auditLog.filter((entry) => {
       return (
-        entry.tenantId === tenantId &&
-        entry.timestamp >= startDate &&
-        entry.timestamp <= endDate
+        entry.tenantId === tenantId && entry.timestamp >= startDate && entry.timestamp <= endDate
       );
     });
 
@@ -756,9 +720,7 @@ export class ComplianceServer {
   // Resource Implementations
   // ============================================================
 
-  private async getTenantPoliciesResource(
-    tenantId: string,
-  ): Promise<ResourceContent> {
+  private async getTenantPoliciesResource(tenantId: string): Promise<ResourceContent> {
     const policies = await this.getTenantPolicies(tenantId);
 
     return {
@@ -778,9 +740,7 @@ export class ComplianceServer {
     };
   }
 
-  private async getClassificationRulesResource(
-    tenantId: string,
-  ): Promise<ResourceContent> {
+  private async getClassificationRulesResource(tenantId: string): Promise<ResourceContent> {
     // TODO: Get tenant-specific rules from database
     const rules = {
       phi: ['ssn', 'mrn', 'medical_record', 'patient_id', 'diagnosis'],
@@ -795,9 +755,7 @@ export class ComplianceServer {
     };
   }
 
-  private async getLLMRoutingConfigResource(
-    tenantId: string,
-  ): Promise<ResourceContent> {
+  private async getLLMRoutingConfigResource(tenantId: string): Promise<ResourceContent> {
     const policies = await this.getTenantPolicies(tenantId);
 
     const config = {
@@ -836,4 +794,3 @@ export class ComplianceServer {
     };
   }
 }
-

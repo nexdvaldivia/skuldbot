@@ -53,6 +53,7 @@ JSON que define el flujo del bot:
 ```
 
 **Responsabilidades:**
+
 - Schema estructurado con Pydantic
 - Validación de referencias entre nodos
 - Detección de ciclos
@@ -66,12 +67,14 @@ Transforma DSL → Robot Framework.
 **Output:** Bot Package
 
 Bot Package contiene:
+
 - `main.robot` - Entry point
 - `resources/` - Keywords y helpers
 - `variables/` - Configuración
 - `manifest.json` - Metadata
 
 **Proceso:**
+
 1. Valida DSL
 2. Genera templates Jinja2
 3. Crea estructura de archivos
@@ -82,18 +85,21 @@ Bot Package contiene:
 Motor de ejecución con dos modos:
 
 **Debug Mode (Studio):**
+
 - Breakpoints
 - Step-by-step
 - Callbacks en tiempo real
 - Logs verbose
 
 **Production Mode (BotRunner):**
+
 - Sin overhead de debug
 - Logs estructurados
 - Retry automático
 - Envío a Orchestrator
 
 **Callbacks:**
+
 ```python
 {
     "on_start": lambda: ...,
@@ -109,16 +115,19 @@ Motor de ejecución con dos modos:
 Librerías Python para Robot Framework.
 
 **Browser Library:**
+
 - Open, click, fill, wait
 - Screenshots en error
 - Retry automático
 
 **Excel Library:**
+
 - Open, read, write
 - Filtrado de datos
 - Export a diccionarios
 
 **Control Library:**
+
 - Logging
 - Variables
 - Condiciones
@@ -195,10 +204,12 @@ Coverage objetivo: >80%
 ## Performance
 
 ### Compiler
+
 - Compilación de bot promedio: <100ms
 - Cache de templates Jinja2
 
 ### Executor
+
 - Overhead de callbacks: <5ms por evento
 - Robot Framework: depende del bot
 
@@ -212,17 +223,19 @@ Coverage objetivo: >80%
 ## Roadmap Técnico
 
 ### v0.2
+
 - [ ] Parser de output.xml (resultados detallados)
 - [ ] Breakpoints en debug mode
 - [ ] Más nodos (PDF, API, Email)
 
 ### v0.3
+
 - [ ] Hot reload en Studio
 - [ ] Profiling de performance
 - [ ] Distributed tracing
 
 ### v0.4
+
 - [ ] Python Project Executor
 - [ ] Custom node marketplace
 - [ ] Visual debugger avanzado
-

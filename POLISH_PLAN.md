@@ -15,9 +15,11 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 ### Prioridad Alta 🔴
 
 #### 1. Panel de Logs/Output
+
 **Estado**: ❌ No existe  
 **Problema**: Los resultados de ejecución solo se muestran en alerts  
 **Solución**:
+
 - [ ] Panel inferior deslizable para logs
 - [ ] Syntax highlighting para logs
 - [ ] Filtros (info, warning, error)
@@ -25,9 +27,11 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 - [ ] Export logs
 
 #### 2. Validación en Tiempo Real
+
 **Estado**: ❌ Solo al compilar  
 **Problema**: El usuario no sabe si hay errores hasta compilar  
 **Solución**:
+
 - [ ] Validar DSL mientras edita
 - [ ] Mostrar errores en nodos (borde rojo)
 - [ ] Panel de errores listando problemas
@@ -35,9 +39,11 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 - [ ] Tooltips con descripciones de error
 
 #### 3. Mejor Feedback Visual
+
 **Estado**: ⚠️ Básico (alerts)  
 **Problema**: Alerts son intrusivos  
 **Solución**:
+
 - [ ] Toast notifications (esquina superior derecha)
 - [ ] Progress indicators durante compile/run
 - [ ] Success/error animations
@@ -45,9 +51,11 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 - [ ] Status bar con mensajes
 
 #### 4. Node Configuration UX
+
 **Estado**: ⚠️ Funcional pero básico  
 **Problema**: Panel simple, sin ayuda contextual  
 **Solución**:
+
 - [ ] Help tooltips en cada campo
 - [ ] Validation en campos (required, format)
 - [ ] Autocomplete para campos comunes
@@ -58,16 +66,20 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 ### Prioridad Media 🟡
 
 #### 5. Búsqueda de Nodos
+
 **Estado**: ❌ No existe  
 **Solución**:
+
 - [ ] Search bar en sidebar
 - [ ] Filter por categoría
 - [ ] Tecla rápida (Ctrl+K)
 - [ ] Recent nodes
 
 #### 6. Atajos de Teclado
+
 **Estado**: ❌ No existen  
 **Solución**:
+
 - [ ] Ctrl+S - Guardar
 - [ ] Ctrl+O - Abrir
 - [ ] Ctrl+E - Export
@@ -80,16 +92,20 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 - [ ] Ctrl+D - Duplicate node
 
 #### 7. Undo/Redo
+
 **Estado**: ❌ No existe  
 **Solución**:
+
 - [ ] History stack en Zustand
 - [ ] Undo/Redo buttons
 - [ ] Keyboard shortcuts
 - [ ] History panel (opcional)
 
 #### 8. Node Templates Mejorados
+
 **Estado**: ⚠️ Básicos  
 **Solución**:
+
 - [ ] Descripción más detallada
 - [ ] Iconos más visuales
 - [ ] Categorías colapsables
@@ -99,22 +115,28 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 ### Prioridad Baja 🟢
 
 #### 9. Múltiples Bots
+
 **Estado**: ❌ Solo un bot a la vez  
 **Solución**:
+
 - [ ] Tabs para múltiples bots
 - [ ] Switch entre bots
 - [ ] Save all
 
 #### 10. Snippets/Templates
+
 **Estado**: ❌ No existen  
 **Solución**:
+
 - [ ] Bot templates (ej: "Web Scraping", "Excel Report")
 - [ ] Flow snippets (ej: "Error Handler", "Retry Logic")
 - [ ] Import/Export snippets
 
 #### 11. Dark Mode
+
 **Estado**: ❌ Solo light mode  
 **Solución**:
+
 - [ ] Toggle dark/light
 - [ ] Auto-detect system preference
 - [ ] Persist preference
@@ -126,9 +148,11 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 ### Prioridad Alta 🔴
 
 #### 1. Mejor Manejo de Errores
+
 **Estado**: ⚠️ Básico  
 **Problema**: Errores genéricos, difíciles de debuggear  
 **Solución**:
+
 - [ ] Error codes específicos
 - [ ] Stack traces más claros
 - [ ] Contexto del error (nodeId, line number)
@@ -136,9 +160,11 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 - [ ] Error recovery cuando sea posible
 
 #### 2. Logging Estructurado
+
 **Estado**: ⚠️ Logs mezclados  
 **Problema**: Difícil parsear logs  
 **Solución**:
+
 - [ ] JSON structured logging
 - [ ] Log levels (DEBUG, INFO, WARNING, ERROR)
 - [ ] Timestamps
@@ -146,9 +172,11 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 - [ ] Log rotation
 
 #### 3. Variables & Context
+
 **Estado**: ⚠️ Básico (set_variable)  
 **Problema**: No hay persistencia entre nodos  
 **Solución**:
+
 - [ ] Global context dictionary
 - [ ] Variable scoping (global, local)
 - [ ] Type checking en variables
@@ -158,8 +186,10 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 ### Prioridad Media 🟡
 
 #### 4. Más Tipos de Nodos
+
 **Estado**: ⚠️ 12 nodos básicos  
 **Solución**:
+
 - [ ] HTTP nodes (GET, POST, etc)
 - [ ] Database nodes (SQL queries)
 - [ ] File system nodes (read, write, copy)
@@ -171,8 +201,10 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 - [ ] Try/Catch nodes
 
 #### 5. Performance Optimization
+
 **Estado**: ⚠️ No optimizado  
 **Solución**:
+
 - [ ] Cache compiled bots
 - [ ] Parallel node execution (donde sea seguro)
 - [ ] Lazy loading de libraries
@@ -180,8 +212,10 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 - [ ] Memory profiling
 
 #### 6. Testing & Quality
+
 **Estado**: ⚠️ Tests básicos  
 **Solución**:
+
 - [ ] Unit tests completos (>80% coverage)
 - [ ] Integration tests
 - [ ] Performance tests
@@ -191,8 +225,10 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 ### Prioridad Baja 🟢
 
 #### 7. Debug Mode Avanzado
+
 **Estado**: ⚠️ Básico  
 **Solución**:
+
 - [ ] Breakpoints support
 - [ ] Step-by-step execution
 - [ ] Variable inspection en runtime
@@ -200,8 +236,10 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 - [ ] Hot reload
 
 #### 8. Bot Packages Optimization
+
 **Estado**: ⚠️ Funcional pero sin optimizar  
 **Solución**:
+
 - [ ] Compress bot packages
 - [ ] Include only necessary files
 - [ ] Versioning de packages
@@ -213,12 +251,14 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 ## 🐛 Bugs Conocidos
 
 ### Studio
+
 - [ ] React Flow: Nodos se superponen al crear muchos
 - [ ] Import DSL: No valida estructura antes de cargar
 - [ ] Delete node: No elimina edges relacionados correctamente
 - [ ] MiniMap: Desaparece en ventanas pequeñas
 
 ### Engine
+
 - [ ] Error handling: Algunos errores de RF no se capturan
 - [ ] Variables: No hay validación de tipos
 - [ ] Cycles: Detector puede dar falsos positivos
@@ -229,24 +269,28 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 ## 📊 Priorización Sugerida
 
 ### Fase 1: UX Crítico (1-2 días)
+
 1. ✅ Panel de Logs/Output
 2. ✅ Toast Notifications
 3. ✅ Validación en tiempo real
 4. ✅ Better error display
 
 ### Fase 2: Engine Robusto (1-2 días)
+
 1. ✅ Logging estructurado
 2. ✅ Mejor error handling
 3. ✅ Variables & Context mejorado
 4. ✅ Más tipos de nodos (HTTP, DB, File)
 
 ### Fase 3: Productividad (1 día)
+
 1. ✅ Atajos de teclado
 2. ✅ Undo/Redo
 3. ✅ Búsqueda de nodos
 4. ✅ Node config UX
 
 ### Fase 4: Polish Final (1 día)
+
 1. ✅ Dark mode
 2. ✅ Performance optimization
 3. ✅ Fix bugs conocidos
@@ -259,6 +303,7 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 ## 🎯 Criterios de Éxito
 
 ### Studio
+
 - [ ] Usuario puede crear bot complejo sin consultar docs
 - [ ] Errores son claros y accionables
 - [ ] Feedback visual en < 100ms
@@ -266,6 +311,7 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 - [ ] Logs son legibles y útiles
 
 ### Engine
+
 - [ ] Errores tienen stack trace completo
 - [ ] Logs son parseables (JSON)
 - [ ] Performance: Compile < 1s, Execute < 5s
@@ -308,8 +354,3 @@ Mejorar la experiencia de usuario y la robustez de los componentes existentes an
 ---
 
 **Siguiente paso**: Decidir prioridad y empezar con las mejoras.
-
-
-
-
-

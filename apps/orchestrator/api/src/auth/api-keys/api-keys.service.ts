@@ -8,7 +8,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan, MoreThan } from 'typeorm';
 import { ApiKey, ApiKeyScope, ApiKeyEnvironment } from '../../users/entities/api-key.entity';
 import { User } from '../../users/entities/user.entity';
-import { AuditLog, AuditCategory, AuditAction, AuditResult } from '../../audit/entities/audit-log.entity';
+import {
+  AuditLog,
+  AuditCategory,
+  AuditAction,
+  AuditResult,
+} from '../../audit/entities/audit-log.entity';
 import { TokenService } from '../../common/crypto/password.service';
 
 /**
@@ -158,7 +163,9 @@ export class ApiKeysService {
 
     // Generate API key
     const environment = dto.environment || ApiKeyEnvironment.LIVE;
-    const { key, hash, prefix } = this.tokenService.generateApiKey(environment === ApiKeyEnvironment.LIVE ? 'live' : 'test');
+    const { key, hash, prefix } = this.tokenService.generateApiKey(
+      environment === ApiKeyEnvironment.LIVE ? 'live' : 'test',
+    );
 
     // Create API key record
     const apiKey = this.apiKeyRepository.create({
@@ -269,11 +276,7 @@ export class ApiKeysService {
   /**
    * Revoke (delete) an API key.
    */
-  async revoke(
-    tenantId: string,
-    keyId: string,
-    revokedBy: User,
-  ): Promise<void> {
+  async revoke(tenantId: string, keyId: string, revokedBy: User): Promise<void> {
     const apiKey = await this.apiKeyRepository.findOne({
       where: { id: keyId, tenantId },
     });
@@ -402,9 +405,7 @@ export class ApiKeysService {
 
     // Check scopes
     if (requiredScopes && requiredScopes.length > 0) {
-      const hasAllScopes = requiredScopes.every((scope) =>
-        apiKey.scopes.includes(scope),
-      );
+      const hasAllScopes = requiredScopes.every((scope) => apiKey.scopes.includes(scope));
 
       if (!hasAllScopes) {
         throw new ForbiddenException({

@@ -73,30 +73,10 @@ import { PasswordService, TokenService } from '../common/crypto/password.service
     }),
 
     // TypeORM entities
-    TypeOrmModule.forFeature([
-      User,
-      RefreshToken,
-      Session,
-      ApiKey,
-      Role,
-      Permission,
-      AuditLog,
-    ]),
+    TypeOrmModule.forFeature([User, RefreshToken, Session, ApiKey, Role, Permission, AuditLog]),
   ],
   controllers: [AuthController],
-  providers: [
-    AuthService,
-    JwtStrategy,
-    RefreshTokenStrategy,
-    PasswordService,
-    TokenService,
-  ],
-  exports: [
-    AuthService,
-    JwtModule,
-    PassportModule,
-    PasswordService,
-    TokenService,
-  ],
+  providers: [AuthService, JwtStrategy, RefreshTokenStrategy, PasswordService, TokenService],
+  exports: [AuthService, JwtModule, PassportModule, PasswordService, TokenService],
 })
 export class AuthModule {}

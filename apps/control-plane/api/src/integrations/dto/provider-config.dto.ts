@@ -75,4 +75,3 @@ export class UpdateProviderConfigDto {
   @MaxLength(255)
   description?: string;
 }
-

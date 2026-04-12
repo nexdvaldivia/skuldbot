@@ -1,5 +1,8 @@
 import { Controller, Post, Get, Body, Logger } from '@nestjs/common';
-import { ControlPlaneSyncService, DiscoveredSchemaPayload } from '../control-plane/control-plane-sync.service';
+import {
+  ControlPlaneSyncService,
+  DiscoveredSchemaPayload,
+} from '../control-plane/control-plane-sync.service';
 
 interface SchemaFieldDto {
   name: string;
@@ -21,7 +24,7 @@ interface SubmitSchemasDto {
 
 /**
  * Schemas Controller
- * 
+ *
  * Receives discovered schemas from runners/engine and queues them
  * for synchronization to the Control Plane.
  */
@@ -29,9 +32,7 @@ interface SubmitSchemasDto {
 export class SchemasController {
   private readonly logger = new Logger(SchemasController.name);
 
-  constructor(
-    private readonly controlPlaneSyncService: ControlPlaneSyncService,
-  ) {}
+  constructor(private readonly controlPlaneSyncService: ControlPlaneSyncService) {}
 
   /**
    * Receive discovered schemas from a runner/engine execution
@@ -86,6 +87,3 @@ export class SchemasController {
     return result;
   }
 }
-
-
-

@@ -1,10 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import {
-  PublicLeadIntakeDto,
-  PublicLeadIntakeResult,
-} from './dto/public-lead-intake.dto';
+import { PublicLeadIntakeDto, PublicLeadIntakeResult } from './dto/public-lead-intake.dto';
 import { Lead, LeadIntakeEvent } from './entities/lead.entity';
 import { TicketsService } from '../tickets/tickets.service';
 

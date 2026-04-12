@@ -582,19 +582,14 @@ export class StripeProvider implements PaymentProvider {
       bankName: bankAccount.us_bank_account.bank_name || 'Unknown Bank',
       last4: bankAccount.us_bank_account.last4 || '****',
       accountType: bankAccount.us_bank_account.account_type || 'checking',
-      status: bankAccount.us_bank_account.financial_connections_account
-        ? 'verified'
-        : 'pending',
+      status: bankAccount.us_bank_account.financial_connections_account ? 'verified' : 'pending',
     };
   }
 
   /**
    * Set a bank account as the default payment method for a customer.
    */
-  async setDefaultPaymentMethod(
-    customerId: string,
-    paymentMethodId: string,
-  ): Promise<void> {
+  async setDefaultPaymentMethod(customerId: string, paymentMethodId: string): Promise<void> {
     this.ensureConfigured();
 
     await this.stripe!.customers.update(customerId, {
@@ -810,10 +805,9 @@ export class StripeProvider implements PaymentProvider {
       periodStart: invoice.period_start ? new Date(invoice.period_start * 1000) : undefined,
       periodEnd: invoice.period_end ? new Date(invoice.period_end * 1000) : undefined,
       dueDate: invoice.due_date ? new Date(invoice.due_date * 1000) : undefined,
-      paidAt:
-        invoice.status_transitions?.paid_at
-          ? new Date(invoice.status_transitions.paid_at * 1000)
-          : undefined,
+      paidAt: invoice.status_transitions?.paid_at
+        ? new Date(invoice.status_transitions.paid_at * 1000)
+        : undefined,
       hostedInvoiceUrl: invoice.hosted_invoice_url || undefined,
       invoicePdf: invoice.invoice_pdf || undefined,
       lineItems,

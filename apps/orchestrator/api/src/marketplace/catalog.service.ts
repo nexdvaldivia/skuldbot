@@ -94,19 +94,21 @@ export class CatalogService {
   /**
    * Get catalog from Control-Plane
    */
-  async getCatalog(options: {
-    page?: number;
-    limit?: number;
-    category?: string;
-    search?: string;
-    sort?: 'popular' | 'newest' | 'rating' | 'name';
-  } = {}): Promise<CatalogResponse> {
+  async getCatalog(
+    options: {
+      page?: number;
+      limit?: number;
+      category?: string;
+      search?: string;
+      sort?: 'popular' | 'newest' | 'rating' | 'name';
+    } = {},
+  ): Promise<CatalogResponse> {
     const { page = 1, limit = 20, category, search, sort = 'popular' } = options;
 
     // Check cache for first page without filters
     if (page === 1 && !category && !search && sort === 'popular') {
       if (this.isCacheValid()) {
-        return this.catalogCache!;
+        return this.catalogCache;
       }
     }
 
@@ -169,12 +171,9 @@ export class CatalogService {
     }
 
     try {
-      const response = await fetch(
-        `${controlPlaneUrl}/api/marketplace/catalog/${slug}`,
-        {
-          headers: this.getAuthHeaders(),
-        },
-      );
+      const response = await fetch(`${controlPlaneUrl}/api/marketplace/catalog/${slug}`, {
+        headers: this.getAuthHeaders(),
+      });
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -200,12 +199,9 @@ export class CatalogService {
     }
 
     try {
-      const response = await fetch(
-        `${controlPlaneUrl}/api/marketplace/bots/${id}`,
-        {
-          headers: this.getAuthHeaders(),
-        },
-      );
+      const response = await fetch(`${controlPlaneUrl}/api/marketplace/bots/${id}`, {
+        headers: this.getAuthHeaders(),
+      });
 
       if (!response.ok) {
         if (response.status === 404) {

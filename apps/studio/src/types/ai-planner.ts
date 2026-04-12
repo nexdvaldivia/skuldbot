@@ -2,68 +2,68 @@
 // Types for the AI-powered RPA planning assistant
 
 export interface PlanStepOutputs {
-  success?: string;           // Node ID or END
-  error?: string;             // Node ID or END
+  success?: string; // Node ID or END
+  error?: string; // Node ID or END
 }
 
 export interface PlanStepConnections {
-  model?: string;             // Source model node ID
-  tools?: string[];           // Source tool node IDs
-  memory?: string;            // Source memory node ID
-  embeddings?: string;        // Source embeddings node ID
-  connection?: string;        // Source service-connection node ID
+  model?: string; // Source model node ID
+  tools?: string[]; // Source tool node IDs
+  memory?: string; // Source memory node ID
+  embeddings?: string; // Source embeddings node ID
+  connection?: string; // Source service-connection node ID
 }
 
 export interface PlanStep {
   id: string;
-  nodeType: string;           // e.g., "web.open_browser", "email.read"
-  label: string;              // Human-readable name
-  description: string;        // What this step does
+  nodeType: string; // e.g., "web.open_browser", "email.read"
+  label: string; // Human-readable name
+  description: string; // What this step does
   config: Record<string, unknown>; // Pre-filled configuration
-  outputs?: PlanStepOutputs;  // Explicit success/error routes
+  outputs?: PlanStepOutputs; // Explicit success/error routes
   connections?: PlanStepConnections; // Canonical node-to-node connection refs
-  reasoning?: string;         // AI's reasoning for this step
-  isManual?: boolean;         // User-added vs AI-generated
+  reasoning?: string; // AI's reasoning for this step
+  isManual?: boolean; // User-added vs AI-generated
 }
 
 export interface ConversationMessage {
   id: string;
-  role: "user" | "assistant";
+  role: 'user' | 'assistant';
   content: string;
   timestamp: string;
-  mode?: "idle" | "ask" | "plan" | "generate" | "refine"; // Track which mode generated this message
+  mode?: 'idle' | 'ask' | 'plan' | 'generate' | 'refine'; // Track which mode generated this message
 }
 
-export type LLMProvider = 
+export type LLMProvider =
   // Cloud Managed (HIPAA with BAA)
-  | "azure-foundry"      // Azure AI Foundry
-  | "aws-bedrock"        // AWS Bedrock
-  | "vertex-ai"          // Google Vertex AI
+  | 'azure-foundry' // Azure AI Foundry
+  | 'aws-bedrock' // AWS Bedrock
+  | 'vertex-ai' // Google Vertex AI
   // Cloud with BAA
-  | "openai"             // OpenAI (with BAA)
-  | "anthropic"          // Anthropic (with BAA)
+  | 'openai' // OpenAI (with BAA)
+  | 'anthropic' // Anthropic (with BAA)
   // Self-Hosted (Full HIPAA Control)
-  | "ollama"             // Ollama
-  | "vllm"               // vLLM
-  | "tgi"                // Text Generation Inference
-  | "llamacpp"           // llama.cpp
-  | "lmstudio"           // LM Studio
-  | "localai"            // LocalAI
+  | 'ollama' // Ollama
+  | 'vllm' // vLLM
+  | 'tgi' // Text Generation Inference
+  | 'llamacpp' // llama.cpp
+  | 'lmstudio' // LM Studio
+  | 'localai' // LocalAI
   // Custom
-  | "custom";            // Any OpenAI-compatible API
+  | 'custom'; // Any OpenAI-compatible API
 
 export interface LLMConfig {
   provider: LLMProvider;
   model: string;
-  apiKey?: string;            // From connection, not stored directly
-  baseUrl?: string;           // For local LLMs (Ollama, LM Studio)
+  apiKey?: string; // From connection, not stored directly
+  baseUrl?: string; // For local LLMs (Ollama, LM Studio)
   temperature: number;
-  connectionId?: string;      // Reference to saved connection
-  localAskPlanTimeoutSec?: number;   // Timeout for local Ask/Plan mode
-  localGenerateTimeoutSec?: number;  // Timeout for local Generate mode
+  connectionId?: string; // Reference to saved connection
+  localAskPlanTimeoutSec?: number; // Timeout for local Ask/Plan mode
+  localGenerateTimeoutSec?: number; // Timeout for local Generate mode
 }
 
-export type PlannerPhase = "input" | "plan" | "refining";
+export type PlannerPhase = 'input' | 'plan' | 'refining';
 
 export interface AIPlannerState {
   // Panel state
@@ -91,7 +91,7 @@ export interface AIPlannerState {
   setUserDescription: (desc: string) => void;
   setRefinementInput: (input: string) => void;
   generatePlan: () => Promise<void>;
-  addPlanStep: (step: Omit<PlanStep, "id">, afterId?: string) => void;
+  addPlanStep: (step: Omit<PlanStep, 'id'>, afterId?: string) => void;
   updatePlanStep: (id: string, updates: Partial<PlanStep>) => void;
   removePlanStep: (id: string) => void;
   reorderPlanSteps: (fromIndex: number, toIndex: number) => void;
@@ -102,7 +102,7 @@ export interface AIPlannerState {
 }
 
 // License Types
-export type LicenseModule = "studio" | "skuldai" | "skuldcompliance" | "skulddataquality";
+export type LicenseModule = 'studio' | 'skuldai' | 'skuldcompliance' | 'skulddataquality';
 
 export interface LicenseInfo {
   module: LicenseModule;
@@ -122,7 +122,9 @@ export interface LicenseState {
   isValidating: boolean;
 
   // Actions
-  activateLicense: (key: string) => Promise<{ success: boolean; module?: LicenseModule; error?: string }>;
+  activateLicense: (
+    key: string,
+  ) => Promise<{ success: boolean; module?: LicenseModule; error?: string }>;
   validateAllLicenses: () => Promise<void>;
   deactivateLicense: (module: LicenseModule) => void;
   hasModule: (module: LicenseModule) => boolean;
@@ -152,7 +154,7 @@ export interface LicenseValidationResponse {
 // ============================================================
 
 export interface ValidationIssue {
-  severity: "error" | "warning";
+  severity: 'error' | 'warning';
   message: string;
   nodeId?: string;
   nodeType?: string;
@@ -177,13 +179,13 @@ export interface ExecutablePlan {
   assumptions: string[];
   unknowns: Clarification[];
   tasks: PlanStep[];
-  dsl: any;  // Complete DSL ready to execute
+  dsl: any; // Complete DSL ready to execute
   validation: ValidationResult;
 }
 
 export interface ExecutablePlanResponse {
   success: boolean;
-  confidence: number;  // 0.0 - 1.0
+  confidence: number; // 0.0 - 1.0
   plan?: ExecutablePlan;
   error?: string;
   clarifyingQuestions?: string[];
@@ -196,21 +198,21 @@ export interface ExecutablePlanResponse {
 // AI Planner V2 Store State
 // ============================================================
 
-export type PlannerComplexity = "simple" | "advanced";
-export type PlannerAgentMode = 
-  | "idle"        // No active planning session
-  | "ask"         // Asking clarifying questions
-  | "plan"        // Proposing approach/steps
-  | "generate"    // Generating executable workflow
-  | "refine";     // Refining existing workflow
+export type PlannerComplexity = 'simple' | 'advanced';
+export type PlannerAgentMode =
+  | 'idle' // No active planning session
+  | 'ask' // Asking clarifying questions
+  | 'plan' // Proposing approach/steps
+  | 'generate' // Generating executable workflow
+  | 'refine'; // Refining existing workflow
 
 export interface AIPlannerV2State {
   // Complexity mode
   complexity: PlannerComplexity;
-  
+
   // Agent mode (like Cursor)
   agentMode: PlannerAgentMode;
-  
+
   // Planning context
   planningContext: {
     userGoal: string;
@@ -218,31 +220,31 @@ export interface AIPlannerV2State {
     proposedSteps: string[];
     needsApproval: boolean;
   };
-  
+
   // Panel state
   isPanelOpen: boolean;
-  
+
   // Conversation
   conversation: ConversationMessage[];
   userInput: string;
-  
+
   // Current plan
   currentPlan: ExecutablePlan | null;
   confidence: number;
   suggestions: string[];
-  
+
   // State
   isGenerating: boolean;
   isRefining: boolean;
   error: string | null;
-  
+
   // LLM configuration
   llmConfig: LLMConfig;
-  
+
   // Iterations
   iterations: number;
   maxIterations: number;
-  
+
   // Actions
   openPanel: () => void;
   closePanel: () => void;
@@ -254,7 +256,7 @@ export interface AIPlannerV2State {
       forceMode?: PlannerAgentMode;
       displayMessage?: string;
       skipUserMessage?: boolean;
-    }
+    },
   ) => Promise<void>;
   refineWithFeedback: (feedback: string) => Promise<void>;
   askClarification: (question: string) => Promise<void>;
@@ -269,7 +271,7 @@ export interface AIPlannerV2State {
 // ============================================================
 
 export interface AzureFoundryConfig {
-  type: "azure-foundry";
+  type: 'azure-foundry';
   endpoint: string;
   deployment: string;
   apiKey: string;
@@ -277,7 +279,7 @@ export interface AzureFoundryConfig {
 }
 
 export interface AWSBedrockConfig {
-  type: "aws-bedrock";
+  type: 'aws-bedrock';
   accessKeyId: string;
   secretAccessKey: string;
   region: string;
@@ -285,7 +287,7 @@ export interface AWSBedrockConfig {
 }
 
 export interface VertexAIConfig {
-  type: "vertex-ai";
+  type: 'vertex-ai';
   projectId: string;
   location: string;
   serviceAccountJson: string;
@@ -293,56 +295,56 @@ export interface VertexAIConfig {
 }
 
 export interface OllamaConfig {
-  type: "ollama";
+  type: 'ollama';
   baseUrl: string;
   model: string;
 }
 
 export interface VLLMConfig {
-  type: "vllm";
+  type: 'vllm';
   baseUrl: string;
   model: string;
 }
 
 export interface TGIConfig {
-  type: "tgi";
+  type: 'tgi';
   baseUrl: string;
   model: string;
 }
 
 export interface LlamaCppConfig {
-  type: "llamacpp";
+  type: 'llamacpp';
   baseUrl: string;
   model: string;
 }
 
 export interface LMStudioConfig {
-  type: "lmstudio";
+  type: 'lmstudio';
   baseUrl: string;
   model: string;
 }
 
 export interface LocalAIConfig {
-  type: "localai";
+  type: 'localai';
   baseUrl: string;
   model: string;
 }
 
 export interface OpenAIConfig {
-  type: "openai";
+  type: 'openai';
   apiKey: string;
   baseUrl?: string;
   model: string;
 }
 
 export interface AnthropicConfig {
-  type: "anthropic";
+  type: 'anthropic';
   apiKey: string;
   model: string;
 }
 
 export interface CustomConfig {
-  type: "custom";
+  type: 'custom';
   name: string;
   baseUrl: string;
   apiKey?: string;
@@ -365,7 +367,7 @@ export type ProviderConfig =
   | CustomConfig;
 
 export interface LLMConnectionHealthStatus {
-  status: "healthy" | "degraded" | "down";
+  status: 'healthy' | 'degraded' | 'down';
   lastCheckedAt: string;
   latencyMs?: number;
   errorMessage?: string;

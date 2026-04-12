@@ -199,12 +199,7 @@ export class RolesController {
     @Param('id') roleId: string,
     @Body() dto: AssignPermissionsDto,
   ): Promise<RoleDetailResponseDto> {
-    return this.rolesService.assignPermissions(
-      tenantId,
-      roleId,
-      dto.permissionIds,
-      currentUser,
-    );
+    return this.rolesService.assignPermissions(tenantId, roleId, dto.permissionIds, currentUser);
   }
 
   @Delete(':id/permissions')
@@ -221,11 +216,6 @@ export class RolesController {
     @Param('id') roleId: string,
     @Body() dto: RemovePermissionsDto,
   ): Promise<RoleDetailResponseDto> {
-    return this.rolesService.removePermissions(
-      tenantId,
-      roleId,
-      dto.permissionIds,
-      currentUser,
-    );
+    return this.rolesService.removePermissions(tenantId, roleId, dto.permissionIds, currentUser);
   }
 }

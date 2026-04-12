@@ -1,29 +1,29 @@
-import { ReactFlowProvider } from "reactflow";
-import { useNavigationStore } from "../store/navigationStore";
-import { useProjectStore } from "../store/projectStore";
-import { useTabsStore } from "../store/tabsStore";
-import WelcomeScreen from "./WelcomeScreen";
-import UnifiedSidebar from "./UnifiedSidebar";
-import TabBar from "./TabBar";
-import BotEditor from "./BotEditor";
-import FlowEditor from "./FlowEditor";
-import Sidebar from "./Sidebar";
-import LogsPanel from "./LogsPanel";
-import NodeConfigPanel from "./NodeConfigPanel";
-import ProjectToolbar from "./ProjectToolbar";
-import Toolbar from "./Toolbar";
-import SettingsPanel from "./SettingsPanel";
-import EnvPanel from "./EnvPanel";
-import VaultManager from "./VaultManager";
-import ProblemsPanel from "./ProblemsPanel";
-import DebugPanel from "./DebugPanel";
-import { AutoSaveManager } from "./AutoSaveManager";
-import { ToastContainer } from "./ui/ToastContainer";
-import { EngineSetupNotification } from "./EngineSetupNotification";
-import { AIPlannerV2Wrapper } from "./ai-planner";
-import { useDebugStore } from "../store/debugStore";
-import { Bot, Bug, ChevronDown, ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { ReactFlowProvider } from 'reactflow';
+import { useNavigationStore } from '../store/navigationStore';
+import { useProjectStore } from '../store/projectStore';
+import { useTabsStore } from '../store/tabsStore';
+import WelcomeScreen from './WelcomeScreen';
+import UnifiedSidebar from './UnifiedSidebar';
+import TabBar from './TabBar';
+import BotEditor from './BotEditor';
+import FlowEditor from './FlowEditor';
+import Sidebar from './Sidebar';
+import LogsPanel from './LogsPanel';
+import NodeConfigPanel from './NodeConfigPanel';
+import ProjectToolbar from './ProjectToolbar';
+import Toolbar from './Toolbar';
+import SettingsPanel from './SettingsPanel';
+import EnvPanel from './EnvPanel';
+import VaultManager from './VaultManager';
+import ProblemsPanel from './ProblemsPanel';
+import DebugPanel from './DebugPanel';
+import { AutoSaveManager } from './AutoSaveManager';
+import { ToastContainer } from './ui/ToastContainer';
+import { EngineSetupNotification } from './EngineSetupNotification';
+import { AIPlannerV2Wrapper } from './ai-planner';
+import { useDebugStore } from '../store/debugStore';
+import { Bot, Bug, ChevronDown, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
 
 function EmptyWorkspace() {
   return (
@@ -80,7 +80,7 @@ function ProjectWorkspace() {
   const [isDebugPanelOpen, setIsDebugPanelOpen] = useState(false);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
-  const isDebugging = debugState !== "idle";
+  const isDebugging = debugState !== 'idle';
   const hasBreakpoints = breakpoints.size > 0;
 
   return (
@@ -97,7 +97,7 @@ function ProjectWorkspace() {
         <TabBar />
 
         {/* Debug Panel Toggle & Panel */}
-        {activeTab?.type === "bot" && (
+        {activeTab?.type === 'bot' && (
           <div className="bg-white border-b">
             {/* Debug toggle header */}
             <button
@@ -112,11 +112,13 @@ function ProjectWorkspace() {
               <Bug className="w-4 h-4 text-slate-500" />
               <span className="text-sm font-medium text-slate-600">Debugger</span>
               {(isDebugging || hasBreakpoints) && (
-                <span className={`ml-2 w-2 h-2 rounded-full ${isDebugging ? "bg-green-500 animate-pulse" : "bg-red-500"}`} />
+                <span
+                  className={`ml-2 w-2 h-2 rounded-full ${isDebugging ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}
+                />
               )}
               {hasBreakpoints && !isDebugging && (
                 <span className="text-xs text-slate-400 ml-auto">
-                  {breakpoints.size} breakpoint{breakpoints.size > 1 ? "s" : ""}
+                  {breakpoints.size} breakpoint{breakpoints.size > 1 ? 's' : ''}
                 </span>
               )}
             </button>
@@ -130,15 +132,15 @@ function ProjectWorkspace() {
         <div className="flex-1 flex min-h-0">
           {/* Editor Area */}
           <div className="flex-1 flex flex-col min-h-0">
-            {activeTab?.type === "bot" && activeBotId ? (
+            {activeTab?.type === 'bot' && activeBotId ? (
               <ReactFlowProvider>
                 <BotEditor />
               </ReactFlowProvider>
-            ) : activeTab?.type === "settings" ? (
+            ) : activeTab?.type === 'settings' ? (
               <SettingsPanel />
-            ) : activeTab?.type === "env" ? (
+            ) : activeTab?.type === 'env' ? (
               <EnvPanel />
-            ) : activeTab?.type === "secrets" ? (
+            ) : activeTab?.type === 'secrets' ? (
               <VaultManager />
             ) : (
               <EmptyWorkspace />
@@ -146,7 +148,7 @@ function ProjectWorkspace() {
           </div>
 
           {/* Properties Panel */}
-          {activeTab?.type === "bot" && <NodeConfigPanel />}
+          {activeTab?.type === 'bot' && <NodeConfigPanel />}
         </div>
 
         {/* Problems Panel */}
@@ -170,7 +172,7 @@ export default function AppLayout() {
   const { project } = useProjectStore();
 
   // Show welcome screen if explicitly set to welcome
-  if (currentView === "welcome") {
+  if (currentView === 'welcome') {
     return (
       <>
         <WelcomeScreen />
@@ -181,7 +183,7 @@ export default function AppLayout() {
   }
 
   // Quick Start mode - single bot without project (original mode)
-  if (currentView === "quickstart") {
+  if (currentView === 'quickstart') {
     return (
       <>
         <QuickStartWorkspace />
@@ -192,7 +194,7 @@ export default function AppLayout() {
   }
 
   // Project view - only if we have a project
-  if (currentView === "project" && project) {
+  if (currentView === 'project' && project) {
     return (
       <>
         <ProjectWorkspace />

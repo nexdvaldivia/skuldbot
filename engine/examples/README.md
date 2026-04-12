@@ -5,7 +5,9 @@ Esta carpeta contiene ejemplos de uso del engine.
 ## Ejemplos Disponibles
 
 ### 1. `simple_bot.py`
+
 Bot básico que demuestra:
+
 - Compilación de DSL
 - Ejecución con callbacks
 - Manejo de logs
@@ -15,7 +17,9 @@ python examples/simple_bot.py
 ```
 
 ### 2. `browser_automation.py`
+
 Automatización web que demuestra:
+
 - Nodos de browser
 - Navegación y scraping
 - Callbacks de ejecución
@@ -67,4 +71,3 @@ print(f"Estado: {result.status}")
 
 - [Documentación completa](https://skuldbot.readthedocs.io)
 - [Repositorio](https://github.com/khipus/skuldbot-engine)
-

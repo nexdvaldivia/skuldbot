@@ -12,7 +12,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "./alert-dialog";
+} from './alert-dialog';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -21,7 +21,7 @@ interface ConfirmDialogProps {
   description: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  variant?: "default" | "destructive";
+  variant?: 'default' | 'destructive';
   onConfirm: () => void;
 }
 
@@ -30,9 +30,9 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
-  confirmLabel = "Continue",
-  cancelLabel = "Cancel",
-  variant = "default",
+  confirmLabel = 'Continue',
+  cancelLabel = 'Cancel',
+  variant = 'default',
   onConfirm,
 }: ConfirmDialogProps) {
   return (
@@ -46,11 +46,7 @@ export function ConfirmDialog({
           <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            className={
-              variant === "destructive"
-                ? "bg-red-600 hover:bg-red-700 text-white"
-                : ""
-            }
+            className={variant === 'destructive' ? 'bg-red-600 hover:bg-red-700 text-white' : ''}
           >
             {confirmLabel}
           </AlertDialogAction>
@@ -59,5 +55,3 @@ export function ConfirmDialog({
     </AlertDialog>
   );
 }
-
-

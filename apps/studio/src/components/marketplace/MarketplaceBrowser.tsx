@@ -39,9 +39,7 @@ interface MarketplaceBrowserProps {
   onBotInstall?: (bot: MarketplaceBot) => void;
 }
 
-export const MarketplaceBrowser: React.FC<MarketplaceBrowserProps> = ({
-  onBotInstall,
-}) => {
+export const MarketplaceBrowser: React.FC<MarketplaceBrowserProps> = ({ onBotInstall }) => {
   const [bots, setBots] = useState<MarketplaceBot[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,22 +48,9 @@ export const MarketplaceBrowser: React.FC<MarketplaceBrowserProps> = ({
   const [selectedIndustry, setSelectedIndustry] = useState<string>('all');
   const toast = useToastStore();
 
-  const categories = [
-    'all',
-    'claims',
-    'billing',
-    'data-entry',
-    'reporting',
-    'compliance',
-  ];
+  const categories = ['all', 'claims', 'billing', 'data-entry', 'reporting', 'compliance'];
 
-  const industries = [
-    'all',
-    'insurance',
-    'healthcare',
-    'finance',
-    'manufacturing',
-  ];
+  const industries = ['all', 'insurance', 'healthcare', 'finance', 'manufacturing'];
 
   const loadMarketplace = useCallback(async () => {
     setLoading(true);
@@ -106,9 +91,9 @@ export const MarketplaceBrowser: React.FC<MarketplaceBrowserProps> = ({
       onBotInstall?.(bot);
 
       // Show success notification
-      toast.success("Bot Subscribed", `Successfully subscribed to ${bot.name}`);
+      toast.success('Bot Subscribed', `Successfully subscribed to ${bot.name}`);
     } catch (err: any) {
-      toast.error("Subscription Failed", err.message || "Failed to subscribe to bot");
+      toast.error('Subscription Failed', err.message || 'Failed to subscribe to bot');
     } finally {
       setLoading(false);
     }
@@ -118,9 +103,7 @@ export const MarketplaceBrowser: React.FC<MarketplaceBrowserProps> = ({
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-          Marketplace
-        </h2>
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Marketplace</h2>
 
         {/* Search and Filters */}
         <div className="flex flex-col md:flex-row gap-4">
@@ -220,9 +203,7 @@ export const MarketplaceBrowser: React.FC<MarketplaceBrowserProps> = ({
                   <span className="text-sm text-gray-600 dark:text-gray-400">
                     by {bot.publisher.name}
                   </span>
-                  {bot.publisher.verified && (
-                    <CheckCircle className="w-4 h-4 text-[#35D399]" />
-                  )}
+                  {bot.publisher.verified && <CheckCircle className="w-4 h-4 text-[#35D399]" />}
                 </div>
 
                 {/* Rating */}

@@ -34,9 +34,7 @@ import { TokenService } from '../../common/crypto/password.service';
  * - Audit logging for all operations
  */
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([ApiKey, User, AuditLog]),
-  ],
+  imports: [TypeOrmModule.forFeature([ApiKey, User, AuditLog])],
   controllers: [ApiKeysController],
   providers: [ApiKeysService, TokenService],
   exports: [ApiKeysService],

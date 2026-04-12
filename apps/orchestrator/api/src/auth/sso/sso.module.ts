@@ -45,13 +45,7 @@ import { LicenseModule } from '../../license/license.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      User,
-      Role,
-      Session,
-      RefreshToken,
-      AuditLog,
-    ]),
+    TypeOrmModule.forFeature([User, Role, Session, RefreshToken, AuditLog]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

@@ -1,4 +1,4 @@
-export type NodeRuntimeChannel = "input" | "envelope" | "output";
+export type NodeRuntimeChannel = 'input' | 'envelope' | 'output';
 
 export interface ParsedNodeRuntimeTelemetry {
   channel: NodeRuntimeChannel;
@@ -12,14 +12,14 @@ function parsePayloadWithOptionalNodeId(payloadRaw: string): {
 } {
   const trimmed = payloadRaw.trim();
   if (!trimmed) {
-    return { nodeId: null, payload: "" };
+    return { nodeId: null, payload: '' };
   }
 
-  if (trimmed.startsWith("{") || trimmed.startsWith("[") || trimmed.startsWith('"')) {
+  if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.startsWith('"')) {
     return { nodeId: null, payload: trimmed };
   }
 
-  const firstColon = trimmed.indexOf(":");
+  const firstColon = trimmed.indexOf(':');
   if (firstColon === -1) {
     return { nodeId: null, payload: trimmed };
   }
@@ -42,9 +42,9 @@ function safeParseJson(payload: string): unknown {
 }
 
 export function parseNodeRuntimeTelemetryLine(logLine: string): ParsedNodeRuntimeTelemetry | null {
-  const inputPrefix = "NODE_INPUT:";
-  const envelopePrefix = "NODE_ENVELOPE:";
-  const outputPrefix = "NODE_OUTPUT:";
+  const inputPrefix = 'NODE_INPUT:';
+  const envelopePrefix = 'NODE_ENVELOPE:';
+  const outputPrefix = 'NODE_OUTPUT:';
 
   const inputIdx = logLine.indexOf(inputPrefix);
   if (inputIdx >= 0) {
@@ -52,7 +52,7 @@ export function parseNodeRuntimeTelemetryLine(logLine: string): ParsedNodeRuntim
     const { nodeId, payload } = parsePayloadWithOptionalNodeId(raw);
     if (!payload) return null;
     return {
-      channel: "input",
+      channel: 'input',
       nodeId,
       data: safeParseJson(payload),
     };
@@ -64,7 +64,7 @@ export function parseNodeRuntimeTelemetryLine(logLine: string): ParsedNodeRuntim
     const { nodeId, payload } = parsePayloadWithOptionalNodeId(raw);
     if (!payload) return null;
     return {
-      channel: "envelope",
+      channel: 'envelope',
       nodeId,
       data: safeParseJson(payload),
     };
@@ -76,7 +76,7 @@ export function parseNodeRuntimeTelemetryLine(logLine: string): ParsedNodeRuntim
     const { nodeId, payload } = parsePayloadWithOptionalNodeId(raw);
     if (!payload) return null;
     return {
-      channel: "output",
+      channel: 'output',
       nodeId,
       data: safeParseJson(payload),
     };
@@ -85,18 +85,20 @@ export function parseNodeRuntimeTelemetryLine(logLine: string): ParsedNodeRuntim
   return null;
 }
 
-export function extractLatestNodeRuntimeTelemetry(rawOutput?: string): ParsedNodeRuntimeTelemetry | null {
+export function extractLatestNodeRuntimeTelemetry(
+  rawOutput?: string,
+): ParsedNodeRuntimeTelemetry | null {
   if (!rawOutput) return null;
 
   let latestEnvelope: ParsedNodeRuntimeTelemetry | null = null;
   let latestOutput: ParsedNodeRuntimeTelemetry | null = null;
 
-  for (const line of rawOutput.split("\n")) {
+  for (const line of rawOutput.split('\n')) {
     const parsed = parseNodeRuntimeTelemetryLine(line);
     if (!parsed) continue;
-    if (parsed.channel === "envelope") {
+    if (parsed.channel === 'envelope') {
       latestEnvelope = parsed;
-    } else if (parsed.channel === "output") {
+    } else if (parsed.channel === 'output') {
       latestOutput = parsed;
     }
   }
@@ -104,13 +106,15 @@ export function extractLatestNodeRuntimeTelemetry(rawOutput?: string): ParsedNod
   return latestEnvelope || latestOutput;
 }
 
-export function extractLatestNodeInputTelemetry(rawOutput?: string): ParsedNodeRuntimeTelemetry | null {
+export function extractLatestNodeInputTelemetry(
+  rawOutput?: string,
+): ParsedNodeRuntimeTelemetry | null {
   if (!rawOutput) return null;
 
   let latestInput: ParsedNodeRuntimeTelemetry | null = null;
-  for (const line of rawOutput.split("\n")) {
+  for (const line of rawOutput.split('\n')) {
     const parsed = parseNodeRuntimeTelemetryLine(line);
-    if (!parsed || parsed.channel !== "input") continue;
+    if (!parsed || parsed.channel !== 'input') continue;
     latestInput = parsed;
   }
   return latestInput;
@@ -119,25 +123,28 @@ export function extractLatestNodeInputTelemetry(rawOutput?: string): ParsedNodeR
 export function getSchemaCandidateFromNodeData(data: unknown): unknown {
   if (data === null || data === undefined) return null;
 
-  if (typeof data !== "object") return data;
+  if (typeof data !== 'object') return data;
 
   if (
-    "json" in (data as Record<string, unknown>) &&
-    typeof (data as Record<string, unknown>).json === "object" &&
+    'json' in (data as Record<string, unknown>) &&
+    typeof (data as Record<string, unknown>).json === 'object' &&
     (data as Record<string, unknown>).json !== null
   ) {
     return (data as Record<string, unknown>).json;
   }
 
-  if ("items" in (data as Record<string, unknown>) && Array.isArray((data as Record<string, unknown>).items)) {
+  if (
+    'items' in (data as Record<string, unknown>) &&
+    Array.isArray((data as Record<string, unknown>).items)
+  ) {
     const items = (data as Record<string, unknown>).items as unknown[];
     if (items.length > 0) {
       const first = items[0];
       if (
         first &&
-        typeof first === "object" &&
-        "json" in (first as Record<string, unknown>) &&
-        typeof (first as Record<string, unknown>).json === "object" &&
+        typeof first === 'object' &&
+        'json' in (first as Record<string, unknown>) &&
+        typeof (first as Record<string, unknown>).json === 'object' &&
         (first as Record<string, unknown>).json !== null
       ) {
         return (first as Record<string, unknown>).json;
@@ -147,7 +154,7 @@ export function getSchemaCandidateFromNodeData(data: unknown): unknown {
   }
 
   if (
-    "result" in (data as Record<string, unknown>) &&
+    'result' in (data as Record<string, unknown>) &&
     Object.keys(data as Record<string, unknown>).length === 1
   ) {
     return (data as Record<string, unknown>).result;

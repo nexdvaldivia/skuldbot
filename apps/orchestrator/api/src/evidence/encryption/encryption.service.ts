@@ -45,10 +45,7 @@ export class EncryptionService {
         'evidence.encryptionSecret',
         'skuldbot-evidence-default-secret-change-in-production',
       );
-      const salt = this.configService.get<string>(
-        'evidence.encryptionSalt',
-        'skuldbot-salt-v1',
-      );
+      const salt = this.configService.get<string>('evidence.encryptionSalt', 'skuldbot-salt-v1');
 
       this.kek = crypto.pbkdf2Sync(secret, salt, 310000, 32, 'sha256');
       this.keyId = 'local-pbkdf2-v1';
@@ -76,29 +73,23 @@ export class EncryptionService {
     // Encrypt the DEK with KEK
     const dekIv = crypto.randomBytes(this.ivLength);
     const dekCipher = crypto.createCipheriv(this.algorithm, this.kek, dekIv);
-    const encryptedDek = Buffer.concat([
-      dekCipher.update(dek),
-      dekCipher.final(),
-    ]);
+    const encryptedDek = Buffer.concat([dekCipher.update(dek), dekCipher.final()]);
     const dekAuthTag = dekCipher.getAuthTag();
 
     // Encrypt data with DEK
     const dataIv = crypto.randomBytes(this.ivLength);
     const dataCipher = crypto.createCipheriv(this.algorithm, dek, dataIv);
-    const encryptedData = Buffer.concat([
-      dataCipher.update(data),
-      dataCipher.final(),
-    ]);
+    const encryptedData = Buffer.concat([dataCipher.update(data), dataCipher.final()]);
     const dataAuthTag = dataCipher.getAuthTag();
 
     // Build envelope: [DEK IV][DEK Auth Tag][Encrypted DEK][Data IV][Data Auth Tag][Ciphertext]
     const envelope = Buffer.concat([
-      dekIv,           // 12 bytes
-      dekAuthTag,      // 16 bytes
-      encryptedDek,    // 32 bytes (encrypted DEK)
-      dataIv,          // 12 bytes
-      dataAuthTag,     // 16 bytes
-      encryptedData,   // Variable length
+      dekIv, // 12 bytes
+      dekAuthTag, // 16 bytes
+      encryptedDek, // 32 bytes (encrypted DEK)
+      dataIv, // 12 bytes
+      dataAuthTag, // 16 bytes
+      encryptedData, // Variable length
     ]);
 
     return envelope;
@@ -135,18 +126,12 @@ export class EncryptionService {
     // Decrypt DEK with KEK
     const dekDecipher = crypto.createDecipheriv(this.algorithm, this.kek, dekIv);
     dekDecipher.setAuthTag(dekAuthTag);
-    const dek = Buffer.concat([
-      dekDecipher.update(encryptedDek),
-      dekDecipher.final(),
-    ]);
+    const dek = Buffer.concat([dekDecipher.update(encryptedDek), dekDecipher.final()]);
 
     // Decrypt data with DEK
     const dataDecipher = crypto.createDecipheriv(this.algorithm, dek, dataIv);
     dataDecipher.setAuthTag(dataAuthTag);
-    const plaintext = Buffer.concat([
-      dataDecipher.update(ciphertext),
-      dataDecipher.final(),
-    ]);
+    const plaintext = Buffer.concat([dataDecipher.update(ciphertext), dataDecipher.final()]);
 
     return plaintext;
   }

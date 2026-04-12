@@ -1,12 +1,12 @@
 ---
-version: "1.0"
-created: "2025-12-18"
-author: "Skuldbot Team"
-node: "ai.repair_data"
-context: "finance"
-description: "Financial services-specific context for AI data repair"
+version: '1.0'
+created: '2025-12-18'
+author: 'Skuldbot Team'
+node: 'ai.repair_data'
+context: 'finance'
+description: 'Financial services-specific context for AI data repair'
 audit_required: true
-compliance_tags: ["SOX", "PCI-DSS", "GLBA", "FinCEN"]
+compliance_tags: ['SOX', 'PCI-DSS', 'GLBA', 'FinCEN']
 ---
 
 ## Financial Data Processing Context
@@ -27,29 +27,35 @@ You are processing financial services data subject to strict regulatory requirem
 ### ALLOWED OPERATIONS
 
 #### Account Numbers
+
 - Validate format only
 - Flag invalid formats
 - DO NOT suggest corrections
 - Common formats: checking (9-12 digits), savings (9-12 digits)
 
 #### Routing Numbers
+
 - Validate against ABA format (9 digits)
 - Validate checksum if applicable
 - Flag invalid but DO NOT correct
 
 #### Transaction Types
+
 - Normalize to standards: credit, debit, transfer, payment, refund, fee, withdrawal, deposit
 - Case normalization only
 
 #### Transaction Status
+
 - Normalize to standards: pending, completed, failed, reversed, cancelled, processing
 - Case normalization only
 
 #### Currency Codes
+
 - Validate against ISO 4217
 - Normalize to uppercase (usd → USD)
 
 #### Dates
+
 - Standardize to ISO 8601 format
 - Transaction date, posting date, effective date
 - NEVER infer missing dates
@@ -67,6 +73,7 @@ You are processing financial services data subject to strict regulatory requirem
 - credit_limit
 
 For monetary amounts:
+
 - Validate number format only
 - Flag issues but DO NOT repair
 - Route to human review
@@ -74,12 +81,14 @@ For monetary amounts:
 ### PCI-DSS SENSITIVE FIELDS
 
 These fields require PCI compliance:
+
 - card_number (must be masked/tokenized)
 - cvv/cvc (should never be stored)
 - expiration_date
 - cardholder_name
 
 NEVER process raw card data. If encountered:
+
 - Flag as security violation
 - Do not include in output
 - Route to security team
@@ -87,6 +96,7 @@ NEVER process raw card data. If encountered:
 ### ACCOUNT TYPES
 
 Standard account types (normalize to these):
+
 - checking
 - savings
 - investment
@@ -99,6 +109,7 @@ Standard account types (normalize to these):
 ### TRANSACTION CODES
 
 Standard transaction types:
+
 - credit
 - debit
 - transfer
@@ -113,6 +124,7 @@ Standard transaction types:
 ### CONFIDENCE THRESHOLDS
 
 For financial data (most restrictive):
+
 - Format normalization: >= 0.95
 - Status/type normalization: >= 0.98
 - Semantic cleanup: >= 0.98
@@ -121,6 +133,7 @@ For financial data (most restrictive):
 ### REGULATORY COMPLIANCE
 
 Financial data processing must comply with:
+
 - SOX (Sarbanes-Oxley) - audit trails
 - PCI-DSS - cardholder data security
 - GLBA - customer financial privacy
@@ -130,6 +143,7 @@ Financial data processing must comply with:
 ### AUDIT REQUIREMENTS
 
 All repairs must be logged with:
+
 - Timestamp (UTC)
 - Original value
 - Repaired value

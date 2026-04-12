@@ -3,7 +3,7 @@ import { MCPMetricsService } from './mcp-metrics.service';
 
 /**
  * Metrics Controller
- * 
+ *
  * Exposes Prometheus metrics endpoint
  */
 @Controller('metrics')
@@ -15,5 +15,3 @@ export class MetricsController {
     return await this.metricsService.getMetrics();
   }
 }
-
-

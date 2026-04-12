@@ -105,9 +105,7 @@ export class InfraPowerService {
       await this.powerOnVm(runner, vmConfig);
       return true;
     } catch (error) {
-      this.logger.error(
-        `Failed to power on runner ${runner.id}: ${error}`,
-      );
+      this.logger.error(`Failed to power on runner ${runner.id}: ${error}`);
       return false;
     } finally {
       this.poweringOn.delete(runner.id);
@@ -118,9 +116,7 @@ export class InfraPowerService {
    * Power on a VM
    */
   private async powerOnVm(runner: Runner, config: VmConfig): Promise<void> {
-    this.logger.log(
-      `Powering on VM for runner ${runner.id} (${config.provider})`,
-    );
+    this.logger.log(`Powering on VM for runner ${runner.id} (${config.provider})`);
 
     switch (config.provider) {
       // Cloud providers
@@ -177,9 +173,7 @@ export class InfraPowerService {
     const vmConfig = this.getVmConfig(runner);
     if (!vmConfig) return;
 
-    this.logger.log(
-      `Powering off VM for runner ${runner.id} (${vmConfig.provider})`,
-    );
+    this.logger.log(`Powering off VM for runner ${runner.id} (${vmConfig.provider})`);
 
     switch (vmConfig.provider) {
       // Cloud providers
@@ -241,7 +235,7 @@ export class InfraPowerService {
     }
 
     // Or infer from labels (useful for simple setups)
-    const labels = runner.labels as Record<string, string> | undefined;
+    const labels = runner.labels;
     if (labels?.['infra.provider']) {
       const provider = labels['infra.provider'] as InfraProvider;
 
@@ -417,10 +411,7 @@ export class InfraPowerService {
   /**
    * Wait for a runner to come online after power-on
    */
-  async waitForRunnerOnline(
-    runnerId: string,
-    timeoutMs: number = 120000,
-  ): Promise<boolean> {
+  async waitForRunnerOnline(runnerId: string, timeoutMs: number = 120000): Promise<boolean> {
     const startTime = Date.now();
     const checkInterval = 5000; // Check every 5 seconds
 

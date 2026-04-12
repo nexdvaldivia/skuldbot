@@ -1,6 +1,6 @@
 /**
  * MCP Types for Orchestrator
- * 
+ *
  * Orchestrator MCP focuses on:
  * - Compliance (HIPAA, PII/PHI classification, audit)
  * - Workflow Templates (tenant-specific bot templates)
@@ -139,7 +139,7 @@ export interface TenantPolicy {
 /**
  * LLM Provider Types for BYOM
  */
-export type LLMProviderType = 
+export type LLMProviderType =
   | 'azure-ai-foundry'
   | 'aws-bedrock'
   | 'vertex-ai'

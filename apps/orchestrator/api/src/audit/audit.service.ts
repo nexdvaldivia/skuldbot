@@ -1,12 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThan, MoreThan, In, ILike } from 'typeorm';
-import {
-  AuditLog,
-  AuditCategory,
-  AuditAction,
-  AuditResult,
-} from './entities/audit-log.entity';
+import { AuditLog, AuditCategory, AuditAction, AuditResult } from './entities/audit-log.entity';
 
 /**
  * Audit Query DTOs
@@ -100,10 +95,7 @@ export class AuditService {
   /**
    * Query audit logs with filters.
    */
-  async findAll(
-    tenantId: string,
-    query: AuditQueryDto,
-  ): Promise<PaginatedAuditLogsDto> {
+  async findAll(tenantId: string, query: AuditQueryDto): Promise<PaginatedAuditLogsDto> {
     const {
       startDate,
       endDate,
@@ -208,10 +200,7 @@ export class AuditService {
   /**
    * Get a specific audit log entry.
    */
-  async findOne(
-    tenantId: string,
-    logId: string,
-  ): Promise<AuditLogResponseDto> {
+  async findOne(tenantId: string, logId: string): Promise<AuditLogResponseDto> {
     const log = await this.auditRepository.findOne({
       where: { id: logId, tenantId },
     });
@@ -264,11 +253,7 @@ export class AuditService {
   /**
    * Generate audit summary for a time period.
    */
-  async getSummary(
-    tenantId: string,
-    startDate: Date,
-    endDate: Date,
-  ): Promise<AuditSummaryDto> {
+  async getSummary(tenantId: string, startDate: Date, endDate: Date): Promise<AuditSummaryDto> {
     const queryBuilder = this.auditRepository
       .createQueryBuilder('audit')
       .where('audit.tenantId = :tenantId', { tenantId })
@@ -385,10 +370,7 @@ export class AuditService {
   /**
    * Export audit logs to CSV format.
    */
-  async exportToCsv(
-    tenantId: string,
-    query: AuditQueryDto,
-  ): Promise<string> {
+  async exportToCsv(tenantId: string, query: AuditQueryDto): Promise<string> {
     // Remove pagination for export
     const exportQuery = { ...query, page: 1, limit: 100000 };
     const { logs } = await this.findAll(tenantId, exportQuery);
@@ -423,9 +405,7 @@ export class AuditService {
 
     const csvContent = [
       headers.join(','),
-      ...rows.map((row) =>
-        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','),
-      ),
+      ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
     ].join('\n');
 
     return csvContent;
@@ -434,10 +414,7 @@ export class AuditService {
   /**
    * Export audit logs to JSON format.
    */
-  async exportToJson(
-    tenantId: string,
-    query: AuditQueryDto,
-  ): Promise<string> {
+  async exportToJson(tenantId: string, query: AuditQueryDto): Promise<string> {
     const exportQuery = { ...query, page: 1, limit: 100000 };
     const { logs, total } = await this.findAll(tenantId, exportQuery);
 
@@ -462,10 +439,7 @@ export class AuditService {
   /**
    * Get security events (failed logins, denied access, etc.)
    */
-  async getSecurityEvents(
-    tenantId: string,
-    hours: number = 24,
-  ): Promise<AuditLogResponseDto[]> {
+  async getSecurityEvents(tenantId: string, hours: number = 24): Promise<AuditLogResponseDto[]> {
     const since = new Date(Date.now() - hours * 60 * 60 * 1000);
 
     const logs = await this.auditRepository.find({
@@ -499,9 +473,7 @@ export class AuditService {
    * In single-tenant mode, retention days come from license features or default to 365.
    */
   async enforceRetentionPolicy(tenantId: string, retentionDays = 365): Promise<number> {
-    const cutoffDate = new Date(
-      Date.now() - retentionDays * 24 * 60 * 60 * 1000,
-    );
+    const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
 
     const result = await this.auditRepository.delete({
       tenantId,

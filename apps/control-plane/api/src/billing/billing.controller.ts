@@ -84,9 +84,7 @@ export class BillingController {
     }
 
     if (tenantIdHeader?.trim() && tenantIdHeader !== batch.tenantId) {
-      throw new BadRequestException(
-        'x-tenant-id header does not match batch.tenantId',
-      );
+      throw new BadRequestException('x-tenant-id header does not match batch.tenantId');
     }
 
     if (batchId !== batch.batchId) {
@@ -94,11 +92,7 @@ export class BillingController {
     }
 
     try {
-      const result = await this.billingService.ingestUsageBatch(
-        orchestratorId,
-        batch,
-        { traceId },
-      );
+      const result = await this.billingService.ingestUsageBatch(orchestratorId, batch, { traceId });
 
       if (result.duplicateBatch) {
         throw new ConflictException('Batch already processed');
@@ -150,11 +144,7 @@ export class BillingController {
     @Query('startPeriod') startPeriod?: string,
     @Query('endPeriod') endPeriod?: string,
   ) {
-    return this.billingService.getPartnerRevenueShare(
-      partnerId,
-      startPeriod,
-      endPeriod,
-    );
+    return this.billingService.getPartnerRevenueShare(partnerId, startPeriod, endPeriod);
   }
 
   /**
@@ -162,9 +152,7 @@ export class BillingController {
    */
   @Post('revenue-share/calculate')
   @HttpCode(HttpStatus.CREATED)
-  async calculateRevenueShare(
-    @Body() body: { partnerId: string; period: string },
-  ) {
+  async calculateRevenueShare(@Body() body: { partnerId: string; period: string }) {
     return this.billingService.calculateRevenueShare(body.partnerId, body.period);
   }
 
@@ -173,10 +161,7 @@ export class BillingController {
    */
   @Post('revenue-share/:id/approve')
   @HttpCode(HttpStatus.OK)
-  async approveRevenueShare(
-    @Param('id') id: string,
-    @Body() body: { approvedBy: string },
-  ) {
+  async approveRevenueShare(@Param('id') id: string, @Body() body: { approvedBy: string }) {
     return this.billingService.approveRevenueShare(id, body.approvedBy);
   }
 

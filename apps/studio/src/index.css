@@ -7,8 +7,8 @@
 @layer base {
   :root {
     /* Background & Foreground - Slate Blue tinted */
-    --background: 210 20% 98%;           /* Very light slate blue */
-    --foreground: 215 25% 17%;           /* Dark slate */
+    --background: 210 20% 98%; /* Very light slate blue */
+    --foreground: 215 25% 17%; /* Dark slate */
 
     /* Card - Slightly warmer white */
     --card: 210 20% 99%;
@@ -73,7 +73,12 @@
   }
 
   html {
-    font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-family:
+      'Montserrat',
+      -apple-system,
+      BlinkMacSystemFont,
+      system-ui,
+      sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -134,7 +139,9 @@
 }
 
 .react-flow__handle {
-  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .react-flow__handle:hover {
@@ -146,7 +153,9 @@
 }
 
 .react-flow__controls {
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1) !important;
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.1),
+    0 1px 2px -1px rgb(0 0 0 / 0.1) !important;
 }
 
 .react-flow__controls-button {
@@ -160,13 +169,20 @@
 }
 
 .react-flow__minimap {
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1) !important;
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.1),
+    0 1px 2px -1px rgb(0 0 0 / 0.1) !important;
 }
 
 /* Animated gradient for AI nodes */
 @keyframes gradient-shift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
 }
 
 .ai-gradient {
@@ -177,14 +193,24 @@
 
 /* Pulse animation for handles */
 @keyframes pulse-ring {
-  0% { transform: scale(1); opacity: 1; }
-  100% { transform: scale(1.5); opacity: 0; }
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
 }
 
 /* Smooth edge animation */
 @keyframes dash-flow {
-  from { stroke-dashoffset: 0; }
-  to { stroke-dashoffset: -20; }
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -20;
+  }
 }
 
 .animated-edge {
@@ -224,8 +250,12 @@
 
 /* Fade animations for modals */
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .animate-fade-in {

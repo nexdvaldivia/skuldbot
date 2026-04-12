@@ -147,10 +147,7 @@ export class EvidencePackService {
     private readonly custodyService: CustodyService,
     private readonly retentionService: RetentionService,
   ) {
-    this.bucket = this.configService.get<string>(
-      'storage.evidenceBucket',
-      'skuldbot-evidence',
-    );
+    this.bucket = this.configService.get<string>('storage.evidenceBucket', 'skuldbot-evidence');
   }
 
   /**
@@ -172,9 +169,7 @@ export class EvidencePackService {
     const packId = this.generatePackId(params.executionId);
     const createdAt = new Date().toISOString();
 
-    this.logger.log(
-      `Creating evidence pack ${packId} for execution ${params.executionId}`,
-    );
+    this.logger.log(`Creating evidence pack ${packId} for execution ${params.executionId}`);
 
     // Prepare files for the pack
     const files: Record<string, Buffer> = {};
@@ -183,9 +178,7 @@ export class EvidencePackService {
     // Add screenshots (encrypted)
     for (let i = 0; i < params.screenshots.length; i++) {
       const fileName = `screenshots/screenshot_${i.toString().padStart(3, '0')}.png.enc`;
-      const encrypted = await this.encryptionService.encrypt(
-        params.screenshots[i],
-      );
+      const encrypted = await this.encryptionService.encrypt(params.screenshots[i]);
       files[fileName] = encrypted;
     }
 
@@ -216,9 +209,7 @@ export class EvidencePackService {
     // Add compliance results (encrypted JSON)
     for (let i = 0; i < params.complianceResults.length; i++) {
       const fileName = `compliance/result_${i.toString().padStart(3, '0')}.json.enc`;
-      const content = Buffer.from(
-        JSON.stringify(params.complianceResults[i], null, 2),
-      );
+      const content = Buffer.from(JSON.stringify(params.complianceResults[i], null, 2));
       const encrypted = await this.encryptionService.encrypt(content);
       files[fileName] = encrypted;
     }
@@ -240,10 +231,7 @@ export class EvidencePackService {
 
     // Calculate retention expiration
     const retentionPolicy = params.retentionPolicy || 'standard';
-    const expiresAt = await this.retentionService.calculateExpiration(
-      retentionPolicy,
-      new Date(),
-    );
+    const expiresAt = await this.retentionService.calculateExpiration(retentionPolicy, new Date());
 
     // Build manifest (NOT encrypted - auditors can read)
     const manifest: EvidenceManifest = {
@@ -295,25 +283,19 @@ export class EvidencePackService {
       },
 
       contents: {
-        screenshots: Object.keys(files).filter((f) =>
-          f.startsWith('screenshots/'),
-        ),
+        screenshots: Object.keys(files).filter((f) => f.startsWith('screenshots/')),
         decisions: Object.keys(files).filter((f) => f.startsWith('decisions/')),
         lineage: Object.keys(files).filter((f) => f.startsWith('lineage/')),
         logs: Object.keys(files).filter((f) => f.startsWith('logs/')),
-        compliance: Object.keys(files).filter((f) =>
-          f.startsWith('compliance/'),
-        ),
+        compliance: Object.keys(files).filter((f) => f.startsWith('compliance/')),
       },
     };
 
-    manifest.verification.canonicalRunHash =
-      this.computeCanonicalRunHash(manifest);
+    manifest.verification.canonicalRunHash = this.computeCanonicalRunHash(manifest);
 
     // Sign the manifest
     const manifestJson = JSON.stringify(manifest, null, 2);
-    const signatureResult =
-      await this.signatureService.signManifest(manifestJson);
+    const signatureResult = await this.signatureService.signManifest(manifestJson);
 
     manifest.signature = {
       algorithm: signatureResult.algorithm,
@@ -350,9 +332,7 @@ export class EvidencePackService {
       details: { storagePath, fileCount: Object.keys(files).length },
     });
 
-    this.logger.log(
-      `Evidence pack ${packId} created with ${Object.keys(files).length} files`,
-    );
+    this.logger.log(`Evidence pack ${packId} created with ${Object.keys(files).length} files`);
 
     return { packId, manifest };
   }
@@ -360,17 +340,11 @@ export class EvidencePackService {
   /**
    * Get evidence pack manifest (for auditors - no decryption needed).
    */
-  async getManifest(
-    tenantId: string,
-    packId: string,
-  ): Promise<EvidenceManifest> {
+  async getManifest(tenantId: string, packId: string): Promise<EvidenceManifest> {
     const storagePath = `evidence/${tenantId}/${packId}/manifest.json`;
 
     try {
-      const content = await this.storageService.download(
-        this.bucket,
-        storagePath,
-      );
+      const content = await this.storageService.download(this.bucket, storagePath);
       const manifest = JSON.parse(content.toString()) as EvidenceManifest;
 
       // Backward compatibility for packs created before canonical hash rollout.
@@ -407,9 +381,7 @@ export class EvidencePackService {
     const missingFiles: string[] = [];
 
     // Verify each file hash
-    for (const [filePath, expectedHash] of Object.entries(
-      manifest.integrity.fileHashes,
-    )) {
+    for (const [filePath, expectedHash] of Object.entries(manifest.integrity.fileHashes)) {
       try {
         const content = await this.storageService.download(
           this.bucket,
@@ -428,10 +400,7 @@ export class EvidencePackService {
     // Rebuild Merkle tree and verify root
     const currentHashes: Record<string, string> = {};
     for (const [filePath] of Object.entries(manifest.integrity.fileHashes)) {
-      if (
-        !missingFiles.includes(filePath) &&
-        !tamperedFiles.includes(filePath)
-      ) {
+      if (!missingFiles.includes(filePath) && !tamperedFiles.includes(filePath)) {
         currentHashes[filePath] = manifest.integrity.fileHashes[filePath];
       }
     }
@@ -445,14 +414,12 @@ export class EvidencePackService {
       actorType: 'orchestrator',
       action: 'integrity_verified',
       details: {
-        valid:
-          rootValid && tamperedFiles.length === 0 && missingFiles.length === 0,
+        valid: rootValid && tamperedFiles.length === 0 && missingFiles.length === 0,
       },
     });
 
     return {
-      valid:
-        rootValid && tamperedFiles.length === 0 && missingFiles.length === 0,
+      valid: rootValid && tamperedFiles.length === 0 && missingFiles.length === 0,
       merkleRoot: manifest.integrity.merkleRoot,
       tamperedFiles,
       missingFiles,
@@ -516,8 +483,7 @@ export class EvidencePackService {
   ): Promise<CanonicalRunHashVerification> {
     const manifest = await this.getManifest(tenantId, packId);
     const expectedCanonicalRunHash = this.computeCanonicalRunHash(manifest);
-    const manifestCanonicalRunHash =
-      manifest.verification?.canonicalRunHash ?? '';
+    const manifestCanonicalRunHash = manifest.verification?.canonicalRunHash ?? '';
 
     await this.custodyService.addEvent(packId, {
       actorId: 'system',
@@ -532,10 +498,8 @@ export class EvidencePackService {
       valid: expectedCanonicalRunHash === manifestCanonicalRunHash,
       expectedCanonicalRunHash,
       manifestCanonicalRunHash,
-      canonicalSchema:
-        manifest.verification?.canonicalSchema ?? 'run-evidence-v1',
-      canonicalAlgorithm:
-        manifest.verification?.canonicalAlgorithm ?? 'SHA-256',
+      canonicalSchema: manifest.verification?.canonicalSchema ?? 'run-evidence-v1',
+      canonicalAlgorithm: manifest.verification?.canonicalAlgorithm ?? 'SHA-256',
     };
   }
 
@@ -572,34 +536,21 @@ export class EvidencePackService {
     const manifest = await this.getManifest(tenantId, packId);
     const integrity = await this.verifyIntegrity(tenantId, packId);
     const signature = await this.verifySignature(tenantId, packId);
-    const canonicalRunHash = await this.verifyCanonicalRunHash(
-      tenantId,
-      packId,
-    );
+    const canonicalRunHash = await this.verifyCanonicalRunHash(tenantId, packId);
     const custody = await this.getChainOfCustody(tenantId, packId);
 
     const checksumsPath = `evidence/${tenantId}/${packId}/checksums.json`;
     let checksums: Record<string, any> | null = null;
     try {
-      const checksumBuffer = await this.storageService.download(
-        this.bucket,
-        checksumsPath,
-      );
-      checksums = JSON.parse(checksumBuffer.toString('utf-8')) as Record<
-        string,
-        any
-      >;
+      const checksumBuffer = await this.storageService.download(this.bucket, checksumsPath);
+      checksums = JSON.parse(checksumBuffer.toString('utf-8')) as Record<string, any>;
     } catch {
       checksums = null;
     }
 
     const includeDownloadUrls = options.includeDownloadUrls === true;
-    const expiresInSeconds = this.normalizeExportExpiry(
-      options.expiresInSeconds,
-    );
-    let files:
-      | Array<{ path: string; signedUrl: string; expiresInSeconds: number }>
-      | undefined;
+    const expiresInSeconds = this.normalizeExportExpiry(options.expiresInSeconds);
+    let files: Array<{ path: string; signedUrl: string; expiresInSeconds: number }> | undefined;
 
     if (includeDownloadUrls) {
       const filePaths = [
@@ -737,10 +688,7 @@ export class EvidencePackService {
 
     // List from storage (in production, this would query a database)
     const basePath = `evidence/${tenantId}`;
-    const storageObjects = await this.storageService.list(
-      this.bucket,
-      basePath,
-    );
+    const storageObjects = await this.storageService.list(this.bucket, basePath);
     const packDirs = storageObjects
       .map((obj) => obj.key.split('/')[2])
       .filter((v, i, a) => a.indexOf(v) === i);
@@ -761,8 +709,7 @@ export class EvidencePackService {
 
         // Apply filters
         if (options.botId && manifest.botId !== options.botId) continue;
-        if (options.from && new Date(manifest.createdAt) < options.from)
-          continue;
+        if (options.from && new Date(manifest.createdAt) < options.from) continue;
         if (options.to && new Date(manifest.createdAt) > options.to) continue;
 
         packs.push({
@@ -780,10 +727,7 @@ export class EvidencePackService {
     }
 
     // Sort by creation date (newest first)
-    packs.sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
+    packs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     // Paginate
     const start = (page - 1) * limit;
@@ -799,14 +743,9 @@ export class EvidencePackService {
    * Enforce retention policy for all packs in a tenant.
    * Deletes expired packs unless legal hold is active.
    */
-  async enforceRetentionForTenant(
-    tenantId: string,
-  ): Promise<EvidenceRetentionEnforcementResult> {
+  async enforceRetentionForTenant(tenantId: string): Promise<EvidenceRetentionEnforcementResult> {
     const basePath = `evidence/${tenantId}`;
-    const storageObjects = await this.storageService.list(
-      this.bucket,
-      basePath,
-    );
+    const storageObjects = await this.storageService.list(this.bucket, basePath);
     const packIds = this.extractPackIds(storageObjects.map((obj) => obj.key));
 
     const now = new Date();
@@ -851,10 +790,7 @@ export class EvidencePackService {
         });
 
         const packPrefix = `evidence/${tenantId}/${packId}/`;
-        const packObjects = await this.storageService.list(
-          this.bucket,
-          packPrefix,
-        );
+        const packObjects = await this.storageService.list(this.bucket, packPrefix);
         for (const object of packObjects) {
           await this.storageService.delete(this.bucket, object.key);
         }
@@ -875,10 +811,7 @@ export class EvidencePackService {
    */
   @Cron(CronExpression.EVERY_DAY_AT_3AM)
   async enforceRetentionPolicies(): Promise<void> {
-    const enabled = this.configService.get<boolean>(
-      'evidence.retention.enforcementEnabled',
-      true,
-    );
+    const enabled = this.configService.get<boolean>('evidence.retention.enforcementEnabled', true);
     if (!enabled) {
       return;
     }
@@ -915,10 +848,7 @@ export class EvidencePackService {
     return crypto.createHash('sha256').update(buffer).digest('hex');
   }
 
-  private async storeEvidencePack(
-    basePath: string,
-    files: Record<string, Buffer>,
-  ): Promise<void> {
+  private async storeEvidencePack(basePath: string, files: Record<string, Buffer>): Promise<void> {
     for (const [filePath, content] of Object.entries(files)) {
       const fullPath = `${basePath}/${filePath}`;
       await this.storageService.upload(this.bucket, fullPath, content);
@@ -926,10 +856,7 @@ export class EvidencePackService {
   }
 
   private normalizeExportExpiry(expiresInSeconds?: number): number {
-    const configured = this.configService.get<number>(
-      'evidence.export.defaultTtlSeconds',
-      900,
-    );
+    const configured = this.configService.get<number>('evidence.export.defaultTtlSeconds', 900);
     const input = expiresInSeconds ?? configured;
     return Math.max(60, Math.min(input, 3600));
   }
@@ -1000,9 +927,7 @@ export class EvidencePackService {
     if (value && typeof value === 'object') {
       const record = value as Record<string, unknown>;
       const keys = Object.keys(record).sort();
-      return `{${keys
-        .map((key) => `"${key}":${this.stringifyCanonical(record[key])}`)
-        .join(',')}}`;
+      return `{${keys.map((key) => `"${key}":${this.stringifyCanonical(record[key])}`).join(',')}}`;
     }
     return JSON.stringify(value);
   }

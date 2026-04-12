@@ -145,7 +145,9 @@ export class UsageReporterService implements OnModuleInit, OnModuleDestroy {
     this.eventBuffer.push(usageEvent);
     this.stats.eventsReceived++;
 
-    this.logger.debug(`Tracked usage event: ${event.metric} x${event.quantity} for bot ${event.botId}`);
+    this.logger.debug(
+      `Tracked usage event: ${event.metric} x${event.quantity} for bot ${event.botId}`,
+    );
 
     // Flush if buffer is full
     if (this.eventBuffer.length >= this.bufferMaxSize) {
@@ -202,20 +204,16 @@ export class UsageReporterService implements OnModuleInit, OnModuleDestroy {
     };
 
     // Add to queue for processing
-    await this.controlPlaneQueue.add(
-      'send-usage-batch',
-      batch,
-      {
-        jobId: batchId,
-        attempts: 5,
-        backoff: {
-          type: 'exponential',
-          delay: 60000, // Start with 1 minute
-        },
-        removeOnComplete: { count: 100, age: 86400 }, // Keep 100 or 24 hours
-        removeOnFail: { count: 1000, age: 604800 }, // Keep 1000 or 7 days
+    await this.controlPlaneQueue.add('send-usage-batch', batch, {
+      jobId: batchId,
+      attempts: 5,
+      backoff: {
+        type: 'exponential',
+        delay: 60000, // Start with 1 minute
       },
-    );
+      removeOnComplete: { count: 100, age: 86400 }, // Keep 100 or 24 hours
+      removeOnFail: { count: 1000, age: 604800 }, // Keep 1000 or 7 days
+    });
 
     this.stats.batchesSent++;
     this.stats.lastBatchAt = new Date();
@@ -226,11 +224,7 @@ export class UsageReporterService implements OnModuleInit, OnModuleDestroy {
   /**
    * Get current usage summary
    */
-  async getUsageSummary(
-    tenantId: string,
-    startDate: Date,
-    endDate: Date,
-  ): Promise<UsageSummary> {
+  async getUsageSummary(tenantId: string, startDate: Date, endDate: Date): Promise<UsageSummary> {
     // In production, this would query from database
     // For now, return empty summary
 

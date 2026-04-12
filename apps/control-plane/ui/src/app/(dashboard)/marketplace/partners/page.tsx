@@ -37,18 +37,37 @@ import {
   Loader2,
 } from 'lucide-react';
 
-const statusConfig: Record<string, { color: string; bgColor: string; icon: React.ElementType; label: string }> = {
-  approved: { color: 'text-emerald-700', bgColor: 'bg-emerald-50', icon: CheckCircle2, label: 'Approved' },
+const statusConfig: Record<
+  string,
+  { color: string; bgColor: string; icon: React.ElementType; label: string }
+> = {
+  approved: {
+    color: 'text-emerald-700',
+    bgColor: 'bg-emerald-50',
+    icon: CheckCircle2,
+    label: 'Approved',
+  },
   pending: { color: 'text-amber-700', bgColor: 'bg-amber-50', icon: Clock, label: 'Pending' },
   suspended: { color: 'text-red-700', bgColor: 'bg-red-50', icon: XCircle, label: 'Suspended' },
-  terminated: { color: 'text-zinc-700', bgColor: 'bg-zinc-100', icon: XCircle, label: 'Terminated' },
+  terminated: {
+    color: 'text-zinc-700',
+    bgColor: 'bg-zinc-100',
+    icon: XCircle,
+    label: 'Terminated',
+  },
 };
 
-const tierConfig: Record<string, { bg: string; text: string; label: string; commission: string }> = {
-  starter: { bg: 'bg-zinc-100', text: 'text-zinc-700', label: 'Starter', commission: '30%' },
-  established: { bg: 'bg-blue-50', text: 'text-blue-700', label: 'Established', commission: '25%' },
-  premier: { bg: 'bg-violet-50', text: 'text-violet-700', label: 'Premier', commission: '20%' },
-};
+const tierConfig: Record<string, { bg: string; text: string; label: string; commission: string }> =
+  {
+    starter: { bg: 'bg-zinc-100', text: 'text-zinc-700', label: 'Starter', commission: '30%' },
+    established: {
+      bg: 'bg-blue-50',
+      text: 'text-blue-700',
+      label: 'Established',
+      commission: '25%',
+    },
+    premier: { bg: 'bg-violet-50', text: 'text-violet-700', label: 'Premier', commission: '20%' },
+  };
 
 export default function PartnersPage() {
   const [partners, setPartners] = useState<Partner[]>([]);
@@ -99,7 +118,10 @@ export default function PartnersPage() {
 
   const approvedCount = partners.filter((partner) => partner.status === 'approved').length;
   const pendingCount = partners.filter((partner) => partner.status === 'pending').length;
-  const totalRevenue = partners.reduce((sum, partner) => sum + Number(partner.lifetimeRevenue || 0), 0);
+  const totalRevenue = partners.reduce(
+    (sum, partner) => sum + Number(partner.lifetimeRevenue || 0),
+    0,
+  );
   const totalBots = partners.reduce((sum, partner) => sum + Number(partner.totalBots || 0), 0);
 
   const resetCreateForm = () => {
@@ -201,9 +223,20 @@ export default function PartnersPage() {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatCard label="Active Partners" value={approvedCount} icon={Users} color="emerald" />
-          <StatCard label="Pending" value={pendingCount} icon={Clock} color="amber" highlight={pendingCount > 0} />
+          <StatCard
+            label="Pending"
+            value={pendingCount}
+            icon={Clock}
+            color="amber"
+            highlight={pendingCount > 0}
+          />
           <StatCard label="Total Bots" value={totalBots} icon={Package} color="blue" />
-          <StatCard label="Lifetime Revenue" value={`$${(totalRevenue / 1000).toFixed(0)}k`} icon={DollarSign} color="emerald" />
+          <StatCard
+            label="Lifetime Revenue"
+            value={`$${(totalRevenue / 1000).toFixed(0)}k`}
+            icon={DollarSign}
+            color="emerald"
+          />
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -263,13 +296,17 @@ export default function PartnersPage() {
                         </div>
                       </div>
                       <div className="col-span-2">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${status.bgColor} ${status.color}`}>
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${status.bgColor} ${status.color}`}
+                        >
                           <StatusIcon className="h-3 w-3" />
                           {status.label}
                         </span>
                       </div>
                       <div className="col-span-2">
-                        <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${tier.bg} ${tier.text}`}>
+                        <span
+                          className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${tier.bg} ${tier.text}`}
+                        >
                           {tier.label}
                         </span>
                         <p className="text-xs text-zinc-500 mt-0.5">{tier.commission} commission</p>
@@ -332,11 +369,15 @@ export default function PartnersPage() {
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${status.bgColor} ${status.color}`}>
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${status.bgColor} ${status.color}`}
+                          >
                             <StatusIcon className="h-3 w-3" />
                             {status.label}
                           </span>
-                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${tier.bg} ${tier.text}`}>
+                          <span
+                            className={`px-2 py-0.5 rounded text-xs font-medium ${tier.bg} ${tier.text}`}
+                          >
                             {tier.label}
                           </span>
                         </div>
@@ -378,14 +419,14 @@ export default function PartnersPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Partner</DialogTitle>
-            <DialogDescription>
-              Register a new marketplace partner.
-            </DialogDescription>
+            <DialogDescription>Register a new marketplace partner.</DialogDescription>
           </DialogHeader>
 
           <form className="space-y-4" onSubmit={handleCreatePartner}>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-700" htmlFor="partner-name">Name</label>
+              <label className="text-sm font-medium text-zinc-700" htmlFor="partner-name">
+                Name
+              </label>
               <Input
                 id="partner-name"
                 value={name}
@@ -395,7 +436,9 @@ export default function PartnersPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-700" htmlFor="partner-email">Email</label>
+              <label className="text-sm font-medium text-zinc-700" htmlFor="partner-email">
+                Email
+              </label>
               <Input
                 id="partner-email"
                 type="email"
@@ -406,7 +449,9 @@ export default function PartnersPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-700" htmlFor="partner-company">Company</label>
+              <label className="text-sm font-medium text-zinc-700" htmlFor="partner-company">
+                Company
+              </label>
               <Input
                 id="partner-company"
                 value={company}
@@ -416,7 +461,9 @@ export default function PartnersPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-700" htmlFor="partner-website">Website</label>
+              <label className="text-sm font-medium text-zinc-700" htmlFor="partner-website">
+                Website
+              </label>
               <Input
                 id="partner-website"
                 value={website}
@@ -426,7 +473,9 @@ export default function PartnersPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-700" htmlFor="partner-description">Description</label>
+              <label className="text-sm font-medium text-zinc-700" htmlFor="partner-description">
+                Description
+              </label>
               <textarea
                 id="partner-description"
                 rows={3}
@@ -473,13 +522,19 @@ function StatCard({
   };
 
   return (
-    <div className={`rounded-xl border p-4 ${highlight ? 'border-amber-200 bg-amber-50/30' : 'border-zinc-200/80 bg-white'}`}>
+    <div
+      className={`rounded-xl border p-4 ${highlight ? 'border-amber-200 bg-amber-50/30' : 'border-zinc-200/80 bg-white'}`}
+    >
       <div className="flex items-center gap-3 mb-3">
-        <div className={`h-8 w-8 rounded-lg ${colorClasses[color]} flex items-center justify-center`}>
+        <div
+          className={`h-8 w-8 rounded-lg ${colorClasses[color]} flex items-center justify-center`}
+        >
           <Icon className="h-4 w-4" />
         </div>
       </div>
-      <p className={`text-2xl font-semibold ${highlight ? 'text-amber-700' : 'text-zinc-900'}`}>{value}</p>
+      <p className={`text-2xl font-semibold ${highlight ? 'text-amber-700' : 'text-zinc-900'}`}>
+        {value}
+      </p>
       <p className="text-sm text-zinc-500 mt-0.5">{label}</p>
     </div>
   );

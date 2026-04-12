@@ -79,9 +79,7 @@ export class AuditorService {
     const maxDate = new Date();
     maxDate.setDate(maxDate.getDate() + maxDays);
     if (accessExpiresAt > maxDate) {
-      throw new BadRequestException(
-        `Access duration cannot exceed ${maxDays} days`,
-      );
+      throw new BadRequestException(`Access duration cannot exceed ${maxDays} days`);
     }
 
     // Generate access code
@@ -156,10 +154,7 @@ export class AuditorService {
   /**
    * Regenerate access code for an auditor.
    */
-  async regenerateAccessCode(
-    tenantId: string,
-    auditorId: string,
-  ): Promise<string> {
+  async regenerateAccessCode(tenantId: string, auditorId: string): Promise<string> {
     const auditor = await this.findAuditorByIdOrFail(tenantId, auditorId);
 
     const accessCode = this.generateAccessCode();
@@ -321,10 +316,7 @@ export class AuditorService {
   /**
    * Get evidence pack manifest (NOT encrypted, auditor can read).
    */
-  async getManifest(
-    auditor: { id: string; organizationId: string },
-    packId: string,
-  ) {
+  async getManifest(auditor: { id: string; organizationId: string }, packId: string) {
     // Verify auditor can access this pack
     await this.verifyPackAccess(auditor, packId);
 
@@ -466,10 +458,7 @@ export class AuditorService {
   /**
    * Get chain of custody for evidence pack.
    */
-  async getChainOfCustody(
-    auditor: { id: string; organizationId: string },
-    packId: string,
-  ) {
+  async getChainOfCustody(auditor: { id: string; organizationId: string }, packId: string) {
     await this.verifyPackAccess(auditor, packId);
 
     // Log access
@@ -486,10 +475,7 @@ export class AuditorService {
   /**
    * Verify chain of custody cryptographic linking.
    */
-  async verifyCustodyChain(
-    auditor: { id: string; organizationId: string },
-    packId: string,
-  ) {
+  async verifyCustodyChain(auditor: { id: string; organizationId: string }, packId: string) {
     await this.verifyPackAccess(auditor, packId);
 
     // Log verification
@@ -510,10 +496,7 @@ export class AuditorService {
   /**
    * List available attestations for an evidence pack.
    */
-  async listAttestations(
-    auditor: { id: string; organizationId: string },
-    packId: string,
-  ) {
+  async listAttestations(auditor: { id: string; organizationId: string }, packId: string) {
     await this.verifyPackAccess(auditor, packId);
 
     return {
@@ -587,10 +570,7 @@ export class AuditorService {
    * Get auditor dashboard with compliance summary.
    */
   async getDashboard(auditor: { id: string; organizationId: string }) {
-    const auditorEntity = await this.findAuditorByIdOrFail(
-      auditor.organizationId,
-      auditor.id,
-    );
+    const auditorEntity = await this.findAuditorByIdOrFail(auditor.organizationId, auditor.id);
 
     // Log dashboard access
     await this.logAccess(auditor.id, auditor.organizationId, 'view_dashboard', {});
@@ -642,10 +622,7 @@ export class AuditorService {
   /**
    * Get compliance score across frameworks.
    */
-  async getComplianceScore(
-    auditor: { id: string; organizationId: string },
-    framework?: string,
-  ) {
+  async getComplianceScore(auditor: { id: string; organizationId: string }, framework?: string) {
     await this.logAccess(auditor.id, auditor.organizationId, 'view_compliance_score', {
       framework,
     });
@@ -660,10 +637,7 @@ export class AuditorService {
   // Helper Methods
   // ─────────────────────────────────────────────────────────────────
 
-  private async findAuditorByIdOrFail(
-    tenantId: string,
-    auditorId: string,
-  ): Promise<Auditor> {
+  private async findAuditorByIdOrFail(tenantId: string, auditorId: string): Promise<Auditor> {
     const auditor = await this.auditorRepository.findOne({
       where: { id: auditorId, tenantId },
     });
@@ -692,10 +666,7 @@ export class AuditorService {
     packId: string,
   ): Promise<void> {
     // Get auditor entity to check permissions
-    const auditorEntity = await this.findAuditorByIdOrFail(
-      auditor.organizationId,
-      auditor.id,
-    );
+    const auditorEntity = await this.findAuditorByIdOrFail(auditor.organizationId, auditor.id);
 
     // Check if still active and not expired
     if (!auditorEntity.isActive || auditorEntity.isExpired()) {

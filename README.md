@@ -42,19 +42,24 @@
 ## 🚀 Components
 
 ### Studio (Desktop Editor)
+
 Visual workflow editor built with Tauri + React.
+
 - **279 pre-built nodes** across 26 categories
 - **AI Planner V2** with executable plan generation
 - **MCP integration** for marketplace and compliance
 - Cross-platform: Windows, macOS, Linux
 
 **Download:**
+
 - [Windows Installer](https://downloads.skuld.ai/studio/latest/windows)
 - [macOS DMG](https://downloads.skuld.ai/studio/latest/macos)
 - [Linux DEB](https://downloads.skuld.ai/studio/latest/linux)
 
 ### Orchestrator (PaaS - Per-Client)
+
 Centralized bot management deployed in client's VPC.
+
 - **Job scheduling** with cron expressions
 - **Secrets management** with encryption
 - **Audit logging** (7-year retention for HIPAA)
@@ -62,6 +67,7 @@ Centralized bot management deployed in client's VPC.
 - **Multi-storage** (S3, Azure Blob, GCS)
 
 **Deployment:**
+
 ```bash
 # Terraform (AWS/Azure/GCP)
 cd orchestrator/terraform/aws
@@ -73,21 +79,27 @@ kubectl apply -f orchestrator/k8s/
 ```
 
 ### Runner (Execution Agent)
+
 Distributed bot execution engine (Python + Robot Framework).
+
 - **Attended mode**: Desktop automation with user interaction
 - **Unattended mode**: Background automation 24/7
 - **Multi-OS support**: Windows, macOS, Linux
 - **Health monitoring** with heartbeat reporting
 
 ### Control Plane (SaaS - Central)
+
 Multi-tenant services for licensing, marketplace, and billing.
+
 - **Marketplace**: 50+ pre-built bots (rentable)
 - **Licensing**: Feature flags, seat management
 - **Metering**: "Whichever is greater" billing model
 - **Billing**: Automated invoice generation
 
 ### Engine (Execution Motor)
+
 Python-based bot execution engine using Robot Framework.
+
 - **DSL validation** and compilation
 - **Node library**: 279 nodes (web, AI, data, Excel, etc.)
 - **Data connectors**: 23+ sources/targets (SQL, S3, Salesforce, etc.)
@@ -95,20 +107,23 @@ Python-based bot execution engine using Robot Framework.
 ## 🔐 Compliance & Security
 
 ### HIPAA Compliance
+
 ✅ **PHI Classification**: Automatic detection of SSN, MRN, diagnoses  
 ✅ **Private LLM Routing**: PHI always uses self-hosted LLM  
 ✅ **Audit Logging**: Every PHI access logged with 7-year retention  
 ✅ **Data Redaction**: PHI redacted in logs and reports  
 ✅ **Encryption**: At-rest and in-transit (TLS 1.3)  
-✅ **Access Control**: Multi-tenant isolation, RBAC  
+✅ **Access Control**: Multi-tenant isolation, RBAC
 
 ### Supported Standards
+
 - **HIPAA**: Protected Health Information (insurance, healthcare)
 - **PCI-DSS**: Payment Card Industry (finance)
 - **SOC 2 Type II**: Security, availability, confidentiality
 - **GDPR**: General Data Protection Regulation (EU)
 
 ### Data Residency
+
 - **Orchestrator**: Deployed in client's VPC (US, EU, APAC)
 - **PHI/PII**: Never leaves client's cloud
 - **Control Plane**: Centralized (US) for non-sensitive services
@@ -116,7 +131,9 @@ Python-based bot execution engine using Robot Framework.
 ## 💰 Pricing Model
 
 ### "Whichever is Greater" Billing
+
 SkuldBot supports complex hybrid pricing (e.g., FNOL Bot):
+
 ```
 $3.00 per claim completed
   OR
@@ -128,11 +145,13 @@ $4,000 monthly minimum
 ```
 
 **Example:**
+
 - Month 1: 100 claims, 500 calls → $4,000 (minimum)
 - Month 2: 2,000 claims, 10,000 calls → $7,500 (calls)
 - Month 3: 5,000 claims, 500 calls → $15,000 (claims)
 
 ### License Tiers
+
 - **Starter**: $500/month (1 Orchestrator, 3 Studio seats, 5 runners)
 - **Professional**: $2,000/month (Unlimited runners, 10 Studio seats)
 - **Enterprise**: Custom pricing (Multi-tenancy, SLA, support)
@@ -140,6 +159,7 @@ $4,000 monthly minimum
 ## 📊 Monitoring & Observability
 
 ### Prometheus Metrics
+
 ```
 mcp_tool_calls_total                      # Total tool calls
 mcp_tool_call_duration_seconds            # Latency (p95/p99)
@@ -150,11 +170,13 @@ mcp_billing_invoices_generated_total      # Billing events
 ```
 
 ### Grafana Dashboards
+
 - **Control Plane MCP**: Tool calls, error rates, top tools, tenant usage
 - **Orchestrator MCP**: Compliance classifications, LLM routing, audit logs
 - **Runner Metrics**: Bot execution times, success rates, resource usage
 
 ### Health Checks
+
 ```bash
 # Readiness probe (all servers healthy?)
 curl https://control-plane.skuld.ai/api/v1/mcp/health
@@ -172,6 +194,7 @@ curl https://control-plane.skuld.ai/metrics
 ## 🛠️ Quick Start
 
 ### 1. Install Studio
+
 ```bash
 # macOS
 brew install --cask skuldbot-studio
@@ -184,7 +207,9 @@ sudo dpkg -i skuldbot-studio_0.1.0_amd64.deb
 ```
 
 ### 2. Configure MCP Servers
+
 Edit `~/.skuldbot/mcp-config.json`:
+
 ```json
 {
   "servers": [
@@ -203,6 +228,7 @@ Edit `~/.skuldbot/mcp-config.json`:
 ```
 
 ### 3. Create Your First Bot
+
 ```bash
 # Open Studio
 skuldbot-studio
@@ -216,6 +242,7 @@ skuldbot-studio
 ```
 
 ### 4. Deploy Orchestrator (for clients)
+
 ```bash
 # Using Terraform
 cd orchestrator/terraform/aws
@@ -239,6 +266,7 @@ docker-compose up -d
 ## 🧪 Testing
 
 ### Unit Tests
+
 ```bash
 # Control Plane MCP
 cd control-plane/api
@@ -254,11 +282,13 @@ cargo test
 ```
 
 ### Coverage
+
 - **Licensing Server**: 95% coverage ✅
 - **Metering Server**: 98% coverage ✅ (includes "whichever is greater" logic)
 - **Compliance Server**: 97% coverage ✅ (PHI/PII/PCI detection)
 
 ### Key Test Suites
+
 1. **HIPAA Compliance Tests**: PHI classification, LLM routing, audit logging
 2. **Billing Logic Tests**: "Whichever is greater" calculation accuracy
 3. **License Validation Tests**: Feature flags, entitlements, seat limits
@@ -267,6 +297,7 @@ cargo test
 ## 🌟 Key Features
 
 ### AI-Powered Automation
+
 - **AI Planner V2**: Generates executable, production-ready workflows
 - **Interactive refinement**: Chat with AI to improve plans
 - **Validation pipeline**: DSL validation + compilation testing
@@ -274,6 +305,7 @@ cargo test
 - **Self-correction**: AI fixes validation errors automatically
 
 ### Enterprise-Grade
+
 - **Multi-tenancy**: Complete tenant isolation
 - **Secrets management**: Encrypted at rest, rotatable keys
 - **Audit logging**: 7-year retention (HIPAA compliant)
@@ -281,7 +313,9 @@ cargo test
 - **Disaster recovery**: Automated backups, point-in-time recovery
 
 ### Data Integration
+
 **23+ Connectors** via Singer taps:
+
 - **Databases**: PostgreSQL, MySQL, SQL Server, Oracle, MongoDB
 - **Cloud Storage**: S3, Azure Blob, GCS, MinIO
 - **CRMs**: Salesforce, HubSpot, Dynamics 365
@@ -289,7 +323,9 @@ cargo test
 - **APIs**: REST, SOAP, GraphQL
 
 ### 279 Pre-Built Nodes
+
 Across 26 categories:
+
 - **Web Automation** (24 nodes): Selenium, Playwright, API calls
 - **AI & LLM** (15 nodes): OpenAI, Anthropic, classification
 - **Data Processing** (28 nodes): Transform, filter, merge, validate
@@ -300,17 +336,20 @@ Across 26 categories:
 ## 🤝 Support
 
 ### Commercial Support
+
 - **Email**: support@skuld.ai
 - **Slack**: [skuld-support.slack.com](https://skuld-support.slack.com)
 - **Phone**: +1-XXX-XXX-XXXX (24/7 for Enterprise)
 
 ### SLA (Enterprise)
+
 - **P0 (Critical)**: 1 hour response, 4 hours resolution
 - **P1 (High)**: 4 hours response, 24 hours resolution
 - **P2 (Medium)**: 1 business day response
 - **P3 (Low)**: 3 business days response
 
 ### Community
+
 - **GitHub Discussions**: Ask questions, share workflows
 - **YouTube**: [Tutorial videos](https://youtube.com/@skuldbot)
 - **Blog**: [blog.skuld.ai](https://blog.skuld.ai)
@@ -318,25 +357,29 @@ Across 26 categories:
 ## 📈 Roadmap
 
 ### Q1 2026 (Current)
+
 ✅ Hybrid MCP architecture  
 ✅ HIPAA compliance certification  
 ✅ AI Planner V2  
 ✅ "Whichever is greater" billing  
-⏳ Beta launch (3 pilot customers)  
+⏳ Beta launch (3 pilot customers)
 
 ### Q2 2026
+
 - [ ] Public marketplace (50+ bots)
 - [ ] Self-service onboarding
 - [ ] Partner program (bot publishers)
 - [ ] SOC 2 Type II certification
 
 ### Q3 2026
+
 - [ ] Multi-region support (EU, APAC)
 - [ ] Advanced analytics dashboard
 - [ ] Workflow templates library (100+)
 - [ ] Mobile app (iOS/Android)
 
 ### Q4 2026
+
 - [ ] AI Co-Pilot (real-time suggestions)
 - [ ] Process mining (discover automations)
 - [ ] Custom node builder (low-code)
@@ -352,6 +395,7 @@ This software is proprietary and confidential. Unauthorized copying, distributio
 ## 🙏 Acknowledgments
 
 Built with:
+
 - **Tauri** - Cross-platform desktop framework
 - **React** - UI library
 - **NestJS** - Backend framework

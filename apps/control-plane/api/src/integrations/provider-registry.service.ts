@@ -1,9 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
-import {
-  IntegrationProvider,
-  IntegrationType,
-} from '../common/interfaces/integration.interface';
+import { IntegrationProvider, IntegrationType } from '../common/interfaces/integration.interface';
 
 export interface ProviderInfo {
   name: string;

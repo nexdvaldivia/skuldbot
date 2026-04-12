@@ -1,27 +1,27 @@
-import { create } from "zustand";
-import { invoke } from "@tauri-apps/api/tauri";
-import { useFlowStore } from "./flowStore";
-import { useProjectStore } from "./projectStore";
-import { useLogsStore } from "./logsStore";
-import { useToastStore } from "./toastStore";
+import { create } from 'zustand';
+import { invoke } from '@tauri-apps/api/tauri';
+import { useFlowStore } from './flowStore';
+import { useProjectStore } from './projectStore';
+import { useLogsStore } from './logsStore';
+import { useToastStore } from './toastStore';
 import {
   parseNodeRuntimeTelemetryLine,
   extractLatestNodeInputTelemetry,
   extractLatestNodeRuntimeTelemetry,
   getSchemaCandidateFromNodeData,
-} from "../utils/nodeRuntimeTelemetry";
+} from '../utils/nodeRuntimeTelemetry';
 import {
   buildExpressionNormalizationIndex,
   normalizeN8nExpressionsInValue,
-} from "../utils/expressionSyntax";
+} from '../utils/expressionSyntax';
 
-export type DebugState = "idle" | "running" | "paused" | "stopped";
+export type DebugState = 'idle' | 'running' | 'paused' | 'stopped';
 
 interface NodeExecutionState {
   nodeId: string;
   nodeType: string;
   label: string;
-  status: "pending" | "running" | "success" | "error" | "skipped";
+  status: 'pending' | 'running' | 'success' | 'error' | 'skipped';
   startTime?: number;
   endTime?: number;
   input?: any;
@@ -59,7 +59,7 @@ interface ExecutionResult {
 // Discovered schema for a field
 interface DiscoveredField {
   name: string;
-  type: "string" | "number" | "boolean" | "object" | "array" | "null";
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'null';
   items?: DiscoveredField[]; // For arrays - schema of items
   fields?: DiscoveredField[]; // For objects - nested fields
 }
@@ -76,15 +76,15 @@ interface DiscoveredSchema {
 // Infer schema from any data value
 function inferSchema(data: any, maxDepth: number = 3): DiscoveredField[] {
   if (data === null || data === undefined) return [];
-  
+
   if (Array.isArray(data)) {
     // For arrays, analyze items to discover common schema
     if (data.length === 0) return [];
-    
+
     // Sample first few items to infer schema
     const sampleSize = Math.min(data.length, 5);
     const itemSchemas: Map<string, DiscoveredField> = new Map();
-    
+
     for (let i = 0; i < sampleSize; i++) {
       const item = data[i];
       if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
@@ -96,19 +96,19 @@ function inferSchema(data: any, maxDepth: number = 3): DiscoveredField[] {
         }
       }
     }
-    
+
     return Array.from(itemSchemas.values());
   }
-  
+
   if (typeof data === 'object') {
     const fields: DiscoveredField[] = [];
-    
+
     for (const [key, value] of Object.entries(data)) {
       const field: DiscoveredField = {
         name: key,
         type: inferType(value),
       };
-      
+
       if (maxDepth > 0) {
         if (Array.isArray(value) && value.length > 0) {
           field.items = inferSchema(value, maxDepth - 1);
@@ -116,13 +116,13 @@ function inferSchema(data: any, maxDepth: number = 3): DiscoveredField[] {
           field.fields = inferSchema(value, maxDepth - 1);
         }
       }
-      
+
       fields.push(field);
     }
-    
+
     return fields;
   }
-  
+
   return [];
 }
 
@@ -147,13 +147,13 @@ interface PinnedDataEntry {
 const LIVE_DEBUG_WAIT_TIMEOUT_MIN_MS = 1000;
 const LIVE_DEBUG_WAIT_TIMEOUT_MAX_MS = 900000;
 const LIVE_DEBUG_WAIT_TIMEOUT_DEFAULT_MS = 180000;
-const LIVE_DEBUG_WAIT_TIMEOUT_STORAGE_KEY = "skuldbot_live_debug_wait_timeout_ms";
+const LIVE_DEBUG_WAIT_TIMEOUT_STORAGE_KEY = 'skuldbot_live_debug_wait_timeout_ms';
 
 function clampLiveDebugWaitTimeoutMs(value: number): number {
   if (!Number.isFinite(value)) return LIVE_DEBUG_WAIT_TIMEOUT_DEFAULT_MS;
   return Math.min(
     LIVE_DEBUG_WAIT_TIMEOUT_MAX_MS,
-    Math.max(LIVE_DEBUG_WAIT_TIMEOUT_MIN_MS, Math.round(value))
+    Math.max(LIVE_DEBUG_WAIT_TIMEOUT_MIN_MS, Math.round(value)),
   );
 }
 
@@ -185,7 +185,7 @@ interface DebugStoreState {
 
   // Data Pinning (flow-style)
   pinnedData: Map<string, PinnedDataEntry>;
-  
+
   // Schema Discovery - automatically inferred schemas from execution
   discoveredSchemas: Map<string, DiscoveredSchema>;
 
@@ -215,7 +215,12 @@ interface DebugStoreState {
 
   // Execution tracking
   setCurrentNode: (nodeId: string | null) => void;
-  markNodeStatus: (nodeId: string, status: NodeExecutionState["status"], output?: any, error?: string) => void;
+  markNodeStatus: (
+    nodeId: string,
+    status: NodeExecutionState['status'],
+    output?: any,
+    error?: string,
+  ) => void;
   markNodeInput: (nodeId: string, input?: any) => void;
   clearExecutionHistory: () => void;
 
@@ -247,7 +252,7 @@ interface DebugStoreState {
 }
 
 export const useDebugStore = create<DebugStoreState>((set, get) => ({
-  state: "idle",
+  state: 'idle',
   currentNodeId: null,
   pauseRequested: false,
   breakpoints: new Set(),
@@ -317,7 +322,7 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
         nodeId: exec.nodeId,
         nodeType: exec.nodeType,
         label: exec.label,
-        status: exec.status as NodeExecutionState["status"],
+        status: exec.status as NodeExecutionState['status'],
         startTime: exec.startTime,
         endTime: exec.endTime,
         input: exec.input,
@@ -328,11 +333,11 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     }
 
     // Map session state to debug state
-    let debugState: DebugState = "idle";
-    if (session.state === "running") debugState = "running";
-    else if (session.state === "paused") debugState = "paused";
-    else if (session.state === "stopped" || session.state === "error") debugState = "stopped";
-    else if (session.state === "completed") debugState = "stopped";
+    let debugState: DebugState = 'idle';
+    if (session.state === 'running') debugState = 'running';
+    else if (session.state === 'paused') debugState = 'paused';
+    else if (session.state === 'stopped' || session.state === 'error') debugState = 'stopped';
+    else if (session.state === 'completed') debugState = 'stopped';
 
     set((state) => ({
       state: debugState,
@@ -342,10 +347,10 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
       globalVariables: session.globalVariables || {},
       breakpoints: new Set(session.breakpoints),
       pauseRequested:
-        session.state === "paused" ||
-        session.state === "completed" ||
-        session.state === "stopped" ||
-        session.state === "error"
+        session.state === 'paused' ||
+        session.state === 'completed' ||
+        session.state === 'stopped' ||
+        session.state === 'error'
           ? false
           : state.pauseRequested,
     }));
@@ -353,7 +358,7 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
 
   // Debug control - Interactive mode
   startDebug: async () => {
-    console.log("🚀 [debugStore] startDebug called!");
+    console.log('🚀 [debugStore] startDebug called!');
     const flowStore = useFlowStore.getState();
     const projectStore = useProjectStore.getState();
     const logs = useLogsStore.getState();
@@ -362,43 +367,51 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
 
     // Sync flowStore with projectStore data before generating DSL
     // This ensures AI Model connections and other special edges are available
-    const activeBot = projectStore.activeBotId ? projectStore.bots.get(projectStore.activeBotId) : null;
+    const activeBot = projectStore.activeBotId
+      ? projectStore.bots.get(projectStore.activeBotId)
+      : null;
     if (activeBot) {
-      console.log("[debugStore] BEFORE sync - projectStore edges:", activeBot.edges.map(e => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        sourceHandle: e.sourceHandle,
-        targetHandle: e.targetHandle,
-        edgeType: e.data?.edgeType
-      })));
+      console.log(
+        '[debugStore] BEFORE sync - projectStore edges:',
+        activeBot.edges.map((e) => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          sourceHandle: e.sourceHandle,
+          targetHandle: e.targetHandle,
+          edgeType: e.data?.edgeType,
+        })),
+      );
 
       flowStore.setNodes(activeBot.nodes);
       flowStore.setEdges(activeBot.edges);
 
       // Verify sync worked - get fresh state
       const syncedState = useFlowStore.getState();
-      console.log("[debugStore] AFTER sync - flowStore edges:", syncedState.edges.map(e => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        sourceHandle: e.sourceHandle,
-        targetHandle: e.targetHandle,
-        edgeType: e.data?.edgeType
-      })));
+      console.log(
+        '[debugStore] AFTER sync - flowStore edges:',
+        syncedState.edges.map((e) => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          sourceHandle: e.sourceHandle,
+          targetHandle: e.targetHandle,
+          edgeType: e.data?.edgeType,
+        })),
+      );
     }
 
     // Get fresh state after sync
     const currentFlowState = useFlowStore.getState();
 
     if (currentFlowState.nodes.length === 0) {
-      toast.warning("No nodes", "Add at least one node before debugging");
+      toast.warning('No nodes', 'Add at least one node before debugging');
       return;
     }
 
     // Reset state
     set({
-      state: "running",
+      state: 'running',
       currentNodeId: null,
       pauseRequested: false,
       executionHistory: [],
@@ -409,26 +422,24 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     // Mark all nodes as pending
     const nodeIds = currentFlowState.nodes.map((n) => n.id);
     nodeIds.forEach((nodeId) => {
-      get().markNodeStatus(nodeId, "pending");
+      get().markNodeStatus(nodeId, 'pending');
     });
 
-    logs.info("Starting debug execution...");
+    logs.info('Starting debug execution...');
     logs.openPanel();
 
     // Check for triggers and auto-add Manual if none exists
-    const hasTrigger = currentFlowState.nodes.some(
-      (node) => node.data.category === "trigger"
-    );
+    const hasTrigger = currentFlowState.nodes.some((node) => node.data.category === 'trigger');
 
     // Generate DSL from fresh state
     const dsl = currentFlowState.generateDSL();
 
     // Debug: Log the generated DSL to verify model_config_ is present
-    console.log("[debugStore] Generated DSL:", JSON.stringify(dsl, null, 2));
+    console.log('[debugStore] Generated DSL:', JSON.stringify(dsl, null, 2));
     const aiClassifyNode = dsl.nodes.find((n: any) => n.type === 'ai.classify');
     if (aiClassifyNode) {
-      console.log("[debugStore] AI Classify node:", aiClassifyNode);
-      console.log("[debugStore] model_config_:", aiClassifyNode.model_config_);
+      console.log('[debugStore] AI Classify node:', aiClassifyNode);
+      console.log('[debugStore] model_config_:', aiClassifyNode.model_config_);
     }
 
     if (!hasTrigger) {
@@ -437,28 +448,28 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
 
       const manualTriggerNode = {
         id: manualTriggerId,
-        type: "trigger.manual",
+        type: 'trigger.manual',
         config: {},
         outputs: {
           success: firstNodeId || manualTriggerId,
           error: manualTriggerId,
         },
-        label: "Manual Trigger",
+        label: 'Manual Trigger',
       };
 
       dsl.nodes.unshift(manualTriggerNode);
       dsl.triggers = [manualTriggerId];
       dsl.start_node = manualTriggerId;
 
-      logs.info("Auto-added Manual Trigger");
+      logs.info('Auto-added Manual Trigger');
     }
 
     // Use interactive debug mode with breakpoints
     if (useInteractiveDebug) {
       try {
-        logs.info("Starting interactive debug session...");
+        logs.info('Starting interactive debug session...');
 
-        const result = await invoke<DebugCommandResult>("debug_start", {
+        const result = await invoke<DebugCommandResult>('debug_start', {
           dsl: JSON.stringify(dsl),
           breakpoints: Array.from(breakpoints),
           timeoutMs: liveDebugWaitTimeoutMs,
@@ -466,26 +477,26 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
 
         if (result.success && result.sessionState) {
           get()._syncFromSession(result.sessionState);
-          logs.success("Debug session started - paused at first node");
-          toast.info("Debug Started", "Use Step (F10) or Continue (F5) to execute");
+          logs.success('Debug session started - paused at first node');
+          toast.info('Debug Started', 'Use Step (F10) or Continue (F5) to execute');
         } else {
-          logs.error("Failed to start debug session: " + (result.message || "Unknown error"));
-          toast.error("Debug Error", result.message || "Failed to start");
-          set({ state: "stopped" });
+          logs.error('Failed to start debug session: ' + (result.message || 'Unknown error'));
+          toast.error('Debug Error', result.message || 'Failed to start');
+          set({ state: 'stopped' });
         }
       } catch (error) {
         const errorMsg = String(error);
-        logs.error("Debug error: " + errorMsg);
-        toast.error("Debug Error", errorMsg.substring(0, 100));
-        set({ state: "stopped" });
+        logs.error('Debug error: ' + errorMsg);
+        toast.error('Debug Error', errorMsg.substring(0, 100));
+        set({ state: 'stopped' });
       }
     } else {
       // Legacy mode - run all at once
       try {
-        logs.info("Compiling and executing bot...");
+        logs.info('Compiling and executing bot...');
 
-        const result = await invoke<ExecutionResult>("run_bot", {
-          dsl: JSON.stringify(dsl)
+        const result = await invoke<ExecutionResult>('run_bot', {
+          dsl: JSON.stringify(dsl),
         });
 
         // Parse and show logs
@@ -496,56 +507,60 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
             if (nodeMatch) {
               const nodeId = nodeMatch[1];
               get().setCurrentNode(nodeId);
-              get().markNodeStatus(nodeId, "running");
+              get().markNodeStatus(nodeId, 'running');
             }
 
             const runtimeTelemetry = parseNodeRuntimeTelemetryLine(log);
             if (runtimeTelemetry?.nodeId) {
               const { nodeId, data, channel } = runtimeTelemetry;
-              if (channel === "input") {
+              if (channel === 'input') {
                 get().markNodeInput(nodeId, data);
               } else {
-                get().markNodeStatus(nodeId, "success", data);
+                get().markNodeStatus(nodeId, 'success', data);
                 const flowNodes = useFlowStore.getState().nodes;
                 const flowNode = flowNodes.find((n) => n.id === nodeId);
                 const schemaCandidate = getSchemaCandidateFromNodeData(data);
-                if (flowNode && schemaCandidate && typeof schemaCandidate === "object") {
+                if (flowNode && schemaCandidate && typeof schemaCandidate === 'object') {
                   get().discoverSchema(nodeId, flowNode.data.nodeType, schemaCandidate);
                 }
               }
-            } else if (log.includes("ERROR") || log.includes("FAIL")) {
+            } else if (log.includes('ERROR') || log.includes('FAIL')) {
               logs.error(log);
-            } else if (log.includes("WARNING") || log.includes("WARN")) {
+            } else if (log.includes('WARNING') || log.includes('WARN')) {
               logs.warning(log);
-            } else if (log.includes("PASS") || log.includes("SUCCESS")) {
+            } else if (log.includes('PASS') || log.includes('SUCCESS')) {
               logs.success(log);
-            } else if (!log.includes("NODE_OUTPUT:") && !log.includes("NODE_ENVELOPE:") && !log.includes("NODE_INPUT:")) {
+            } else if (
+              !log.includes('NODE_OUTPUT:') &&
+              !log.includes('NODE_ENVELOPE:') &&
+              !log.includes('NODE_INPUT:')
+            ) {
               // Don't show telemetry lines in logs (already captured as runtime data)
               logs.info(log);
             }
           });
         } else if (result.output) {
-          logs.info("Bot output", result.output);
+          logs.info('Bot output', result.output);
         }
 
         if (result.success) {
           // Mark all nodes as success
           nodeIds.forEach((nodeId) => {
-            get().markNodeStatus(nodeId, "success");
+            get().markNodeStatus(nodeId, 'success');
           });
-          logs.success("Debug execution completed successfully");
-          toast.success("Debug complete", "Bot executed successfully");
-          set({ state: "stopped" });
+          logs.success('Debug execution completed successfully');
+          toast.success('Debug complete', 'Bot executed successfully');
+          set({ state: 'stopped' });
         } else {
-          logs.error("Debug execution failed");
-          toast.error("Debug failed", "Check the logs for details");
-          set({ state: "stopped" });
+          logs.error('Debug execution failed');
+          toast.error('Debug failed', 'Check the logs for details');
+          set({ state: 'stopped' });
         }
       } catch (error) {
         const errorMsg = String(error);
-        logs.error("Debug error", errorMsg);
-        toast.error("Debug error", errorMsg.substring(0, 100));
-        set({ state: "stopped" });
+        logs.error('Debug error', errorMsg);
+        toast.error('Debug error', errorMsg.substring(0, 100));
+        set({ state: 'stopped' });
       }
     }
   },
@@ -555,24 +570,24 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     const logs = useLogsStore.getState();
 
     if (!useInteractiveDebug || !sessionState) {
-      set({ state: "paused" });
+      set({ state: 'paused' });
       return;
     }
 
     try {
-      const result = await invoke<DebugCommandResult>("debug_pause");
+      const result = await invoke<DebugCommandResult>('debug_pause');
       if (result.success && result.sessionState) {
         get()._syncFromSession(result.sessionState);
         set({
-          pauseRequested: result.sessionState.state !== "paused",
+          pauseRequested: result.sessionState.state !== 'paused',
         });
-        logs.info(result.message || "Pause requested");
+        logs.info(result.message || 'Pause requested');
       } else {
-        logs.error("Pause failed: " + (result.message || "Unknown error"));
+        logs.error('Pause failed: ' + (result.message || 'Unknown error'));
       }
     } catch (error) {
       const errorMsg = String(error);
-      logs.error("Pause error: " + errorMsg);
+      logs.error('Pause error: ' + errorMsg);
     }
   },
 
@@ -582,15 +597,15 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     const toast = useToastStore.getState();
 
     if (!useInteractiveDebug || !sessionState) {
-      set({ state: "running" });
+      set({ state: 'running' });
       return;
     }
 
     try {
-      logs.info("Continuing execution...");
-      set({ state: "running", pauseRequested: false });
+      logs.info('Continuing execution...');
+      set({ state: 'running', pauseRequested: false });
 
-      const result = await invoke<DebugCommandResult>("debug_continue", {
+      const result = await invoke<DebugCommandResult>('debug_continue', {
         sessionStateJson: JSON.stringify(sessionState),
         timeoutMs: liveDebugWaitTimeoutMs,
       });
@@ -598,21 +613,21 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
       if (result.success && result.sessionState) {
         get()._syncFromSession(result.sessionState);
 
-        if (result.sessionState.state === "completed") {
-          logs.success("Execution completed");
-          toast.success("Complete", "All nodes executed");
+        if (result.sessionState.state === 'completed') {
+          logs.success('Execution completed');
+          toast.success('Complete', 'All nodes executed');
         } else if (result.sessionState.pausedAtBreakpoint) {
           logs.info(`Paused at breakpoint: ${result.sessionState.currentNodeId}`);
-          toast.info("Breakpoint", `Paused at ${result.sessionState.currentNodeId}`);
+          toast.info('Breakpoint', `Paused at ${result.sessionState.currentNodeId}`);
         }
       } else {
-        logs.error("Continue failed: " + (result.message || "Unknown error"));
+        logs.error('Continue failed: ' + (result.message || 'Unknown error'));
       }
     } catch (error) {
       const errorMsg = String(error);
-      logs.error("Continue error: " + errorMsg);
-      toast.error("Error", errorMsg.substring(0, 100));
-      set({ state: "paused" });
+      logs.error('Continue error: ' + errorMsg);
+      toast.error('Error', errorMsg.substring(0, 100));
+      set({ state: 'paused' });
     }
   },
 
@@ -621,7 +636,7 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
 
     // IMMEDIATELY reset state to idle so Run button becomes enabled
     set({
-      state: "idle",
+      state: 'idle',
       currentNodeId: null,
       pauseRequested: false,
     });
@@ -629,19 +644,19 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     try {
       // Stop both interactive debug session and any running bot process
       await Promise.all([
-        invoke<DebugCommandResult>("debug_stop").catch(() => {}),
-        invoke<boolean>("stop_bot").catch(() => {}),
+        invoke<DebugCommandResult>('debug_stop').catch(() => {}),
+        invoke<boolean>('stop_bot').catch(() => {}),
       ]);
-      logs.info("Execution stopped");
+      logs.info('Execution stopped');
     } catch (error) {
       // Ignore errors when stopping
     }
 
-      // Keep session state for inspection but ensure state is idle
-      set({
-        state: "idle",
-        pauseRequested: false,
-      });
+    // Keep session state for inspection but ensure state is idle
+    set({
+      state: 'idle',
+      pauseRequested: false,
+    });
   },
 
   stepOver: async () => {
@@ -651,15 +666,15 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
 
     if (!useInteractiveDebug || !sessionState) {
       // Legacy: just pause
-      set({ state: "paused" });
+      set({ state: 'paused' });
       return;
     }
 
     try {
-      logs.info("Stepping to next node...");
+      logs.info('Stepping to next node...');
       set({ pauseRequested: false });
 
-      const result = await invoke<DebugCommandResult>("debug_step", {
+      const result = await invoke<DebugCommandResult>('debug_step', {
         sessionStateJson: JSON.stringify(sessionState),
         timeoutMs: liveDebugWaitTimeoutMs,
       });
@@ -672,24 +687,24 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
         const nodeExec = currentNode ? result.sessionState.nodeExecutions[currentNode] : null;
 
         if (nodeExec) {
-          if (nodeExec.status === "success") {
+          if (nodeExec.status === 'success') {
             logs.success(`Node "${nodeExec.label}" executed successfully`);
-          } else if (nodeExec.status === "error") {
+          } else if (nodeExec.status === 'error') {
             logs.error(`Node "${nodeExec.label}" failed: ${nodeExec.error}`);
           }
         }
 
-        if (result.sessionState.state === "completed") {
-          logs.success("All nodes executed");
-          toast.success("Complete", "Debug execution finished");
+        if (result.sessionState.state === 'completed') {
+          logs.success('All nodes executed');
+          toast.success('Complete', 'Debug execution finished');
         }
       } else {
-        logs.error("Step failed: " + (result.message || "Unknown error"));
+        logs.error('Step failed: ' + (result.message || 'Unknown error'));
       }
     } catch (error) {
       const errorMsg = String(error);
-      logs.error("Step error: " + errorMsg);
-      toast.error("Step Error", errorMsg.substring(0, 100));
+      logs.error('Step error: ' + errorMsg);
+      toast.error('Step Error', errorMsg.substring(0, 100));
     }
   },
 
@@ -716,28 +731,28 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     const targetExists = sessionState.executionOrder.includes(nodeId);
     if (!targetExists) {
       logs.error(`Run to cursor failed: node ${nodeId} is not in execution order`);
-      toast.error("Run to Cursor", "Target node is not part of the current debug session");
+      toast.error('Run to Cursor', 'Target node is not part of the current debug session');
       return;
     }
 
     logs.info(`Running to cursor: ${nodeId}`);
-    set({ state: "running", pauseRequested: false });
+    set({ state: 'running', pauseRequested: false });
 
     try {
       let currentSession = sessionState;
       const maxSteps = Math.max(currentSession.executionOrder.length * 3, 50);
 
       for (let step = 0; step < maxSteps; step++) {
-        const result = await invoke<DebugCommandResult>("debug_step", {
+        const result = await invoke<DebugCommandResult>('debug_step', {
           sessionStateJson: JSON.stringify(currentSession),
           timeoutMs: liveDebugWaitTimeoutMs,
         });
 
         if (!result.success || !result.sessionState) {
-          const msg = result.message || "Unknown debug step error";
+          const msg = result.message || 'Unknown debug step error';
           logs.error(`Run to cursor failed: ${msg}`);
-          toast.error("Run to Cursor", msg.substring(0, 120));
-          set({ state: "paused" });
+          toast.error('Run to Cursor', msg.substring(0, 120));
+          set({ state: 'paused' });
           return;
         }
 
@@ -746,26 +761,26 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
 
         if (currentSession.currentNodeId === nodeId) {
           logs.info(`Reached cursor at node: ${nodeId}`);
-          toast.info("Run to Cursor", `Paused at ${nodeId}`);
-          set({ state: "paused" });
+          toast.info('Run to Cursor', `Paused at ${nodeId}`);
+          set({ state: 'paused' });
           return;
         }
 
-        if (currentSession.state === "completed") {
+        if (currentSession.state === 'completed') {
           logs.warning(`Execution completed before reaching node: ${nodeId}`);
-          toast.warning("Run to Cursor", "Execution finished before reaching target node");
+          toast.warning('Run to Cursor', 'Execution finished before reaching target node');
           return;
         }
       }
 
-      logs.error("Run to cursor hit safety step limit");
-      toast.error("Run to Cursor", "Step limit reached before hitting target node");
-      set({ state: "paused" });
+      logs.error('Run to cursor hit safety step limit');
+      toast.error('Run to Cursor', 'Step limit reached before hitting target node');
+      set({ state: 'paused' });
     } catch (error) {
       const errorMsg = String(error);
-      logs.error("Run to cursor error: " + errorMsg);
-      toast.error("Run to Cursor", errorMsg.substring(0, 120));
-      set({ state: "paused" });
+      logs.error('Run to cursor error: ' + errorMsg);
+      toast.error('Run to Cursor', errorMsg.substring(0, 120));
+      set({ state: 'paused' });
     }
   },
 
@@ -776,22 +791,24 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     const toast = useToastStore.getState();
 
     // Sync flowStore with projectStore data
-    const activeBot = projectStore.activeBotId ? projectStore.bots.get(projectStore.activeBotId) : null;
+    const activeBot = projectStore.activeBotId
+      ? projectStore.bots.get(projectStore.activeBotId)
+      : null;
     if (activeBot) {
       flowStore.setNodes(activeBot.nodes);
       flowStore.setEdges(activeBot.edges);
     }
 
     const currentFlowState = useFlowStore.getState();
-    const node = currentFlowState.nodes.find(n => n.id === nodeId);
+    const node = currentFlowState.nodes.find((n) => n.id === nodeId);
 
     if (!node) {
-      toast.error("Node not found", "Cannot execute node");
+      toast.error('Node not found', 'Cannot execute node');
       return;
     }
 
     // Mark node as running
-    get().markNodeStatus(nodeId, "running");
+    get().markNodeStatus(nodeId, 'running');
     get().setCurrentNode(nodeId);
     logs.info(`Executing node: ${node.data.label}`);
     logs.openPanel();
@@ -803,14 +820,14 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
       const normalizedMainConfig = normalizeN8nExpressionsInValue(
         node.data.config || {},
         expressionIndex,
-        nodeId
+        nodeId,
       ) as Record<string, any>;
       const nodeDsl = {
-        version: "1.0",
+        version: '1.0',
         bot: {
           id: `test-${nodeId}`,
           name: `Test: ${node.data.label}`,
-          description: "Single node test execution",
+          description: 'Single node test execution',
         },
         nodes: [
           {
@@ -830,18 +847,22 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
       };
 
       // Find any connected config nodes (AI Model, MS365 Connection, etc.)
-      const configEdges = currentFlowState.edges.filter(e =>
-        e.target === nodeId &&
-        (e.targetHandle === "model" || e.targetHandle === "connection" || e.targetHandle === "embeddings" || e.targetHandle === "memory")
+      const configEdges = currentFlowState.edges.filter(
+        (e) =>
+          e.target === nodeId &&
+          (e.targetHandle === 'model' ||
+            e.targetHandle === 'connection' ||
+            e.targetHandle === 'embeddings' ||
+            e.targetHandle === 'memory'),
       );
 
       for (const edge of configEdges) {
-        const configNode = currentFlowState.nodes.find(n => n.id === edge.source);
+        const configNode = currentFlowState.nodes.find((n) => n.id === edge.source);
         if (configNode) {
           const normalizedConfigNodeConfig = normalizeN8nExpressionsInValue(
             configNode.data.config || {},
             expressionIndex,
-            configNode.id
+            configNode.id,
           ) as Record<string, any>;
           // Add config node to DSL
           const configDslNode: any = {
@@ -853,7 +874,7 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
 
           // Only add outputs for non-config nodes (AI config nodes don't have outputs)
           // But ms365.connection DOES have outputs (it produces a connection)
-          const AI_CONFIG_NODES = ["ai.model", "ai.embeddings", "vectordb.memory"];
+          const AI_CONFIG_NODES = ['ai.model', 'ai.embeddings', 'vectordb.memory'];
           if (!AI_CONFIG_NODES.includes(configNode.data.nodeType)) {
             configDslNode.outputs = { success: configNode.id, error: configNode.id };
           }
@@ -861,26 +882,26 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
           nodeDsl.nodes.unshift(configDslNode);
 
           // Add the config to the main node
-          const mainNodeIndex = nodeDsl.nodes.findIndex(n => n.id === nodeId);
+          const mainNodeIndex = nodeDsl.nodes.findIndex((n) => n.id === nodeId);
           if (mainNodeIndex >= 0) {
-            const handleName = edge.targetHandle || "model";
+            const handleName = edge.targetHandle || 'model';
 
             // For connection nodes (like ms365.connection), pass the actual config
             // so the trigger can use it directly
-            if (configNode.data.nodeType === "ms365.connection") {
+            if (configNode.data.nodeType === 'ms365.connection') {
               (nodeDsl.nodes[mainNodeIndex] as any).connection_config = normalizedConfigNodeConfig;
             } else {
               // For other config nodes, pass a reference
               (nodeDsl.nodes[mainNodeIndex] as any)[`${handleName}_config_`] = {
                 nodeId: configNode.id,
-                handleId: edge.sourceHandle || "default",
+                handleId: edge.sourceHandle || 'default',
               };
             }
           }
         }
       }
 
-      const result = await invoke<ExecutionResult>("run_bot", {
+      const result = await invoke<ExecutionResult>('run_bot', {
         dsl: JSON.stringify(nodeDsl),
       });
 
@@ -892,33 +913,38 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
         const runtimeTelemetry = extractLatestNodeRuntimeTelemetry(result.output);
         const runtimeData = runtimeTelemetry?.data;
         // Prefer telemetry payload (NODE_ENVELOPE over NODE_OUTPUT), otherwise fallback
-        const outputToShow = runtimeData ?? result.output ?? result.message ?? "Execution completed successfully";
-        get().markNodeStatus(nodeId, "success", outputToShow);
+        const outputToShow =
+          runtimeData ?? result.output ?? result.message ?? 'Execution completed successfully';
+        get().markNodeStatus(nodeId, 'success', outputToShow);
         // Discover schema from business payload (json/items/result), not raw wrapper
         const schemaCandidate = getSchemaCandidateFromNodeData(outputToShow);
-        if (schemaCandidate && typeof schemaCandidate === "object") {
+        if (schemaCandidate && typeof schemaCandidate === 'object') {
           get().discoverSchema(nodeId, node.data.nodeType, schemaCandidate);
         }
         logs.success(`Node "${node.data.label}" executed successfully`);
-        toast.success("Node executed", result.message || "Success");
+        toast.success('Node executed', result.message || 'Success');
       } else {
-        const errorToShow = result.message || "Unknown error";
-        get().markNodeStatus(nodeId, "error", undefined, errorToShow);
+        const errorToShow = result.message || 'Unknown error';
+        get().markNodeStatus(nodeId, 'error', undefined, errorToShow);
         logs.error(`Node "${node.data.label}" failed: ${errorToShow}`);
-        toast.error("Node failed", errorToShow);
+        toast.error('Node failed', errorToShow);
       }
 
       // Log output if available
       if (result.logs && Array.isArray(result.logs)) {
         result.logs.forEach((log: string) => {
-          if (log.includes("NODE_INPUT:") || log.includes("NODE_OUTPUT:") || log.includes("NODE_ENVELOPE:")) {
+          if (
+            log.includes('NODE_INPUT:') ||
+            log.includes('NODE_OUTPUT:') ||
+            log.includes('NODE_ENVELOPE:')
+          ) {
             return;
           }
-          if (log.includes("ERROR") || log.includes("FAIL")) {
+          if (log.includes('ERROR') || log.includes('FAIL')) {
             logs.error(log);
-          } else if (log.includes("WARNING") || log.includes("WARN")) {
+          } else if (log.includes('WARNING') || log.includes('WARN')) {
             logs.warning(log);
-          } else if (log.includes("PASS") || log.includes("SUCCESS")) {
+          } else if (log.includes('PASS') || log.includes('SUCCESS')) {
             logs.success(log);
           } else {
             logs.info(log);
@@ -927,9 +953,9 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
       }
     } catch (error) {
       const errorMsg = String(error);
-      get().markNodeStatus(nodeId, "error", undefined, errorMsg);
+      get().markNodeStatus(nodeId, 'error', undefined, errorMsg);
       logs.error(`Node execution error: ${errorMsg}`);
-      toast.error("Execution error", errorMsg.substring(0, 100));
+      toast.error('Execution error', errorMsg.substring(0, 100));
     }
 
     get().setCurrentNode(null);
@@ -941,23 +967,30 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
   },
 
   markNodeStatus: (nodeId, status, output, error) => {
-    console.log("[DebugStore] markNodeStatus called:", { nodeId, status, output: typeof output === 'object' ? JSON.stringify(output).substring(0, 100) : output, error });
+    console.log('[DebugStore] markNodeStatus called:', {
+      nodeId,
+      status,
+      output: typeof output === 'object' ? JSON.stringify(output).substring(0, 100) : output,
+      error,
+    });
     set((state) => {
-      const existingIndex = state.executionHistory.findIndex(
-        (e) => e.nodeId === nodeId
-      );
+      const existingIndex = state.executionHistory.findIndex((e) => e.nodeId === nodeId);
 
       const nodeState: NodeExecutionState = {
         nodeId,
-        nodeType: "",
+        nodeType: '',
         label: nodeId,
         status,
-        startTime: status === "running" ? Date.now() : undefined,
-        endTime: status !== "running" && status !== "pending" ? Date.now() : undefined,
+        startTime: status === 'running' ? Date.now() : undefined,
+        endTime: status !== 'running' && status !== 'pending' ? Date.now() : undefined,
         output,
         error,
       };
-      console.log("[DebugStore] executionHistory will have:", state.executionHistory.length + (existingIndex >= 0 ? 0 : 1), "entries");
+      console.log(
+        '[DebugStore] executionHistory will have:',
+        state.executionHistory.length + (existingIndex >= 0 ? 0 : 1),
+        'entries',
+      );
 
       if (existingIndex >= 0) {
         const newHistory = [...state.executionHistory];
@@ -988,9 +1021,9 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
 
       const nodeState: NodeExecutionState = {
         nodeId,
-        nodeType: "",
+        nodeType: '',
         label: nodeId,
-        status: "pending",
+        status: 'pending',
         input,
       };
       return {
@@ -1024,7 +1057,7 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     }
 
     try {
-      const variables = await invoke<Record<string, any>>("debug_get_variables", {
+      const variables = await invoke<Record<string, any>>('debug_get_variables', {
         sessionStateJson: JSON.stringify(sessionState),
         nodeId,
       });
@@ -1087,10 +1120,10 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
   // Stores by BOTH nodeId (specific) and nodeType (global for all nodes of same type)
   discoverSchema: (nodeId, nodeType, data) => {
     if (!data) return;
-    
+
     const fields = inferSchema(data, 4);
     if (fields.length === 0) return;
-    
+
     const schema: DiscoveredSchema = {
       nodeId,
       nodeType,
@@ -1098,46 +1131,48 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
       discoveredAt: Date.now(),
       sampleCount: (get().discoveredSchemas.get(nodeId)?.sampleCount || 0) + 1,
     };
-    
+
     set((state) => {
       const newSchemas = new Map(state.discoveredSchemas);
       // Store by nodeId (specific instance)
       newSchemas.set(nodeId, schema);
       // Also store by nodeType (benefits ALL nodes of this type)
       newSchemas.set(`type:${nodeType}`, schema);
-      
+
       // Persist to localStorage
       try {
         const allSchemas: Record<string, DiscoveredSchema> = {};
-        newSchemas.forEach((s, id) => { allSchemas[id] = s; });
+        newSchemas.forEach((s, id) => {
+          allSchemas[id] = s;
+        });
         localStorage.setItem('skuldbot_discovered_schemas', JSON.stringify(allSchemas));
       } catch (e) {
         console.warn('Failed to persist schemas to localStorage:', e);
       }
-      
+
       return { discoveredSchemas: newSchemas };
     });
   },
 
   getDiscoveredSchema: (nodeId, nodeType?: string) => {
     const state = get();
-    
+
     // First check specific nodeId
     const nodeSchema = state.discoveredSchemas.get(nodeId);
     if (nodeSchema) return nodeSchema;
-    
+
     // Then check by nodeType (global schema for this type)
     if (nodeType) {
       const typeSchema = state.discoveredSchemas.get(`type:${nodeType}`);
       if (typeSchema) return typeSchema;
     }
-    
+
     // Try to load from localStorage if not in memory
     try {
       const stored = localStorage.getItem('skuldbot_discovered_schemas');
       if (stored) {
         const allSchemas = JSON.parse(stored) as Record<string, DiscoveredSchema>;
-        
+
         // Check nodeId first
         if (allSchemas[nodeId]) {
           set((s) => {
@@ -1147,7 +1182,7 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
           });
           return allSchemas[nodeId];
         }
-        
+
         // Check nodeType
         if (nodeType && allSchemas[`type:${nodeType}`]) {
           set((s) => {
@@ -1161,7 +1196,7 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
     } catch (e) {
       console.warn('Failed to load schema from localStorage:', e);
     }
-    
+
     return undefined;
   },
 
@@ -1185,7 +1220,8 @@ export const useDebugStore = create<DebugStoreState>((set, get) => ({
 
 // Helper hook for getting node debug state
 export function useNodeDebugState(nodeId: string) {
-  const { currentNodeId, breakpoints, executionHistory, state, sessionState, pinnedData } = useDebugStore();
+  const { currentNodeId, breakpoints, executionHistory, state, sessionState, pinnedData } =
+    useDebugStore();
 
   // Try to get from session state first (more accurate)
   const sessionExec = sessionState?.nodeExecutions[nodeId];
@@ -1193,7 +1229,7 @@ export function useNodeDebugState(nodeId: string) {
 
   const isCurrentNode = currentNodeId === nodeId;
   const hasBreakpoint = breakpoints.has(nodeId);
-  const isDebugging = state !== "idle";
+  const isDebugging = state !== 'idle';
   const isPinned = pinnedData.has(nodeId);
   const pinnedDataEntry = pinnedData.get(nodeId);
 
@@ -1201,7 +1237,7 @@ export function useNodeDebugState(nodeId: string) {
     isCurrentNode,
     hasBreakpoint,
     isDebugging,
-    status: execution?.status || "pending",
+    status: execution?.status || 'pending',
     output: execution?.output,
     error: execution?.error,
     variables: execution?.variables,

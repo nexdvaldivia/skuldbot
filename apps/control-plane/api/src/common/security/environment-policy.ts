@@ -72,4 +72,3 @@ export function enforceEnvironmentPolicy(env: NodeJS.ProcessEnv): void {
     );
   }
 }
-

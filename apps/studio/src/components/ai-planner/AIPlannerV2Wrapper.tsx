@@ -3,8 +3,8 @@
  * Connects the V2 panel to the store
  */
 
-import { useAIPlannerV2Store } from "../../store/aiPlannerV2Store";
-import AIPlannerV2Panel from "./AIPlannerV2Panel";
+import { useAIPlannerV2Store } from '../../store/aiPlannerV2Store';
+import AIPlannerV2Panel from './AIPlannerV2Panel';
 
 export function AIPlannerV2Wrapper() {
   const isPanelOpen = useAIPlannerV2Store((state) => state.isPanelOpen);
@@ -14,5 +14,3 @@ export function AIPlannerV2Wrapper() {
 }
 
 export default AIPlannerV2Wrapper;
-
-

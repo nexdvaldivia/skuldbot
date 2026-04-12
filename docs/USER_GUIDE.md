@@ -32,13 +32,13 @@ Permite disenar flujos de trabajo arrastrando y conectando nodos, sin necesidad 
 
 ### Componentes principales
 
-| Area | Descripcion |
-|------|-------------|
-| **Toolbar** | Nombre del bot, botones de Build/Run, import/export |
-| **Sidebar** | Catalogo de nodos organizados por categoria |
-| **Canvas** | Area de trabajo donde se diseña el flujo |
-| **Logs Panel** | Consola para ver mensajes de compilacion y ejecucion |
-| **Node Config** | Panel flotante para configurar el nodo seleccionado |
+| Area            | Descripcion                                          |
+| --------------- | ---------------------------------------------------- |
+| **Toolbar**     | Nombre del bot, botones de Build/Run, import/export  |
+| **Sidebar**     | Catalogo de nodos organizados por categoria          |
+| **Canvas**      | Area de trabajo donde se diseña el flujo             |
+| **Logs Panel**  | Consola para ver mensajes de compilacion y ejecucion |
+| **Node Config** | Panel flotante para configurar el nodo seleccionado  |
 
 ---
 
@@ -81,15 +81,15 @@ Permite disenar flujos de trabajo arrastrando y conectando nodos, sin necesidad 
 
 ## Toolbar - Acciones
 
-| Boton | Accion | Atajo |
-|-------|--------|-------|
-| **Build** | Compila el flujo a Robot Framework | - |
-| **Run** | Ejecuta el bot compilado | - |
-| ⬆ Import | Importa un archivo DSL (.json) | - |
-| ⬇ Export | Exporta el flujo como DSL (.json) | - |
-| 🗑 Delete | Elimina el nodo seleccionado | `Delete` / `Backspace` |
-| ⚙ Settings | Configuracion (proximamente) | - |
-| ? Help | Ayuda (proximamente) | - |
+| Boton      | Accion                             | Atajo                  |
+| ---------- | ---------------------------------- | ---------------------- |
+| **Build**  | Compila el flujo a Robot Framework | -                      |
+| **Run**    | Ejecuta el bot compilado           | -                      |
+| ⬆ Import   | Importa un archivo DSL (.json)     | -                      |
+| ⬇ Export   | Exporta el flujo como DSL (.json)  | -                      |
+| 🗑 Delete  | Elimina el nodo seleccionado       | `Delete` / `Backspace` |
+| ⚙ Settings | Configuracion (proximamente)       | -                      |
+| ? Help     | Ayuda (proximamente)               | -                      |
 
 ---
 
@@ -98,64 +98,65 @@ Permite disenar flujos de trabajo arrastrando y conectando nodos, sin necesidad 
 ### Triggers (Disparadores)
 
 Los triggers son nodos especiales que **inician** el flujo de trabajo. Se identifican por:
+
 - Badge verde "START" en la esquina superior
 - Borde verde esmeralda
 - Sin punto de entrada (solo pueden iniciar, no recibir conexiones)
 
-| Nodo | Descripcion | Configuracion |
-|------|-------------|---------------|
-| **Manual** | Inicio manual | Ninguna |
-| **Schedule** | Programado por tiempo | Expresion cron |
-| **Webhook** | Disparado por HTTP | Endpoint URL |
-| **Form** | Formulario web | Campos del formulario (ver seccion especial) |
-| **File Watch** | Cambio de archivos | Ruta a monitorear |
-| **Email Received** | Email entrante | Filtros de email |
-| **Queue** | Cola de mensajes | Nombre de cola |
-| **API Polling** | Polling periodico | URL, intervalo |
-| **Database Change** | Cambio en BD | Query, conexion |
-| **Storage Event** | Evento S3/MinIO | Bucket, eventos |
-| **Message Bus** | Kafka/RabbitMQ | Topic, broker |
-| **Chat** | Chatbot | Plataforma (Slack/Teams/Telegram) |
+| Nodo                | Descripcion           | Configuracion                                |
+| ------------------- | --------------------- | -------------------------------------------- |
+| **Manual**          | Inicio manual         | Ninguna                                      |
+| **Schedule**        | Programado por tiempo | Expresion cron                               |
+| **Webhook**         | Disparado por HTTP    | Endpoint URL                                 |
+| **Form**            | Formulario web        | Campos del formulario (ver seccion especial) |
+| **File Watch**      | Cambio de archivos    | Ruta a monitorear                            |
+| **Email Received**  | Email entrante        | Filtros de email                             |
+| **Queue**           | Cola de mensajes      | Nombre de cola                               |
+| **API Polling**     | Polling periodico     | URL, intervalo                               |
+| **Database Change** | Cambio en BD          | Query, conexion                              |
+| **Storage Event**   | Evento S3/MinIO       | Bucket, eventos                              |
+| **Message Bus**     | Kafka/RabbitMQ        | Topic, broker                                |
+| **Chat**            | Chatbot               | Plataforma (Slack/Teams/Telegram)            |
 
 > **Nota**: Si no agregas un trigger, se añade automaticamente un "Manual Trigger" al compilar.
 
 ### Browser (Navegador)
 
-| Nodo | Descripcion | Configuracion |
-|------|-------------|---------------|
-| **Open Browser** | Abre un navegador | URL, tipo de browser |
-| **Navigate** | Navega a URL | URL destino |
-| **Click** | Click en elemento | Selector CSS/XPath |
-| **Fill** | Escribe en input | Selector, valor |
-| **Get Text** | Extrae texto | Selector |
-| **Screenshot** | Captura pantalla | Ruta de archivo |
-| **Close Browser** | Cierra navegador | - |
+| Nodo              | Descripcion       | Configuracion        |
+| ----------------- | ----------------- | -------------------- |
+| **Open Browser**  | Abre un navegador | URL, tipo de browser |
+| **Navigate**      | Navega a URL      | URL destino          |
+| **Click**         | Click en elemento | Selector CSS/XPath   |
+| **Fill**          | Escribe en input  | Selector, valor      |
+| **Get Text**      | Extrae texto      | Selector             |
+| **Screenshot**    | Captura pantalla  | Ruta de archivo      |
+| **Close Browser** | Cierra navegador  | -                    |
 
 ### Data (Datos)
 
-| Nodo | Descripcion | Configuracion |
-|------|-------------|---------------|
-| **Read Excel** | Lee archivo Excel | Ruta, hoja |
-| **Write Excel** | Escribe a Excel | Ruta, datos |
-| **Parse JSON** | Parsea JSON | String JSON |
-| **HTTP Request** | Llamada a API | URL, metodo, body |
+| Nodo             | Descripcion       | Configuracion     |
+| ---------------- | ----------------- | ----------------- |
+| **Read Excel**   | Lee archivo Excel | Ruta, hoja        |
+| **Write Excel**  | Escribe a Excel   | Ruta, datos       |
+| **Parse JSON**   | Parsea JSON       | String JSON       |
+| **HTTP Request** | Llamada a API     | URL, metodo, body |
 
 ### Flow (Control de flujo)
 
-| Nodo | Descripcion | Configuracion |
-|------|-------------|---------------|
-| **Condition** | If/else | Expresion booleana |
-| **Loop** | Bucle for/while | Iteraciones, condicion |
-| **Delay** | Pausa | Segundos |
-| **Variable** | Define variable | Nombre, valor |
+| Nodo          | Descripcion     | Configuracion          |
+| ------------- | --------------- | ---------------------- |
+| **Condition** | If/else         | Expresion booleana     |
+| **Loop**      | Bucle for/while | Iteraciones, condicion |
+| **Delay**     | Pausa           | Segundos               |
+| **Variable**  | Define variable | Nombre, valor          |
 
 ### Notifications
 
-| Nodo | Descripcion | Configuracion |
-|------|-------------|---------------|
-| **Email** | Envia correo | To, subject, body |
-| **Slack** | Mensaje a Slack | Channel, message |
-| **Log** | Escribe a log | Nivel, mensaje |
+| Nodo      | Descripcion     | Configuracion     |
+| --------- | --------------- | ----------------- |
+| **Email** | Envia correo    | To, subject, body |
+| **Slack** | Mensaje a Slack | Channel, message  |
+| **Log**   | Escribe a log   | Nivel, mensaje    |
 
 ---
 
@@ -190,13 +191,13 @@ Cuando seleccionas un nodo, aparece un panel flotante:
 
 ### Tipos de campos
 
-| Tipo | Ejemplo | Descripcion |
-|------|---------|-------------|
-| **Text** | URL, selector | Campo de texto libre |
-| **Number** | Timeout | Solo numeros |
-| **Select** | Browser type | Lista desplegable |
-| **Boolean** | Headless | Switch on/off |
-| **Textarea** | Script | Texto multilinea |
+| Tipo         | Ejemplo       | Descripcion          |
+| ------------ | ------------- | -------------------- |
+| **Text**     | URL, selector | Campo de texto libre |
+| **Number**   | Timeout       | Solo numeros         |
+| **Select**   | Browser type  | Lista desplegable    |
+| **Boolean**  | Headless      | Switch on/off        |
+| **Textarea** | Script        | Texto multilinea     |
 
 ---
 
@@ -206,13 +207,13 @@ La consola muestra mensajes durante Build y Run:
 
 ### Niveles de log
 
-| Nivel | Color | Icono | Uso |
-|-------|-------|-------|-----|
-| **Debug** | Gris | DBG | Informacion tecnica detallada |
-| **Info** | Azul | INF | Informacion general |
-| **Warning** | Amarillo | WRN | Advertencias no criticas |
-| **Error** | Rojo | ERR | Errores que detienen ejecucion |
-| **Success** | Verde | OK | Operaciones exitosas |
+| Nivel       | Color    | Icono | Uso                            |
+| ----------- | -------- | ----- | ------------------------------ |
+| **Debug**   | Gris     | DBG   | Informacion tecnica detallada  |
+| **Info**    | Azul     | INF   | Informacion general            |
+| **Warning** | Amarillo | WRN   | Advertencias no criticas       |
+| **Error**   | Rojo     | ERR   | Errores que detienen ejecucion |
+| **Success** | Verde    | OK    | Operaciones exitosas           |
 
 ### Filtros rapidos
 
@@ -222,23 +223,23 @@ La consola muestra mensajes durante Build y Run:
 
 ### Acciones
 
-| Boton | Accion |
-|-------|--------|
-| 📋 Copy | Copia todos los logs al clipboard |
-| ⬇ Download | Descarga logs como .txt |
-| 🗑 Clear | Limpia la consola |
-| ▼/▲ | Minimiza/expande la consola |
+| Boton      | Accion                            |
+| ---------- | --------------------------------- |
+| 📋 Copy    | Copia todos los logs al clipboard |
+| ⬇ Download | Descarga logs como .txt           |
+| 🗑 Clear   | Limpia la consola                 |
+| ▼/▲        | Minimiza/expande la consola       |
 
 ---
 
 ## Atajos de Teclado
 
-| Atajo | Accion |
-|-------|--------|
-| `Cmd/Ctrl + K` | Buscar nodos |
+| Atajo                  | Accion                     |
+| ---------------------- | -------------------------- |
+| `Cmd/Ctrl + K`         | Buscar nodos               |
 | `Delete` / `Backspace` | Eliminar nodo seleccionado |
-| `Cmd/Ctrl + Z` | Deshacer (proximamente) |
-| `Cmd/Ctrl + S` | Guardar (proximamente) |
+| `Cmd/Ctrl + Z`         | Deshacer (proximamente)    |
+| `Cmd/Ctrl + S`         | Guardar (proximamente)     |
 
 ---
 
@@ -278,15 +279,16 @@ La consola muestra mensajes durante Build y Run:
 
 ### Errores comunes
 
-| Error | Causa | Solucion |
-|-------|-------|----------|
-| "No hay nodos" | Canvas vacio | Agrega al menos un nodo |
-| "Engine not found" | Python no configurado | Ver guia de instalacion |
-| "Compilation failed" | DSL invalido | Revisa la configuracion de nodos |
+| Error                | Causa                 | Solucion                         |
+| -------------------- | --------------------- | -------------------------------- |
+| "No hay nodos"       | Canvas vacio          | Agrega al menos un nodo          |
+| "Engine not found"   | Python no configurado | Ver guia de instalacion          |
+| "Compilation failed" | DSL invalido          | Revisa la configuracion de nodos |
 
 ### Flujo de errores
 
 Cada nodo tiene dos salidas:
+
 - **Success** (verde): Continua al siguiente nodo
 - **Error** (rojo): Salta al nodo de manejo de errores
 
@@ -352,16 +354,16 @@ En el panel de configuracion veras:
 
 Click en **"+ Add Field"** para agregar campos:
 
-| Tipo | Icono | Descripcion | Opciones |
-|------|-------|-------------|----------|
-| **Text** | 📝 | Texto libre | Placeholder |
-| **Email** | 📧 | Correo electronico | Validacion automatica |
-| **Number** | # | Solo numeros | Min, Max |
-| **Date** | 📅 | Selector de fecha | - |
-| **Dropdown** | ▼ | Lista desplegable | Opciones (una por linea) |
-| **Checkbox** | ☑ | Casilla de verificacion | - |
-| **File** | 📎 | Subir archivo | - |
-| **Textarea** | ¶ | Texto largo | Placeholder |
+| Tipo         | Icono | Descripcion             | Opciones                 |
+| ------------ | ----- | ----------------------- | ------------------------ |
+| **Text**     | 📝    | Texto libre             | Placeholder              |
+| **Email**    | 📧    | Correo electronico      | Validacion automatica    |
+| **Number**   | #     | Solo numeros            | Min, Max                 |
+| **Date**     | 📅    | Selector de fecha       | -                        |
+| **Dropdown** | ▼     | Lista desplegable       | Opciones (una por linea) |
+| **Checkbox** | ☑     | Casilla de verificacion | -                        |
+| **File**     | 📎    | Subir archivo           | -                        |
+| **Textarea** | ¶     | Texto largo             | Placeholder              |
 
 ### Configurar cada campo
 
@@ -440,6 +442,7 @@ Un flujo puede tener **varios triggers**. Por ejemplo:
 ```
 
 Ambos triggers pueden iniciar el mismo flujo:
+
 - El Schedule lo ejecuta automaticamente cada lunes
 - El Form permite ejecucion manual via formulario
 
@@ -504,6 +507,7 @@ El panel izquierdo (azul) muestra todas las variables que puedes usar, provenien
 ```
 
 **Para usar una variable:**
+
 1. Click en la variable deseada
 2. Se copia automaticamente al clipboard
 3. Pega en el campo de configuracion
@@ -547,34 +551,38 @@ ${AI Summarize.summary}            → "Resumen del texto..."
 ```
 
 **1. Form Trigger** produce:
+
 - `formData.nombre` = "Maria Garcia"
 - `formData.problema` = "No puedo iniciar sesion..."
 - `formData.urgencia` = "Alta"
 
 **2. AI Classify** usa y produce:
+
 - Input: `${Form Trigger.formData.problema}`
 - Output: `category` = "Acceso", `confidence` = 0.95
 
 **3. Send Email** usa:
+
 - To: `soporte-${AI Classify.category}@empresa.com`
 - Subject: `[${Form Trigger.formData.urgencia}] Ticket de ${Form Trigger.formData.nombre}`
 - Body: `Problema: ${Form Trigger.formData.problema}\nCategoria: ${AI Classify.category}`
 
 **4. Save to Excel** usa:
+
 - Row: `[${Form Trigger.formData.nombre}, ${AI Classify.category}, ${AI Classify.confidence}]`
 
 ### Tipos de Datos
 
 Los campos tienen tipos que ayudan a entender que datos contienen:
 
-| Tipo | Color | Descripcion | Ejemplo |
-|------|-------|-------------|---------|
-| `string` | Verde | Texto | "Hola mundo" |
-| `number` | Azul | Numero | 42, 3.14 |
-| `boolean` | Morado | Verdadero/Falso | true, false |
-| `object` | Naranja | Objeto JSON | {"key": "value"} |
-| `array` | Rosa | Lista/Array | [1, 2, 3] |
-| `any` | Gris | Cualquier tipo | - |
+| Tipo      | Color   | Descripcion     | Ejemplo          |
+| --------- | ------- | --------------- | ---------------- |
+| `string`  | Verde   | Texto           | "Hola mundo"     |
+| `number`  | Azul    | Numero          | 42, 3.14         |
+| `boolean` | Morado  | Verdadero/Falso | true, false      |
+| `object`  | Naranja | Objeto JSON     | {"key": "value"} |
+| `array`   | Rosa    | Lista/Array     | [1, 2, 3]        |
+| `any`     | Gris    | Cualquier tipo  | -                |
 
 ### Nodos con Output
 

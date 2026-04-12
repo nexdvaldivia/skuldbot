@@ -25,6 +25,7 @@
 ## ✅ LO QUE VOY A HACER AHORA
 
 ### 1. Definir Sistema de Spacing (en roca)
+
 ```
 SOLO usar estos valores:
 4px  = 0.5 (casi nunca)
@@ -38,6 +39,7 @@ SOLO usar estos valores:
 ```
 
 ### 2. Paleta de Colores LIMITADA
+
 ```
 PRIMARY (Verde Skuldbot):
 - 600: #16a34a (principal)
@@ -57,6 +59,7 @@ SEMÁNTICOS:
 ```
 
 ### 3. Typography Scale
+
 ```
 text-xs:   12px (labels, meta)
 text-sm:   14px ⭐ (body, botones)
@@ -72,6 +75,7 @@ Weights:
 ```
 
 ### 4. Jerarquía Visual Real
+
 ```
 Nivel 1 (más importante):
 - font-semibold (600)
@@ -95,6 +99,7 @@ Nivel 4 (meta):
 ```
 
 ### 5. Shadows para Profundidad
+
 ```
 Elevation 1 (cards):
 shadow-sm: subtle lift
@@ -109,6 +114,7 @@ NO usar shadow en todo!
 ```
 
 ### 6. Menos Borders
+
 ```
 ❌ NO: border en cada elemento
 ✅ SÍ: usar shadows y spacing
@@ -122,6 +128,7 @@ Border weight: 1px siempre
 ```
 
 ### 7. White Space Generoso
+
 ```
 Entre secciones: 24px o 32px
 Dentro de componentes: 16px o 24px
@@ -131,6 +138,7 @@ Padding de botones: 12px-16px horizontal, 8px-10px vertical
 ## 🎯 REDISEÑO ESPECÍFICO
 
 ### Toolbar
+
 ```
 Height: 64px (no 16, da espacio)
 Padding horizontal: 24px
@@ -168,6 +176,7 @@ Botones Icon-only:
 ```
 
 ### Sidebar
+
 ```
 Width: 280px (generous)
 Background: gray-50 (subtle)
@@ -197,6 +206,7 @@ Node icon container:
 ```
 
 ### Canvas Nodes
+
 ```
 Min-width: 220px (generous)
 Background: white
@@ -229,6 +239,7 @@ Config preview:
 ```
 
 ### Logs Panel
+
 ```
 Height collapsed: 48px
 Height open: 280px
@@ -271,8 +282,3 @@ Log entries:
 ---
 
 **AHORA SÍ voy a seguir esto**
-
-
-
-
-

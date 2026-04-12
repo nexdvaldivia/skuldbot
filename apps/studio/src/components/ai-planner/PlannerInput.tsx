@@ -3,17 +3,16 @@
  * Textarea for describing the automation in natural language
  */
 
-import { Lightbulb } from "lucide-react";
-import { useAIPlannerStore } from "../../store/aiPlannerStore";
-import { EXAMPLE_PROMPTS } from "../../lib/ai-planner-prompts";
+import { Lightbulb } from 'lucide-react';
+import { useAIPlannerStore } from '../../store/aiPlannerStore';
+import { EXAMPLE_PROMPTS } from '../../lib/ai-planner-prompts';
 
 export function PlannerInput() {
-  const { userDescription, setUserDescription, generatePlan, isGenerating } =
-    useAIPlannerStore();
+  const { userDescription, setUserDescription, generatePlan, isGenerating } = useAIPlannerStore();
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Ctrl+Enter or Cmd+Enter to generate
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
       if (!isGenerating && userDescription.trim()) {
         generatePlan();
@@ -42,9 +41,11 @@ export function PlannerInput() {
           disabled={isGenerating}
         />
         <p className="mt-1 text-xs text-slate-500">
-          Press <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px] font-mono">
-            {navigator.platform.includes("Mac") ? "Cmd" : "Ctrl"}+Enter
-          </kbd> to generate
+          Press{' '}
+          <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px] font-mono">
+            {navigator.platform.includes('Mac') ? 'Cmd' : 'Ctrl'}+Enter
+          </kbd>{' '}
+          to generate
         </p>
       </div>
 
@@ -52,9 +53,7 @@ export function PlannerInput() {
       <div>
         <div className="flex items-center gap-2 mb-3">
           <Lightbulb className="w-4 h-4 text-amber-500" />
-          <span className="text-sm font-medium text-slate-700">
-            Example prompts
-          </span>
+          <span className="text-sm font-medium text-slate-700">Example prompts</span>
         </div>
         <div className="space-y-2">
           {EXAMPLE_PROMPTS.slice(0, 4).map((example, index) => (

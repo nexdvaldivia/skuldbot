@@ -208,8 +208,6 @@ describe('LicensingServer', () => {
   });
 
   it('throws for invalid resource URI', async () => {
-    await expect(server.readResource('invalid://uri')).rejects.toThrow(
-      'Invalid URI format',
-    );
+    await expect(server.readResource('invalid://uri')).rejects.toThrow('Invalid URI format');
   });
 });

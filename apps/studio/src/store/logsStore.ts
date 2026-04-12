@@ -1,6 +1,6 @@
-import { create } from "zustand";
+import { create } from 'zustand';
 
-export type LogLevel = "debug" | "info" | "warning" | "error" | "success";
+export type LogLevel = 'debug' | 'info' | 'warning' | 'error' | 'success';
 
 export interface LogEntry {
   id: string;
@@ -41,7 +41,7 @@ export const useLogsStore = create<LogsStore>((set) => ({
     set((state) => ({
       logs: [...state.logs, log],
       // Auto-open panel on errors
-      isOpen: level === "error" ? true : state.isOpen,
+      isOpen: level === 'error' ? true : state.isOpen,
     }));
 
     // Limit logs to 500 entries
@@ -56,23 +56,13 @@ export const useLogsStore = create<LogsStore>((set) => ({
   openPanel: () => set({ isOpen: true }),
   closePanel: () => set({ isOpen: false }),
 
-  debug: (message, details) =>
-    useLogsStore.getState().addLog("debug", message, details),
+  debug: (message, details) => useLogsStore.getState().addLog('debug', message, details),
 
-  info: (message, details) =>
-    useLogsStore.getState().addLog("info", message, details),
+  info: (message, details) => useLogsStore.getState().addLog('info', message, details),
 
-  warning: (message, details) =>
-    useLogsStore.getState().addLog("warning", message, details),
+  warning: (message, details) => useLogsStore.getState().addLog('warning', message, details),
 
-  error: (message, details) =>
-    useLogsStore.getState().addLog("error", message, details),
+  error: (message, details) => useLogsStore.getState().addLog('error', message, details),
 
-  success: (message, details) =>
-    useLogsStore.getState().addLog("success", message, details),
+  success: (message, details) => useLogsStore.getState().addLog('success', message, details),
 }));
-
-
-
-
-

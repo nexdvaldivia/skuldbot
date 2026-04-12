@@ -12,11 +12,13 @@
 **Ahora**: Toast notifications con Lucide icons
 
 **Archivos creados:**
+
 - `src/components/ui/Toast.tsx`
 - `src/components/ui/ToastContainer.tsx`
 - `src/store/toastStore.ts`
 
 **Features:**
+
 - ✅ CheckCircle2 para success
 - ✅ XCircle para error
 - ✅ AlertTriangle para warning
@@ -27,14 +29,15 @@
 - ✅ Colores distintivos por tipo
 
 **Uso:**
+
 ```typescript
-import { useToastStore } from "../store/toastStore";
+import { useToastStore } from '../store/toastStore';
 
 const toast = useToastStore();
-toast.success("Título", "Descripción opcional");
-toast.error("Error", "Detalles del error");
-toast.warning("Advertencia", "Mensaje de advertencia");
-toast.info("Info", "Información útil");
+toast.success('Título', 'Descripción opcional');
+toast.error('Error', 'Detalles del error');
+toast.warning('Advertencia', 'Mensaje de advertencia');
+toast.info('Info', 'Información útil');
 ```
 
 ---
@@ -45,10 +48,12 @@ toast.info("Info", "Información útil");
 **Ahora**: Panel deslizable en la parte inferior
 
 **Archivos creados:**
+
 - `src/components/LogsPanel.tsx`
 - `src/store/logsStore.ts`
 
 **Features:**
+
 - ✅ Panel deslizable (ChevronUp/Down)
 - ✅ Syntax highlighting por nivel
   - Debug: gris
@@ -64,14 +69,15 @@ toast.info("Info", "Información útil");
 - ✅ Limit a 500 logs (performance)
 
 **Uso:**
+
 ```typescript
-import { useLogsStore } from "../store/logsStore";
+import { useLogsStore } from '../store/logsStore';
 
 const logs = useLogsStore();
-logs.info("Iniciando compilación...");
-logs.success("Bot compilado exitosamente", botPath);
-logs.error("Error al compilar", errorDetails);
-logs.debug("DSL generado", dslObject);
+logs.info('Iniciando compilación...');
+logs.success('Bot compilado exitosamente', botPath);
+logs.error('Error al compilar', errorDetails);
+logs.debug('DSL generado', dslObject);
 logs.openPanel(); // Abrir manualmente
 ```
 
@@ -83,9 +89,11 @@ logs.openPanel(); // Abrir manualmente
 **Ahora**: Loading indicators y estados deshabilitados
 
 **Cambios en:**
+
 - `src/components/Toolbar.tsx`
 
 **Features:**
+
 - ✅ Loader2 icon con spin animation
 - ✅ Texto cambia a "Compilando..." / "Ejecutando..."
 - ✅ Botones deshabilitados durante operación
@@ -93,6 +101,7 @@ logs.openPanel(); // Abrir manualmente
 - ✅ Tooltips informativos
 
 **Antes:**
+
 ```tsx
 <button onClick={compileBot}>
   <Save />
@@ -101,11 +110,9 @@ logs.openPanel(); // Abrir manualmente
 ```
 
 **Ahora:**
+
 ```tsx
-<button 
-  onClick={handleCompile}
-  disabled={isCompiling || nodes.length === 0}
->
+<button onClick={handleCompile} disabled={isCompiling || nodes.length === 0}>
   {isCompiling ? (
     <>
       <Loader2 className="animate-spin" />
@@ -128,9 +135,11 @@ logs.openPanel(); // Abrir manualmente
 **Ahora**: Toasts + Logs integrados
 
 **Cambios en:**
+
 - `src/store/flowStore.ts`
 
 **Mejoras:**
+
 - ✅ Validación antes de compilar/ejecutar
 - ✅ Logs detallados de cada paso
 - ✅ Toasts con mensajes cortos
@@ -139,6 +148,7 @@ logs.openPanel(); // Abrir manualmente
 - ✅ Manejo de errores robusto
 
 **Ejemplo de flujo:**
+
 ```
 1. Usuario click "Compilar"
 2. Validar que hay nodos → toast warning si no hay
@@ -157,6 +167,7 @@ logs.openPanel(); // Abrir manualmente
 **Ahora**: Logs de inicialización
 
 **Cambios:**
+
 - ✅ ToastContainer agregado
 - ✅ LogsPanel agregado en bottom
 - ✅ Logs al verificar Engine
@@ -166,20 +177,21 @@ logs.openPanel(); // Abrir manualmente
 
 ## 📊 Comparación Antes/Después
 
-| Feature | Antes | Después |
-|---------|-------|---------|
-| **Feedback visual** | Alerts | Toasts + Logs |
-| **Logs** | Console only | Panel profesional |
-| **Loading states** | Ninguno | Spinners + disabled |
-| **Errores** | Alert genérico | Toast + Log detallado |
-| **Copia de logs** | Manual console | 1-click copy/download |
-| **UX general** | Básico | Profesional ✨ |
+| Feature             | Antes          | Después               |
+| ------------------- | -------------- | --------------------- |
+| **Feedback visual** | Alerts         | Toasts + Logs         |
+| **Logs**            | Console only   | Panel profesional     |
+| **Loading states**  | Ninguno        | Spinners + disabled   |
+| **Errores**         | Alert genérico | Toast + Log detallado |
+| **Copia de logs**   | Manual console | 1-click copy/download |
+| **UX general**      | Básico         | Profesional ✨        |
 
 ---
 
 ## 🎨 Estilo Visual
 
 ### Toasts
+
 - Posición: Top-right
 - Ancho: max-w-md
 - Animación: slide-in-from-right
@@ -187,6 +199,7 @@ logs.openPanel(); // Abrir manualmente
 - Icons: Lucide (sin emojis!)
 
 ### Logs Panel
+
 - Posición: Bottom (fixed)
 - Alto: 256px (cuando abierto)
 - Background: Gray-900 (dark)
@@ -208,18 +221,21 @@ logs.openPanel(); // Abrir manualmente
 ## 🚀 Próximas Mejoras Sugeridas
 
 ### Alta Prioridad
+
 - [ ] Validación en tiempo real de DSL
 - [ ] Atajos de teclado (Ctrl+R, Ctrl+B, etc)
 - [ ] Undo/Redo
 - [ ] Búsqueda de nodos en sidebar
 
 ### Media Prioridad
+
 - [ ] Dark mode toggle
 - [ ] Node configuration con tooltips
 - [ ] Autocomplete en config fields
 - [ ] Performance optimization
 
 ### Baja Prioridad
+
 - [ ] Múltiples bots (tabs)
 - [ ] Bot templates
 - [ ] Snippets system
@@ -229,17 +245,20 @@ logs.openPanel(); // Abrir manualmente
 ## 📝 Notas Técnicas
 
 ### Performance
+
 - Logs limitados a 500 entradas
 - Toasts con auto-dismiss
 - No re-renders innecesarios (Zustand)
 
 ### Accessibility
+
 - Keyboard navegable (botones con disabled)
 - Color contrasts adecuados
 - Tooltips descriptivos
 - Screen reader friendly (semantic HTML)
 
 ### Maintainability
+
 - Stores separados (toast, logs, flow)
 - Components pequeños y reutilizables
 - TypeScript types completos
@@ -250,6 +269,7 @@ logs.openPanel(); // Abrir manualmente
 ## ✅ Estado Actual
 
 **UX/UI**: 80% mejorado ✅
+
 - ✅ Toasts system
 - ✅ Logs panel
 - ✅ Loading states
@@ -264,8 +284,3 @@ logs.openPanel(); // Abrir manualmente
 **Última actualización**: 16 de Diciembre 2025  
 **Tiempo invertido**: 1 hora  
 **Líneas de código**: ~500
-
-
-
-
-

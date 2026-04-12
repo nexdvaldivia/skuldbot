@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef, useMemo } from "react";
-import { Search, X, ChevronRight } from "lucide-react";
-import { useProjectStore } from "../store/projectStore";
-import { useNavigationStore } from "../store/navigationStore";
-import { useFlowStore } from "../store/flowStore";
-import { FlowNode } from "../types/flow";
-import { cn } from "../lib/utils";
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Search, X, ChevronRight } from 'lucide-react';
+import { useProjectStore } from '../store/projectStore';
+import { useNavigationStore } from '../store/navigationStore';
+import { useFlowStore } from '../store/flowStore';
+import { FlowNode } from '../types/flow';
+import { cn } from '../lib/utils';
 
 interface NodeSearchDialogProps {
   isOpen: boolean;
@@ -14,7 +14,7 @@ interface NodeSearchDialogProps {
 const EMPTY_NODES: FlowNode[] = [];
 
 export default function NodeSearchDialog({ isOpen, onClose }: NodeSearchDialogProps) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -24,10 +24,8 @@ export default function NodeSearchDialog({ isOpen, onClose }: NodeSearchDialogPr
   const flowStore = useFlowStore();
 
   // Get nodes based on current mode
-  const isProjectMode = currentView === "project";
-  const activeBot = isProjectMode
-    ? projectStore.bots.get(projectStore.activeBotId || "")
-    : null;
+  const isProjectMode = currentView === 'project';
+  const activeBot = isProjectMode ? projectStore.bots.get(projectStore.activeBotId || '') : null;
   const nodes = isProjectMode ? (activeBot?.nodes ?? EMPTY_NODES) : flowStore.nodes;
 
   // Filter nodes based on search query
@@ -36,15 +34,11 @@ export default function NodeSearchDialog({ isOpen, onClose }: NodeSearchDialogPr
 
     const lowerQuery = query.toLowerCase();
     return nodes.filter((node) => {
-      const label = node.data.label?.toLowerCase() || "";
-      const type = node.data.nodeType?.toLowerCase() || "";
+      const label = node.data.label?.toLowerCase() || '';
+      const type = node.data.nodeType?.toLowerCase() || '';
       const id = node.id.toLowerCase();
 
-      return (
-        label.includes(lowerQuery) ||
-        type.includes(lowerQuery) ||
-        id.includes(lowerQuery)
-      );
+      return label.includes(lowerQuery) || type.includes(lowerQuery) || id.includes(lowerQuery);
     });
   }, [nodes, query]);
 
@@ -52,7 +46,7 @@ export default function NodeSearchDialog({ isOpen, onClose }: NodeSearchDialogPr
   useEffect(() => {
     if (isOpen && inputRef.current) {
       inputRef.current.focus();
-      setQuery("");
+      setQuery('');
       setSelectedIndex(0);
     }
   }, [isOpen]);
@@ -67,7 +61,7 @@ export default function NodeSearchDialog({ isOpen, onClose }: NodeSearchDialogPr
     if (listRef.current && filteredNodes.length > 0) {
       const selectedElement = listRef.current.children[selectedIndex] as HTMLElement;
       if (selectedElement) {
-        selectedElement.scrollIntoView({ block: "nearest" });
+        selectedElement.scrollIntoView({ block: 'nearest' });
       }
     }
   }, [selectedIndex, filteredNodes.length]);
@@ -85,7 +79,7 @@ export default function NodeSearchDialog({ isOpen, onClose }: NodeSearchDialogPr
         nodes.map((n) => ({
           ...n,
           selected: n.id === node.id,
-        }))
+        })),
       );
     }
     flowStore.setSelectedNode(node);
@@ -94,23 +88,21 @@ export default function NodeSearchDialog({ isOpen, onClose }: NodeSearchDialogPr
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     switch (e.key) {
-      case "ArrowDown":
+      case 'ArrowDown':
         e.preventDefault();
-        setSelectedIndex((prev) =>
-          prev < filteredNodes.length - 1 ? prev + 1 : prev
-        );
+        setSelectedIndex((prev) => (prev < filteredNodes.length - 1 ? prev + 1 : prev));
         break;
-      case "ArrowUp":
+      case 'ArrowUp':
         e.preventDefault();
         setSelectedIndex((prev) => (prev > 0 ? prev - 1 : prev));
         break;
-      case "Enter":
+      case 'Enter':
         e.preventDefault();
         if (filteredNodes[selectedIndex]) {
           handleSelect(filteredNodes[selectedIndex]);
         }
         break;
-      case "Escape":
+      case 'Escape':
         e.preventDefault();
         onClose();
         break;
@@ -122,10 +114,7 @@ export default function NodeSearchDialog({ isOpen, onClose }: NodeSearchDialogPr
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/20"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/20" onClick={onClose} />
 
       {/* Dialog */}
       <div className="relative w-full max-w-lg bg-white rounded-xl shadow-2xl border overflow-hidden">
@@ -142,10 +131,7 @@ export default function NodeSearchDialog({ isOpen, onClose }: NodeSearchDialogPr
             className="flex-1 bg-transparent outline-none text-sm text-slate-700 placeholder-slate-400"
           />
           {query && (
-            <button
-              onClick={() => setQuery("")}
-              className="p-1 hover:bg-slate-100 rounded"
-            >
+            <button onClick={() => setQuery('')} className="p-1 hover:bg-slate-100 rounded">
               <X className="w-4 h-4 text-slate-400" />
             </button>
           )}
@@ -155,15 +141,10 @@ export default function NodeSearchDialog({ isOpen, onClose }: NodeSearchDialogPr
         </div>
 
         {/* Results */}
-        <div
-          ref={listRef}
-          className="max-h-[40vh] overflow-y-auto"
-        >
+        <div ref={listRef} className="max-h-[40vh] overflow-y-auto">
           {filteredNodes.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-slate-400">
-              {nodes.length === 0
-                ? "No nodes in the flow"
-                : "No nodes match your search"}
+              {nodes.length === 0 ? 'No nodes in the flow' : 'No nodes match your search'}
             </div>
           ) : (
             filteredNodes.map((node, index) => (
@@ -171,10 +152,8 @@ export default function NodeSearchDialog({ isOpen, onClose }: NodeSearchDialogPr
                 key={node.id}
                 onClick={() => handleSelect(node)}
                 className={cn(
-                  "w-full px-4 py-3 flex items-center gap-3 text-left transition-colors",
-                  index === selectedIndex
-                    ? "bg-primary/10"
-                    : "hover:bg-slate-50"
+                  'w-full px-4 py-3 flex items-center gap-3 text-left transition-colors',
+                  index === selectedIndex ? 'bg-primary/10' : 'hover:bg-slate-50',
                 )}
               >
                 <div className="flex-1 min-w-0">
@@ -182,13 +161,9 @@ export default function NodeSearchDialog({ isOpen, onClose }: NodeSearchDialogPr
                     <span className="text-sm font-medium text-slate-800 truncate">
                       {node.data.label}
                     </span>
-                    <span className="text-xs text-slate-400 font-mono">
-                      {node.data.nodeType}
-                    </span>
+                    <span className="text-xs text-slate-400 font-mono">{node.data.nodeType}</span>
                   </div>
-                  <div className="text-xs text-slate-400 truncate mt-0.5">
-                    ID: {node.id}
-                  </div>
+                  <div className="text-xs text-slate-400 truncate mt-0.5">ID: {node.id}</div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-300 flex-shrink-0" />
               </button>
@@ -209,7 +184,7 @@ export default function NodeSearchDialog({ isOpen, onClose }: NodeSearchDialogPr
               <span className="ml-2">Select</span>
             </span>
             <span className="ml-auto">
-              {filteredNodes.length} node{filteredNodes.length !== 1 ? "s" : ""}
+              {filteredNodes.length} node{filteredNodes.length !== 1 ? 's' : ''}
             </span>
           </div>
         )}

@@ -98,13 +98,14 @@ export class PdfExportService {
     const controlRows = data.controlsByCategory
       .flatMap((category) =>
         category.controls.map((control) => {
-          const statusClass = {
-            passed: 'status-passed',
-            failed: 'status-failed',
-            partially_met: 'status-partial',
-            requires_manual_review: 'status-review',
-            not_applicable: 'status-na',
-          }[control.status] || '';
+          const statusClass =
+            {
+              passed: 'status-passed',
+              failed: 'status-failed',
+              partially_met: 'status-partial',
+              requires_manual_review: 'status-review',
+              not_applicable: 'status-na',
+            }[control.status] || '';
 
           return `
             <tr class="${statusClass}">
@@ -133,9 +134,7 @@ export class PdfExportService {
       )
       .join('');
 
-    const recommendationsList = data.recommendations
-      .map((r) => `<li>${r}</li>`)
-      .join('');
+    const recommendationsList = data.recommendations.map((r) => `<li>${r}</li>`).join('');
 
     return `<!DOCTYPE html>
 <html>

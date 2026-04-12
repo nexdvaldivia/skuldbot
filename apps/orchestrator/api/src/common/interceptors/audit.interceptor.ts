@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NestInterceptor,
-  ExecutionContext,
-  CallHandler,
-} from '@nestjs/common';
+import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
 import { Observable, tap, catchError } from 'rxjs';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -55,8 +50,7 @@ export const AUDIT_CONFIG_KEY = 'audit_config';
  */
 import { SetMetadata } from '@nestjs/common';
 
-export const Audit = (config: AuditConfig) =>
-  SetMetadata(AUDIT_CONFIG_KEY, config);
+export const Audit = (config: AuditConfig) => SetMetadata(AUDIT_CONFIG_KEY, config);
 
 /**
  * Audit Logging Interceptor.
@@ -97,8 +91,7 @@ export class AuditInterceptor implements NestInterceptor {
     }
 
     // Capture previous state if needed (for updates)
-    let previousStatePromise: Promise<Record<string, any> | null> =
-      Promise.resolve(null);
+    let previousStatePromise: Promise<Record<string, any> | null> = Promise.resolve(null);
     if (config.getPreviousState) {
       previousStatePromise = config.getPreviousState(request).catch(() => null);
     }
@@ -158,8 +151,7 @@ export class AuditInterceptor implements NestInterceptor {
       const auditLog = new AuditLog();
 
       // Tenant and user info
-      auditLog.tenantId =
-        user?.tenantId || request.tenant?.id || request.runner?.tenantId || '';
+      auditLog.tenantId = user?.tenantId || request.tenant?.id || request.runner?.tenantId || '';
       auditLog.userId = user?.id || '';
       auditLog.userEmail = user?.email || '';
 
@@ -199,17 +191,12 @@ export class AuditInterceptor implements NestInterceptor {
         auditLog.previousState = sanitizeForAudit(previousState);
       }
       if (response && config.action !== AuditAction.READ) {
-        auditLog.newState = sanitizeForAudit(
-          this.extractState(response, config.sensitiveFields),
-        );
+        auditLog.newState = sanitizeForAudit(this.extractState(response, config.sensitiveFields));
       }
 
       // Calculate changes for updates
       if (previousState && auditLog.newState) {
-        auditLog.changes = this.calculateChanges(
-          previousState,
-          auditLog.newState,
-        );
+        auditLog.changes = this.calculateChanges(previousState, auditLog.newState);
       }
 
       // Context
@@ -249,10 +236,7 @@ export class AuditInterceptor implements NestInterceptor {
     );
   }
 
-  private extractState(
-    response: any,
-    sensitiveFields?: string[],
-  ): Record<string, any> {
+  private extractState(response: any, sensitiveFields?: string[]): Record<string, any> {
     if (!response || typeof response !== 'object') {
       return {};
     }
@@ -305,10 +289,7 @@ export class AuditInterceptor implements NestInterceptor {
   ): Record<string, { from: any; to: any }> {
     const changes: Record<string, { from: any; to: any }> = {};
 
-    const allKeys = new Set([
-      ...Object.keys(previous),
-      ...Object.keys(current),
-    ]);
+    const allKeys = new Set([...Object.keys(previous), ...Object.keys(current)]);
 
     for (const key of allKeys) {
       // Skip internal/meta fields

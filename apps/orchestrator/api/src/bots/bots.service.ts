@@ -84,22 +84,13 @@ export class BotsService {
   /**
    * Create a new bot.
    */
-  async create(
-    tenantId: string,
-    dto: CreateBotDto,
-    currentUser: User,
-  ): Promise<BotDetailDto> {
+  async create(tenantId: string, dto: CreateBotDto, currentUser: User): Promise<BotDetailDto> {
     const features = this.licenseService.getFeatures();
-    const maxBots =
-      typeof features?.maxBots === 'number' ? features.maxBots : -1;
+    const maxBots = typeof features?.maxBots === 'number' ? features.maxBots : -1;
     const botCount = await this.checkBotQuota(tenantId, maxBots);
 
     // Enterprise control-plane entitlement check
-    await this.billingEnforcementService.checkEntitlement(
-      tenantId,
-      'bots',
-      botCount + 1,
-    );
+    await this.billingEnforcementService.checkEntitlement(tenantId, 'bots', botCount + 1);
 
     const bot = this.botRepository.create({
       tenantId,
@@ -107,9 +98,7 @@ export class BotsService {
       createdBy: currentUser.id,
       status: BotStatus.DRAFT,
       // Generate webhook secret if webhook trigger is enabled
-      webhookSecret: dto.allowWebhookTrigger
-        ? this.generateWebhookSecret()
-        : undefined,
+      webhookSecret: dto.allowWebhookTrigger ? this.generateWebhookSecret() : undefined,
     });
 
     const saved = await this.botRepository.save(bot);
@@ -168,10 +157,9 @@ export class BotsService {
     }
 
     if (search) {
-      queryBuilder.andWhere(
-        '(bot.name ILIKE :search OR bot.description ILIKE :search)',
-        { search: `%${search}%` },
-      );
+      queryBuilder.andWhere('(bot.name ILIKE :search OR bot.description ILIKE :search)', {
+        search: `%${search}%`,
+      });
     }
 
     if (tags && tags.length > 0) {
@@ -216,11 +204,7 @@ export class BotsService {
   /**
    * Get bot by ID.
    */
-  async findOne(
-    tenantId: string,
-    botId: string,
-    currentUser: User,
-  ): Promise<BotDetailDto> {
+  async findOne(tenantId: string, botId: string, currentUser: User): Promise<BotDetailDto> {
     const bot = await this.findBotOrFail(tenantId, botId);
 
     // Check access
@@ -263,11 +247,7 @@ export class BotsService {
   /**
    * Delete bot.
    */
-  async remove(
-    tenantId: string,
-    botId: string,
-    currentUser: User,
-  ): Promise<void> {
+  async remove(tenantId: string, botId: string, currentUser: User): Promise<void> {
     const bot = await this.findBotOrFail(tenantId, botId);
 
     // Check edit access
@@ -281,11 +261,7 @@ export class BotsService {
   /**
    * Archive bot.
    */
-  async archive(
-    tenantId: string,
-    botId: string,
-    currentUser: User,
-  ): Promise<BotDetailDto> {
+  async archive(tenantId: string, botId: string, currentUser: User): Promise<BotDetailDto> {
     const bot = await this.findBotOrFail(tenantId, botId);
 
     // Check edit access
@@ -302,11 +278,7 @@ export class BotsService {
   /**
    * Restore archived bot.
    */
-  async restore(
-    tenantId: string,
-    botId: string,
-    currentUser: User,
-  ): Promise<BotDetailDto> {
+  async restore(tenantId: string, botId: string, currentUser: User): Promise<BotDetailDto> {
     const bot = await this.findBotOrFail(tenantId, botId);
 
     if (bot.status !== BotStatus.ARCHIVED) {
@@ -576,9 +548,7 @@ export class BotsService {
 
       await this.versionRepository.save(version);
 
-      this.logger.log(
-        `Compiled version ${versionId}: ${result.plan.steps.length} steps`,
-      );
+      this.logger.log(`Compiled version ${versionId}: ${result.plan.steps.length} steps`);
     } else {
       version.compilationErrors = result.errors || [];
       version.compilationWarnings = result.warnings || [];
@@ -623,13 +593,7 @@ export class BotsService {
 
     // Ensure compiled
     if (!version.compiledPlan) {
-      const compileResult = await this.compileVersion(
-        tenantId,
-        botId,
-        versionId,
-        {},
-        currentUser,
-      );
+      const compileResult = await this.compileVersion(tenantId, botId, versionId, {}, currentUser);
 
       if (!compileResult.success) {
         throw new BadRequestException({
@@ -877,11 +841,7 @@ export class BotsService {
   /**
    * Import a bot.
    */
-  async importBot(
-    tenantId: string,
-    dto: ImportBotDto,
-    currentUser: User,
-  ): Promise<BotDetailDto> {
+  async importBot(tenantId: string, dto: ImportBotDto, currentUser: User): Promise<BotDetailDto> {
     // Check quota
     await this.checkBotQuota(tenantId);
 
@@ -1077,8 +1037,7 @@ export class BotsService {
       }
       const versionTotalRuns = Number(version.totalRuns);
       version.avgDurationSeconds =
-        (version.avgDurationSeconds * (versionTotalRuns - 1) + durationSeconds) /
-        versionTotalRuns;
+        (version.avgDurationSeconds * (versionTotalRuns - 1) + durationSeconds) / versionTotalRuns;
 
       await this.versionRepository.save(version);
     }
@@ -1104,10 +1063,7 @@ export class BotsService {
     return bot;
   }
 
-  private async findVersionOrFail(
-    botId: string,
-    versionId: string,
-  ): Promise<BotVersion> {
+  private async findVersionOrFail(botId: string, versionId: string): Promise<BotVersion> {
     const version = await this.versionRepository.findOne({
       where: { id: versionId, botId },
       relations: ['creator', 'publisher'],
@@ -1135,9 +1091,7 @@ export class BotsService {
 
     // Check shared roles
     const userRoleIds = user.roles?.map((r) => r.id) || [];
-    const hasRoleAccess = bot.sharedWithRoleIds?.some((rid) =>
-      userRoleIds.includes(rid),
-    );
+    const hasRoleAccess = bot.sharedWithRoleIds?.some((rid) => userRoleIds.includes(rid));
     if (hasRoleAccess) return;
 
     throw new ForbiddenException({
@@ -1195,9 +1149,7 @@ export class BotsService {
 
   private toSummaryDto(bot: Bot, currentUserId: string): BotSummaryDto {
     const successRate =
-      Number(bot.totalRuns) > 0
-        ? (Number(bot.successfulRuns) / Number(bot.totalRuns)) * 100
-        : 0;
+      Number(bot.totalRuns) > 0 ? (Number(bot.successfulRuns) / Number(bot.totalRuns)) * 100 : 0;
 
     return {
       id: bot.id,
@@ -1240,9 +1192,7 @@ export class BotsService {
       allowManualTrigger: bot.allowManualTrigger,
       allowApiTrigger: bot.allowApiTrigger,
       allowWebhookTrigger: bot.allowWebhookTrigger,
-      webhookUrl: bot.allowWebhookTrigger
-        ? `/api/webhooks/bots/${bot.id}/trigger`
-        : undefined,
+      webhookUrl: bot.allowWebhookTrigger ? `/api/webhooks/bots/${bot.id}/trigger` : undefined,
       isPublic: bot.isPublic,
       sharedWithUserIds: bot.sharedWithUserIds || [],
       sharedWithRoleIds: bot.sharedWithRoleIds || [],

@@ -1,16 +1,22 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Tool, ToolResult, LLMProviderConfig, LLMProviderType, DataClassification } from '../types/mcp.types';
+import {
+  Tool,
+  ToolResult,
+  LLMProviderConfig,
+  LLMProviderType,
+  DataClassification,
+} from '../types/mcp.types';
 
 /**
  * BYOM (Bring Your Own Model) Service
- * 
+ *
  * Manages multi-provider LLM configurations for tenants.
  * Supports 12+ providers including cloud (Azure, Bedrock) and self-hosted (Ollama, vLLM).
  */
 @Injectable()
 export class BYOMService {
   private readonly logger = new Logger(BYOMService.name);
-  
+
   // In-memory storage (should be database in production)
   private providers: Map<string, LLMProviderConfig> = new Map();
 
@@ -191,20 +197,32 @@ export class BYOMService {
   /**
    * Execute a BYOM tool
    */
-  async executeTool(toolCall: { name: string; arguments: Record<string, any> }): Promise<ToolResult> {
+  async executeTool(toolCall: {
+    name: string;
+    arguments: Record<string, any>;
+  }): Promise<ToolResult> {
     try {
       switch (toolCall.name) {
         case 'configure_llm_provider':
-          return await this.configureProvider(toolCall.arguments.tenantId, toolCall.arguments.config);
+          return await this.configureProvider(
+            toolCall.arguments.tenantId,
+            toolCall.arguments.config,
+          );
 
         case 'list_llm_providers':
-          return await this.listProviders(toolCall.arguments.tenantId, toolCall.arguments.includeHealth);
+          return await this.listProviders(
+            toolCall.arguments.tenantId,
+            toolCall.arguments.includeHealth,
+          );
 
         case 'get_llm_provider':
           return await this.getProvider(toolCall.arguments.providerId);
 
         case 'update_llm_provider':
-          return await this.updateProvider(toolCall.arguments.providerId, toolCall.arguments.updates);
+          return await this.updateProvider(
+            toolCall.arguments.providerId,
+            toolCall.arguments.updates,
+          );
 
         case 'delete_llm_provider':
           return await this.deleteProvider(toolCall.arguments.providerId);
@@ -237,22 +255,25 @@ export class BYOMService {
   // Tool Implementations
   // ============================================================
 
-  private async configureProvider(tenantId: string, config: Partial<LLMProviderConfig>): Promise<ToolResult> {
+  private async configureProvider(
+    tenantId: string,
+    config: Partial<LLMProviderConfig>,
+  ): Promise<ToolResult> {
     const providerId = `${tenantId}-${config.provider}-${Date.now()}`;
 
     const provider: LLMProviderConfig = {
       id: providerId,
       name: config.name,
       tenantId,
-      provider: config.provider as LLMProviderType,
+      provider: config.provider,
       endpoint: config.endpoint,
       model: config.model,
       apiKey: config.apiKey,
       credentials: config.credentials,
       headers: config.headers || {},
-      baaRequired: config.baaRequired ?? this.requiresBAA(config.provider as LLMProviderType),
+      baaRequired: config.baaRequired ?? this.requiresBAA(config.provider),
       baaSigned: config.baaSigned ?? false,
-      hipaaCompliant: config.hipaaCompliant ?? this.isHIPAACompliant(config.provider as LLMProviderType),
+      hipaaCompliant: config.hipaaCompliant ?? this.isHIPAACompliant(config.provider),
       dataResidency: config.dataResidency || 'unknown',
       allowedDataClassifications: config.allowedDataClassifications || [DataClassification.PUBLIC],
       priority: config.priority ?? 5,
@@ -285,7 +306,9 @@ export class BYOMService {
 
     this.providers.set(providerId, provider);
 
-    this.logger.log(`Configured LLM provider: ${provider.name} (${provider.provider}) for tenant ${tenantId}`);
+    this.logger.log(
+      `Configured LLM provider: ${provider.name} (${provider.provider}) for tenant ${tenantId}`,
+    );
 
     return {
       success: true,
@@ -297,8 +320,13 @@ export class BYOMService {
     };
   }
 
-  private async listProviders(tenantId: string, includeHealth: boolean = true): Promise<ToolResult> {
-    const tenantProviders = Array.from(this.providers.values()).filter((p) => p.tenantId === tenantId);
+  private async listProviders(
+    tenantId: string,
+    includeHealth: boolean = true,
+  ): Promise<ToolResult> {
+    const tenantProviders = Array.from(this.providers.values()).filter(
+      (p) => p.tenantId === tenantId,
+    );
 
     // Sort by priority (descending)
     tenantProviders.sort((a, b) => b.priority - a.priority);
@@ -339,7 +367,10 @@ export class BYOMService {
     };
   }
 
-  private async updateProvider(providerId: string, updates: Partial<LLMProviderConfig>): Promise<ToolResult> {
+  private async updateProvider(
+    providerId: string,
+    updates: Partial<LLMProviderConfig>,
+  ): Promise<ToolResult> {
     const provider = this.providers.get(providerId);
 
     if (!provider) {
@@ -412,7 +443,10 @@ export class BYOMService {
     };
   }
 
-  private async routeToBestProvider(tenantId: string, dataClassification: string): Promise<ToolResult> {
+  private async routeToBestProvider(
+    tenantId: string,
+    dataClassification: string,
+  ): Promise<ToolResult> {
     const classification = dataClassification as DataClassification;
     const tenantProviders = Array.from(this.providers.values()).filter(
       (p) => p.tenantId === tenantId && p.allowedDataClassifications.includes(classification),
@@ -522,25 +556,14 @@ export class BYOMService {
 
   private requiresBAA(provider: LLMProviderType): boolean {
     // Cloud providers typically require BAA for PHI
-    return [
-      'azure-ai-foundry',
-      'aws-bedrock',
-      'vertex-ai',
-      'openai',
-      'anthropic',
-    ].includes(provider);
+    return ['azure-ai-foundry', 'aws-bedrock', 'vertex-ai', 'openai', 'anthropic'].includes(
+      provider,
+    );
   }
 
   private isHIPAACompliant(provider: LLMProviderType): boolean {
     // Self-hosted providers are inherently HIPAA compliant (data stays in VPC)
-    return [
-      'ollama',
-      'vllm',
-      'tgi',
-      'llamacpp',
-      'lmstudio',
-      'localai',
-    ].includes(provider);
+    return ['ollama', 'vllm', 'tgi', 'llamacpp', 'lmstudio', 'localai'].includes(provider);
   }
 
   private seedExampleProviders(): void {
@@ -655,4 +678,3 @@ export class BYOMService {
     this.logger.log('Seeded example BYOM providers');
   }
 }
-

@@ -87,6 +87,7 @@ In enterprise AI applications, especially in regulated industries like Healthcar
 The central component for prompt management.
 
 **Key Responsibilities:**
+
 - Load prompts from versioned files
 - Parse frontmatter metadata
 - Combine system prompt + context
@@ -94,6 +95,7 @@ The central component for prompt management.
 - Cache prompts for performance
 
 **Key Methods:**
+
 ```python
 # Load a system prompt
 prompt, metadata = loader.load_prompt("repair", version="v1")
@@ -116,21 +118,23 @@ result = loader.build_full_prompt(
 Located in `engine/skuldbot/ai/prompts/`.
 
 **File Format:**
+
 ```markdown
 ---
-version: "1.0"
-created: "2025-12-18"
-author: "Skuldbot Team"
-node: "ai.repair_data"
-description: "System prompt for AI data repair"
+version: '1.0'
+created: '2025-12-18'
+author: 'Skuldbot Team'
+node: 'ai.repair_data'
+description: 'System prompt for AI data repair'
 audit_required: true
-compliance_tags: ["HIPAA", "SOC2"]
+compliance_tags: ['HIPAA', 'SOC2']
 ---
 
 [Prompt content in Markdown]
 ```
 
 **Naming Conventions:**
+
 - System prompts: `system_v1.md`, `system_v2.md`
 - Context files: `context_healthcare.md`, `context_insurance.md`
 
@@ -139,6 +143,7 @@ compliance_tags: ["HIPAA", "SOC2"]
 The Robot Framework library that uses the prompt loader.
 
 **Integration:**
+
 ```python
 # In ai_repair_data method:
 repair_prompt, prompt_audit = self._build_repair_prompt(
@@ -191,6 +196,7 @@ Every AI operation generates an audit entry:
 ### Healthcare (HIPAA)
 
 **Protected Health Information (PHI) Rules:**
+
 - Never modify MRN, SSN, DOB
 - Never infer medical diagnoses
 - Format normalization only for dates
@@ -199,6 +205,7 @@ Every AI operation generates an audit entry:
 ### Insurance
 
 **Claim Data Rules:**
+
 - Never modify claim amounts, policy numbers
 - Status normalization to standards
 - Date standardization to ISO 8601
@@ -207,6 +214,7 @@ Every AI operation generates an audit entry:
 ### Finance (SOX/PCI-DSS)
 
 **Financial Data Rules:**
+
 - Never modify account numbers, routing numbers
 - Never process raw card data
 - Transaction type/status normalization only

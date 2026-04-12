@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect, useState } from "react";
+import { useCallback, useRef, useEffect, useState } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -13,24 +13,30 @@ import ReactFlow, {
   applyEdgeChanges,
   NodeChange,
   EdgeChange,
-} from "reactflow";
-import "reactflow/dist/style.css";
+} from 'reactflow';
+import 'reactflow/dist/style.css';
 
-import { dslToFlowNodes, useProjectStore } from "../store/projectStore";
-import { useTabsStore } from "../store/tabsStore";
-import { useFlowStore, getDraggedNodeData, clearDraggedNodeData, getPendingNodeTemplate, clearPendingNodeTemplate } from "../store/flowStore";
-import { useHistoryStore, generatePasteIds, duplicateNodes } from "../store/historyStore";
-import { useDebugStore } from "../store/debugStore";
-import { useToastStore } from "../store/toastStore";
-import CustomNode from "./CustomNode";
-import GroupNode from "./GroupNode";
-import AnimatedEdge from "./AnimatedEdge";
-import EmptyState from "./EmptyState";
-import NodeSearchDialog from "./NodeSearchDialog";
-import { useNodeSearch } from "../hooks/useNodeSearch";
-import { BotDSL, FlowNode, FlowEdge, isContainerNodeType, NodeCategory } from "../types/flow";
-import { PlanStep } from "../types/ai-planner";
-import { getNodeTemplate } from "../data/nodeTemplates";
+import { dslToFlowNodes, useProjectStore } from '../store/projectStore';
+import { useTabsStore } from '../store/tabsStore';
+import {
+  useFlowStore,
+  getDraggedNodeData,
+  clearDraggedNodeData,
+  getPendingNodeTemplate,
+  clearPendingNodeTemplate,
+} from '../store/flowStore';
+import { useHistoryStore, generatePasteIds, duplicateNodes } from '../store/historyStore';
+import { useDebugStore } from '../store/debugStore';
+import { useToastStore } from '../store/toastStore';
+import CustomNode from './CustomNode';
+import GroupNode from './GroupNode';
+import AnimatedEdge from './AnimatedEdge';
+import EmptyState from './EmptyState';
+import NodeSearchDialog from './NodeSearchDialog';
+import { useNodeSearch } from '../hooks/useNodeSearch';
+import { BotDSL, FlowNode, FlowEdge, isContainerNodeType, NodeCategory } from '../types/flow';
+import { PlanStep } from '../types/ai-planner';
+import { getNodeTemplate } from '../data/nodeTemplates';
 
 const nodeTypes: NodeTypes = {
   customNode: CustomNode,
@@ -43,10 +49,10 @@ const EMPTY_EDGES: FlowEdge[] = [];
 // Helper to find if a position is inside a GroupNode (container)
 function findParentGroupNode(
   position: { x: number; y: number },
-  nodes: FlowNode[]
+  nodes: FlowNode[],
 ): FlowNode | null {
   // Only consider GroupNodes (containers)
-  const groupNodes = nodes.filter((n) => n.type === "groupNode");
+  const groupNodes = nodes.filter((n) => n.type === 'groupNode');
 
   // Check each group node to see if position is inside it
   // We need to account for the header height (~52px) when determining drop zone
@@ -74,7 +80,8 @@ const edgeTypes: EdgeTypes = {
 };
 
 export default function BotEditor() {
-  const { bots, activeBotId, updateActiveBotNodes, updateActiveBotEdges, saveBot } = useProjectStore();
+  const { bots, activeBotId, updateActiveBotNodes, updateActiveBotEdges, saveBot } =
+    useProjectStore();
   const { setTabDirty } = useTabsStore();
   const { setSelectedNode, selectedNode } = useFlowStore();
   const { pushState, undo, redo, canUndo, canRedo, copy, paste, hasClipboard } = useHistoryStore();
@@ -93,7 +100,26 @@ export default function BotEditor() {
 
   // #region agent log
   useEffect(() => {
-    fetch('http://127.0.0.1:7243/ingest/2ce691dc-013d-459b-9285-50430c26e8ac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'BotEditor:render',message:'BotEditor rendering',data:{activeBotId,hasActiveBot:!!activeBot,nodesCount:nodes.length,edgesCount:edges.length,firstNodePositions:nodes.slice(0,3).map(n=>({id:n.id,x:n.position?.x,y:n.position?.y,type:n.data?.nodeType}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H5-render'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7243/ingest/2ce691dc-013d-459b-9285-50430c26e8ac', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        location: 'BotEditor:render',
+        message: 'BotEditor rendering',
+        data: {
+          activeBotId,
+          hasActiveBot: !!activeBot,
+          nodesCount: nodes.length,
+          edgesCount: edges.length,
+          firstNodePositions: nodes
+            .slice(0, 3)
+            .map((n) => ({ id: n.id, x: n.position?.x, y: n.position?.y, type: n.data?.nodeType })),
+        },
+        timestamp: Date.now(),
+        sessionId: 'debug-session',
+        hypothesisId: 'H5-render',
+      }),
+    }).catch(() => {});
   }, [activeBotId, activeBot, nodes, edges]);
   // #endregion
 
@@ -121,7 +147,8 @@ export default function BotEditor() {
       setHasPendingNode(!!e.detail);
     };
     window.addEventListener('pendingNodeChange', handlePendingChange as EventListener);
-    return () => window.removeEventListener('pendingNodeChange', handlePendingChange as EventListener);
+    return () =>
+      window.removeEventListener('pendingNodeChange', handlePendingChange as EventListener);
   }, []);
 
   // Listen for AI Planner apply event - creates nodes and edges from plan
@@ -139,9 +166,10 @@ export default function BotEditor() {
 
         if (dslNodes.length > 0) {
           // Place imported DSL to the right of existing flow while preserving relative layout
-          const startX = existingNodes.length > 0
-            ? Math.max(...existingNodes.map((n) => n.position.x)) + 300
-            : 100;
+          const startX =
+            existingNodes.length > 0
+              ? Math.max(...existingNodes.map((n) => n.position.x)) + 300
+              : 100;
           const startY = 100;
 
           const minX = Math.min(...dslNodes.map((n) => n.position.x));
@@ -159,7 +187,9 @@ export default function BotEditor() {
           const remappedNodes: FlowNode[] = dslNodes.map((node) => {
             const mappedId = idMap.get(node.id) || node.id;
             const mappedParentId = node.parentId ? idMap.get(node.parentId) : undefined;
-            const mappedParentNode = (node as any).parentNode ? idMap.get((node as any).parentNode) : undefined;
+            const mappedParentNode = (node as any).parentNode
+              ? idMap.get((node as any).parentNode)
+              : undefined;
 
             return {
               ...node,
@@ -207,9 +237,8 @@ export default function BotEditor() {
 
       // Calculate starting position for new nodes
       const existingNodes = nodesRef.current;
-      const startX = existingNodes.length > 0
-        ? Math.max(...existingNodes.map(n => n.position.x)) + 300
-        : 100;
+      const startX =
+        existingNodes.length > 0 ? Math.max(...existingNodes.map((n) => n.position.x)) + 300 : 100;
       const startY = 100;
       const nodeSpacing = 180; // Vertical spacing between nodes
 
@@ -232,25 +261,25 @@ export default function BotEditor() {
         let yOffset = index * nodeSpacing;
 
         // Special positioning for AI flow pattern
-        if (step.nodeType === "ai.embeddings") {
+        if (step.nodeType === 'ai.embeddings') {
           xOffset = -250;
           yOffset = (index - 1) * nodeSpacing + 60;
-        } else if (step.nodeType === "vectordb.memory") {
+        } else if (step.nodeType === 'vectordb.memory') {
           xOffset = -250;
           yOffset = (index - 1) * nodeSpacing + 180;
         }
 
         const newNode: FlowNode = {
           id: nodeId,
-          type: isContainer ? "groupNode" : "customNode",
+          type: isContainer ? 'groupNode' : 'customNode',
           position: { x: startX + xOffset, y: startY + yOffset },
           ...(isContainer && { style: { width: 400, height: 250 } }),
           data: {
             label: step.label,
             nodeType: step.nodeType,
             config: { ...template?.defaultConfig, ...step.config },
-            category: (template?.category || step.nodeType.split(".")[0]) as NodeCategory,
-            icon: template?.icon || "Box",
+            category: (template?.category || step.nodeType.split('.')[0]) as NodeCategory,
+            icon: template?.icon || 'Box',
           },
         };
 
@@ -260,12 +289,13 @@ export default function BotEditor() {
       // Create edges: standard flow edges (success connections)
       const newEdges: FlowEdge[] = [];
       const pushUniqueEdge = (edge: FlowEdge) => {
-        const exists = newEdges.some((e) =>
-          e.source === edge.source &&
-          e.target === edge.target &&
-          e.sourceHandle === edge.sourceHandle &&
-          e.targetHandle === edge.targetHandle &&
-          e.data?.edgeType === edge.data?.edgeType
+        const exists = newEdges.some(
+          (e) =>
+            e.source === edge.source &&
+            e.target === edge.target &&
+            e.sourceHandle === edge.sourceHandle &&
+            e.targetHandle === edge.targetHandle &&
+            e.data?.edgeType === edge.data?.edgeType,
         );
         if (!exists) {
           newEdges.push(edge);
@@ -281,7 +311,9 @@ export default function BotEditor() {
         const errorRef = step.outputs?.error;
 
         const successTarget = successRef
-          ? (successRef === "END" ? null : stepIdToNodeId.get(successRef))
+          ? successRef === 'END'
+            ? null
+            : stepIdToNodeId.get(successRef)
           : (() => {
               const nextStepId = planSteps[index + 1]?.id;
               return nextStepId ? stepIdToNodeId.get(nextStepId) : null;
@@ -292,15 +324,17 @@ export default function BotEditor() {
             id: `${sourceId}-success-${successTarget}`,
             source: sourceId,
             target: successTarget,
-            sourceHandle: "success",
+            sourceHandle: 'success',
             targetHandle: null,
-            type: "animated",
-            data: { edgeType: "success" as const },
+            type: 'animated',
+            data: { edgeType: 'success' as const },
           });
         }
 
         const errorTarget = errorRef
-          ? (errorRef === "END" ? null : stepIdToNodeId.get(errorRef))
+          ? errorRef === 'END'
+            ? null
+            : stepIdToNodeId.get(errorRef)
           : null;
 
         if (errorTarget && errorTarget !== sourceId) {
@@ -308,10 +342,10 @@ export default function BotEditor() {
             id: `${sourceId}-error-${errorTarget}`,
             source: sourceId,
             target: errorTarget,
-            sourceHandle: "error",
+            sourceHandle: 'error',
             targetHandle: null,
-            type: "animated",
-            data: { edgeType: "error" as const },
+            type: 'animated',
+            data: { edgeType: 'error' as const },
           });
         }
       });
@@ -330,10 +364,10 @@ export default function BotEditor() {
               id: `${sourceId}-model-${targetId}`,
               source: sourceId,
               target: targetId,
-              sourceHandle: "model-out",
-              targetHandle: "model",
-              type: "animated",
-              data: { edgeType: "model" as const },
+              sourceHandle: 'model-out',
+              targetHandle: 'model',
+              type: 'animated',
+              data: { edgeType: 'model' as const },
             });
           }
         }
@@ -345,10 +379,10 @@ export default function BotEditor() {
               id: `${sourceId}-embeddings-${targetId}`,
               source: sourceId,
               target: targetId,
-              sourceHandle: "embeddings-out",
-              targetHandle: "embeddings",
-              type: "animated",
-              data: { edgeType: "embeddings" as const },
+              sourceHandle: 'embeddings-out',
+              targetHandle: 'embeddings',
+              type: 'animated',
+              data: { edgeType: 'embeddings' as const },
             });
           }
         }
@@ -360,10 +394,10 @@ export default function BotEditor() {
               id: `${sourceId}-memory-${targetId}`,
               source: sourceId,
               target: targetId,
-              sourceHandle: "memory-out",
-              targetHandle: "memory",
-              type: "animated",
-              data: { edgeType: "memory" as const, memoryType: "both" },
+              sourceHandle: 'memory-out',
+              targetHandle: 'memory',
+              type: 'animated',
+              data: { edgeType: 'memory' as const, memoryType: 'both' },
             });
           }
         }
@@ -375,10 +409,10 @@ export default function BotEditor() {
               id: `${sourceId}-connection-${targetId}`,
               source: sourceId,
               target: targetId,
-              sourceHandle: "connection-out",
-              targetHandle: "connection",
-              type: "animated",
-              data: { edgeType: "connection" as const },
+              sourceHandle: 'connection-out',
+              targetHandle: 'connection',
+              type: 'animated',
+              data: { edgeType: 'connection' as const },
             });
           }
         }
@@ -391,10 +425,10 @@ export default function BotEditor() {
                 id: `${sourceId}-tool-${targetId}`,
                 source: sourceId,
                 target: targetId,
-                sourceHandle: "success",
-                targetHandle: "tools",
-                type: "animated",
-                data: { edgeType: "tool" as const, toolName: "Tool" },
+                sourceHandle: 'success',
+                targetHandle: 'tools',
+                type: 'animated',
+                data: { edgeType: 'tool' as const, toolName: 'Tool' },
               });
             }
           });
@@ -402,37 +436,38 @@ export default function BotEditor() {
       });
 
       // Auto-detect AI patterns and create connections if not explicitly defined
-      const modelNode = newNodes.find(n => n.data.nodeType === "ai.model");
-      const embeddingsNode = newNodes.find(n => n.data.nodeType === "ai.embeddings");
-      const memoryNode = newNodes.find(n => n.data.nodeType === "vectordb.memory");
-      const agentNode = newNodes.find(n => n.data.nodeType === "ai.agent");
-      const aiTaskNodes = newNodes.filter(n =>
+      const modelNode = newNodes.find((n) => n.data.nodeType === 'ai.model');
+      const embeddingsNode = newNodes.find((n) => n.data.nodeType === 'ai.embeddings');
+      const memoryNode = newNodes.find((n) => n.data.nodeType === 'vectordb.memory');
+      const agentNode = newNodes.find((n) => n.data.nodeType === 'ai.agent');
+      const aiTaskNodes = newNodes.filter((n) =>
         [
-          "ai.extract_data",
-          "ai.summarize",
-          "ai.classify",
-          "ai.translate",
-          "ai.sentiment",
-          "ai.vision",
-          "ai.repair_data",
-          "ai.suggest_repairs",
-        ].includes(n.data.nodeType)
+          'ai.extract_data',
+          'ai.summarize',
+          'ai.classify',
+          'ai.translate',
+          'ai.sentiment',
+          'ai.vision',
+          'ai.repair_data',
+          'ai.suggest_repairs',
+        ].includes(n.data.nodeType),
       );
 
       // Model → Agent (if both exist and no explicit connection)
       if (modelNode && agentNode) {
-        const hasModelToAgent = newEdges.some(e =>
-          e.source === modelNode.id && e.target === agentNode.id && e.data?.edgeType === "model"
+        const hasModelToAgent = newEdges.some(
+          (e) =>
+            e.source === modelNode.id && e.target === agentNode.id && e.data?.edgeType === 'model',
         );
         if (!hasModelToAgent) {
           newEdges.push({
             id: `${modelNode.id}-model-${agentNode.id}`,
             source: modelNode.id,
             target: agentNode.id,
-            sourceHandle: "model-out",
-            targetHandle: "model",
-            type: "animated",
-            data: { edgeType: "model" as const },
+            sourceHandle: 'model-out',
+            targetHandle: 'model',
+            type: 'animated',
+            data: { edgeType: 'model' as const },
           });
         }
       }
@@ -440,18 +475,19 @@ export default function BotEditor() {
       // Model → AI Task Nodes (if model exists and no explicit connection)
       if (modelNode && aiTaskNodes.length > 0) {
         aiTaskNodes.forEach((taskNode) => {
-          const hasModelToTask = newEdges.some(e =>
-            e.source === modelNode.id && e.target === taskNode.id && e.data?.edgeType === "model"
+          const hasModelToTask = newEdges.some(
+            (e) =>
+              e.source === modelNode.id && e.target === taskNode.id && e.data?.edgeType === 'model',
           );
           if (!hasModelToTask) {
             newEdges.push({
               id: `${modelNode.id}-model-${taskNode.id}`,
               source: modelNode.id,
               target: taskNode.id,
-              sourceHandle: "model-out",
-              targetHandle: "model",
-              type: "animated",
-              data: { edgeType: "model" as const },
+              sourceHandle: 'model-out',
+              targetHandle: 'model',
+              type: 'animated',
+              data: { edgeType: 'model' as const },
             });
           }
         });
@@ -459,54 +495,63 @@ export default function BotEditor() {
 
       // Embeddings → Agent (if both exist and no explicit connection)
       if (embeddingsNode && agentNode) {
-        const hasEmbeddingsToAgent = newEdges.some(e =>
-          e.source === embeddingsNode.id && e.target === agentNode.id && e.data?.edgeType === "embeddings"
+        const hasEmbeddingsToAgent = newEdges.some(
+          (e) =>
+            e.source === embeddingsNode.id &&
+            e.target === agentNode.id &&
+            e.data?.edgeType === 'embeddings',
         );
         if (!hasEmbeddingsToAgent) {
           newEdges.push({
             id: `${embeddingsNode.id}-embeddings-${agentNode.id}`,
             source: embeddingsNode.id,
             target: agentNode.id,
-            sourceHandle: "embeddings-out",
-            targetHandle: "embeddings",
-            type: "animated",
-            data: { edgeType: "embeddings" as const },
+            sourceHandle: 'embeddings-out',
+            targetHandle: 'embeddings',
+            type: 'animated',
+            data: { edgeType: 'embeddings' as const },
           });
         }
       }
 
       // Embeddings → Memory (if both exist and no agent, or explicit)
       if (embeddingsNode && memoryNode) {
-        const hasEmbeddingsToMemory = newEdges.some(e =>
-          e.source === embeddingsNode.id && e.target === memoryNode.id && e.data?.edgeType === "embeddings"
+        const hasEmbeddingsToMemory = newEdges.some(
+          (e) =>
+            e.source === embeddingsNode.id &&
+            e.target === memoryNode.id &&
+            e.data?.edgeType === 'embeddings',
         );
         if (!hasEmbeddingsToMemory) {
           newEdges.push({
             id: `${embeddingsNode.id}-embeddings-${memoryNode.id}`,
             source: embeddingsNode.id,
             target: memoryNode.id,
-            sourceHandle: "embeddings-out",
-            targetHandle: "embeddings",
-            type: "animated",
-            data: { edgeType: "embeddings" as const },
+            sourceHandle: 'embeddings-out',
+            targetHandle: 'embeddings',
+            type: 'animated',
+            data: { edgeType: 'embeddings' as const },
           });
         }
       }
 
       // Memory → Agent (if both exist and no explicit connection)
       if (memoryNode && agentNode) {
-        const hasMemoryToAgent = newEdges.some(e =>
-          e.source === memoryNode.id && e.target === agentNode.id && e.data?.edgeType === "memory"
+        const hasMemoryToAgent = newEdges.some(
+          (e) =>
+            e.source === memoryNode.id &&
+            e.target === agentNode.id &&
+            e.data?.edgeType === 'memory',
         );
         if (!hasMemoryToAgent) {
           newEdges.push({
             id: `${memoryNode.id}-memory-${agentNode.id}`,
             source: memoryNode.id,
             target: agentNode.id,
-            sourceHandle: "memory-out",
-            targetHandle: "memory",
-            type: "animated",
-            data: { edgeType: "memory" as const, memoryType: "both" },
+            sourceHandle: 'memory-out',
+            targetHandle: 'memory',
+            type: 'animated',
+            data: { edgeType: 'memory' as const, memoryType: 'both' },
           });
         }
       }
@@ -527,7 +572,8 @@ export default function BotEditor() {
     };
 
     window.addEventListener('ai-planner-apply', handleAIPlannerApply as EventListener);
-    return () => window.removeEventListener('ai-planner-apply', handleAIPlannerApply as EventListener);
+    return () =>
+      window.removeEventListener('ai-planner-apply', handleAIPlannerApply as EventListener);
   }, [updateActiveBotNodes, updateActiveBotEdges, activeBotId, setTabDirty, fitView, pushState]);
 
   // Mark tab as dirty and push to history
@@ -575,7 +621,7 @@ export default function BotEditor() {
     const selectedNodes = nodes.filter((n) => n.selected);
     if (selectedNodes.length === 0) return;
     copy(selectedNodes, edges);
-    toast.success("Copied", `${selectedNodes.length} node(s) copied`);
+    toast.success('Copied', `${selectedNodes.length} node(s) copied`);
   }, [nodes, edges, copy, toast]);
 
   // Handle paste
@@ -593,8 +639,18 @@ export default function BotEditor() {
     updateActiveBotNodes([...deselectedNodes, ...newNodes]);
     updateActiveBotEdges([...edges, ...newEdges]);
     markDirty();
-    toast.success("Pasted", `${newNodes.length} node(s) pasted`);
-  }, [hasClipboard, paste, pushToHistory, nodes, edges, updateActiveBotNodes, updateActiveBotEdges, markDirty, toast]);
+    toast.success('Pasted', `${newNodes.length} node(s) pasted`);
+  }, [
+    hasClipboard,
+    paste,
+    pushToHistory,
+    nodes,
+    edges,
+    updateActiveBotNodes,
+    updateActiveBotEdges,
+    markDirty,
+    toast,
+  ]);
 
   // Handle duplicate (Ctrl+D)
   const handleDuplicate = useCallback(() => {
@@ -625,8 +681,10 @@ export default function BotEditor() {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       const targetTag = target?.tagName?.toLowerCase();
-      const isTyping = targetTag === 'input' || targetTag === 'textarea' ||
-                       target?.getAttribute("contenteditable") === "true";
+      const isTyping =
+        targetTag === 'input' ||
+        targetTag === 'textarea' ||
+        target?.getAttribute('contenteditable') === 'true';
 
       // Allow Ctrl+S even when typing
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -646,7 +704,7 @@ export default function BotEditor() {
       }
 
       // Ctrl/Cmd + Shift + Z or Ctrl/Cmd + Y = Redo
-      if ((e.ctrlKey || e.metaKey) && (e.shiftKey && e.key === 'z' || e.key === 'y')) {
+      if ((e.ctrlKey || e.metaKey) && ((e.shiftKey && e.key === 'z') || e.key === 'y')) {
         e.preventDefault();
         handleRedo();
         return;
@@ -700,9 +758,20 @@ export default function BotEditor() {
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleUndo, handleRedo, handleCopy, handlePaste, handleDuplicate, handleSave, nodes, updateActiveBotNodes, setSelectedNode, toggleBreakpoint]);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    handleUndo,
+    handleRedo,
+    handleCopy,
+    handlePaste,
+    handleDuplicate,
+    handleSave,
+    nodes,
+    updateActiveBotNodes,
+    setSelectedNode,
+    toggleBreakpoint,
+  ]);
 
   // WebKit/Tauri workaround: drop event doesn't fire, so we use dragend event
   // Listen globally for dragend and check if mouse is over the canvas
@@ -719,7 +788,12 @@ export default function BotEditor() {
 
       const rect = wrapper.getBoundingClientRect();
       // Check if mouse is inside the canvas
-      if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+      if (
+        clientX < rect.left ||
+        clientX > rect.right ||
+        clientY < rect.top ||
+        clientY > rect.bottom
+      ) {
         return false;
       }
 
@@ -744,7 +818,7 @@ export default function BotEditor() {
 
       const newNode: FlowNode = {
         id: `${nodeData.type}-${Date.now()}`,
-        type: isContainer ? "groupNode" : "customNode",
+        type: isContainer ? 'groupNode' : 'customNode',
         position: finalPosition,
         // Container nodes need explicit dimensions
         ...(isContainer && {
@@ -753,7 +827,7 @@ export default function BotEditor() {
         // Set parent if dropping inside a container
         ...(parentGroup && {
           parentId: parentGroup.id,
-          extent: "parent" as const,
+          extent: 'parent' as const,
         }),
         // Child nodes need higher zIndex to render edges above container
         zIndex: parentGroup ? 1000 : undefined,
@@ -778,7 +852,7 @@ export default function BotEditor() {
                   childNodes: [...(n.data.childNodes || []), newNode.id],
                 },
               }
-            : n
+            : n,
         );
       }
 
@@ -793,7 +867,7 @@ export default function BotEditor() {
     const handleDragOver = (event: DragEvent) => {
       event.preventDefault();
       if (event.dataTransfer) {
-        event.dataTransfer.dropEffect = "move";
+        event.dataTransfer.dropEffect = 'move';
       }
       lastMousePos = { x: event.clientX, y: event.clientY };
     };
@@ -815,36 +889,41 @@ export default function BotEditor() {
       createNodeFromDrag(event.clientX, event.clientY);
     };
 
-    wrapper.addEventListener("dragover", handleDragOver, true);
-    wrapper.addEventListener("drop", handleDrop, true);
-    window.addEventListener("dragend", handleDragEnd, true);
+    wrapper.addEventListener('dragover', handleDragOver, true);
+    wrapper.addEventListener('drop', handleDrop, true);
+    window.addEventListener('dragend', handleDragEnd, true);
 
     return () => {
-      wrapper.removeEventListener("dragover", handleDragOver, true);
-      wrapper.removeEventListener("drop", handleDrop, true);
-      window.removeEventListener("dragend", handleDragEnd, true);
+      wrapper.removeEventListener('dragover', handleDragOver, true);
+      wrapper.removeEventListener('drop', handleDrop, true);
+      window.removeEventListener('dragend', handleDragEnd, true);
     };
   }, [screenToFlowPosition, updateActiveBotNodes, markDirty, pushToHistory]);
 
   // Handle delete key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
 
       const target = e.target as HTMLElement;
       const activeElement = document.activeElement;
       const targetTag = target?.tagName?.toLowerCase();
       const activeTag = activeElement?.tagName?.toLowerCase();
 
-      const isTyping = targetTag === 'input' || targetTag === 'textarea' ||
-                       activeTag === 'input' || activeTag === 'textarea' ||
-                       target?.getAttribute("contenteditable") === "true";
+      const isTyping =
+        targetTag === 'input' ||
+        targetTag === 'textarea' ||
+        activeTag === 'input' ||
+        activeTag === 'textarea' ||
+        target?.getAttribute('contenteditable') === 'true';
 
-      const isInModal = target?.closest('[data-properties-panel]') !== null ||
-                        activeElement?.closest('[data-properties-panel]') !== null;
+      const isInModal =
+        target?.closest('[data-properties-panel]') !== null ||
+        activeElement?.closest('[data-properties-panel]') !== null;
 
-      const modalExists = document.getElementById('node-config-panel') !== null ||
-                          document.querySelector('[data-properties-panel]') !== null;
+      const modalExists =
+        document.getElementById('node-config-panel') !== null ||
+        document.querySelector('[data-properties-panel]') !== null;
 
       const configPanelOpen = selectedNode !== null;
 
@@ -855,7 +934,9 @@ export default function BotEditor() {
         pushToHistory();
         const selectedIds = selectedNodes.map((n) => n.id);
         updateActiveBotNodes(nodes.filter((n) => !selectedIds.includes(n.id)));
-        updateActiveBotEdges(edges.filter((e) => !selectedIds.includes(e.source) && !selectedIds.includes(e.target)));
+        updateActiveBotEdges(
+          edges.filter((e) => !selectedIds.includes(e.source) && !selectedIds.includes(e.target)),
+        );
         setSelectedNode(null);
         markDirty();
       }
@@ -869,9 +950,18 @@ export default function BotEditor() {
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [nodes, edges, updateActiveBotNodes, updateActiveBotEdges, setSelectedNode, selectedNode, markDirty, pushToHistory]);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    nodes,
+    edges,
+    updateActiveBotNodes,
+    updateActiveBotEdges,
+    setSelectedNode,
+    selectedNode,
+    markDirty,
+    pushToHistory,
+  ]);
 
   // Track if we need to push history on node drag end
   const isDraggingRef = useRef(false);
@@ -881,7 +971,7 @@ export default function BotEditor() {
       let updatedNodes = applyNodeChanges(changes, nodes) as FlowNode[];
 
       // Ensure child nodes always have high zIndex for proper edge rendering
-      updatedNodes = updatedNodes.map(node => {
+      updatedNodes = updatedNodes.map((node) => {
         if (node.parentId && (node.zIndex === undefined || node.zIndex < 1000)) {
           return { ...node, zIndex: 1000 };
         }
@@ -889,14 +979,14 @@ export default function BotEditor() {
       });
 
       // Check for drag start
-      const hasDragStart = changes.some(c => c.type === 'position' && c.dragging === true);
+      const hasDragStart = changes.some((c) => c.type === 'position' && c.dragging === true);
       if (hasDragStart && !isDraggingRef.current) {
         isDraggingRef.current = true;
         pushToHistory();
       }
 
       // Check for drag end
-      const hasDragEnd = changes.some(c => c.type === 'position' && c.dragging === false);
+      const hasDragEnd = changes.some((c) => c.type === 'position' && c.dragging === false);
       if (hasDragEnd) {
         isDraggingRef.current = false;
       }
@@ -904,18 +994,18 @@ export default function BotEditor() {
       updateActiveBotNodes(updatedNodes);
 
       // Check if any change is not just selection
-      const hasRealChange = changes.some(c => c.type !== 'select');
+      const hasRealChange = changes.some((c) => c.type !== 'select');
       if (hasRealChange) {
         markDirty();
       }
     },
-    [nodes, updateActiveBotNodes, markDirty, pushToHistory]
+    [nodes, updateActiveBotNodes, markDirty, pushToHistory],
   );
 
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
       // Push history for edge removal
-      const hasRemoval = changes.some(c => c.type === 'remove');
+      const hasRemoval = changes.some((c) => c.type === 'remove');
       if (hasRemoval) {
         pushToHistory();
       }
@@ -923,12 +1013,12 @@ export default function BotEditor() {
       const updatedEdges = applyEdgeChanges(changes, edges) as FlowEdge[];
       updateActiveBotEdges(updatedEdges);
 
-      const hasRealChange = changes.some(c => c.type !== 'select');
+      const hasRealChange = changes.some((c) => c.type !== 'select');
       if (hasRealChange) {
         markDirty();
       }
     },
-    [edges, updateActiveBotEdges, markDirty, pushToHistory]
+    [edges, updateActiveBotEdges, markDirty, pushToHistory],
   );
 
   const onConnect = useCallback(
@@ -936,22 +1026,28 @@ export default function BotEditor() {
       pushToHistory();
 
       // Determine edge type based on source/target handles
-      let edgeType: string = connection.sourceHandle || "success";
+      let edgeType: string = connection.sourceHandle || 'success';
 
       // Map special handle names to proper edge types
-      if (connection.sourceHandle === "model-out" && connection.targetHandle === "model") {
-        edgeType = "model";
-      } else if (connection.sourceHandle === "embeddings-out" && connection.targetHandle === "embeddings") {
-        edgeType = "embeddings";
-      } else if (connection.sourceHandle === "memory-out" && connection.targetHandle === "memory") {
-        edgeType = "memory";
-      } else if (connection.targetHandle === "tools") {
-        edgeType = "tool";
-      } else if (connection.sourceHandle === "connection-out" && connection.targetHandle === "connection") {
-        edgeType = "connection";
+      if (connection.sourceHandle === 'model-out' && connection.targetHandle === 'model') {
+        edgeType = 'model';
+      } else if (
+        connection.sourceHandle === 'embeddings-out' &&
+        connection.targetHandle === 'embeddings'
+      ) {
+        edgeType = 'embeddings';
+      } else if (connection.sourceHandle === 'memory-out' && connection.targetHandle === 'memory') {
+        edgeType = 'memory';
+      } else if (connection.targetHandle === 'tools') {
+        edgeType = 'tool';
+      } else if (
+        connection.sourceHandle === 'connection-out' &&
+        connection.targetHandle === 'connection'
+      ) {
+        edgeType = 'connection';
       }
 
-      console.log("[BotEditor] onConnect:", {
+      console.log('[BotEditor] onConnect:', {
         sourceHandle: connection.sourceHandle,
         targetHandle: connection.targetHandle,
         edgeType,
@@ -963,115 +1059,122 @@ export default function BotEditor() {
         target: connection.target!,
         sourceHandle: connection.sourceHandle,
         targetHandle: connection.targetHandle,
-        type: "animated",
+        type: 'animated',
         data: {
-          edgeType: edgeType as "success" | "error" | "model" | "embeddings" | "memory" | "tool" | "connection",
+          edgeType: edgeType as
+            | 'success'
+            | 'error'
+            | 'model'
+            | 'embeddings'
+            | 'memory'
+            | 'tool'
+            | 'connection',
         },
       };
 
-      console.log("[BotEditor] Created edge:", edge);
+      console.log('[BotEditor] Created edge:', edge);
 
       const newEdges = addEdge(edge, edges) as FlowEdge[];
       updateActiveBotEdges(newEdges);
       markDirty();
     },
-    [edges, updateActiveBotEdges, markDirty, pushToHistory]
+    [edges, updateActiveBotEdges, markDirty, pushToHistory],
   );
 
   // Single click just selects the node (React Flow handles this automatically)
-  const onNodeClick = useCallback(
-    () => {
-      // Don't open config panel on single click - let React Flow handle selection
-    },
-    []
-  );
+  const onNodeClick = useCallback(() => {
+    // Don't open config panel on single click - let React Flow handle selection
+  }, []);
 
   // Double click opens the configuration panel
   const onNodeDoubleClick = useCallback(
     (_event: React.MouseEvent, node: FlowNode) => {
       setSelectedNode(node);
     },
-    [setSelectedNode]
+    [setSelectedNode],
   );
 
-  const onPaneClick = useCallback((event: React.MouseEvent) => {
-    const pendingNode = getPendingNodeTemplate();
-    if (pendingNode) {
-      pushToHistory();
+  const onPaneClick = useCallback(
+    (event: React.MouseEvent) => {
+      const pendingNode = getPendingNodeTemplate();
+      if (pendingNode) {
+        pushToHistory();
 
-      const position = screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY,
-      });
+        const position = screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        });
 
-      // Use groupNode type for container nodes
-      const isContainer = isContainerNodeType(pendingNode.type);
+        // Use groupNode type for container nodes
+        const isContainer = isContainerNodeType(pendingNode.type);
 
-      // Check if clicking inside a GroupNode (container) - only for non-container nodes
-      const parentGroup = !isContainer ? findParentGroupNode(position, nodes) : null;
+        // Check if clicking inside a GroupNode (container) - only for non-container nodes
+        const parentGroup = !isContainer ? findParentGroupNode(position, nodes) : null;
 
-      // Calculate position relative to parent if inside a container
-      let finalPosition = position;
-      if (parentGroup) {
-        finalPosition = {
-          x: position.x - parentGroup.position.x,
-          y: position.y - parentGroup.position.y,
+        // Calculate position relative to parent if inside a container
+        let finalPosition = position;
+        if (parentGroup) {
+          finalPosition = {
+            x: position.x - parentGroup.position.x,
+            y: position.y - parentGroup.position.y,
+          };
+        }
+
+        const newNode: FlowNode = {
+          id: `${pendingNode.type}-${Date.now()}`,
+          type: isContainer ? 'groupNode' : 'customNode',
+          position: finalPosition,
+          // Container nodes need explicit dimensions
+          ...(isContainer && {
+            style: { width: 400, height: 250 },
+          }),
+          // Set parent if inside a container
+          ...(parentGroup && {
+            parentId: parentGroup.id,
+            extent: 'parent' as const,
+          }),
+          // Child nodes need higher zIndex to render edges above container
+          zIndex: parentGroup ? 1000 : undefined,
+          data: {
+            label: pendingNode.label,
+            nodeType: pendingNode.type,
+            config: { ...(pendingNode.defaultConfig || {}) },
+            category: pendingNode.category,
+            icon: pendingNode.icon,
+          },
         };
+
+        // If adding to a parent, update parent's childNodes array
+        let updatedNodes = [...nodes];
+        if (parentGroup) {
+          updatedNodes = updatedNodes.map((n) =>
+            n.id === parentGroup.id
+              ? {
+                  ...n,
+                  data: {
+                    ...n.data,
+                    childNodes: [...(n.data.childNodes || []), newNode.id],
+                  },
+                }
+              : n,
+          );
+        }
+
+        updateActiveBotNodes([...updatedNodes, newNode]);
+        markDirty();
+        clearPendingNodeTemplate();
+        return;
       }
 
-      const newNode: FlowNode = {
-        id: `${pendingNode.type}-${Date.now()}`,
-        type: isContainer ? "groupNode" : "customNode",
-        position: finalPosition,
-        // Container nodes need explicit dimensions
-        ...(isContainer && {
-          style: { width: 400, height: 250 },
-        }),
-        // Set parent if inside a container
-        ...(parentGroup && {
-          parentId: parentGroup.id,
-          extent: "parent" as const,
-        }),
-        // Child nodes need higher zIndex to render edges above container
-        zIndex: parentGroup ? 1000 : undefined,
-        data: {
-          label: pendingNode.label,
-          nodeType: pendingNode.type,
-          config: { ...(pendingNode.defaultConfig || {}) },
-          category: pendingNode.category,
-          icon: pendingNode.icon,
-        },
-      };
-
-      // If adding to a parent, update parent's childNodes array
-      let updatedNodes = [...nodes];
-      if (parentGroup) {
-        updatedNodes = updatedNodes.map((n) =>
-          n.id === parentGroup.id
-            ? {
-                ...n,
-                data: {
-                  ...n.data,
-                  childNodes: [...(n.data.childNodes || []), newNode.id],
-                },
-              }
-            : n
-        );
-      }
-
-      updateActiveBotNodes([...updatedNodes, newNode]);
-      markDirty();
-      clearPendingNodeTemplate();
-      return;
-    }
-
-    setSelectedNode(null);
-  }, [setSelectedNode, screenToFlowPosition, nodes, updateActiveBotNodes, markDirty, pushToHistory]);
+      setSelectedNode(null);
+    },
+    [setSelectedNode, screenToFlowPosition, nodes, updateActiveBotNodes, markDirty, pushToHistory],
+  );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     event.stopPropagation();
-    event.dataTransfer.dropEffect = "move";
+    event.dataTransfer.dropEffect = 'move';
   }, []);
 
   const onDrop = useCallback(
@@ -1113,7 +1216,7 @@ export default function BotEditor() {
 
       const newNode: FlowNode = {
         id: `${nodeData.type}-${Date.now()}`,
-        type: isContainer ? "groupNode" : "customNode",
+        type: isContainer ? 'groupNode' : 'customNode',
         position: finalPosition,
         // Container nodes need explicit dimensions
         ...(isContainer && {
@@ -1122,7 +1225,7 @@ export default function BotEditor() {
         // Set parent if dropping inside a container
         ...(parentGroup && {
           parentId: parentGroup.id,
-          extent: "parent" as const,
+          extent: 'parent' as const,
         }),
         // Child nodes need higher zIndex to render edges above container
         zIndex: parentGroup ? 1000 : undefined,
@@ -1147,7 +1250,7 @@ export default function BotEditor() {
                   childNodes: [...(n.data.childNodes || []), newNode.id],
                 },
               }
-            : n
+            : n,
         );
       }
 
@@ -1155,7 +1258,7 @@ export default function BotEditor() {
       markDirty();
       clearDraggedNodeData();
     },
-    [screenToFlowPosition, updateActiveBotNodes, markDirty, pushToHistory]
+    [screenToFlowPosition, updateActiveBotNodes, markDirty, pushToHistory],
   );
 
   return (
@@ -1187,20 +1290,15 @@ export default function BotEditor() {
         proOptions={{ hideAttribution: true }}
         elevateEdgesOnSelect={true}
         defaultEdgeOptions={{
-          type: "animated",
+          type: 'animated',
           zIndex: 1000,
         }}
         connectionLineStyle={{
           strokeWidth: 2,
-          strokeDasharray: "6 4",
+          strokeDasharray: '6 4',
         }}
       >
-        <Background
-          color="#cbd5e1"
-          gap={20}
-          size={1}
-          variant={BackgroundVariant.Dots}
-        />
+        <Background color="#cbd5e1" gap={20} size={1} variant={BackgroundVariant.Dots} />
         <Controls
           className="!bottom-4 !left-4 !shadow-sm !border !rounded-lg !bg-card"
           showInteractive={false}

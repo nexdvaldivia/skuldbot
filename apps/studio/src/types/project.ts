@@ -2,14 +2,14 @@
 // Project System Types for SkuldBot Studio
 // ============================================================
 
-import { FlowNode, FlowEdge } from "./flow";
+import { FlowNode, FlowEdge } from './flow';
 
 // ============================================================
 // Project Manifest (.skuld file)
 // ============================================================
 
 export interface ProjectManifest {
-  version: "1.0";
+  version: '1.0';
   project: {
     id: string;
     name: string;
@@ -23,9 +23,9 @@ export interface ProjectManifest {
 }
 
 export interface ProjectSettings {
-  defaultBrowser?: "chromium" | "firefox" | "edge" | "webkit";
+  defaultBrowser?: 'chromium' | 'firefox' | 'edge' | 'webkit';
   defaultHeadless?: boolean;
-  logLevel?: "DEBUG" | "INFO" | "WARN" | "ERROR";
+  logLevel?: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
   autoSave?: {
     enabled: boolean;
     intervalMs: number;
@@ -117,7 +117,7 @@ export interface ProjectStructure {
 // Assets
 // ============================================================
 
-export type AssetType = "image" | "file" | "script" | "template" | "data";
+export type AssetType = 'image' | 'file' | 'script' | 'template' | 'data';
 
 export interface Asset {
   id: string;
@@ -129,7 +129,7 @@ export interface Asset {
   created: string;
   updated: string;
   thumbnail?: string; // Base64 for images
-  scope: "bot" | "shared"; // Bot-specific or shared
+  scope: 'bot' | 'shared'; // Bot-specific or shared
   botId?: string; // If scope is "bot"
 }
 
@@ -137,7 +137,7 @@ export interface Asset {
 // Environment Variables
 // ============================================================
 
-export type EnvScope = "development" | "staging" | "production";
+export type EnvScope = 'development' | 'staging' | 'production';
 
 export interface EnvVariable {
   name: string;
@@ -186,7 +186,7 @@ export interface RecentProject {
 
 export interface Tab {
   id: string;
-  type: "bot" | "settings" | "env" | "assets" | "secrets";
+  type: 'bot' | 'settings' | 'env' | 'assets' | 'secrets';
   botId?: string;
   title: string;
   icon?: string;
@@ -199,10 +199,10 @@ export interface Tab {
 // ============================================================
 
 export type NavigationView =
-  | "welcome"      // Welcome screen / no project
-  | "quickstart"   // Quick Start mode - single bot without project
-  | "project"      // Project with bots
-  | "loading";     // Loading state
+  | 'welcome' // Welcome screen / no project
+  | 'quickstart' // Quick Start mode - single bot without project
+  | 'project' // Project with bots
+  | 'loading'; // Loading state
 
 export interface NavigationState {
   currentView: NavigationView;
@@ -256,7 +256,7 @@ export interface TabsStoreState {
   activeTabId: string | null;
 
   // Actions
-  openTab: (tab: Omit<Tab, "isActive">) => void;
+  openTab: (tab: Omit<Tab, 'isActive'>) => void;
   closeTab: (tabId: string) => void;
   closeOtherTabs: (tabId: string) => void;
   closeAllTabs: () => void;

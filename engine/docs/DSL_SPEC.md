@@ -23,6 +23,7 @@ Este documento describe la especificación completa del DSL (Domain Specific Lan
 **Descripción:** Versión del DSL usado
 
 **Valores válidos:**
+
 - `"1.0"` (actual)
 
 ## Campo: `bot`
@@ -33,14 +34,14 @@ Este documento describe la especificación completa del DSL (Domain Specific Lan
 
 ### Subcampos de `bot`
 
-| Campo | Tipo | Requerido | Descripción |
-|-------|------|-----------|-------------|
-| `id` | string | ✅ | Identificador único del bot |
-| `name` | string | ✅ | Nombre del bot |
-| `description` | string | ❌ | Descripción del bot |
-| `version` | string | ❌ | Versión del bot (default: "1.0.0") |
-| `author` | string | ❌ | Autor del bot |
-| `tags` | string[] | ❌ | Tags para categorización |
+| Campo         | Tipo     | Requerido | Descripción                        |
+| ------------- | -------- | --------- | ---------------------------------- |
+| `id`          | string   | ✅        | Identificador único del bot        |
+| `name`        | string   | ✅        | Nombre del bot                     |
+| `description` | string   | ❌        | Descripción del bot                |
+| `version`     | string   | ❌        | Versión del bot (default: "1.0.0") |
+| `author`      | string   | ❌        | Autor del bot                      |
+| `tags`        | string[] | ❌        | Tags para categorización           |
 
 **Ejemplo:**
 
@@ -81,14 +82,14 @@ Este documento describe la especificación completa del DSL (Domain Specific Lan
 
 ### Subcampos de un Nodo
 
-| Campo | Tipo | Requerido | Descripción |
-|-------|------|-----------|-------------|
-| `id` | string | ✅ | ID único del nodo |
-| `type` | string | ✅ | Tipo de nodo (formato: `category.action`) |
-| `config` | object | ✅ | Configuración específica del nodo |
-| `outputs` | object | ✅ | Salidas del nodo |
-| `label` | string | ❌ | Etiqueta visual |
-| `description` | string | ❌ | Descripción del nodo |
+| Campo         | Tipo   | Requerido | Descripción                               |
+| ------------- | ------ | --------- | ----------------------------------------- |
+| `id`          | string | ✅        | ID único del nodo                         |
+| `type`        | string | ✅        | Tipo de nodo (formato: `category.action`) |
+| `config`      | object | ✅        | Configuración específica del nodo         |
+| `outputs`     | object | ✅        | Salidas del nodo                          |
+| `label`       | string | ❌        | Etiqueta visual                           |
+| `description` | string | ❌        | Descripción del nodo                      |
 
 ### Outputs de un Nodo
 
@@ -112,10 +113,11 @@ Todos los nodos **DEBEN** tener salidas `success` y `error`:
 Abre un navegador.
 
 **Config:**
+
 ```json
 {
   "url": "https://example.com",
-  "browser": "chromium",  // chromium | firefox | webkit
+  "browser": "chromium", // chromium | firefox | webkit
   "headless": false
 }
 ```
@@ -125,6 +127,7 @@ Abre un navegador.
 Hace click en un elemento.
 
 **Config:**
+
 ```json
 {
   "selector": "css:#button-id",
@@ -138,6 +141,7 @@ Hace click en un elemento.
 Llena un campo.
 
 **Config:**
+
 ```json
 {
   "selector": "css:#username",
@@ -151,6 +155,7 @@ Llena un campo.
 Cierra el navegador.
 
 **Config:**
+
 ```json
 {}
 ```
@@ -162,6 +167,7 @@ Cierra el navegador.
 Abre archivo Excel.
 
 **Config:**
+
 ```json
 {
   "path": "/path/to/file.xlsx"
@@ -173,6 +179,7 @@ Abre archivo Excel.
 Lee datos de Excel.
 
 **Config:**
+
 ```json
 {
   "sheet": "Sheet1",
@@ -186,6 +193,7 @@ Lee datos de Excel.
 Escribe datos a Excel.
 
 **Config:**
+
 ```json
 {
   "sheet": "Results",
@@ -198,6 +206,7 @@ Escribe datos a Excel.
 Cierra Excel.
 
 **Config:**
+
 ```json
 {
   "save": true
@@ -211,10 +220,11 @@ Cierra Excel.
 Registra un mensaje.
 
 **Config:**
+
 ```json
 {
   "message": "Processing started",
-  "level": "INFO"  // INFO | WARN | ERROR | DEBUG
+  "level": "INFO" // INFO | WARN | ERROR | DEBUG
 }
 ```
 
@@ -223,6 +233,7 @@ Registra un mensaje.
 Espera un tiempo.
 
 **Config:**
+
 ```json
 {
   "seconds": 5
@@ -234,6 +245,7 @@ Espera un tiempo.
 Define una variable.
 
 **Config:**
+
 ```json
 {
   "name": "counter",
@@ -246,6 +258,7 @@ Define una variable.
 Condición if/else.
 
 **Config:**
+
 ```json
 {
   "condition": "counter > 10",
@@ -274,14 +287,14 @@ Condición if/else.
 
 ### Tipos de Variables
 
-| Tipo | Descripción | Ejemplo |
-|------|-------------|---------|
-| `string` | Texto | `"Hello World"` |
-| `number` | Número | `42` o `3.14` |
-| `boolean` | Booleano | `true` o `false` |
+| Tipo         | Descripción           | Ejemplo                     |
+| ------------ | --------------------- | --------------------------- |
+| `string`     | Texto                 | `"Hello World"`             |
+| `number`     | Número                | `42` o `3.14`               |
+| `boolean`    | Booleano              | `true` o `false`            |
 | `credential` | Credencial (en vault) | `{"vault": "orchestrator"}` |
-| `file` | Archivo | `"/path/to/file"` |
-| `json` | Objeto JSON | `{"key": "value"}` |
+| `file`       | Archivo               | `"/path/to/file"`           |
+| `json`       | Objeto JSON           | `{"key": "value"}`          |
 
 ### Ejemplo de Variables
 
@@ -457,12 +470,13 @@ El DSL será validado automáticamente:
 ## Versiones Futuras
 
 ### v1.1 (Planeado)
+
 - Loops (`control.for`, `control.while`)
 - Subflows (`flow.call`)
 - Error handling avanzado
 
 ### v1.2 (Planeado)
+
 - Parallel execution
 - Conditional outputs (más de 2)
 - Dynamic node generation
-

@@ -1,15 +1,6 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  Index,
-  PrimaryGeneratedColumn,
-} from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
-export type LicenseRuntimeDecisionType =
-  | 'entitlement_check'
-  | 'quota_check'
-  | 'quota_consume';
+export type LicenseRuntimeDecisionType = 'entitlement_check' | 'quota_check' | 'quota_consume';
 
 @Entity('license_runtime_decisions')
 @Index(['tenantId', 'createdAt'])

@@ -17,9 +17,7 @@ describe('evidence boundary util', () => {
 
     const violations = findEvidenceBoundaryViolations(payload);
     expect(violations).toHaveLength(0);
-    expect(() =>
-      assertNoOperationalEvidencePayload(payload, 'usage metadata'),
-    ).not.toThrow();
+    expect(() => assertNoOperationalEvidencePayload(payload, 'usage metadata')).not.toThrow();
   });
 
   it('detects nested evidence-like keys', () => {
@@ -44,8 +42,8 @@ describe('evidence boundary util', () => {
       },
     };
 
-    expect(() =>
-      assertNoOperationalEvidencePayload(payload, 'heartbeat report'),
-    ).toThrow(BadRequestException);
+    expect(() => assertNoOperationalEvidencePayload(payload, 'heartbeat report')).toThrow(
+      BadRequestException,
+    );
   });
 });

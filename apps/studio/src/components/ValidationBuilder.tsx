@@ -1,16 +1,10 @@
-import { useState, useCallback } from "react";
-import { ValidationRule, ValidationRuleType } from "../types/flow";
-import { Icon } from "./ui/Icon";
-import { Button } from "./ui/Button";
-import { Input } from "./ui/Input";
-import { Label } from "./ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
+import { useState, useCallback } from 'react';
+import { ValidationRule, ValidationRuleType } from '../types/flow';
+import { Icon } from './ui/Icon';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 interface ValidationBuilderProps {
   value: ValidationRule[];
@@ -23,70 +17,70 @@ const VALIDATION_TYPES: {
   value: ValidationRuleType;
   label: string;
   icon: string;
-  params?: { name: string; label: string; type: "text" | "number" | "values" }[];
+  params?: { name: string; label: string; type: 'text' | 'number' | 'values' }[];
 }[] = [
-  { value: "not_null", label: "Not Null", icon: "Ban" },
-  { value: "unique", label: "Unique", icon: "Fingerprint" },
-  { value: "email", label: "Email Format", icon: "Mail" },
+  { value: 'not_null', label: 'Not Null', icon: 'Ban' },
+  { value: 'unique', label: 'Unique', icon: 'Fingerprint' },
+  { value: 'email', label: 'Email Format', icon: 'Mail' },
   {
-    value: "regex",
-    label: "Regex Match",
-    icon: "Regex",
-    params: [{ name: "pattern", label: "Pattern", type: "text" }]
+    value: 'regex',
+    label: 'Regex Match',
+    icon: 'Regex',
+    params: [{ name: 'pattern', label: 'Pattern', type: 'text' }],
   },
   {
-    value: "in_set",
-    label: "In Set",
-    icon: "ListChecks",
-    params: [{ name: "values", label: "Allowed Values (comma-separated)", type: "values" }]
+    value: 'in_set',
+    label: 'In Set',
+    icon: 'ListChecks',
+    params: [{ name: 'values', label: 'Allowed Values (comma-separated)', type: 'values' }],
   },
   {
-    value: "not_in_set",
-    label: "Not In Set",
-    icon: "ListX",
-    params: [{ name: "values", label: "Blocked Values (comma-separated)", type: "values" }]
+    value: 'not_in_set',
+    label: 'Not In Set',
+    icon: 'ListX',
+    params: [{ name: 'values', label: 'Blocked Values (comma-separated)', type: 'values' }],
   },
   {
-    value: "between",
-    label: "Between",
-    icon: "ArrowLeftRight",
+    value: 'between',
+    label: 'Between',
+    icon: 'ArrowLeftRight',
     params: [
-      { name: "min", label: "Min", type: "number" },
-      { name: "max", label: "Max", type: "number" }
-    ]
+      { name: 'min', label: 'Min', type: 'number' },
+      { name: 'max', label: 'Max', type: 'number' },
+    ],
   },
   {
-    value: "greater_than",
-    label: "Greater Than",
-    icon: "ChevronRight",
-    params: [{ name: "value", label: "Value", type: "number" }]
+    value: 'greater_than',
+    label: 'Greater Than',
+    icon: 'ChevronRight',
+    params: [{ name: 'value', label: 'Value', type: 'number' }],
   },
   {
-    value: "less_than",
-    label: "Less Than",
-    icon: "ChevronLeft",
-    params: [{ name: "value", label: "Value", type: "number" }]
+    value: 'less_than',
+    label: 'Less Than',
+    icon: 'ChevronLeft',
+    params: [{ name: 'value', label: 'Value', type: 'number' }],
   },
   {
-    value: "length_between",
-    label: "Length Between",
-    icon: "Ruler",
+    value: 'length_between',
+    label: 'Length Between',
+    icon: 'Ruler',
     params: [
-      { name: "min", label: "Min Length", type: "number" },
-      { name: "max", label: "Max Length", type: "number" }
-    ]
+      { name: 'min', label: 'Min Length', type: 'number' },
+      { name: 'max', label: 'Max Length', type: 'number' },
+    ],
   },
   {
-    value: "date_format",
-    label: "Date Format",
-    icon: "Calendar",
-    params: [{ name: "format", label: "Format (e.g., %Y-%m-%d)", type: "text" }]
+    value: 'date_format',
+    label: 'Date Format',
+    icon: 'Calendar',
+    params: [{ name: 'format', label: 'Format (e.g., %Y-%m-%d)', type: 'text' }],
   },
   {
-    value: "json_schema",
-    label: "JSON Schema",
-    icon: "Braces",
-    params: [{ name: "schema", label: "JSON Schema", type: "text" }]
+    value: 'json_schema',
+    label: 'JSON Schema',
+    icon: 'Braces',
+    params: [{ name: 'schema', label: 'JSON Schema', type: 'text' }],
   },
 ];
 
@@ -100,14 +94,18 @@ const stopPropagation = (e: React.KeyboardEvent) => {
   e.stopPropagation();
 };
 
-export function ValidationBuilder({ value, onChange, availableFields = [] }: ValidationBuilderProps) {
+export function ValidationBuilder({
+  value,
+  onChange,
+  availableFields = [],
+}: ValidationBuilderProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
   const addRule = useCallback(() => {
     const newRule: ValidationRule = {
       id: generateRuleId(),
-      field: availableFields[0] || "",
-      type: "not_null",
+      field: availableFields[0] || '',
+      type: 'not_null',
     };
     onChange([...value, newRule]);
     setExpandedIndex(value.length);
@@ -121,7 +119,7 @@ export function ValidationBuilder({ value, onChange, availableFields = [] }: Val
       });
       onChange(updatedRules);
     },
-    [value, onChange]
+    [value, onChange],
   );
 
   const deleteRule = useCallback(
@@ -133,24 +131,24 @@ export function ValidationBuilder({ value, onChange, availableFields = [] }: Val
         setExpandedIndex(expandedIndex - 1);
       }
     },
-    [value, onChange, expandedIndex]
+    [value, onChange, expandedIndex],
   );
 
   const moveRule = useCallback(
-    (index: number, direction: "up" | "down") => {
+    (index: number, direction: 'up' | 'down') => {
       if (
-        (direction === "up" && index === 0) ||
-        (direction === "down" && index === value.length - 1)
+        (direction === 'up' && index === 0) ||
+        (direction === 'down' && index === value.length - 1)
       ) {
         return;
       }
 
-      const newIndex = direction === "up" ? index - 1 : index + 1;
+      const newIndex = direction === 'up' ? index - 1 : index + 1;
       const newRules = [...value];
       [newRules[index], newRules[newIndex]] = [newRules[newIndex], newRules[index]];
       onChange(newRules);
     },
-    [value, onChange]
+    [value, onChange],
   );
 
   return (
@@ -160,13 +158,7 @@ export function ValidationBuilder({ value, onChange, availableFields = [] }: Val
         <Label className="text-sm font-medium text-slate-700">
           Validation Rules ({value.length})
         </Label>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={addRule}
-          className="h-7 text-xs"
-        >
+        <Button type="button" variant="outline" size="sm" onClick={addRule} className="h-7 text-xs">
           <Icon name="Plus" size={14} className="mr-1" />
           Add Rule
         </Button>
@@ -190,9 +182,7 @@ export function ValidationBuilder({ value, onChange, availableFields = [] }: Val
               total={value.length}
               isExpanded={expandedIndex === index}
               availableFields={availableFields}
-              onToggle={() =>
-                setExpandedIndex(expandedIndex === index ? null : index)
-              }
+              onToggle={() => setExpandedIndex(expandedIndex === index ? null : index)}
               onUpdate={(updates) => updateRule(rule.id, updates)}
               onDelete={() => deleteRule(index)}
               onMove={(dir) => moveRule(index, dir)}
@@ -213,7 +203,7 @@ interface RuleItemProps {
   onToggle: () => void;
   onUpdate: (updates: Partial<ValidationRule>) => void;
   onDelete: () => void;
-  onMove: (direction: "up" | "down") => void;
+  onMove: (direction: 'up' | 'down') => void;
 }
 
 function RuleItem({
@@ -258,21 +248,21 @@ function RuleItem({
 
         {/* Validation Icon */}
         <div className="w-6 h-6 rounded bg-sky-50 flex items-center justify-center text-sky-500">
-          <Icon name={validationType?.icon || "ShieldCheck"} size={14} />
+          <Icon name={validationType?.icon || 'ShieldCheck'} size={14} />
         </div>
 
         {/* Rule Summary */}
         <div className="flex-1 min-w-0">
           <span className="text-sm font-medium text-slate-700 truncate block">
-            {rule.field || "(no field)"}
+            {rule.field || '(no field)'}
             <span className="text-slate-400 mx-1">-</span>
             {validationType?.label || rule.type}
           </span>
           {rule.params && Object.keys(rule.params).length > 0 && (
             <span className="text-xs text-slate-400">
               {Object.entries(rule.params)
-                .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
-                .join(", ")}
+                .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+                .join(', ')}
             </span>
           )}
         </div>
@@ -281,7 +271,7 @@ function RuleItem({
         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
-            onClick={() => onMove("up")}
+            onClick={() => onMove('up')}
             disabled={index === 0}
             className="p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
           >
@@ -289,7 +279,7 @@ function RuleItem({
           </button>
           <button
             type="button"
-            onClick={() => onMove("down")}
+            onClick={() => onMove('down')}
             disabled={index === total - 1}
             className="p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
           >
@@ -303,7 +293,7 @@ function RuleItem({
             <Icon name="Trash2" size={14} />
           </button>
           <Icon
-            name={isExpanded ? "ChevronUp" : "ChevronDown"}
+            name={isExpanded ? 'ChevronUp' : 'ChevronDown'}
             size={16}
             className="text-slate-400 ml-1"
           />
@@ -317,10 +307,7 @@ function RuleItem({
           <div>
             <Label className="text-xs text-slate-500">Field to Validate</Label>
             {availableFields.length > 0 ? (
-              <Select
-                value={rule.field}
-                onValueChange={(val) => onUpdate({ field: val })}
-              >
+              <Select value={rule.field} onValueChange={(val) => onUpdate({ field: val })}>
                 <SelectTrigger className="h-8 text-sm mt-1">
                   <SelectValue placeholder="Select field..." />
                 </SelectTrigger>
@@ -376,16 +363,16 @@ function RuleItem({
               {validationType.params.map((param) => (
                 <div key={param.name}>
                   <Label className="text-xs text-slate-400">{param.label}</Label>
-                  {param.type === "values" ? (
+                  {param.type === 'values' ? (
                     <Input
                       value={
                         Array.isArray(rule.params?.[param.name])
-                          ? (rule.params[param.name] as string[]).join(", ")
-                          : rule.params?.[param.name] || ""
+                          ? (rule.params[param.name] as string[]).join(', ')
+                          : rule.params?.[param.name] || ''
                       }
                       onChange={(e) => {
                         const values = e.target.value
-                          .split(",")
+                          .split(',')
                           .map((v) => v.trim())
                           .filter(Boolean);
                         handleParamChange(param.name, values);
@@ -394,14 +381,14 @@ function RuleItem({
                       placeholder="value1, value2, value3"
                       className="h-8 text-sm mt-1"
                     />
-                  ) : param.type === "number" ? (
+                  ) : param.type === 'number' ? (
                     <Input
                       type="number"
-                      value={rule.params?.[param.name] ?? ""}
+                      value={rule.params?.[param.name] ?? ''}
                       onChange={(e) =>
                         handleParamChange(
                           param.name,
-                          e.target.value ? parseFloat(e.target.value) : undefined
+                          e.target.value ? parseFloat(e.target.value) : undefined,
                         )
                       }
                       onKeyDown={stopPropagation}
@@ -409,15 +396,15 @@ function RuleItem({
                     />
                   ) : (
                     <Input
-                      value={rule.params?.[param.name] || ""}
+                      value={rule.params?.[param.name] || ''}
                       onChange={(e) => handleParamChange(param.name, e.target.value)}
                       onKeyDown={stopPropagation}
                       placeholder={
-                        param.name === "pattern"
-                          ? "^[A-Z]{2}\\d{6}$"
-                          : param.name === "format"
-                          ? "%Y-%m-%d"
-                          : ""
+                        param.name === 'pattern'
+                          ? '^[A-Z]{2}\\d{6}$'
+                          : param.name === 'format'
+                            ? '%Y-%m-%d'
+                            : ''
                       }
                       className="h-8 text-sm mt-1 font-mono"
                     />

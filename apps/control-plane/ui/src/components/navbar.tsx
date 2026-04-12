@@ -78,14 +78,17 @@ export function Navbar() {
           <SkuldLogo size={28} className="text-brand-400" />
           <div className="flex items-baseline gap-1.5">
             <span className="font-semibold text-zinc-900 text-[15px]">Skuld</span>
-            <span className="text-[11px] font-medium text-zinc-400 hidden sm:inline">Control Plane</span>
+            <span className="text-[11px] font-medium text-zinc-400 hidden sm:inline">
+              Control Plane
+            </span>
           </div>
         </Link>
 
         {/* Main Navigation */}
         <nav className="hidden lg:flex items-center gap-1">
           {navigation.map((item) => {
-            const isActive = pathname === item.href ||
+            const isActive =
+              pathname === item.href ||
               (item.href !== '/dashboard' && pathname.startsWith(item.href));
 
             return (
@@ -96,7 +99,7 @@ export function Navbar() {
                   'px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors',
                   isActive
                     ? 'bg-zinc-100 text-zinc-900'
-                    : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50'
+                    : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50',
                 )}
               >
                 {item.name}
@@ -143,7 +146,7 @@ export function Navbar() {
               'p-2 rounded-md transition-colors',
               pathname === '/settings'
                 ? 'bg-zinc-100 text-zinc-900'
-                : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+                : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100',
             )}
           >
             <Settings className="h-4 w-4" />
@@ -165,10 +168,12 @@ export function Navbar() {
                 <p className="text-[13px] font-medium text-zinc-900 leading-none">Admin</p>
                 <p className="text-[11px] text-zinc-500 leading-none mt-0.5">admin@skuld.io</p>
               </div>
-              <ChevronDown className={cn(
-                'h-3.5 w-3.5 text-zinc-400 transition-transform',
-                userMenuOpen && 'rotate-180'
-              )} />
+              <ChevronDown
+                className={cn(
+                  'h-3.5 w-3.5 text-zinc-400 transition-transform',
+                  userMenuOpen && 'rotate-180',
+                )}
+              />
             </button>
 
             {/* Dropdown */}
@@ -206,7 +211,8 @@ export function Navbar() {
       {/* Mobile Navigation */}
       <nav className="lg:hidden flex items-center gap-1 px-4 pb-2 overflow-x-auto scrollbar-hide">
         {navigation.map((item) => {
-          const isActive = pathname === item.href ||
+          const isActive =
+            pathname === item.href ||
             (item.href !== '/dashboard' && pathname.startsWith(item.href));
 
           return (
@@ -215,9 +221,7 @@ export function Navbar() {
               href={item.href}
               className={cn(
                 'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium whitespace-nowrap transition-colors',
-                isActive
-                  ? 'bg-zinc-100 text-zinc-900'
-                  : 'text-zinc-500 hover:text-zinc-900'
+                isActive ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-500 hover:text-zinc-900',
               )}
             >
               <item.icon className="h-3.5 w-3.5" />

@@ -54,7 +54,7 @@ function validateAIConfigurations(nodes: DSLNode[]): { errors: string[]; warning
       if (!node.model_config) {
         errors.push(
           `AI Agent '${nodeLabel}' no tiene un AI Model conectado. ` +
-          `Conecta un nodo 'AI Model' al puerto 'model' del AI Agent.`
+            `Conecta un nodo 'AI Model' al puerto 'model' del AI Agent.`,
         );
       } else {
         const { provider, api_key, base_url, api_version, region } = node.model_config;
@@ -64,14 +64,16 @@ function validateAIConfigurations(nodes: DSLNode[]): { errors: string[]; warning
         if (providersRequiringApiKey.includes(provider) && !api_key) {
           warnings.push(
             `AI Agent '${nodeLabel}': AI Model (${provider}) no tiene API key configurada. ` +
-            `Asegúrate de configurar la API key antes de ejecutar.`
+              `Asegúrate de configurar la API key antes de ejecutar.`,
           );
         }
 
         // Azure-specific validation
         if (provider === 'azure') {
           if (!base_url) {
-            warnings.push(`AI Agent '${nodeLabel}': Azure AI Foundry requiere endpoint (base_url).`);
+            warnings.push(
+              `AI Agent '${nodeLabel}': Azure AI Foundry requiere endpoint (base_url).`,
+            );
           }
           if (!api_version) {
             warnings.push(`AI Agent '${nodeLabel}': Azure AI Foundry requiere api_version.`);
@@ -89,8 +91,8 @@ function validateAIConfigurations(nodes: DSLNode[]): { errors: string[]; warning
         if (!node.embeddings) {
           warnings.push(
             `AI Agent '${nodeLabel}' tiene memoria conectada pero no tiene ` +
-            `Embeddings configurados. Conecta un nodo 'Embeddings' para habilitar ` +
-            `la búsqueda semántica en memoria.`
+              `Embeddings configurados. Conecta un nodo 'Embeddings' para habilitar ` +
+              `la búsqueda semántica en memoria.`,
           );
         }
       }
@@ -103,13 +105,13 @@ function validateAIConfigurations(nodes: DSLNode[]): { errors: string[]; warning
       if (!model) {
         warnings.push(
           `Chat Model '${nodeLabel}': No tiene modelo especificado, ` +
-          `se usará el modelo por defecto del proveedor.`
+            `se usará el modelo por defecto del proveedor.`,
         );
       }
 
       if (provider === 'ollama' && !base_url) {
         warnings.push(
-          `Chat Model '${nodeLabel}': Ollama requiere base_url (ej: http://localhost:11434).`
+          `Chat Model '${nodeLabel}': Ollama requiere base_url (ej: http://localhost:11434).`,
         );
       }
     }

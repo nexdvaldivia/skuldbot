@@ -2,17 +2,17 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import {
-  ArrowLeft,
-  Loader2,
-  Save,
-  Shield,
-  TestTube2,
-} from 'lucide-react';
+import { ArrowLeft, Loader2, Save, Shield, TestTube2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
@@ -205,7 +205,10 @@ export default function SsoSecurityPage() {
         tokenUrl: form.tokenUrl || undefined,
         userInfoUrl: form.userInfoUrl || undefined,
         jwksUrl: form.jwksUrl || undefined,
-        scopes: form.scopesText.split(',').map((scope) => scope.trim()).filter(Boolean),
+        scopes: form.scopesText
+          .split(',')
+          .map((scope) => scope.trim())
+          .filter(Boolean),
         pkce: form.pkce,
         allowedDomains: form.allowedDomainsText
           .split(',')
@@ -242,14 +245,19 @@ export default function SsoSecurityPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 lg:px-8 lg:py-8">
-      <Link href="/settings" className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-900 mb-6">
+      <Link
+        href="/settings"
+        className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-900 mb-6"
+      >
         <ArrowLeft className="h-4 w-4" />
         Back to Settings
       </Link>
 
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-zinc-900">Tenant SSO Configuration</h1>
-        <p className="mt-1 text-zinc-500">Configure OIDC SSO in Control Plane. Orchestrator consumes it through license validation.</p>
+        <p className="mt-1 text-zinc-500">
+          Configure OIDC SSO in Control Plane. Orchestrator consumes it through license validation.
+        </p>
       </div>
 
       <Card className="mb-6">
@@ -262,7 +270,9 @@ export default function SsoSecurityPage() {
           ) : (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-zinc-700 mb-1.5">Orchestrator (Tenant)</label>
+                <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                  Orchestrator (Tenant)
+                </label>
                 <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select orchestrator" />
@@ -307,15 +317,23 @@ export default function SsoSecurityPage() {
               <div className="flex items-center justify-between p-4 rounded-lg border border-zinc-200">
                 <div>
                   <p className="font-medium text-zinc-900">Enable SSO</p>
-                  <p className="text-sm text-zinc-500">Force enterprise authentication through OIDC provider</p>
+                  <p className="text-sm text-zinc-500">
+                    Force enterprise authentication through OIDC provider
+                  </p>
                 </div>
-                <Switch checked={form.enabled} onCheckedChange={(checked) => updateForm('enabled', checked)} />
+                <Switch
+                  checked={form.enabled}
+                  onCheckedChange={(checked) => updateForm('enabled', checked)}
+                />
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 mb-1.5">Provider</label>
-                  <Select value={form.provider} onValueChange={(value) => updateForm('provider', value as SsoProvider)}>
+                  <Select
+                    value={form.provider}
+                    onValueChange={(value) => updateForm('provider', value as SsoProvider)}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -329,65 +347,117 @@ export default function SsoSecurityPage() {
                   </Select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">Client ID</label>
-                  <Input value={form.clientId} onChange={(event) => updateForm('clientId', event.target.value)} />
+                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                    Client ID
+                  </label>
+                  <Input
+                    value={form.clientId}
+                    onChange={(event) => updateForm('clientId', event.target.value)}
+                  />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-zinc-700 mb-1.5">Client Secret</label>
+                <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                  Client Secret
+                </label>
                 <Input
                   type="password"
                   value={form.clientSecret}
                   onChange={(event) => updateForm('clientSecret', event.target.value)}
-                  placeholder={currentConfig?.oidc?.hasClientSecret ? 'Leave blank to keep existing secret' : 'Enter client secret'}
+                  placeholder={
+                    currentConfig?.oidc?.hasClientSecret
+                      ? 'Leave blank to keep existing secret'
+                      : 'Enter client secret'
+                  }
                 />
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">Discovery URL</label>
-                  <Input value={form.discoveryUrl} onChange={(event) => updateForm('discoveryUrl', event.target.value)} />
+                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                    Discovery URL
+                  </label>
+                  <Input
+                    value={form.discoveryUrl}
+                    onChange={(event) => updateForm('discoveryUrl', event.target.value)}
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">Scopes (comma-separated)</label>
-                  <Input value={form.scopesText} onChange={(event) => updateForm('scopesText', event.target.value)} />
+                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                    Scopes (comma-separated)
+                  </label>
+                  <Input
+                    value={form.scopesText}
+                    onChange={(event) => updateForm('scopesText', event.target.value)}
+                  />
                 </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">Allowed domains (comma-separated)</label>
-                  <Input value={form.allowedDomainsText} onChange={(event) => updateForm('allowedDomainsText', event.target.value)} />
+                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                    Allowed domains (comma-separated)
+                  </label>
+                  <Input
+                    value={form.allowedDomainsText}
+                    onChange={(event) => updateForm('allowedDomainsText', event.target.value)}
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">Claim mapping: email</label>
-                  <Input value={form.claimEmail} onChange={(event) => updateForm('claimEmail', event.target.value)} />
+                  <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                    Claim mapping: email
+                  </label>
+                  <Input
+                    value={form.claimEmail}
+                    onChange={(event) => updateForm('claimEmail', event.target.value)}
+                  />
                 </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="flex items-center justify-between p-3 rounded-lg border border-zinc-200">
                   <span className="text-sm text-zinc-700">Enforced</span>
-                  <Switch checked={form.enforced} onCheckedChange={(checked) => updateForm('enforced', checked)} />
+                  <Switch
+                    checked={form.enforced}
+                    onCheckedChange={(checked) => updateForm('enforced', checked)}
+                  />
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg border border-zinc-200">
                   <span className="text-sm text-zinc-700">Auto provision</span>
-                  <Switch checked={form.autoProvision} onCheckedChange={(checked) => updateForm('autoProvision', checked)} />
+                  <Switch
+                    checked={form.autoProvision}
+                    onCheckedChange={(checked) => updateForm('autoProvision', checked)}
+                  />
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg border border-zinc-200">
                   <span className="text-sm text-zinc-700">PKCE</span>
-                  <Switch checked={form.pkce} onCheckedChange={(checked) => updateForm('pkce', checked)} />
+                  <Switch
+                    checked={form.pkce}
+                    onCheckedChange={(checked) => updateForm('pkce', checked)}
+                  />
                 </div>
               </div>
 
               <div className="flex items-center justify-end gap-3 border-t border-zinc-100 pt-4">
-                <Button variant="outline" onClick={handleTest} disabled={testing || !selectedTenant}>
-                  {testing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <TestTube2 className="mr-2 h-4 w-4" />}
+                <Button
+                  variant="outline"
+                  onClick={handleTest}
+                  disabled={testing || !selectedTenant}
+                >
+                  {testing ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <TestTube2 className="mr-2 h-4 w-4" />
+                  )}
                   Test
                 </Button>
                 <Button onClick={handleSave} disabled={saving || !selectedTenant}>
-                  {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  {saving ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
                   Save
                 </Button>
               </div>
@@ -395,7 +465,8 @@ export default function SsoSecurityPage() {
               <div className="rounded-lg bg-zinc-50 border border-zinc-200 p-4 flex gap-3">
                 <Shield className="h-4 w-4 text-zinc-500 mt-0.5" />
                 <p className="text-xs text-zinc-600">
-                  RBAC enforced: only `skuld_admin` and tenant-matching `client_admin` can update SSO. `skuld_support` has read/test access.
+                  RBAC enforced: only `skuld_admin` and tenant-matching `client_admin` can update
+                  SSO. `skuld_support` has read/test access.
                 </p>
               </div>
             </div>

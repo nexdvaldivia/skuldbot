@@ -128,9 +128,7 @@ export class SsoController {
   @Get('metadata')
   @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
   @RequirePermissions('settings:read')
-  async getMetadata(
-    @TenantId() tenantId: string,
-  ): Promise<SsoMetadataResponseDto> {
+  async getMetadata(@TenantId() tenantId: string): Promise<SsoMetadataResponseDto> {
     return this.ssoService.getSamlMetadata(tenantId);
   }
 
@@ -145,10 +143,7 @@ export class SsoController {
     @Query('returnUrl') returnUrl: string,
     @Res() res: Response,
   ): Promise<void> {
-    const redirectUrl = await this.ssoService.initiateSamlLogin(
-      tenantSlug,
-      returnUrl,
-    );
+    const redirectUrl = await this.ssoService.initiateSamlLogin(tenantSlug, returnUrl);
     res.redirect(redirectUrl);
   }
 
@@ -191,10 +186,7 @@ export class SsoController {
     @Query('sessionIndex') sessionIndex: string,
     @Res() res: Response,
   ): Promise<void> {
-    const redirectUrl = await this.ssoService.initiateSamlLogout(
-      tenantSlug,
-      sessionIndex,
-    );
+    const redirectUrl = await this.ssoService.initiateSamlLogout(tenantSlug, sessionIndex);
 
     if (redirectUrl) {
       res.redirect(redirectUrl);
@@ -225,10 +217,7 @@ export class SsoController {
     @Query('returnUrl') returnUrl: string,
     @Res() res: Response,
   ): Promise<void> {
-    const { url } = await this.ssoService.initiateOidcLogin(
-      tenantSlug,
-      returnUrl,
-    );
+    const { url } = await this.ssoService.initiateOidcLogin(tenantSlug, returnUrl);
     res.redirect(url);
   }
 
@@ -253,15 +242,10 @@ export class SsoController {
       return;
     }
 
-    const result = await this.ssoService.handleOidcCallback(
-      tenantSlug,
-      code,
-      state,
-      {
-        ip: this.getClientIp(req),
-        userAgent: req.headers['user-agent'] || '',
-      },
-    );
+    const result = await this.ssoService.handleOidcCallback(tenantSlug, code, state, {
+      ip: this.getClientIp(req),
+      userAgent: req.headers['user-agent'] || '',
+    });
 
     // Redirect to frontend with tokens
     const params = new URLSearchParams({

@@ -37,10 +37,7 @@ import { CompilerModule } from '../compiler/compiler.module';
  * - Webhook secret generation
  */
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Bot, BotVersion, User]),
-    CompilerModule,
-  ],
+  imports: [TypeOrmModule.forFeature([Bot, BotVersion, User]), CompilerModule],
   controllers: [BotsController],
   providers: [BotsService],
   exports: [BotsService],

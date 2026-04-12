@@ -3,18 +3,21 @@
 ## 🎯 Principios que aplican
 
 ### 1. WHITE SPACE ES REY
+
 - Padding generoso: 24px, 32px, 48px
 - Gaps entre elementos: 16px, 24px
 - Margins entre secciones: 32px, 48px
 - NO llenar cada pixel
 
 ### 2. JERARQUÍA CON PESO, NO TAMAÑO
+
 - Títulos: font-semibold (600)
 - Labels: font-medium (500)
 - Body: font-normal (400)
 - Meta: font-normal (400) + text-gray-500
 
 ### 3. COLORES MUY LIMITADOS
+
 ```
 Primary: Un solo azul
   - Botón principal
@@ -32,6 +35,7 @@ Semánticos: Solo cuando necesario
 ```
 
 ### 4. BOTONES LIMPIOS
+
 ```css
 Primary:
   bg-primary-600
@@ -58,6 +62,7 @@ Ghost:
 ```
 
 ### 5. SIDEBAR CORRECTO
+
 - Fondo BLANCO (no gris)
 - Border sutil gray-200
 - Collapsed: Tab delgada (40px wide max)
@@ -65,12 +70,14 @@ Ghost:
 - Items: No borders, solo hover:bg-gray-50
 
 ### 6. ICONOGRAFÍA
+
 - Mismo set (Lucide, Heroicons, etc)
 - Tamaño consistente: 16px o 18px
 - strokeWidth: 2
 - Color: Heredan del texto
 
 ### 7. EMPTY STATES
+
 - Icono grande centrado (64px+)
 - Texto explicativo claro
 - Sin borders
@@ -86,13 +93,14 @@ Ghost:
 ❌ Sidebar gris feo  
 ❌ Botones muy densos  
 ❌ Sin suficiente white space  
-❌ Demasiados colores  
+❌ Demasiados colores
 
 ---
 
 ## ✅ Reglas para Skuldbot Studio
 
 ### Toolbar
+
 ```
 Height: 64px
 Padding: 0 24px
@@ -106,6 +114,7 @@ Botones: px-6 py-2.5
 ```
 
 ### Sidebar
+
 ```
 Collapsed: 40px tab flotante
 Expanded: 280px
@@ -118,12 +127,14 @@ Items: NO borders, hover:bg-gray-50
 ```
 
 ### Canvas
+
 ```
 Background: gray-50 o white
 Padding: 48px
 ```
 
 ### Nodes
+
 ```
 Background: white
 Border: 2px solid gray-300
@@ -138,6 +149,7 @@ Selected:
 ```
 
 ### Logs Panel
+
 ```
 Background: gray-900 (contraste)
 Text: gray-100
@@ -148,8 +160,3 @@ Height open: 280px
 ---
 
 **APLICAR RELIGIOSAMENTE**
-
-
-
-
-
