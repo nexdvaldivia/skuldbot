@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
-import { AlertCircle, AlertTriangle, Info, ChevronDown, ChevronRight, X } from "lucide-react";
-import { useValidationStore, ValidationIssue } from "../store/validationStore";
-import { useProjectStore } from "../store/projectStore";
-import { useNavigationStore } from "../store/navigationStore";
-import { useFlowStore } from "../store/flowStore";
-import { FlowEdge, FlowNode } from "../types/flow";
-import { cn } from "../lib/utils";
+import { useEffect, useState } from 'react';
+import { AlertCircle, AlertTriangle, Info, ChevronDown, ChevronRight, X } from 'lucide-react';
+import { useValidationStore, ValidationIssue } from '../store/validationStore';
+import { useProjectStore } from '../store/projectStore';
+import { useNavigationStore } from '../store/navigationStore';
+import { useFlowStore } from '../store/flowStore';
+import { FlowEdge, FlowNode } from '../types/flow';
+import { cn } from '../lib/utils';
 
 interface ProblemsPanelProps {
   className?: string;
@@ -22,10 +22,8 @@ export default function ProblemsPanel({ className }: ProblemsPanelProps) {
   const flowStore = useFlowStore();
 
   // Get nodes/edges based on current mode
-  const isProjectMode = currentView === "project";
-  const activeBot = isProjectMode
-    ? projectStore.bots.get(projectStore.activeBotId || "")
-    : null;
+  const isProjectMode = currentView === 'project';
+  const activeBot = isProjectMode ? projectStore.bots.get(projectStore.activeBotId || '') : null;
   const nodes = isProjectMode ? (activeBot?.nodes ?? EMPTY_NODES) : flowStore.nodes;
   const edges = isProjectMode ? (activeBot?.edges ?? EMPTY_EDGES) : flowStore.edges;
 
@@ -45,39 +43,42 @@ export default function ProblemsPanel({ className }: ProblemsPanelProps) {
     }
   }, [hasErrors, isOpen]);
 
-  const errorCount = issues.filter((i) => i.severity === "error").length;
-  const warningCount = issues.filter((i) => i.severity === "warning").length;
-  const infoCount = issues.filter((i) => i.severity === "info").length;
+  const errorCount = issues.filter((i) => i.severity === 'error').length;
+  const warningCount = issues.filter((i) => i.severity === 'warning').length;
+  const infoCount = issues.filter((i) => i.severity === 'info').length;
 
-  const getSeverityIcon = (severity: ValidationIssue["severity"]) => {
+  const getSeverityIcon = (severity: ValidationIssue['severity']) => {
     switch (severity) {
-      case "error":
+      case 'error':
         return <AlertCircle className="w-4 h-4 text-red-500" />;
-      case "warning":
+      case 'warning':
         return <AlertTriangle className="w-4 h-4 text-yellow-500" />;
-      case "info":
+      case 'info':
         return <Info className="w-4 h-4 text-blue-500" />;
     }
   };
 
-  const getSeverityClass = (severity: ValidationIssue["severity"]) => {
+  const getSeverityClass = (severity: ValidationIssue['severity']) => {
     switch (severity) {
-      case "error":
-        return "border-l-red-500 bg-red-50";
-      case "warning":
-        return "border-l-yellow-500 bg-yellow-50";
-      case "info":
-        return "border-l-blue-500 bg-blue-50";
+      case 'error':
+        return 'border-l-red-500 bg-red-50';
+      case 'warning':
+        return 'border-l-yellow-500 bg-yellow-50';
+      case 'info':
+        return 'border-l-blue-500 bg-blue-50';
     }
   };
 
   // Group issues by node
-  const groupedIssues = issues.reduce((acc, issue) => {
-    const key = issue.nodeId || "general";
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(issue);
-    return acc;
-  }, {} as Record<string, ValidationIssue[]>);
+  const groupedIssues = issues.reduce(
+    (acc, issue) => {
+      const key = issue.nodeId || 'general';
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(issue);
+      return acc;
+    },
+    {} as Record<string, ValidationIssue[]>,
+  );
 
   const handleIssueClick = (issue: ValidationIssue) => {
     if (issue.nodeId) {
@@ -96,7 +97,7 @@ export default function ProblemsPanel({ className }: ProblemsPanelProps) {
             nodes.map((n) => ({
               ...n,
               selected: n.id === issue.nodeId,
-            }))
+            })),
           );
         }
         flowStore.setSelectedNode(node);
@@ -107,7 +108,7 @@ export default function ProblemsPanel({ className }: ProblemsPanelProps) {
   if (!isOpen && issues.length === 0) return null;
 
   return (
-    <div className={cn("border-t bg-white", className)}>
+    <div className={cn('border-t bg-white', className)}>
       {/* Header - always visible */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -141,9 +142,7 @@ export default function ProblemsPanel({ className }: ProblemsPanelProps) {
                 {infoCount}
               </span>
             )}
-            {issues.length === 0 && (
-              <span className="text-xs text-green-600">No issues</span>
-            )}
+            {issues.length === 0 && <span className="text-xs text-green-600">No issues</span>}
           </div>
         </div>
 
@@ -165,7 +164,7 @@ export default function ProblemsPanel({ className }: ProblemsPanelProps) {
         <div className="max-h-48 overflow-y-auto border-t">
           {Object.entries(groupedIssues).map(([nodeId, nodeIssues]) => (
             <div key={nodeId}>
-              {nodeId !== "general" && (
+              {nodeId !== 'general' && (
                 <div className="px-3 py-1 bg-slate-100 text-xs font-medium text-slate-600 sticky top-0">
                   {nodes.find((n) => n.id === nodeId)?.data.label || nodeId}
                 </div>
@@ -175,17 +174,15 @@ export default function ProblemsPanel({ className }: ProblemsPanelProps) {
                   key={issue.id}
                   onClick={() => handleIssueClick(issue)}
                   className={cn(
-                    "w-full px-3 py-2 flex items-start gap-2 text-left border-l-2 hover:bg-slate-50 transition-colors",
-                    getSeverityClass(issue.severity)
+                    'w-full px-3 py-2 flex items-start gap-2 text-left border-l-2 hover:bg-slate-50 transition-colors',
+                    getSeverityClass(issue.severity),
                   )}
                 >
                   {getSeverityIcon(issue.severity)}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-slate-700">{issue.message}</p>
                     {issue.field && (
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Field: {issue.field}
-                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">Field: {issue.field}</p>
                     )}
                   </div>
                 </button>
@@ -202,8 +199,8 @@ export default function ProblemsPanel({ className }: ProblemsPanelProps) {
 export function ValidationStatusIndicator() {
   const { issues } = useValidationStore();
 
-  const errorCount = issues.filter((i) => i.severity === "error").length;
-  const warningCount = issues.filter((i) => i.severity === "warning").length;
+  const errorCount = issues.filter((i) => i.severity === 'error').length;
+  const warningCount = issues.filter((i) => i.severity === 'warning').length;
 
   if (issues.length === 0) {
     return (
@@ -219,13 +216,13 @@ export function ValidationStatusIndicator() {
       {errorCount > 0 && (
         <span className="flex items-center gap-1 text-red-600">
           <AlertCircle className="w-3 h-3" />
-          {errorCount} error{errorCount > 1 ? "s" : ""}
+          {errorCount} error{errorCount > 1 ? 's' : ''}
         </span>
       )}
       {warningCount > 0 && (
         <span className="flex items-center gap-1 text-yellow-600">
           <AlertTriangle className="w-3 h-3" />
-          {warningCount} warning{warningCount > 1 ? "s" : ""}
+          {warningCount} warning{warningCount > 1 ? 's' : ''}
         </span>
       )}
     </div>

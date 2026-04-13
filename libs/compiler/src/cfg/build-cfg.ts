@@ -1,13 +1,5 @@
 import { BotDSL, DSLNode } from '../types/dsl';
-import {
-  CFG,
-  Edge,
-  ENTRY,
-  END,
-  DONE,
-  NEXT_ITER,
-  ROOT_SCOPE,
-} from '../types/cfg';
+import { CFG, Edge, ENTRY, END, DONE, NEXT_ITER, ROOT_SCOPE } from '../types/cfg';
 
 /**
  * Build Control Flow Graph from DSL
@@ -100,11 +92,7 @@ function pickRootEntryNodes(dsl: BotDSL): string[] {
 /**
  * Build edges within a scope based on node outputs
  */
-function buildScopeEdges(
-  scopeId: string,
-  nodes: DSLNode[],
-  edges: Edge[],
-): void {
+function buildScopeEdges(scopeId: string, nodes: DSLNode[], edges: Edge[]): void {
   const endId = END(scopeId);
 
   for (const node of nodes) {
@@ -163,8 +151,7 @@ function buildContainerScopes(
   }
 
   const ports = container.scope?.ports ?? {};
-  const getEntry = (portName: string): string | null =>
-    ports[portName]?.entryId || null;
+  const getEntry = (portName: string): string | null => ports[portName]?.entryId || null;
 
   // Calculate done target (where to go after container completes)
   const doneTarget = container.outputs.done
@@ -312,11 +299,7 @@ function rewriteTargets(fromId: string, toId: string, edges: Edge[]): void {
 /**
  * Redirect unhandled try errors to catch entry
  */
-function redirectTryErrorsToCatch(
-  container: DSLNode,
-  catchEntry: string,
-  edges: Edge[],
-): void {
+function redirectTryErrorsToCatch(container: DSLNode, catchEntry: string, edges: Edge[]): void {
   const tryIds = new Set(container.scope?.ports?.try?.nodeIds ?? []);
   const cDone = DONE(container.id);
 
@@ -334,11 +317,7 @@ function redirectTryErrorsToCatch(
 /**
  * Patch break and continue nodes within a loop
  */
-function patchBreakContinue(
-  container: DSLNode,
-  loopId: string,
-  edges: Edge[],
-): void {
+function patchBreakContinue(container: DSLNode, loopId: string, edges: Edge[]): void {
   const bodyIds = new Set(container.scope?.ports?.body?.nodeIds ?? []);
 
   for (const child of container.children ?? []) {
@@ -367,9 +346,10 @@ function patchBreakContinue(
 /**
  * Compute adjacency maps from edges
  */
-function computeAdjacency(
-  edges: Edge[],
-): { succ: Map<string, Set<string>>; pred: Map<string, Set<string>> } {
+function computeAdjacency(edges: Edge[]): {
+  succ: Map<string, Set<string>>;
+  pred: Map<string, Set<string>>;
+} {
   const succ = new Map<string, Set<string>>();
   const pred = new Map<string, Set<string>>();
 

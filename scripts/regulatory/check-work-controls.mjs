@@ -12,14 +12,7 @@ const sourceRoots = [
   'orchestrator/ui/src',
 ];
 
-const ignoredDirNames = new Set([
-  'node_modules',
-  '.next',
-  'dist',
-  'build',
-  'coverage',
-  'target',
-]);
+const ignoredDirNames = new Set(['node_modules', '.next', 'dist', 'build', 'coverage', 'target']);
 
 const testFilePattern = /\.(spec|test)\.[tj]sx?$/i;
 const findings = [];
@@ -33,8 +26,7 @@ const rules = [
   },
   {
     id: 'NO_SENSITIVE_ENV_FALLBACK_DEFAULTS',
-    description:
-      'Sensitive process.env keys cannot use literal fallback defaults.',
+    description: 'Sensitive process.env keys cannot use literal fallback defaults.',
     regex:
       /process\.env\.[A-Z0-9_]*(SECRET|PASSWORD|TOKEN|KEY|DB_USERNAME|DB_PASSWORD|DATABASE_USER|DATABASE_PASSWORD)[A-Z0-9_]*\s*(\|\||\?\?)\s*['"`][^'"`]+['"`]/,
   },
@@ -115,13 +107,10 @@ for (const sourceRoot of sourceRoots) {
 if (findings.length > 0) {
   console.error('Work control violations found:');
   for (const finding of findings) {
-    console.error(
-      `- [${finding.rule}] ${finding.file}:${finding.line} :: ${finding.description}`,
-    );
+    console.error(`- [${finding.rule}] ${finding.file}:${finding.line} :: ${finding.description}`);
     console.error(`  > ${finding.snippet}`);
   }
   process.exit(1);
 }
 
 console.log('Work controls passed.');
-

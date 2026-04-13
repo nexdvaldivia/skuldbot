@@ -24,10 +24,7 @@ import { OrchestratorFleetAuthGuard } from '../orchestrators/guards/orchestrator
 export class LicensingRuntimeController {
   constructor(private readonly licensesService: LicensesService) {}
 
-  private runtimeContext(headers: {
-    traceId?: string;
-    orchestratorId?: string;
-  }) {
+  private runtimeContext(headers: { traceId?: string; orchestratorId?: string }) {
     return {
       traceId: headers.traceId,
       orchestratorId: headers.orchestratorId,
@@ -43,9 +40,7 @@ export class LicensingRuntimeController {
     @Body() dto: EntitlementCheckDto,
   ): Promise<EntitlementCheckResponseDto> {
     if (tenantIdHeader?.trim() && tenantIdHeader !== dto.tenantId) {
-      throw new BadRequestException(
-        'x-tenant-id header does not match body.tenantId',
-      );
+      throw new BadRequestException('x-tenant-id header does not match body.tenantId');
     }
     return this.licensesService.checkEntitlement(
       dto.tenantId,
@@ -64,9 +59,7 @@ export class LicensingRuntimeController {
     @Body() dto: QuotaCheckDto,
   ): Promise<QuotaCheckResponseDto> {
     if (tenantIdHeader?.trim() && tenantIdHeader !== dto.tenantId) {
-      throw new BadRequestException(
-        'x-tenant-id header does not match body.tenantId',
-      );
+      throw new BadRequestException('x-tenant-id header does not match body.tenantId');
     }
     return this.licensesService.checkQuota(
       dto.tenantId,
@@ -86,9 +79,7 @@ export class LicensingRuntimeController {
     @Body() dto: QuotaConsumeDto,
   ): Promise<QuotaConsumeResponseDto> {
     if (tenantIdHeader?.trim() && tenantIdHeader !== dto.tenantId) {
-      throw new BadRequestException(
-        'x-tenant-id header does not match body.tenantId',
-      );
+      throw new BadRequestException('x-tenant-id header does not match body.tenantId');
     }
     return this.licensesService.consumeQuota(
       dto.tenantId,

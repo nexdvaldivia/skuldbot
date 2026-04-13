@@ -3,19 +3,11 @@
  * Displays and manages the list of generated plan steps
  */
 
-import { useState } from "react";
-import {
-  GripVertical,
-  ChevronDown,
-  ChevronRight,
-  Trash2,
-  Plus,
-  Edit2,
-  Info,
-} from "lucide-react";
-import { useAIPlannerStore } from "../../store/aiPlannerStore";
-import { PlanStep } from "../../types/ai-planner";
-import { getCategoryIcon, getCategoryColor } from "../../utils/nodeCategories";
+import { useState } from 'react';
+import { GripVertical, ChevronDown, ChevronRight, Trash2, Plus, Edit2, Info } from 'lucide-react';
+import { useAIPlannerStore } from '../../store/aiPlannerStore';
+import { PlanStep } from '../../types/ai-planner';
+import { getCategoryIcon, getCategoryColor } from '../../utils/nodeCategories';
 
 // Get icon component for a category
 function CategoryIcon({ category }: { category: string }) {
@@ -52,7 +44,7 @@ function PlanStepItem({
   const [editLabel, setEditLabel] = useState(step.label);
 
   // Find matching template and category info
-  const category = step.nodeType.split(".")[0];
+  const category = step.nodeType.split('.')[0];
   const categoryColor = getCategoryColor(category);
 
   const handleSaveLabel = () => {
@@ -69,8 +61,8 @@ function PlanStepItem({
       onDragOver={onDragOver}
       onDrop={onDrop}
       className={`border rounded-xl overflow-hidden transition-all ${
-        isExpanded ? "border-primary-300 shadow-sm" : "border-slate-200"
-      } ${step.isManual ? "bg-amber-50/50" : "bg-white"}`}
+        isExpanded ? 'border-primary-300 shadow-sm' : 'border-slate-200'
+      } ${step.isManual ? 'bg-amber-50/50' : 'bg-white'}`}
     >
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-slate-50">
@@ -101,8 +93,8 @@ function PlanStepItem({
               onChange={(e) => setEditLabel(e.target.value)}
               onBlur={handleSaveLabel}
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleSaveLabel();
-                if (e.key === "Escape") {
+                if (e.key === 'Enter') handleSaveLabel();
+                if (e.key === 'Escape') {
                   setEditLabel(step.label);
                   setIsEditing(false);
                 }
@@ -113,9 +105,7 @@ function PlanStepItem({
             />
           ) : (
             <div className="flex items-center gap-2">
-              <span className="font-medium text-sm text-slate-800 truncate">
-                {step.label}
-              </span>
+              <span className="font-medium text-sm text-slate-800 truncate">{step.label}</span>
               {step.isManual && (
                 <span className="px-1.5 py-0.5 text-[10px] bg-amber-100 text-amber-700 rounded">
                   Manual
@@ -166,9 +156,7 @@ function PlanStepItem({
         <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/50">
           {/* Node Type */}
           <div className="text-xs text-slate-500 mb-2">
-            <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded">
-              {step.nodeType}
-            </span>
+            <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded">{step.nodeType}</span>
           </div>
 
           {/* Reasoning */}
@@ -188,9 +176,7 @@ function PlanStepItem({
                   <div key={key} className="flex gap-2">
                     <span className="text-slate-500">{key}:</span>
                     <span className="text-slate-800">
-                      {typeof value === "object"
-                        ? JSON.stringify(value)
-                        : String(value)}
+                      {typeof value === 'object' ? JSON.stringify(value) : String(value)}
                     </span>
                   </div>
                 ))}
@@ -231,12 +217,12 @@ export function PlanStepList() {
 
   const handleDragStart = (index: number) => (e: React.DragEvent) => {
     setDraggedIndex(index);
-    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.effectAllowed = 'move';
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
+    e.dataTransfer.dropEffect = 'move';
   };
 
   const handleDrop = (toIndex: number) => (e: React.DragEvent) => {
@@ -250,13 +236,13 @@ export function PlanStepList() {
   const handleAddStep = (afterId?: string) => {
     addPlanStep(
       {
-        nodeType: "control.wait",
-        label: "New Step",
-        description: "Configure this step",
+        nodeType: 'control.wait',
+        label: 'New Step',
+        description: 'Configure this step',
         config: {},
         isManual: true,
       },
-      afterId
+      afterId,
     );
   };
 

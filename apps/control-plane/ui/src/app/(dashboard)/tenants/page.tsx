@@ -2,14 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import {
-  ExternalLink,
-  Globe,
-  Loader2,
-  Plus,
-  Search,
-  Server,
-} from 'lucide-react';
+import { ExternalLink, Globe, Loader2, Plus, Search, Server } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -108,7 +101,8 @@ function TenantsPageContent() {
       toast({
         variant: 'error',
         title: 'Failed to load orchestrators',
-        description: error instanceof Error ? error.message : 'Could not fetch orchestrators from API.',
+        description:
+          error instanceof Error ? error.message : 'Could not fetch orchestrators from API.',
       });
     } finally {
       setLoading(false);
@@ -128,7 +122,10 @@ function TenantsPageContent() {
         toast({
           variant: 'error',
           title: 'Failed to load clients',
-          description: error instanceof Error ? error.message : 'Could not fetch clients for orchestrator creation.',
+          description:
+            error instanceof Error
+              ? error.message
+              : 'Could not fetch clients for orchestrator creation.',
         });
       }
       await loadTenants(initialClientId);
@@ -301,14 +298,19 @@ function TenantsPageContent() {
             <div className="px-5 py-12 text-center">
               <Server className="mx-auto mb-3 h-10 w-10 text-zinc-300" />
               <p className="text-sm font-medium text-zinc-900">No orchestrators found</p>
-              <p className="mt-1 text-sm text-zinc-500">Try adjusting filters or create a new orchestrator.</p>
+              <p className="mt-1 text-sm text-zinc-500">
+                Try adjusting filters or create a new orchestrator.
+              </p>
             </div>
           ) : (
             <div className="divide-y divide-zinc-100">
               {filteredTenants.map((tenant) => {
                 const clientName = clientsById.get(tenant.clientId)?.name ?? 'Unknown client';
                 return (
-                  <div key={tenant.id} className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-zinc-50">
+                  <div
+                    key={tenant.id}
+                    className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-zinc-50"
+                  >
                     <div className="min-w-0">
                       <p className="truncate font-medium text-zinc-900">{tenant.name}</p>
                       <p className="truncate text-sm text-zinc-500">{tenant.slug}</p>

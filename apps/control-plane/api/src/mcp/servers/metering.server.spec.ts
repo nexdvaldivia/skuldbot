@@ -82,11 +82,7 @@ describe('MeteringServer', () => {
     const tools = server.getTools();
     expect(tools).toHaveLength(6);
     expect(tools.map((tool) => tool.name)).toEqual(
-      expect.arrayContaining([
-        'report_bot_execution',
-        'get_current_usage',
-        'get_active_runners',
-      ]),
+      expect.arrayContaining(['report_bot_execution', 'get_current_usage', 'get_active_runners']),
     );
   });
 

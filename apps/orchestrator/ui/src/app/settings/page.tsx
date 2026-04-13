@@ -9,16 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useSettings, useSsoConfig, useUpdateSettings } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Building2,
-  Shield,
-  Bell,
-  Key,
-  Database,
-  Globe,
-  Palette,
-  Save,
-} from 'lucide-react';
+import { Building2, Shield, Bell, Key, Database, Globe, Palette, Save } from 'lucide-react';
 
 interface SettingsSection {
   id: string;
@@ -104,8 +95,7 @@ export default function SettingsPage() {
     } catch (saveError) {
       toast({
         title: 'Save failed',
-        description:
-          saveError instanceof Error ? saveError.message : 'Unable to save settings.',
+        description: saveError instanceof Error ? saveError.message : 'Unable to save settings.',
         variant: 'destructive',
       });
     }
@@ -114,9 +104,7 @@ export default function SettingsPage() {
   const handleFeatureClick = (title: string, description?: string) => {
     toast({
       title,
-      description:
-        description ||
-        'This setting is managed by tenant security policy.',
+      description: description || 'This setting is managed by tenant security policy.',
     });
   };
 
@@ -244,9 +232,7 @@ export default function SettingsPage() {
                   <Shield className="h-5 w-5" />
                   Security Settings
                 </CardTitle>
-                <CardDescription>
-                  Configure authentication and security policies
-                </CardDescription>
+                <CardDescription>Configure authentication and security policies</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
@@ -254,7 +240,8 @@ export default function SettingsPage() {
                     <div>
                       <p className="font-medium">Account Provisioning Policy</p>
                       <p className="text-sm text-muted-foreground">
-                        End users cannot self-register or reset passwords. User onboarding and credential reset are admin-only actions.
+                        End users cannot self-register or reset passwords. User onboarding and
+                        credential reset are admin-only actions.
                       </p>
                     </div>
                     <Button asChild variant="outline" size="sm">
@@ -269,7 +256,11 @@ export default function SettingsPage() {
                         Require 2FA for all users in your organization
                       </p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => handleFeatureClick('2FA settings')}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleFeatureClick('2FA settings')}
+                    >
                       Configure
                     </Button>
                   </div>
@@ -299,11 +290,13 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between p-4 rounded-lg border">
                     <div>
                       <p className="font-medium">Session Timeout</p>
-                      <p className="text-sm text-muted-foreground">
-                        Set maximum session duration
-                      </p>
+                      <p className="text-sm text-muted-foreground">Set maximum session duration</p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => handleFeatureClick('Session timeout')}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleFeatureClick('Session timeout')}
+                    >
                       Configure
                     </Button>
                   </div>
@@ -315,7 +308,11 @@ export default function SettingsPage() {
                         Restrict access to specific IP addresses
                       </p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => handleFeatureClick('IP allowlist')}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleFeatureClick('IP allowlist')}
+                    >
                       Manage IPs
                     </Button>
                   </div>
@@ -331,9 +328,7 @@ export default function SettingsPage() {
                   <Bell className="h-5 w-5" />
                   Notification Settings
                 </CardTitle>
-                <CardDescription>
-                  Configure how and when you receive alerts
-                </CardDescription>
+                <CardDescription>Configure how and when you receive alerts</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -344,7 +339,11 @@ export default function SettingsPage() {
                         Get notified when bot runs fail
                       </p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => handleFeatureClick('Failure notifications')}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleFeatureClick('Failure notifications')}
+                    >
                       Configure
                     </Button>
                   </div>
@@ -356,7 +355,11 @@ export default function SettingsPage() {
                         Alerts when runners go offline or come online
                       </p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => handleFeatureClick('Runner notifications')}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleFeatureClick('Runner notifications')}
+                    >
                       Configure
                     </Button>
                   </div>
@@ -368,7 +371,11 @@ export default function SettingsPage() {
                         Send notifications to external services
                       </p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => handleFeatureClick('Webhook notifications')}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleFeatureClick('Webhook notifications')}
+                    >
                       Add Webhook
                     </Button>
                   </div>
@@ -384,9 +391,7 @@ export default function SettingsPage() {
                   <Key className="h-5 w-5" />
                   API Keys
                 </CardTitle>
-                <CardDescription>
-                  Manage API keys for programmatic access
-                </CardDescription>
+                <CardDescription>Manage API keys for programmatic access</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -410,9 +415,7 @@ export default function SettingsPage() {
                   <Database className="h-5 w-5" />
                   Storage Settings
                 </CardTitle>
-                <CardDescription>
-                  Configure artifact storage and data retention
-                </CardDescription>
+                <CardDescription>Configure artifact storage and data retention</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -423,7 +426,11 @@ export default function SettingsPage() {
                         AWS S3, Azure Blob, or local storage
                       </p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => handleFeatureClick('Storage provider')}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleFeatureClick('Storage provider')}
+                    >
                       Configure
                     </Button>
                   </div>
@@ -435,7 +442,11 @@ export default function SettingsPage() {
                         How long to keep execution artifacts and logs
                       </p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => handleFeatureClick('Retention policy')}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleFeatureClick('Retention policy')}
+                    >
                       Set Policy
                     </Button>
                   </div>
@@ -451,9 +462,7 @@ export default function SettingsPage() {
                   <Globe className="h-5 w-5" />
                   Integrations
                 </CardTitle>
-                <CardDescription>
-                  Connect external services and tools
-                </CardDescription>
+                <CardDescription>Connect external services and tools</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col items-center justify-center py-8 text-center">

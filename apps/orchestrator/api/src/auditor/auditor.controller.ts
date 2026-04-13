@@ -275,12 +275,7 @@ export class AuditorController {
     @Param('attestationId') attestationId: string,
     @Query('format') format?: 'json' | 'html' | 'pdf',
   ) {
-    return this.auditorService.getAttestation(
-      auditor,
-      packId,
-      attestationId,
-      format || 'json',
-    );
+    return this.auditorService.getAttestation(auditor, packId, attestationId, format || 'json');
   }
 
   // ─────────────────────────────────────────────────────────────────

@@ -7,7 +7,12 @@ import {
 } from '../credentials/entities/credential.entity';
 import { Run, RunArtifact, RunEvent, RunLog, HitlRequest } from '../runs/entities/run.entity';
 import { Auditor, AuditorAccessLog } from '../auditor/entities/auditor.entity';
-import { Runner, RunnerEvent, RunnerHeartbeat, RunnerPool } from '../runners/entities/runner.entity';
+import {
+  Runner,
+  RunnerEvent,
+  RunnerHeartbeat,
+  RunnerPool,
+} from '../runners/entities/runner.entity';
 import { Permission } from '../roles/entities/permission.entity';
 import { Role } from '../roles/entities/role.entity';
 import { TenantSettings } from '../settings/entities/tenant-settings.entity';

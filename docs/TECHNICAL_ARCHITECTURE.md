@@ -91,16 +91,16 @@ SkuldBot es una plataforma de hyperautomation enterprise que permite crear, gest
 
 ### 🛠️ Stack Tecnológico
 
-| Capa | Tecnología |
-|------|-----------|
-| **Frontend** | React 18, TypeScript, Vite |
-| **Canvas** | React Flow (visual workflow) |
-| **State** | Zustand (state management) |
-| **UI** | TailwindCSS + shadcn/ui |
-| **Backend** | Rust (Tauri commands) |
-| **AI** | LLM integration (OpenAI, Anthropic, local) |
-| **Storage** | SQLite (proyectos locales) |
-| **Deployment** | Desktop installer (.exe/.dmg/.deb) |
+| Capa           | Tecnología                                 |
+| -------------- | ------------------------------------------ |
+| **Frontend**   | React 18, TypeScript, Vite                 |
+| **Canvas**     | React Flow (visual workflow)               |
+| **State**      | Zustand (state management)                 |
+| **UI**         | TailwindCSS + shadcn/ui                    |
+| **Backend**    | Rust (Tauri commands)                      |
+| **AI**         | LLM integration (OpenAI, Anthropic, local) |
+| **Storage**    | SQLite (proyectos locales)                 |
+| **Deployment** | Desktop installer (.exe/.dmg/.deb)         |
 
 ### 📂 Estructura de Archivos
 
@@ -152,12 +152,12 @@ Studio NO ejecuta bots. Solo los **compila**:
 fn compile_dsl(dsl: Value) -> Result<String, String> {
     // 1. Valida DSL
     validate_dsl_structure(&dsl)?;
-    
+
     // 2. Llama al Engine Python para compilar
     let output = Command::new("skuldbot-compile")
         .arg("--dsl").arg(dsl_json)
         .output()?;
-    
+
     // 3. Retorna path al bot package
     Ok(bot_package_path)
 }
@@ -189,20 +189,22 @@ Studio exporta archivos que el **Runner ejecuta**:
 
 ### 🛠️ Stack Tecnológico
 
-| Capa | Tecnología |
-|------|-----------|
-| **Ejecución** | Python 3.10+, Robot Framework |
-| **RPA Framework** | rpaframework (browser, excel, etc) |
-| **Engine** | skuldbot-engine (compiler + executor) |
+| Capa              | Tecnología                            |
+| ----------------- | ------------------------------------- |
+| **Ejecución**     | Python 3.10+, Robot Framework         |
+| **RPA Framework** | rpaframework (browser, excel, etc)    |
+| **Engine**        | skuldbot-engine (compiler + executor) |
 
 ### 🔄 Modos de Ejecución
 
 #### **Attended Runner**
+
 - Corre en la máquina del usuario
 - Con supervisión humana
 - Para tareas semi-automáticas
 
 #### **Unattended Runner**
+
 - Corre en servidor/VM
 - Sin intervención humana
 - Para tareas batch (ej: nightly jobs)
@@ -261,15 +263,15 @@ runner execute \
 
 ### 🛠️ Stack Tecnológico
 
-| Capa | Tecnología |
-|------|-----------|
-| **API Backend** | NestJS, TypeScript |
-| **Database** | PostgreSQL (workflows, logs, audit) |
-| **Cache** | Redis (job queue) |
-| **Frontend** | Next.js, React |
-| **Observability** | Prometheus, Grafana, OpenTelemetry |
-| **Secrets** | HashiCorp Vault, AWS Secrets Manager |
-| **Deployment** | Docker, Kubernetes, Helm |
+| Capa              | Tecnología                           |
+| ----------------- | ------------------------------------ |
+| **API Backend**   | NestJS, TypeScript                   |
+| **Database**      | PostgreSQL (workflows, logs, audit)  |
+| **Cache**         | Redis (job queue)                    |
+| **Frontend**      | Next.js, React                       |
+| **Observability** | Prometheus, Grafana, OpenTelemetry   |
+| **Secrets**       | HashiCorp Vault, AWS Secrets Manager |
+| **Deployment**    | Docker, Kubernetes, Helm             |
 
 ### 🐳 Deployment
 
@@ -397,17 +399,17 @@ runners/ (distribuidos en oficinas/data centers)
 
 ## 🆚 Comparación con Competidores
 
-| Feature | SkuldBot | UiPath | Blue Prism | Automation Anywhere |
-|---------|----------|---------|------------|---------------------|
-| **Studio Desktop** | ✅ | ✅ | ✅ | ✅ |
-| **AI Planner (LLM)** | ✅ | ❌ | ❌ | Partial |
-| **279 Nodes** | ✅ | ~300 | ~200 | ~250 |
-| **Open DSL (JSON)** | ✅ | ❌ | ❌ | ❌ |
-| **Cloud-Native (K8s)** | ✅ | ❌ | ❌ | Partial |
-| **Multi-Tenant SaaS** | ✅ | ❌ | ❌ | ❌ |
-| **Compliance-First** | ✅ (HIPAA, SOC2) | ❌ | ❌ | ❌ |
-| **23+ Data Connectors** | ✅ | ❌ | ❌ | ❌ |
-| **Self-Hosted Option** | ✅ | ❌ | ✅ | ❌ |
+| Feature                 | SkuldBot         | UiPath | Blue Prism | Automation Anywhere |
+| ----------------------- | ---------------- | ------ | ---------- | ------------------- |
+| **Studio Desktop**      | ✅               | ✅     | ✅         | ✅                  |
+| **AI Planner (LLM)**    | ✅               | ❌     | ❌         | Partial             |
+| **279 Nodes**           | ✅               | ~300   | ~200       | ~250                |
+| **Open DSL (JSON)**     | ✅               | ❌     | ❌         | ❌                  |
+| **Cloud-Native (K8s)**  | ✅               | ❌     | ❌         | Partial             |
+| **Multi-Tenant SaaS**   | ✅               | ❌     | ❌         | ❌                  |
+| **Compliance-First**    | ✅ (HIPAA, SOC2) | ❌     | ❌         | ❌                  |
+| **23+ Data Connectors** | ✅               | ❌     | ❌         | ❌                  |
+| **Self-Hosted Option**  | ✅               | ❌     | ✅         | ❌                  |
 
 ---
 

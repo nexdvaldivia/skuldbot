@@ -172,7 +172,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   collapsed && 'justify-center px-2',
                   isActive
                     ? 'bg-brand-50 text-brand-600 border border-brand-100'
-                    : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
+                    : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50',
                 )}
                 title={collapsed ? `${section.title}: ${item.name}` : undefined}
               >
@@ -180,7 +180,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   className={cn(
                     'flex-shrink-0',
                     collapsed ? 'h-5 w-5' : 'h-4 w-4',
-                    isActive ? 'text-brand-500' : 'text-zinc-400'
+                    isActive ? 'text-brand-500' : 'text-zinc-400',
                   )}
                 />
                 {!collapsed && <span>{item.name}</span>}
@@ -199,7 +199,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                           'block rounded-md px-2 py-1.5 text-[12px] font-medium transition-colors',
                           childActive
                             ? 'text-brand-700 bg-brand-50/70'
-                            : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50'
+                            : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50',
                         )}
                       >
                         {child.name}
@@ -219,13 +219,13 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     <aside
       className={cn(
         'fixed left-0 top-0 z-40 h-screen bg-white border-r border-zinc-200/80 transition-all duration-300 flex flex-col overflow-hidden',
-        collapsed ? 'w-[68px]' : 'w-[240px]'
+        collapsed ? 'w-[68px]' : 'w-[240px]',
       )}
     >
       <div
         className={cn(
           'h-14 flex items-center border-b border-zinc-200/80 px-4',
-          collapsed ? 'justify-center' : 'justify-between'
+          collapsed ? 'justify-center' : 'justify-between',
         )}
       >
         <Link href="/dashboard" className="flex items-center gap-2.5">

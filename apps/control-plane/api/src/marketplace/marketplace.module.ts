@@ -29,12 +29,7 @@ import { MarketplaceSubscription } from './entities/marketplace-subscription.ent
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      MarketplaceBot,
-      BotVersion,
-      Partner,
-      MarketplaceSubscription,
-    ]),
+    TypeOrmModule.forFeature([MarketplaceBot, BotVersion, Partner, MarketplaceSubscription]),
   ],
   controllers: [MarketplaceController],
   providers: [MarketplaceService],

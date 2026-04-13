@@ -1,6 +1,7 @@
 # SkuldBot MCP Deployment Guide
 
 ## Table of Contents
+
 1. [Prerequisites](#prerequisites)
 2. [Control Plane Deployment](#control-plane-deployment)
 3. [Orchestrator Deployment](#orchestrator-deployment)
@@ -16,6 +17,7 @@
 ### Infrastructure Requirements
 
 **Control Plane (SaaS - Skuld managed):**
+
 - Kubernetes cluster (EKS/AKS/GKE) or AWS ECS
 - PostgreSQL 14+ (RDS recommended)
 - Redis 6+ (ElastiCache recommended)
@@ -23,6 +25,7 @@
 - Domain with SSL certificate
 
 **Orchestrator (PaaS - Per-client):**
+
 - Kubernetes cluster OR VM (t3.large minimum)
 - PostgreSQL 14+ (managed service recommended)
 - Redis 6+
@@ -30,11 +33,13 @@
 - Domain with SSL certificate
 
 **Studio (Desktop - Client-side):**
+
 - Windows 10+, macOS 11+, or Ubuntu 20.04+
 - 4GB RAM minimum (8GB recommended)
 - 500MB disk space
 
 ### Required Tools
+
 ```bash
 # For Control Plane & Orchestrator
 - kubectl (for Kubernetes deployment)
@@ -137,12 +142,12 @@ curl http://localhost:3000/api/v1/mcp/health
         }
       ],
       "environment": [
-        {"name": "NODE_ENV", "value": "production"},
-        {"name": "PORT", "value": "3000"}
+        { "name": "NODE_ENV", "value": "production" },
+        { "name": "PORT", "value": "3000" }
       ],
       "secrets": [
-        {"name": "DB_HOST", "valueFrom": "arn:aws:secretsmanager:..."},
-        {"name": "DB_PASSWORD", "valueFrom": "arn:aws:secretsmanager:..."}
+        { "name": "DB_HOST", "valueFrom": "arn:aws:secretsmanager:..." },
+        { "name": "DB_PASSWORD", "valueFrom": "arn:aws:secretsmanager:..." }
       ],
       "healthCheck": {
         "command": ["CMD-SHELL", "curl -f http://localhost:3000/api/v1/mcp/health/live || exit 1"],
@@ -207,6 +212,7 @@ SENDGRID_API_KEY=SG...
 ## Orchestrator Deployment
 
 ### Prerequisites
+
 - Client must provide: AWS account, VPC, RDS instance
 - Skuld provides: Docker image, Terraform modules, deployment scripts
 
@@ -225,6 +231,7 @@ nano terraform.tfvars
 ```
 
 **terraform.tfvars:**
+
 ```hcl
 tenant_id          = "acme-insurance"
 region             = "us-east-1"
@@ -360,6 +367,7 @@ npm install
 #### 4.2 Build for Target Platform
 
 **Windows:**
+
 ```bash
 npm run tauri build -- --target x86_64-pc-windows-msvc
 
@@ -367,6 +375,7 @@ npm run tauri build -- --target x86_64-pc-windows-msvc
 ```
 
 **macOS:**
+
 ```bash
 npm run tauri build -- --target x86_64-apple-darwin
 
@@ -374,6 +383,7 @@ npm run tauri build -- --target x86_64-apple-darwin
 ```
 
 **Linux:**
+
 ```bash
 npm run tauri build -- --target x86_64-unknown-linux-gnu
 
@@ -383,11 +393,13 @@ npm run tauri build -- --target x86_64-unknown-linux-gnu
 #### 4.3 Code Signing (Production)
 
 **Windows:**
+
 ```bash
 signtool sign /f certificate.pfx /p <password> /tr http://timestamp.digicert.com /td sha256 /fd sha256 skuldbot-studio.msi
 ```
 
 **macOS:**
+
 ```bash
 codesign --deep --force --verify --verbose --sign "Developer ID Application: Skuld, LLC" --options runtime SkuldBot\ Studio.app
 ```
@@ -449,7 +461,7 @@ scrape_configs:
     static_configs:
       - targets: ['control-plane-api:3000']
     metrics_path: '/metrics'
-    
+
   - job_name: 'orchestrator-mcp'
     static_configs:
       - targets: ['orchestrator-api:3000']
@@ -727,15 +739,18 @@ CREATE INDEX idx_licenses_tenant_feature ON licenses(tenant_id, feature);
 ## Support
 
 **Technical Support:**
+
 - Email: support@skuld.ai
 - Slack: skuld-support.slack.com
 - Documentation: https://docs.skuld.ai
 
 **Emergency Contact:**
+
 - 24/7 On-call: +1-XXX-XXX-XXXX
 - PagerDuty: https://skuld.pagerduty.com
 
 **SLA:**
+
 - Critical (P0): 1 hour response
 - High (P1): 4 hours response
 - Medium (P2): 1 business day
@@ -746,5 +761,3 @@ CREATE INDEX idx_licenses_tenant_feature ON licenses(tenant_id, feature);
 **Document Version:** 1.0  
 **Last Updated:** January 27, 2026  
 **Maintained By:** Skuld DevOps Team
-
-

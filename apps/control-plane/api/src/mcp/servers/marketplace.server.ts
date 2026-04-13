@@ -6,15 +6,8 @@ import {
   PricingModel,
   BotCategory,
 } from '../../marketplace/entities/marketplace-bot.entity';
-import {
-  MarketplaceSubscriptionPlan,
-} from '../../marketplace/entities/marketplace-subscription.entity';
-import {
-  Tool,
-  Resource,
-  ToolResult,
-  ResourceContent,
-} from '../types/mcp.types';
+import { MarketplaceSubscriptionPlan } from '../../marketplace/entities/marketplace-subscription.entity';
+import { Tool, Resource, ToolResult, ResourceContent } from '../types/mcp.types';
 
 /**
  * Marketplace MCP Server
@@ -57,8 +50,7 @@ export class MarketplaceServer {
       },
       {
         name: 'get_bot_details',
-        description:
-          'Get detailed information about a specific bot including pricing',
+        description: 'Get detailed information about a specific bot including pricing',
         inputSchema: {
           type: 'object',
           properties: {
@@ -281,9 +273,7 @@ export class MarketplaceServer {
       return this.getPartnerResource(partnerMatch[1]);
     }
 
-    const subsMatch = uri.match(
-      /marketplace:\/\/tenant\/([^/]+)\/subscriptions/,
-    );
+    const subsMatch = uri.match(/marketplace:\/\/tenant\/([^/]+)\/subscriptions/);
     if (subsMatch) {
       return this.getTenantSubscriptionsResource(subsMatch[1]);
     }
@@ -387,14 +377,8 @@ export class MarketplaceServer {
     };
   }
 
-  private async unsubscribeFromBot(
-    tenantId: string,
-    botId: string,
-  ): Promise<ToolResult> {
-    const subscription = await this.marketplaceService.unsubscribeTenantFromBot(
-      tenantId,
-      botId,
-    );
+  private async unsubscribeFromBot(tenantId: string, botId: string): Promise<ToolResult> {
+    const subscription = await this.marketplaceService.unsubscribeTenantFromBot(tenantId, botId);
 
     return {
       success: true,
@@ -408,9 +392,7 @@ export class MarketplaceServer {
   }
 
   private async listSubscribedBots(tenantId: string): Promise<ToolResult> {
-    const subscriptions = await this.marketplaceService.listTenantSubscriptions(
-      tenantId,
-    );
+    const subscriptions = await this.marketplaceService.listTenantSubscriptions(tenantId);
 
     return {
       success: true,
@@ -434,12 +416,11 @@ export class MarketplaceServer {
     botId: string,
     version?: string,
   ): Promise<ToolResult> {
-    const { version: resolvedVersion } =
-      await this.marketplaceService.recordBotDownload({
-        tenantId,
-        botId,
-        version,
-      });
+    const { version: resolvedVersion } = await this.marketplaceService.recordBotDownload({
+      tenantId,
+      botId,
+      version,
+    });
 
     if (!resolvedVersion) {
       return {
@@ -563,9 +544,7 @@ export class MarketplaceServer {
     };
   }
 
-  private async getTenantSubscriptionsResource(
-    tenantId: string,
-  ): Promise<ResourceContent> {
+  private async getTenantSubscriptionsResource(tenantId: string): Promise<ResourceContent> {
     const subscriptions = await this.listSubscribedBots(tenantId);
     return {
       uri: `marketplace://tenant/${tenantId}/subscriptions`,

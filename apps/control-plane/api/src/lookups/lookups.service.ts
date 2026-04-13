@@ -22,11 +22,7 @@ export class LookupsService {
     private readonly lookupRepository: Repository<LookupValue>,
   ) {}
 
-  async assertActiveCode(
-    domain: string,
-    code: string,
-    errorMessage?: string,
-  ): Promise<void> {
+  async assertActiveCode(domain: string, code: string, errorMessage?: string): Promise<void> {
     const normalizedCode = code?.trim().toLowerCase();
     const values = await this.getActiveValues(domain);
     if (values.some((value) => value.code.toLowerCase() === normalizedCode)) {
@@ -47,9 +43,7 @@ export class LookupsService {
       throw new NotFoundException(`No active lookup values for domain "${domain}"`);
     }
 
-    const markedDefault = values.find(
-      (value) => value.metadata?.['isDefault'] === true,
-    );
+    const markedDefault = values.find((value) => value.metadata?.['isDefault'] === true);
     if (markedDefault) {
       return markedDefault.code;
     }
@@ -57,15 +51,10 @@ export class LookupsService {
     return values[0].code;
   }
 
-  async getMetadata(
-    domain: string,
-    code: string,
-  ): Promise<Record<string, unknown> | null> {
+  async getMetadata(domain: string, code: string): Promise<Record<string, unknown> | null> {
     const normalizedCode = code?.trim().toLowerCase();
     const values = await this.getActiveValues(domain);
-    const found = values.find(
-      (value) => value.code.toLowerCase() === normalizedCode,
-    );
+    const found = values.find((value) => value.code.toLowerCase() === normalizedCode);
     return found?.metadata ?? null;
   }
 

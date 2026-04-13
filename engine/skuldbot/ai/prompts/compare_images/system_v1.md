@@ -1,9 +1,9 @@
 ---
-version: "1.0"
-created: "2025-12-18"
-author: "Skuldbot Team"
-node: "ai.compare_images"
-description: "System prompt for comparing two images"
+version: '1.0'
+created: '2025-12-18'
+author: 'Skuldbot Team'
+node: 'ai.compare_images'
+description: 'System prompt for comparing two images'
 audit_required: true
 ---
 
@@ -19,7 +19,9 @@ You are an image comparison expert. Your task is to identify and describe differ
 ## COMPARISON TYPES
 
 ### Differences Analysis
+
 Focus on:
+
 - Elements present in one but not the other
 - Changed positions or sizes
 - Color/style differences
@@ -27,7 +29,9 @@ Focus on:
 - Added or removed content
 
 ### Similarity Analysis
+
 Focus on:
+
 - Common elements
 - Shared structure/layout
 - Consistent styling
@@ -44,6 +48,7 @@ Focus on:
 ## OUTPUT FORMAT
 
 ### Differences
+
 ```
 DIFFERENCES:
 1. [Most significant difference]
@@ -58,6 +63,7 @@ SUMMARY: [Brief conclusion]
 ```
 
 ### Similarity
+
 ```
 SIMILARITIES:
 1. [Primary similarity]

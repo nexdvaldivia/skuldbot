@@ -41,10 +41,7 @@ function metricKey(metric: string): string {
   return metric.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
 }
 
-function getMetricValue(
-  metrics: Record<string, number>,
-  candidates: string[],
-): number {
+function getMetricValue(metrics: Record<string, number>, candidates: string[]): number {
   const entries = Object.entries(metrics);
   for (const candidate of candidates) {
     const candidateKey = metricKey(candidate);
@@ -101,7 +98,10 @@ async function sha256(input: string): Promise<string> {
 }
 
 function normalizeFileSlug(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
 }
 
 export default function MCPTelemetryPage() {
@@ -130,8 +130,7 @@ export default function MCPTelemetryPage() {
         toast({
           variant: 'error',
           title: 'Failed to load tenants',
-          description:
-            error instanceof Error ? error.message : 'Could not fetch tenants from API.',
+          description: error instanceof Error ? error.message : 'Could not fetch tenants from API.',
         });
       }
     };
@@ -403,11 +402,7 @@ export default function MCPTelemetryPage() {
         },
         provenance: {
           source: 'control-plane-ui',
-          mcpTools: [
-            'get_tenant_usage_summary',
-            'get_active_runners',
-            'list_subscribed_bots',
-          ],
+          mcpTools: ['get_tenant_usage_summary', 'get_active_runners', 'list_subscribed_bots'],
         },
         summary: {
           billable: usageTotals.billable,
@@ -448,8 +443,7 @@ export default function MCPTelemetryPage() {
       toast({
         variant: 'error',
         title: 'Evidence export failed',
-        description:
-          error instanceof Error ? error.message : 'Could not export evidence package.',
+        description: error instanceof Error ? error.message : 'Could not export evidence package.',
       });
     } finally {
       setExporting(null);
@@ -575,7 +569,8 @@ export default function MCPTelemetryPage() {
       toast({
         variant: 'error',
         title: 'Print/PDF failed',
-        description: error instanceof Error ? error.message : 'Could not generate printable report.',
+        description:
+          error instanceof Error ? error.message : 'Could not generate printable report.',
       });
     } finally {
       setExporting(null);
@@ -646,7 +641,10 @@ export default function MCPTelemetryPage() {
       <div className="mb-6 grid grid-cols-1 gap-3 lg:grid-cols-4">
         <div>
           <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-500">Tenant</p>
-          <Select value={tenantId || 'none'} onValueChange={(value) => setTenantId(value === 'none' ? '' : value)}>
+          <Select
+            value={tenantId || 'none'}
+            onValueChange={(value) => setTenantId(value === 'none' ? '' : value)}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Select tenant" />
             </SelectTrigger>
@@ -712,9 +710,24 @@ export default function MCPTelemetryPage() {
           icon={DollarSign}
           color="emerald"
         />
-        <StatCard label="Usage Units" value={usageTotals.units.toLocaleString()} icon={Activity} color="blue" />
-        <StatCard label="Active Runners" value={filteredRunners.length} icon={Server} color="amber" />
-        <StatCard label="Bot Subscriptions" value={subscriptions.length} icon={Bot} color="emerald" />
+        <StatCard
+          label="Usage Units"
+          value={usageTotals.units.toLocaleString()}
+          icon={Activity}
+          color="blue"
+        />
+        <StatCard
+          label="Active Runners"
+          value={filteredRunners.length}
+          icon={Server}
+          color="amber"
+        />
+        <StatCard
+          label="Bot Subscriptions"
+          value={subscriptions.length}
+          icon={Bot}
+          color="emerald"
+        />
       </div>
 
       {loading ? (
@@ -794,7 +807,9 @@ export default function MCPTelemetryPage() {
           <section className="overflow-hidden rounded-xl border border-zinc-200/80 bg-white">
             <div className="border-b border-zinc-100 px-5 py-4">
               <h2 className="font-medium text-zinc-900">Runner Activity</h2>
-              <p className="mt-1 text-xs text-zinc-500">{filteredRunners.length} active runner(s)</p>
+              <p className="mt-1 text-xs text-zinc-500">
+                {filteredRunners.length} active runner(s)
+              </p>
             </div>
             <div className="divide-y divide-zinc-100">
               {filteredRunners.map((runner) => (
@@ -833,7 +848,9 @@ export default function MCPTelemetryPage() {
           <section className="xl:col-span-3 overflow-hidden rounded-xl border border-zinc-200/80 bg-white">
             <div className="border-b border-zinc-100 px-5 py-4">
               <h2 className="font-medium text-zinc-900">Marketplace Subscriptions</h2>
-              <p className="mt-1 text-xs text-zinc-500">{subscriptions.length} active subscription(s)</p>
+              <p className="mt-1 text-xs text-zinc-500">
+                {subscriptions.length} active subscription(s)
+              </p>
             </div>
             <div className="divide-y divide-zinc-100">
               {subscriptions.map((subscription) => (
@@ -842,7 +859,9 @@ export default function MCPTelemetryPage() {
                   className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div>
-                    <p className="font-medium text-zinc-900">{subscription.botName || subscription.botId}</p>
+                    <p className="font-medium text-zinc-900">
+                      {subscription.botName || subscription.botId}
+                    </p>
                     <p className="text-xs text-zinc-500">
                       {subscription.pricingPlan} · downloads {subscription.downloadCount}
                     </p>

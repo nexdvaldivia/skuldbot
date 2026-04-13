@@ -7,14 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { StatusBadge } from '@/components/ui/badge';
-import {
-  Users,
-  Plus,
-  Search,
-  Mail,
-  Shield,
-  MoreHorizontal,
-} from 'lucide-react';
+import { Users, Plus, Search, Mail, Shield, MoreHorizontal } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,10 +67,7 @@ export default function UsersPage() {
 
     return users.filter((user) => {
       const fullName = `${user.firstName} ${user.lastName}`.toLowerCase();
-      return (
-        user.email.toLowerCase().includes(normalized) ||
-        fullName.includes(normalized)
-      );
+      return user.email.toLowerCase().includes(normalized) || fullName.includes(normalized);
     });
   }, [users, searchQuery]);
 
@@ -126,8 +116,7 @@ export default function UsersPage() {
       toast({
         variant: 'destructive',
         title: 'Failed to invite user',
-        description:
-          error instanceof Error ? error.message : 'Please try again.',
+        description: error instanceof Error ? error.message : 'Please try again.',
       });
     }
   };
@@ -150,8 +139,7 @@ export default function UsersPage() {
       toast({
         variant: 'destructive',
         title: 'Failed to update user',
-        description:
-          error instanceof Error ? error.message : 'Please try again.',
+        description: error instanceof Error ? error.message : 'Please try again.',
       });
     }
   };
@@ -168,8 +156,7 @@ export default function UsersPage() {
       toast({
         variant: 'destructive',
         title: 'Failed to resend invitation',
-        description:
-          error instanceof Error ? error.message : 'Please try again.',
+        description: error instanceof Error ? error.message : 'Please try again.',
       });
     }
   };
@@ -190,8 +177,7 @@ export default function UsersPage() {
       toast({
         variant: 'destructive',
         title: 'Failed to delete user',
-        description:
-          error instanceof Error ? error.message : 'Please try again.',
+        description: error instanceof Error ? error.message : 'Please try again.',
       });
     }
   };
@@ -255,16 +241,15 @@ export default function UsersPage() {
           <Card>
             <CardHeader>
               <CardTitle>Team Members</CardTitle>
-              <CardDescription>{usersResponse?.total ?? filteredUsers.length} users</CardDescription>
+              <CardDescription>
+                {usersResponse?.total ?? filteredUsers.length} users
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="divide-y">
                 {filteredUsers.map((user) => {
                   return (
-                    <div
-                      key={user.id}
-                      className="flex items-center justify-between py-4"
-                    >
+                    <div key={user.id} className="flex items-center justify-between py-4">
                       <div className="flex items-center gap-4">
                         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                           <span className="text-sm font-medium text-primary">
@@ -332,9 +317,7 @@ export default function UsersPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Invite User</DialogTitle>
-            <DialogDescription>
-              Send an invitation to a new team member.
-            </DialogDescription>
+            <DialogDescription>Send an invitation to a new team member.</DialogDescription>
           </DialogHeader>
 
           <form className="space-y-4" onSubmit={handleInviteUser}>

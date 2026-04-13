@@ -90,9 +90,7 @@ export class LicensesController {
   @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
   @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
   @RequirePermissions(CP_PERMISSIONS.LICENSES_READ)
-  async getTemplate(
-    @Param('type') type: string,
-  ): Promise<LicenseTemplateResponseDto> {
+  async getTemplate(@Param('type') type: string): Promise<LicenseTemplateResponseDto> {
     return this.licensesService.getLicenseTemplate(type);
   }
 

@@ -45,4 +45,3 @@ describe('enforceEnvironmentPolicy (control-plane)', () => {
     ).toThrow(/placeholder\/unsafe values detected/i);
   });
 });
-

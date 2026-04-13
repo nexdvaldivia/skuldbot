@@ -1,34 +1,24 @@
-import { useState, useEffect, useCallback } from "react";
-import { Input } from "./ui/Input";
-import { Button } from "./ui/Button";
-import { ScrollArea } from "./ui/scroll-area";
-import {
-  Variable,
-  Plus,
-  Trash2,
-  Copy,
-  Info,
-  Server,
-  Code,
-  Rocket,
-  Save,
-} from "lucide-react";
-import { useProjectStore } from "../store/projectStore";
-import { EnvScope, EnvVariable } from "../types/project";
+import { useState, useEffect, useCallback } from 'react';
+import { Input } from './ui/Input';
+import { Button } from './ui/Button';
+import { ScrollArea } from './ui/scroll-area';
+import { Variable, Plus, Trash2, Copy, Info, Server, Code, Rocket, Save } from 'lucide-react';
+import { useProjectStore } from '../store/projectStore';
+import { EnvScope, EnvVariable } from '../types/project';
 
 interface LocalEnvVariable extends EnvVariable {
   id: string;
 }
 
 const envIcons = {
-  development: { icon: Code, color: "blue", label: "Development" },
-  staging: { icon: Server, color: "amber", label: "Staging" },
-  production: { icon: Rocket, color: "primary", label: "Production" },
+  development: { icon: Code, color: 'blue', label: 'Development' },
+  staging: { icon: Server, color: 'amber', label: 'Staging' },
+  production: { icon: Rocket, color: 'primary', label: 'Production' },
 };
 
 export default function EnvPanel() {
   const { envConfig, loadEnvConfig, saveEnvConfig, isSaving } = useProjectStore();
-  const [activeEnv, setActiveEnv] = useState<EnvScope>("development");
+  const [activeEnv, setActiveEnv] = useState<EnvScope>('development');
   const [localVariables, setLocalVariables] = useState<LocalEnvVariable[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -52,8 +42,8 @@ export default function EnvPanel() {
   const handleAddVariable = () => {
     const newVar: LocalEnvVariable = {
       id: `var-${Date.now()}`,
-      name: "",
-      value: "",
+      name: '',
+      value: '',
       isSecret: false, // Always false - use Secrets Vault for sensitive data
       scope: [activeEnv],
     };
@@ -61,14 +51,8 @@ export default function EnvPanel() {
     setHasChanges(true);
   };
 
-  const handleUpdateVariable = (
-    id: string,
-    field: keyof LocalEnvVariable,
-    value: any
-  ) => {
-    setLocalVariables((prev) =>
-      prev.map((v) => (v.id === id ? { ...v, [field]: value } : v))
-    );
+  const handleUpdateVariable = (id: string, field: keyof LocalEnvVariable, value: any) => {
+    setLocalVariables((prev) => prev.map((v) => (v.id === id ? { ...v, [field]: value } : v)));
     setHasChanges(true);
   };
 
@@ -81,9 +65,7 @@ export default function EnvPanel() {
     if (!envConfig) return;
 
     // Get all variables from other scopes
-    const otherScopeVars = envConfig.variables.filter(
-      (v) => !v.scope.includes(activeEnv)
-    );
+    const otherScopeVars = envConfig.variables.filter((v) => !v.scope.includes(activeEnv));
 
     // Merge with local variables (remove id field)
     const newVariables: EnvVariable[] = [
@@ -117,9 +99,7 @@ export default function EnvPanel() {
               <Variable className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-slate-800">
-                Environment Variables
-              </h1>
+              <h1 className="text-xl font-semibold text-slate-800">Environment Variables</h1>
               <p className="text-sm text-slate-500">
                 Configuration values for different environments
               </p>
@@ -127,7 +107,7 @@ export default function EnvPanel() {
           </div>
           <Button onClick={handleSave} disabled={!hasChanges || isSaving}>
             <Save className="w-4 h-4" />
-            {isSaving ? "Saving..." : "Save Changes"}
+            {isSaving ? 'Saving...' : 'Save Changes'}
           </Button>
         </div>
 
@@ -144,8 +124,8 @@ export default function EnvPanel() {
                   onClick={() => setActiveEnv(env)}
                   className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
                     isActive
-                      ? "bg-slate-100 text-slate-900"
-                      : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                      ? 'bg-slate-100 text-slate-900'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -161,10 +141,15 @@ export default function EnvPanel() {
           {/* Card Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
             <div className="flex items-center gap-3">
-              <div className={`w-2 h-2 rounded-full ${
-                activeEnv === "development" ? "bg-blue-500" :
-                activeEnv === "staging" ? "bg-amber-500" : "bg-primary-500"
-              }`} />
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  activeEnv === 'development'
+                    ? 'bg-blue-500'
+                    : activeEnv === 'staging'
+                      ? 'bg-amber-500'
+                      : 'bg-primary-500'
+                }`}
+              />
               <span className="font-medium text-slate-800 capitalize">{activeEnv}</span>
               <span className="px-2 py-0.5 text-xs font-medium text-slate-500 bg-slate-100 rounded-full">
                 {localVariables.length} variables
@@ -179,7 +164,8 @@ export default function EnvPanel() {
           {/* Card Description */}
           <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/50">
             <p className="text-sm text-slate-500">
-              Configuration variables for {activeEnv} environment. For sensitive credentials, use the Secrets Vault.
+              Configuration variables for {activeEnv} environment. For sensitive credentials, use
+              the Secrets Vault.
             </p>
           </div>
 
@@ -190,9 +176,7 @@ export default function EnvPanel() {
                 <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-4">
                   <Variable className="w-6 h-6 text-slate-400" />
                 </div>
-                <h3 className="font-medium text-slate-700 mb-1">
-                  No variables yet
-                </h3>
+                <h3 className="font-medium text-slate-700 mb-1">No variables yet</h3>
                 <p className="text-sm text-slate-500 mb-4">
                   Add environment variables to use in your bots
                 </p>
@@ -225,8 +209,8 @@ export default function EnvPanel() {
                           onChange={(e) =>
                             handleUpdateVariable(
                               variable.id,
-                              "name",
-                              e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "_")
+                              'name',
+                              e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_'),
                             )
                           }
                           placeholder="VARIABLE_NAME"
@@ -239,11 +223,7 @@ export default function EnvPanel() {
                             type="text"
                             value={variable.value}
                             onChange={(e) =>
-                              handleUpdateVariable(
-                                variable.id,
-                                "value",
-                                e.target.value
-                              )
+                              handleUpdateVariable(variable.id, 'value', e.target.value)
                             }
                             placeholder="value"
                             className="font-mono text-sm h-9 pr-10 border-slate-200 focus:border-primary-300 focus:ring-primary-100"
@@ -279,18 +259,16 @@ export default function EnvPanel() {
           <div className="flex gap-3">
             <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
             <div className="text-sm">
-              <p className="font-medium text-slate-800 mb-1">
-                Using Environment Variables
-              </p>
+              <p className="font-medium text-slate-800 mb-1">Using Environment Variables</p>
               <p className="text-slate-600">
-                Reference variables in your bots using{" "}
+                Reference variables in your bots using{' '}
                 <code className="px-1.5 py-0.5 rounded bg-white border border-blue-200 font-mono text-xs text-blue-700">
-                  {"${env.VARIABLE_NAME}"}
+                  {'${env.VARIABLE_NAME}'}
                 </code>
-                . For sensitive credentials like API keys and passwords, use the{" "}
-                <strong>Secrets Vault</strong> instead with{" "}
+                . For sensitive credentials like API keys and passwords, use the{' '}
+                <strong>Secrets Vault</strong> instead with{' '}
                 <code className="px-1.5 py-0.5 rounded bg-white border border-blue-200 font-mono text-xs text-blue-700">
-                  {"${vault.SECRET_NAME}"}
+                  {'${vault.SECRET_NAME}'}
                 </code>
               </p>
             </div>

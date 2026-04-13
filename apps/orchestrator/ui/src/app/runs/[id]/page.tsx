@@ -65,9 +65,7 @@ export default function RunDetailPage({ params }: RunDetailPageProps) {
   };
 
   const isRunning =
-    run?.status === 'pending' ||
-    run?.status === 'queued' ||
-    run?.status === 'running';
+    run?.status === 'pending' || run?.status === 'queued' || run?.status === 'running';
 
   if (isLoading) {
     return (
@@ -103,9 +101,7 @@ export default function RunDetailPage({ params }: RunDetailPageProps) {
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-foreground">
-                Run {run.id.slice(0, 8)}...
-              </h1>
+              <h1 className="text-2xl font-bold text-foreground">Run {run.id.slice(0, 8)}...</h1>
               <StatusBadge status={run.status} />
             </div>
             <p className="text-muted-foreground mt-1 font-mono text-sm">{run.id}</p>
@@ -200,9 +196,7 @@ export default function RunDetailPage({ params }: RunDetailPageProps) {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Trigger</p>
-                <p className="font-medium text-foreground capitalize">
-                  {run.trigger}
-                </p>
+                <p className="font-medium text-foreground capitalize">{run.trigger}</p>
               </div>
             </div>
           </CardContent>
@@ -241,8 +235,8 @@ export default function RunDetailPage({ params }: RunDetailPageProps) {
                     run.status === 'success'
                       ? CheckCircle
                       : run.status === 'failed'
-                      ? XCircle
-                      : AlertTriangle
+                        ? XCircle
+                        : AlertTriangle
                   }
                   label="Completed"
                   value={formatDateTime(run.completedAt)}
@@ -251,8 +245,8 @@ export default function RunDetailPage({ params }: RunDetailPageProps) {
                     run.status === 'success'
                       ? 'text-success'
                       : run.status === 'failed'
-                      ? 'text-destructive'
-                      : 'text-warning'
+                        ? 'text-destructive'
+                        : 'text-warning'
                   }
                 />
               )}
@@ -274,9 +268,7 @@ export default function RunDetailPage({ params }: RunDetailPageProps) {
                     <div
                       className="h-full bg-primary transition-all duration-500"
                       style={{
-                        width: `${
-                          ((run.stepsCompleted || 0) / run.stepsTotal) * 100
-                        }%`,
+                        width: `${((run.stepsCompleted || 0) / run.stepsTotal) * 100}%`,
                       }}
                     />
                   </div>
@@ -288,9 +280,7 @@ export default function RunDetailPage({ params }: RunDetailPageProps) {
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-4 pt-4 border-t border-border">
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-success">
-                      {run.stepsCompleted || 0}
-                    </p>
+                    <p className="text-2xl font-bold text-success">{run.stepsCompleted || 0}</p>
                     <p className="text-sm text-muted-foreground">Completed</p>
                   </div>
                   <div className="text-center">
@@ -300,9 +290,7 @@ export default function RunDetailPage({ params }: RunDetailPageProps) {
                     <p className="text-sm text-muted-foreground">Remaining</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-primary">
-                      {run.stepsTotal}
-                    </p>
+                    <p className="text-2xl font-bold text-primary">{run.stepsTotal}</p>
                     <p className="text-sm text-muted-foreground">Total</p>
                   </div>
                 </div>

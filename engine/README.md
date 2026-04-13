@@ -89,6 +89,7 @@ ruff check skuldbot tests
 ### Dependencias del Runtime
 
 El engine requiere:
+
 - Python 3.10+
 - Robot Framework (`robotframework`)
 - Jinja2 (`jinja2`)
@@ -104,18 +105,21 @@ El engine requiere:
 ```
 
 Esto significa que:
+
 1. **Desarrollo (Studio)**: Tauri debe usar el Python del venv (`engine/.venv/bin/python3`)
 2. **Producción (BotRunner)**: Instalar robotframework en el mismo entorno
 
 ### Configuracion para Tauri (Studio)
 
 En `studio/src-tauri/src/main.rs`, la funcion `get_python_executable()` busca:
+
 1. `engine/.venv/bin/python3` (venv del engine)
 2. `python3` del sistema (fallback)
 
 ### Configuracion para BotRunner (Produccion)
 
 El BotRunner debe:
+
 1. Crear un venv dedicado
 2. Instalar el engine: `pip install skuldbot-engine`
 3. Instalar Robot Framework: `pip install robotframework`
@@ -145,4 +149,3 @@ bot-001/
 ## Licencia
 
 MIT License - Ver [LICENSE](LICENSE) para más detalles.
-

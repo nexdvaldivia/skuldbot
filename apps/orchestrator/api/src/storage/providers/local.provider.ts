@@ -2,11 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import {
-  StorageService,
-  UploadOptions,
-  StorageObject,
-} from '../storage.interface';
+import { StorageService, UploadOptions, StorageObject } from '../storage.interface';
 
 @Injectable()
 export class LocalStorageProvider implements StorageService {
@@ -35,11 +31,14 @@ export class LocalStorageProvider implements StorageService {
     // Store metadata if provided
     if (options?.metadata) {
       const metaPath = `${fullPath}.meta.json`;
-      await fs.writeFile(metaPath, JSON.stringify({
-        contentType: options.contentType,
-        metadata: options.metadata,
-        uploadedAt: new Date().toISOString(),
-      }));
+      await fs.writeFile(
+        metaPath,
+        JSON.stringify({
+          contentType: options.contentType,
+          metadata: options.metadata,
+          uploadedAt: new Date().toISOString(),
+        }),
+      );
     }
 
     return key;
@@ -69,11 +68,7 @@ export class LocalStorageProvider implements StorageService {
     }
   }
 
-  async getSignedUrl(
-    bucket: string,
-    key: string,
-    expiresInSeconds: number,
-  ): Promise<string> {
+  async getSignedUrl(bucket: string, key: string, expiresInSeconds: number): Promise<string> {
     // Local storage doesn't support signed URLs
     // Return a placeholder path - in production, serve via API endpoint
     return `/api/storage/${bucket}/${key}`;
@@ -91,10 +86,7 @@ export class LocalStorageProvider implements StorageService {
     }
   }
 
-  private async listFilesRecursive(
-    dir: string,
-    basePath: string,
-  ): Promise<StorageObject[]> {
+  private async listFilesRecursive(dir: string, basePath: string): Promise<StorageObject[]> {
     const results: StorageObject[] = [];
     const entries = await fs.readdir(dir, { withFileTypes: true });
 

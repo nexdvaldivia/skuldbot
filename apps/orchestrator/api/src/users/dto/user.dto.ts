@@ -17,8 +17,7 @@ import { UserStatus } from '../entities/user.entity';
 /**
  * Password requirements (same as auth DTOs).
  */
-const PASSWORD_REGEX =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$/;
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$/;
 
 const PASSWORD_MESSAGE =
   'Password must be at least 12 characters with uppercase, lowercase, number, and special character';

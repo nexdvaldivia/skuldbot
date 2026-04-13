@@ -104,26 +104,14 @@ export class RunsService {
   /**
    * Create and queue a new run.
    */
-  async create(
-    tenantId: string,
-    userId: string,
-    dto: CreateRunDto,
-  ): Promise<RunDetailDto> {
+  async create(tenantId: string, userId: string, dto: CreateRunDto): Promise<RunDetailDto> {
     const features = this.licenseService.getFeatures();
     const maxConcurrentRuns =
-      typeof features?.maxConcurrentRuns === 'number'
-        ? features.maxConcurrentRuns
-        : -1;
+      typeof features?.maxConcurrentRuns === 'number' ? features.maxConcurrentRuns : -1;
     const maxMonthlyRuns =
-      typeof features?.maxRunsPerMonth === 'number'
-        ? features.maxRunsPerMonth
-        : -1;
+      typeof features?.maxRunsPerMonth === 'number' ? features.maxRunsPerMonth : -1;
 
-    const quotaSnapshot = await this.checkRunQuota(
-      tenantId,
-      maxConcurrentRuns,
-      maxMonthlyRuns,
-    );
+    const quotaSnapshot = await this.checkRunQuota(tenantId, maxConcurrentRuns, maxMonthlyRuns);
 
     // Enterprise control-plane enforcement (entitlement + quota check)
     await this.billingEnforcementService.checkEntitlement(
@@ -131,11 +119,7 @@ export class RunsService {
       'concurrent_runs',
       quotaSnapshot.runningCount + 1,
     );
-    await this.billingEnforcementService.checkQuota(
-      tenantId,
-      'runs_per_month',
-      1,
-    );
+    await this.billingEnforcementService.checkQuota(tenantId, 'runs_per_month', 1);
 
     // Get bot and version
     const { bot, version } = await this.resolveBotVersion(tenantId, dto.botId, dto.versionId);
@@ -152,9 +136,7 @@ export class RunsService {
     }
 
     if (!version.compiledPlan) {
-      throw new BadRequestException(
-        `Version ${version.id} is not compiled. Compile it first.`,
-      );
+      throw new BadRequestException(`Version ${version.id} is not compiled. Compile it first.`);
     }
 
     // Calculate timeout
@@ -222,11 +204,7 @@ export class RunsService {
     await this.runRepository.save(run);
 
     try {
-      await this.billingEnforcementService.consumeQuota(
-        tenantId,
-        'runs_per_month',
-        1,
-      );
+      await this.billingEnforcementService.consumeQuota(tenantId, 'runs_per_month', 1);
     } catch (error) {
       await this.runRepository.delete({ id: run.id, tenantId: run.tenantId });
       throw error;
@@ -291,10 +269,7 @@ export class RunsService {
   /**
    * Get all runs for a tenant with filtering.
    */
-  async findAll(
-    tenantId: string,
-    query: ListRunsQueryDto,
-  ): Promise<PaginatedRunsDto> {
+  async findAll(tenantId: string, query: ListRunsQueryDto): Promise<PaginatedRunsDto> {
     const limit = query.limit ?? 20;
     const offset = query.offset ?? 0;
 
@@ -362,14 +337,15 @@ export class RunsService {
     }
 
     if (query.labelKey && query.labelValue) {
-      qb.andWhere(`run.labels->>'${query.labelKey}' = :labelValue`, { labelValue: query.labelValue });
+      qb.andWhere(`run.labels->>'${query.labelKey}' = :labelValue`, {
+        labelValue: query.labelValue,
+      });
     }
 
     if (query.search) {
-      qb.andWhere(
-        '(run.botName ILIKE :search OR run.notes ILIKE :search)',
-        { search: `%${query.search}%` },
-      );
+      qb.andWhere('(run.botName ILIKE :search OR run.notes ILIKE :search)', {
+        search: `%${query.search}%`,
+      });
     }
 
     // Sort
@@ -734,11 +710,12 @@ export class RunsService {
       throw new BadRequestException('tenantId is required to add a run event');
     }
 
-    const timestamp = data.timestamp instanceof Date
-      ? data.timestamp
-      : data.timestamp
-        ? new Date(data.timestamp)
-        : new Date();
+    const timestamp =
+      data.timestamp instanceof Date
+        ? data.timestamp
+        : data.timestamp
+          ? new Date(data.timestamp)
+          : new Date();
 
     const event = this.eventRepository.create({
       ...sanitizedData,
@@ -783,9 +760,7 @@ export class RunsService {
     const limit = query.limit ?? 1000;
     const offset = query.offset ?? 0;
 
-    const qb = this.logRepository
-      .createQueryBuilder('log')
-      .where('log.runId = :runId', { runId });
+    const qb = this.logRepository.createQueryBuilder('log').where('log.runId = :runId', { runId });
 
     if (query.level) {
       qb.andWhere('log.level = :level', { level: query.level });
@@ -888,7 +863,11 @@ export class RunsService {
   /**
    * Add an artifact to a run (internal method for processors).
    */
-  async addArtifact(runId: string, tenantId: string, data: AddRunArtifactDto): Promise<RunArtifact> {
+  async addArtifact(
+    runId: string,
+    tenantId: string,
+    data: AddRunArtifactDto,
+  ): Promise<RunArtifact> {
     const artifact = this.artifactRepository.create({
       runId,
       tenantId,
@@ -898,9 +877,7 @@ export class RunsService {
         ? redactSensitiveString(data.originalName)
         : data.originalName,
       storageKey: redactSensitiveString(data.storageKey),
-      description: data.description
-        ? redactSensitiveString(data.description)
-        : data.description,
+      description: data.description ? redactSensitiveString(data.description) : data.description,
       tags: (data.tags ?? []).map((tag) => redactSensitiveString(tag)),
       metadata: this.redactObject(data.metadata),
       expiresAt: data.expiresAt ? new Date(data.expiresAt) : undefined,
@@ -1153,13 +1130,14 @@ export class RunsService {
       await this.runRepository.save(run);
 
       // Add event
-      const eventType = dto.action === HitlActionType.APPROVE
-        ? RunEventType.HITL_APPROVED
-        : dto.action === HitlActionType.REJECT
-          ? RunEventType.HITL_REJECTED
-          : dto.action === HitlActionType.MODIFY
-            ? RunEventType.HITL_MODIFIED
-            : RunEventType.HITL_ESCALATED;
+      const eventType =
+        dto.action === HitlActionType.APPROVE
+          ? RunEventType.HITL_APPROVED
+          : dto.action === HitlActionType.REJECT
+            ? RunEventType.HITL_REJECTED
+            : dto.action === HitlActionType.MODIFY
+              ? RunEventType.HITL_MODIFIED
+              : RunEventType.HITL_ESCALATED;
 
       await this.addEvent({
         tenantId,
@@ -1319,11 +1297,13 @@ export class RunsService {
       const cancelled = intervalRuns.filter((r) => r.status === RunStatus.CANCELLED).length;
 
       const completedRuns = intervalRuns.filter((r) => r.totalDurationMs != null);
-      const avgDurationMs = completedRuns.length > 0
-        ? Math.round(
-            completedRuns.reduce((sum, r) => sum + (r.totalDurationMs ?? 0), 0) / completedRuns.length,
-          )
-        : undefined;
+      const avgDurationMs =
+        completedRuns.length > 0
+          ? Math.round(
+              completedRuns.reduce((sum, r) => sum + (r.totalDurationMs ?? 0), 0) /
+                completedRuns.length,
+            )
+          : undefined;
 
       data.push({
         timestamp: intervalStart.toISOString(),
@@ -1470,9 +1450,7 @@ export class RunsService {
       run.errorDetails = this.redactObject(dto.errorDetails);
     }
 
-    run.warnings = (dto.warnings ?? []).map((warning) =>
-      redactSensitiveString(warning),
-    );
+    run.warnings = (dto.warnings ?? []).map((warning) => redactSensitiveString(warning));
     run.peakMemoryMb = dto.peakMemoryMb ?? run.peakMemoryMb;
     run.avgCpuPercent = dto.avgCpuPercent;
     run.networkBytesIn = dto.networkBytesIn ?? run.networkBytesIn;
@@ -1490,7 +1468,7 @@ export class RunsService {
       severity: dto.success ? EventSeverity.INFO : EventSeverity.ERROR,
       message: dto.success
         ? `Run completed successfully in ${run.totalDurationMs}ms`
-        : dto.errorMessage ?? 'Run failed',
+        : (dto.errorMessage ?? 'Run failed'),
       payload: dto.success
         ? { outputs: dto.outputs }
         : { errorCode: dto.errorCode, errorDetails: dto.errorDetails },
@@ -1764,10 +1742,7 @@ export class RunsService {
       notificationsSent: this.redactArray(run.notificationsSent),
       labels: run.labels,
       metadata: this.redactObject(run.metadata),
-      notes:
-        typeof run.notes === 'string'
-          ? redactSensitiveString(run.notes)
-          : run.notes,
+      notes: typeof run.notes === 'string' ? redactSensitiveString(run.notes) : run.notes,
       billable: run.billable,
       computeUnits: run.computeUnits,
       billingCategory: run.billingCategory,
@@ -1797,7 +1772,9 @@ export class RunsService {
       classification: event.classification,
       controlsApplied: event.controlsApplied,
       errorCode: event.errorCode,
-      errorMessage: event.errorMessage ? redactSensitiveString(event.errorMessage) : event.errorMessage,
+      errorMessage: event.errorMessage
+        ? redactSensitiveString(event.errorMessage)
+        : event.errorMessage,
       memoryMb: event.memoryMb,
       cpuPercent: event.cpuPercent,
       correlationId: event.correlationId,

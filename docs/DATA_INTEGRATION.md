@@ -5,6 +5,7 @@ Sistema de integración de datos industriales que convierte SkuldBot en una plat
 ## Visión General
 
 SkuldBot integra conectores de datos industriales como nodos visuales drag & drop, permitiendo:
+
 - Extraer datos de bases de datos empresariales
 - Cargar datos a data warehouses
 - Transferir archivos entre sistemas
@@ -72,42 +73,43 @@ SkuldBot integra conectores de datos industriales como nodos visuales drag & dro
 
 ### Taps (Extractores)
 
-| Nodo | Descripción | Tipo DB |
-|------|-------------|---------|
-| `data.tap.sqlserver` | Microsoft SQL Server | RDBMS |
-| `data.tap.oracle` | Oracle Database | RDBMS |
-| `data.tap.postgres` | PostgreSQL | RDBMS |
-| `data.tap.mysql` | MySQL / MariaDB | RDBMS |
-| `data.tap.db2` | IBM DB2 | RDBMS |
-| `data.tap.snowflake` | Snowflake | Cloud DW |
-| `data.tap.csv` | Archivos CSV | File |
-| `data.tap.excel` | Archivos Excel | File |
-| `data.tap.s3` | Amazon S3 | Cloud Storage |
-| `data.tap.sftp` | SFTP Server | File Transfer |
-| `data.tap.salesforce` | Salesforce CRM | SaaS |
-| `data.tap.rest_api` | REST API genérico | API |
+| Nodo                  | Descripción          | Tipo DB       |
+| --------------------- | -------------------- | ------------- |
+| `data.tap.sqlserver`  | Microsoft SQL Server | RDBMS         |
+| `data.tap.oracle`     | Oracle Database      | RDBMS         |
+| `data.tap.postgres`   | PostgreSQL           | RDBMS         |
+| `data.tap.mysql`      | MySQL / MariaDB      | RDBMS         |
+| `data.tap.db2`        | IBM DB2              | RDBMS         |
+| `data.tap.snowflake`  | Snowflake            | Cloud DW      |
+| `data.tap.csv`        | Archivos CSV         | File          |
+| `data.tap.excel`      | Archivos Excel       | File          |
+| `data.tap.s3`         | Amazon S3            | Cloud Storage |
+| `data.tap.sftp`       | SFTP Server          | File Transfer |
+| `data.tap.salesforce` | Salesforce CRM       | SaaS          |
+| `data.tap.rest_api`   | REST API genérico    | API           |
 
 ### Targets (Cargadores)
 
-| Nodo | Descripción | Tipo DB |
-|------|-------------|---------|
-| `data.target.sqlserver` | Microsoft SQL Server | RDBMS |
-| `data.target.oracle` | Oracle Database | RDBMS |
-| `data.target.postgres` | PostgreSQL | RDBMS |
-| `data.target.mysql` | MySQL / MariaDB | RDBMS |
-| `data.target.db2` | IBM DB2 | RDBMS |
-| `data.target.snowflake` | Snowflake | Cloud DW |
-| `data.target.bigquery` | Google BigQuery | Cloud DW |
-| `data.target.csv` | Archivos CSV | File |
-| `data.target.excel` | Archivos Excel | File |
-| `data.target.s3` | Amazon S3 | Cloud Storage |
-| `data.target.sftp` | SFTP Server | File Transfer |
+| Nodo                    | Descripción          | Tipo DB       |
+| ----------------------- | -------------------- | ------------- |
+| `data.target.sqlserver` | Microsoft SQL Server | RDBMS         |
+| `data.target.oracle`    | Oracle Database      | RDBMS         |
+| `data.target.postgres`  | PostgreSQL           | RDBMS         |
+| `data.target.mysql`     | MySQL / MariaDB      | RDBMS         |
+| `data.target.db2`       | IBM DB2              | RDBMS         |
+| `data.target.snowflake` | Snowflake            | Cloud DW      |
+| `data.target.bigquery`  | Google BigQuery      | Cloud DW      |
+| `data.target.csv`       | Archivos CSV         | File          |
+| `data.target.excel`     | Archivos Excel       | File          |
+| `data.target.s3`        | Amazon S3            | Cloud Storage |
+| `data.target.sftp`      | SFTP Server          | File Transfer |
 
 ## Consultas Selectivas
 
 Los taps soportan múltiples formas de filtrar datos para traer solo lo necesario:
 
 ### 1. Query SQL Personalizado
+
 ```json
 {
   "type": "data.tap.sqlserver",
@@ -118,6 +120,7 @@ Los taps soportan múltiples formas de filtrar datos para traer solo lo necesari
 ```
 
 ### 2. Tabla con Filtros WHERE
+
 ```json
 {
   "type": "data.tap.oracle",
@@ -129,6 +132,7 @@ Los taps soportan múltiples formas de filtrar datos para traer solo lo necesari
 ```
 
 ### 3. Proyección de Columnas
+
 ```json
 {
   "type": "data.tap.postgres",
@@ -140,6 +144,7 @@ Los taps soportan múltiples formas de filtrar datos para traer solo lo necesari
 ```
 
 ### 4. Límite de Records
+
 ```json
 {
   "type": "data.tap.snowflake",
@@ -167,10 +172,10 @@ Para evitar problemas de memoria con millones de records:
 
 ### Modos Disponibles
 
-| Modo | Descripción | Uso Recomendado |
-|------|-------------|-----------------|
-| `memory` | Carga todo en memoria | < 50K filas, ideal para For Each |
-| `batch` | Procesa en lotes | > 50K filas, ideal para Target directo |
+| Modo     | Descripción           | Uso Recomendado                        |
+| -------- | --------------------- | -------------------------------------- |
+| `memory` | Carga todo en memoria | < 50K filas, ideal para For Each       |
+| `batch`  | Procesa en lotes      | > 50K filas, ideal para Target directo |
 
 ## Variables de Salida
 
@@ -193,6 +198,7 @@ ${Node Label.errorCount}     // Records con error
 ## Casos de Uso
 
 ### Caso 1: BD → UI (Consulta específica a formulario web)
+
 ```
 [Tap: SQL Server] ──> [For Each Row] ──> [Web: Fill Form] ──> [Web: Submit]
      │                      │
@@ -201,6 +207,7 @@ ${Node Label.errorCount}     // Records con error
 ```
 
 ### Caso 2: UI → BD (Scraping a base de datos)
+
 ```
 [Web: Open] ──> [Web: Scrape Table] ──> [Target: PostgreSQL]
                       │                        │
@@ -208,6 +215,7 @@ ${Node Label.errorCount}     // Records con error
 ```
 
 ### Caso 3: Migración Oracle → Snowflake (Datasets grandes)
+
 ```
 [Tap: Oracle] ──────────────────────> [Target: Snowflake]
      │                                       │
@@ -216,6 +224,7 @@ ${Node Label.errorCount}     // Records con error
 ```
 
 ### Caso 4: Multi-source ETL con filtros
+
 ```
 [Tap: Salesforce] ─────┐    query: "SELECT Id, Name FROM Account WHERE Status = 'Active'"
                        │
@@ -225,6 +234,7 @@ ${Node Label.errorCount}     // Records con error
 ```
 
 ### Caso 5: Archivo CSV → Base de datos
+
 ```
 [Tap: CSV] ──> [Target: PostgreSQL]
      │              │
@@ -235,6 +245,7 @@ ${Node Label.errorCount}     // Records con error
 ```
 
 ### Caso 6: Salesforce → Excel Report
+
 ```
 [Tap: Salesforce] ──> [Target: Excel]
      │                      │
@@ -247,67 +258,67 @@ ${Node Label.errorCount}     // Records con error
 
 ### Tap de Base de Datos (Ejemplo: SQL Server)
 
-| Campo | Tipo | Requerido | Descripción |
-|-------|------|-----------|-------------|
-| `host` | text | ✓ | Servidor de base de datos |
-| `port` | number | | Puerto (default: 1433) |
-| `database` | text | ✓ | Nombre de la base de datos |
-| `username` | text | ✓ | Usuario |
-| `password` | password | ✓ | Contraseña (soporta ${vault.xxx}) |
-| `query` | textarea | | Query SQL personalizado |
-| `table` | text | | Nombre de tabla (si no usa query) |
-| `columns` | text | | Columnas a seleccionar (separadas por coma) |
-| `filter` | text | | Condición WHERE |
-| `limit` | number | | Máximo de filas |
-| `batch_size` | number | | Tamaño de lote (default: 10000) |
-| `mode` | select | | `memory` o `batch` |
+| Campo        | Tipo     | Requerido | Descripción                                 |
+| ------------ | -------- | --------- | ------------------------------------------- |
+| `host`       | text     | ✓         | Servidor de base de datos                   |
+| `port`       | number   |           | Puerto (default: 1433)                      |
+| `database`   | text     | ✓         | Nombre de la base de datos                  |
+| `username`   | text     | ✓         | Usuario                                     |
+| `password`   | password | ✓         | Contraseña (soporta ${vault.xxx})           |
+| `query`      | textarea |           | Query SQL personalizado                     |
+| `table`      | text     |           | Nombre de tabla (si no usa query)           |
+| `columns`    | text     |           | Columnas a seleccionar (separadas por coma) |
+| `filter`     | text     |           | Condición WHERE                             |
+| `limit`      | number   |           | Máximo de filas                             |
+| `batch_size` | number   |           | Tamaño de lote (default: 10000)             |
+| `mode`       | select   |           | `memory` o `batch`                          |
 
 ### Target de Base de Datos (Ejemplo: PostgreSQL)
 
-| Campo | Tipo | Requerido | Descripción |
-|-------|------|-----------|-------------|
-| `host` | text | ✓ | Servidor de base de datos |
-| `port` | number | | Puerto (default: 5432) |
-| `database` | text | ✓ | Nombre de la base de datos |
-| `username` | text | ✓ | Usuario |
-| `password` | password | ✓ | Contraseña |
-| `table` | text | ✓ | Tabla destino |
-| `records` | expression | ✓ | Records a insertar (${Tap.records}) |
-| `mode` | select | | `insert`, `upsert`, `replace` |
-| `batch_size` | number | | Tamaño de lote (default: 5000) |
+| Campo        | Tipo       | Requerido | Descripción                         |
+| ------------ | ---------- | --------- | ----------------------------------- |
+| `host`       | text       | ✓         | Servidor de base de datos           |
+| `port`       | number     |           | Puerto (default: 5432)              |
+| `database`   | text       | ✓         | Nombre de la base de datos          |
+| `username`   | text       | ✓         | Usuario                             |
+| `password`   | password   | ✓         | Contraseña                          |
+| `table`      | text       | ✓         | Tabla destino                       |
+| `records`    | expression | ✓         | Records a insertar (${Tap.records}) |
+| `mode`       | select     |           | `insert`, `upsert`, `replace`       |
+| `batch_size` | number     |           | Tamaño de lote (default: 5000)      |
 
 ### Tap de Archivo (Ejemplo: CSV)
 
-| Campo | Tipo | Requerido | Descripción |
-|-------|------|-----------|-------------|
-| `path` | text | ✓ | Ruta al archivo |
-| `delimiter` | text | | Delimitador (default: `,`) |
-| `encoding` | text | | Encoding (default: `utf-8`) |
-| `header` | boolean | | Primera fila es header (default: true) |
-| `columns` | text | | Columnas a seleccionar |
-| `limit` | number | | Máximo de filas |
+| Campo       | Tipo    | Requerido | Descripción                            |
+| ----------- | ------- | --------- | -------------------------------------- |
+| `path`      | text    | ✓         | Ruta al archivo                        |
+| `delimiter` | text    |           | Delimitador (default: `,`)             |
+| `encoding`  | text    |           | Encoding (default: `utf-8`)            |
+| `header`    | boolean |           | Primera fila es header (default: true) |
+| `columns`   | text    |           | Columnas a seleccionar                 |
+| `limit`     | number  |           | Máximo de filas                        |
 
 ### Tap de Salesforce
 
-| Campo | Tipo | Requerido | Descripción |
-|-------|------|-----------|-------------|
-| `username` | text | ✓ | Usuario de Salesforce |
-| `password` | password | ✓ | Contraseña |
-| `security_token` | password | ✓ | Token de seguridad |
-| `query` | textarea | ✓ | Query SOQL |
-| `domain` | select | | `login` o `test` (sandbox) |
+| Campo            | Tipo     | Requerido | Descripción                |
+| ---------------- | -------- | --------- | -------------------------- |
+| `username`       | text     | ✓         | Usuario de Salesforce      |
+| `password`       | password | ✓         | Contraseña                 |
+| `security_token` | password | ✓         | Token de seguridad         |
+| `query`          | textarea | ✓         | Query SOQL                 |
+| `domain`         | select   |           | `login` o `test` (sandbox) |
 
 ### Tap de REST API
 
-| Campo | Tipo | Requerido | Descripción |
-|-------|------|-----------|-------------|
-| `url` | text | ✓ | URL del endpoint |
-| `method` | select | | GET, POST, PUT, DELETE |
-| `headers` | textarea | | Headers JSON |
-| `params` | textarea | | Query params JSON |
-| `body` | textarea | | Request body JSON |
-| `auth_type` | select | | `none`, `basic`, `bearer`, `api_key` |
-| `pagination_type` | select | | `none`, `offset`, `cursor`, `link` |
+| Campo             | Tipo     | Requerido | Descripción                          |
+| ----------------- | -------- | --------- | ------------------------------------ |
+| `url`             | text     | ✓         | URL del endpoint                     |
+| `method`          | select   |           | GET, POST, PUT, DELETE               |
+| `headers`         | textarea |           | Headers JSON                         |
+| `params`          | textarea |           | Query params JSON                    |
+| `body`            | textarea |           | Request body JSON                    |
+| `auth_type`       | select   |           | `none`, `basic`, `bearer`, `api_key` |
+| `pagination_type` | select   |           | `none`, `offset`, `cursor`, `link`   |
 
 ## Dependencias (requirements.txt)
 
@@ -337,25 +348,26 @@ google-cloud-bigquery>=3.14.0  # Google BigQuery
 
 ### Studio (TypeScript/React)
 
-| Archivo | Descripción |
-|---------|-------------|
-| [studio/src/data/nodeTemplates.ts](../studio/src/data/nodeTemplates.ts) | Definición de los 23 nodos data (taps y targets) |
-| [studio/src/types/flow.ts](../studio/src/types/flow.ts) | Tipo `NodeCategory` incluye `"data"` |
-| [studio/src/components/CustomNode.tsx](../studio/src/components/CustomNode.tsx) | Estilo cyan para categoría data |
+| Archivo                                                                         | Descripción                                      |
+| ------------------------------------------------------------------------------- | ------------------------------------------------ |
+| [studio/src/data/nodeTemplates.ts](../studio/src/data/nodeTemplates.ts)         | Definición de los 23 nodos data (taps y targets) |
+| [studio/src/types/flow.ts](../studio/src/types/flow.ts)                         | Tipo `NodeCategory` incluye `"data"`             |
+| [studio/src/components/CustomNode.tsx](../studio/src/components/CustomNode.tsx) | Estilo cyan para categoría data                  |
 
 ### Engine (Python)
 
-| Archivo | Descripción |
-|---------|-------------|
-| [engine/skuldbot/libs/data.py](../engine/skuldbot/libs/data.py) | DataLibrary con todos los keywords |
-| [engine/skuldbot/compiler/templates/main_v2.robot.j2](../engine/skuldbot/compiler/templates/main_v2.robot.j2) | Handlers para nodos data.tap.* y data.target.* |
-| [engine/requirements.txt](../engine/requirements.txt) | Dependencias de conectores |
+| Archivo                                                                                                       | Descripción                                    |
+| ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| [engine/skuldbot/libs/data.py](../engine/skuldbot/libs/data.py)                                               | DataLibrary con todos los keywords             |
+| [engine/skuldbot/compiler/templates/main_v2.robot.j2](../engine/skuldbot/compiler/templates/main_v2.robot.j2) | Handlers para nodos data.tap._ y data.target._ |
+| [engine/requirements.txt](../engine/requirements.txt)                                                         | Dependencias de conectores                     |
 
 ## Robot Framework Keywords
 
 La DataLibrary expone los siguientes keywords:
 
 ### Extracción
+
 - `Extract From Database` - Extrae de cualquier BD soportada
 - `Extract From CSV` - Lee archivo CSV
 - `Extract From Excel` - Lee archivo Excel
@@ -365,6 +377,7 @@ La DataLibrary expone los siguientes keywords:
 - `Extract From REST API` - Llama endpoint REST con paginación
 
 ### Carga
+
 - `Load To Database` - Inserta/upsert en cualquier BD
 - `Load To CSV` - Escribe archivo CSV
 - `Load To Excel` - Escribe archivo Excel
@@ -492,49 +505,53 @@ Sistema de gestión de secretos empresariales que permite a los bots acceder a c
 ## Nodos de Secrets
 
 ### secrets.azure_keyvault
+
 Conectar a Azure Key Vault para cargar secretos.
 
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| `vault_url` | text | URL del vault (ej: https://myvault.vault.azure.net) |
-| `tenant_id` | text | Azure Tenant ID |
-| `client_id` | text | Client ID del Service Principal |
-| `use_managed_identity` | boolean | Usar Managed Identity en vez de Service Principal |
-| `secrets` | textarea | Nombres de secrets a cargar (uno por línea) |
+| Campo                  | Tipo     | Descripción                                         |
+| ---------------------- | -------- | --------------------------------------------------- |
+| `vault_url`            | text     | URL del vault (ej: https://myvault.vault.azure.net) |
+| `tenant_id`            | text     | Azure Tenant ID                                     |
+| `client_id`            | text     | Client ID del Service Principal                     |
+| `use_managed_identity` | boolean  | Usar Managed Identity en vez de Service Principal   |
+| `secrets`              | textarea | Nombres de secrets a cargar (uno por línea)         |
 
 **Autenticación**: Via `AZURE_CLIENT_SECRET` en BotRunner o Managed Identity.
 
 ### secrets.aws_secrets
+
 Conectar a AWS Secrets Manager.
 
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| `region` | select | Región AWS (us-east-1, eu-west-1, etc.) |
-| `use_iam_role` | boolean | Usar IAM Role del EC2/ECS |
-| `secrets` | textarea | ARNs o nombres de secrets (uno por línea) |
+| Campo          | Tipo     | Descripción                               |
+| -------------- | -------- | ----------------------------------------- |
+| `region`       | select   | Región AWS (us-east-1, eu-west-1, etc.)   |
+| `use_iam_role` | boolean  | Usar IAM Role del EC2/ECS                 |
+| `secrets`      | textarea | ARNs o nombres de secrets (uno por línea) |
 
 **Autenticación**: Via IAM Role o `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY`.
 
 ### secrets.hashicorp_vault
+
 Conectar a HashiCorp Vault.
 
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| `vault_addr` | text | URL del vault (ej: https://vault.example.com:8200) |
-| `auth_method` | select | `token` o `approle` |
-| `mount_point` | text | Mount point del secrets engine (default: secret) |
-| `secrets_path` | text | Path dentro del secrets engine |
-| `secrets` | textarea | Keys específicos a cargar (opcional) |
+| Campo          | Tipo     | Descripción                                        |
+| -------------- | -------- | -------------------------------------------------- |
+| `vault_addr`   | text     | URL del vault (ej: https://vault.example.com:8200) |
+| `auth_method`  | select   | `token` o `approle`                                |
+| `mount_point`  | text     | Mount point del secrets engine (default: secret)   |
+| `secrets_path` | text     | Path dentro del secrets engine                     |
+| `secrets`      | textarea | Keys específicos a cargar (opcional)               |
 
 **Autenticación**: Via `VAULT_TOKEN` o (`VAULT_ROLE_ID` + `VAULT_SECRET_ID`).
 
 ### secrets.local_vault
+
 Desbloquear vault local encriptado (AES-256-GCM).
 
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| `vault_path` | text | Path al vault (default: .skuldbot) |
-| `secrets` | textarea | Secrets específicos a cargar (opcional) |
+| Campo        | Tipo     | Descripción                             |
+| ------------ | -------- | --------------------------------------- |
+| `vault_path` | text     | Path al vault (default: .skuldbot)      |
+| `secrets`    | textarea | Secrets específicos a cargar (opcional) |
 
 **Autenticación**: Via `SKULDBOT_VAULT_PASSWORD` en BotRunner.
 
@@ -557,17 +574,18 @@ ${Node Label.secretNames}   // Lista de nombres de secrets
 
 ## Variables de Entorno del BotRunner
 
-| Vault Provider | Variable(s) de Entorno |
-|----------------|------------------------|
-| **Azure Key Vault** | `AZURE_CLIENT_SECRET` (o Managed Identity) |
-| **AWS Secrets** | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (o IAM Role) |
-| **HashiCorp Vault** | `VAULT_TOKEN` o (`VAULT_ROLE_ID` + `VAULT_SECRET_ID`) |
-| **Local Vault** | `SKULDBOT_VAULT_PASSWORD` |
-| **Orchestrator** | `SKULDBOT_RUNNER_TOKEN` |
+| Vault Provider      | Variable(s) de Entorno                                    |
+| ------------------- | --------------------------------------------------------- |
+| **Azure Key Vault** | `AZURE_CLIENT_SECRET` (o Managed Identity)                |
+| **AWS Secrets**     | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (o IAM Role) |
+| **HashiCorp Vault** | `VAULT_TOKEN` o (`VAULT_ROLE_ID` + `VAULT_SECRET_ID`)     |
+| **Local Vault**     | `SKULDBOT_VAULT_PASSWORD`                                 |
+| **Orchestrator**    | `SKULDBOT_RUNNER_TOKEN`                                   |
 
 ## Casos de Uso
 
 ### Caso 1: Azure Key Vault → SQL Server
+
 ```
 [Azure Key Vault] ──> [Database: Connect] ──> [Database: Query]
      │                      │
@@ -578,6 +596,7 @@ ${Node Label.secretNames}   // Lista de nombres de secrets
 ```
 
 ### Caso 2: Local Vault → Web Automation
+
 ```
 [Local Vault] ──> [Web: Open] ──> [Web: Type] ──> [Web: Type] ──> [Web: Click]
      │                                │               │
@@ -587,6 +606,7 @@ ${Node Label.secretNames}   // Lista de nombres de secrets
 ```
 
 ### Caso 3: AWS Secrets → Salesforce Tap
+
 ```
 [AWS Secrets] ──> [Tap: Salesforce] ──> [Target: Snowflake]
      │                   │
@@ -618,21 +638,21 @@ El Studio incluye un panel para gestionar el vault local:
 
 ### Studio (TypeScript/React)
 
-| Archivo | Descripción |
-|---------|-------------|
-| [studio/src/data/nodeTemplates.ts](../studio/src/data/nodeTemplates.ts) | 4 nodos de secrets |
-| [studio/src/components/VaultManager.tsx](../studio/src/components/VaultManager.tsx) | UI de gestión de vault |
-| [studio/src/store/vaultStore.ts](../studio/src/store/vaultStore.ts) | Estado Zustand del vault |
-| [studio/src-tauri/src/main.rs](../studio/src-tauri/src/main.rs) | Comandos Tauri para vault |
+| Archivo                                                                             | Descripción               |
+| ----------------------------------------------------------------------------------- | ------------------------- |
+| [studio/src/data/nodeTemplates.ts](../studio/src/data/nodeTemplates.ts)             | 4 nodos de secrets        |
+| [studio/src/components/VaultManager.tsx](../studio/src/components/VaultManager.tsx) | UI de gestión de vault    |
+| [studio/src/store/vaultStore.ts](../studio/src/store/vaultStore.ts)                 | Estado Zustand del vault  |
+| [studio/src-tauri/src/main.rs](../studio/src-tauri/src/main.rs)                     | Comandos Tauri para vault |
 
 ### Engine (Python)
 
-| Archivo | Descripción |
-|---------|-------------|
-| [engine/skuldbot/libs/vault.py](../engine/skuldbot/libs/vault.py) | Init Azure/AWS/HashiCorp Vault |
-| [engine/skuldbot/libs/local_vault.py](../engine/skuldbot/libs/local_vault.py) | Local Vault (AES-256-GCM) |
-| [engine/skuldbot/compiler/templates/main_v2.robot.j2](../engine/skuldbot/compiler/templates/main_v2.robot.j2) | Handlers para secrets.* |
-| [engine/requirements.txt](../engine/requirements.txt) | azure-identity, hvac, boto3 |
+| Archivo                                                                                                       | Descripción                    |
+| ------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| [engine/skuldbot/libs/vault.py](../engine/skuldbot/libs/vault.py)                                             | Init Azure/AWS/HashiCorp Vault |
+| [engine/skuldbot/libs/local_vault.py](../engine/skuldbot/libs/local_vault.py)                                 | Local Vault (AES-256-GCM)      |
+| [engine/skuldbot/compiler/templates/main_v2.robot.j2](../engine/skuldbot/compiler/templates/main_v2.robot.j2) | Handlers para secrets.\*       |
+| [engine/requirements.txt](../engine/requirements.txt)                                                         | azure-identity, hvac, boto3    |
 
 ---
 
@@ -659,12 +679,12 @@ Los nodos de control de flujo en SkuldBot son **contenedores visuales** donde pu
 
 ## Tipos de Contenedores
 
-| Tipo | Nodo | Color | Descripción |
-|------|------|-------|-------------|
-| `control.loop` | For Each | Púrpura | Itera sobre una colección |
-| `control.while` | While Loop | Azul | Repite mientras condición sea true |
-| `control.if` | If Condition | Ámbar | Ejecuta contenido si condición es true |
-| `control.try_catch` | Try/Catch | Rojo | Manejo de errores con reintentos |
+| Tipo                | Nodo         | Color   | Descripción                            |
+| ------------------- | ------------ | ------- | -------------------------------------- |
+| `control.loop`      | For Each     | Púrpura | Itera sobre una colección              |
+| `control.while`     | While Loop   | Azul    | Repite mientras condición sea true     |
+| `control.if`        | If Condition | Ámbar   | Ejecuta contenido si condición es true |
+| `control.try_catch` | Try/Catch    | Rojo    | Manejo de errores con reintentos       |
 
 ## control.loop (For Each)
 
@@ -672,19 +692,19 @@ Itera sobre cada elemento de una colección (array). Ideal para procesar resulta
 
 ### Configuración
 
-| Campo | Tipo | Requerido | Descripción |
-|-------|------|-----------|-------------|
-| `items` | text | Sí | Array a iterar. Ej: `${Query.records}` |
-| `item_var` | text | No | Nombre de la variable de iteración (default: `item`) |
+| Campo      | Tipo | Requerido | Descripción                                          |
+| ---------- | ---- | --------- | ---------------------------------------------------- |
+| `items`    | text | Sí        | Array a iterar. Ej: `${Query.records}`               |
+| `item_var` | text | No        | Nombre de la variable de iteración (default: `item`) |
 
 ### Variables de Salida
 
-| Variable | Tipo | Descripción |
-|----------|------|-------------|
-| `${For Each.index}` | number | Índice actual (0-based) |
-| `${For Each.total}` | number | Total de elementos |
+| Variable              | Tipo    | Descripción                  |
+| --------------------- | ------- | ---------------------------- |
+| `${For Each.index}`   | number  | Índice actual (0-based)      |
+| `${For Each.total}`   | number  | Total de elementos           |
 | `${For Each.isFirst}` | boolean | True si es primera iteración |
-| `${For Each.isLast}` | boolean | True si es última iteración |
+| `${For Each.isLast}`  | boolean | True si es última iteración  |
 
 ### Variable de Iteración
 
@@ -719,16 +739,16 @@ Repite mientras una condición sea verdadera. Incluye protección contra loops i
 
 ### Configuración
 
-| Campo | Tipo | Requerido | Descripción |
-|-------|------|-----------|-------------|
-| `condition` | text | Sí | Condición a evaluar. Ej: `${hasMore} == true` |
-| `max_iterations` | number | No | Máximo de iteraciones (default: 100) |
+| Campo            | Tipo   | Requerido | Descripción                                   |
+| ---------------- | ------ | --------- | --------------------------------------------- |
+| `condition`      | text   | Sí        | Condición a evaluar. Ej: `${hasMore} == true` |
+| `max_iterations` | number | No        | Máximo de iteraciones (default: 100)          |
 
 ### Variables de Salida
 
-| Variable | Tipo | Descripción |
-|----------|------|-------------|
-| `${While Loop.iteration}` | number | Iteración actual (1-based) |
+| Variable                         | Tipo   | Descripción                     |
+| -------------------------------- | ------ | ------------------------------- |
+| `${While Loop.iteration}`        | number | Iteración actual (1-based)      |
 | `${While Loop.total_iterations}` | number | Total de iteraciones ejecutadas |
 
 ### Ejemplo: Paginación de API
@@ -754,14 +774,14 @@ Ejecuta los nodos internos solo si la condición es verdadera.
 
 ### Configuración
 
-| Campo | Tipo | Requerido | Descripción |
-|-------|------|-----------|-------------|
-| `condition` | text | Sí | Condición a evaluar. Ej: `${count} > 10` |
+| Campo       | Tipo | Requerido | Descripción                              |
+| ----------- | ---- | --------- | ---------------------------------------- |
+| `condition` | text | Sí        | Condición a evaluar. Ej: `${count} > 10` |
 
 ### Variables de Salida
 
-| Variable | Tipo | Descripción |
-|----------|------|-------------|
+| Variable                 | Tipo    | Descripción                |
+| ------------------------ | ------- | -------------------------- |
 | `${If Condition.result}` | boolean | Resultado de la evaluación |
 
 ### Ejemplo: Validación condicional
@@ -785,18 +805,18 @@ Envuelve nodos para manejar errores. Puede reintentar automáticamente.
 
 ### Configuración
 
-| Campo | Tipo | Requerido | Descripción |
-|-------|------|-----------|-------------|
-| `retry_count` | number | No | Número de reintentos (default: 0) |
-| `retry_delay` | number | No | Segundos entre reintentos (default: 1) |
+| Campo         | Tipo   | Requerido | Descripción                            |
+| ------------- | ------ | --------- | -------------------------------------- |
+| `retry_count` | number | No        | Número de reintentos (default: 0)      |
+| `retry_delay` | number | No        | Segundos entre reintentos (default: 1) |
 
 ### Variables de Salida
 
-| Variable | Tipo | Descripción |
-|----------|------|-------------|
-| `${Try Catch.success}` | boolean | True si ejecutó sin errores |
-| `${Try Catch.error_message}` | string | Mensaje de error (si falló) |
-| `${Try Catch.retry_attempts}` | number | Intentos realizados |
+| Variable                      | Tipo    | Descripción                 |
+| ----------------------------- | ------- | --------------------------- |
+| `${Try Catch.success}`        | boolean | True si ejecutó sin errores |
+| `${Try Catch.error_message}`  | string  | Mensaje de error (si falló) |
+| `${Try Catch.retry_attempts}` | number  | Intentos realizados         |
 
 ### Ejemplo: API con reintentos
 
@@ -932,11 +952,11 @@ Continuar procesando aunque un item falle:
 
 ## Nodos de Soporte para Patrones
 
-| Nodo | Tipo | Descripción |
-|------|------|-------------|
-| **Set Variable** | `control.set` | Asigna un valor a una variable |
-| **Append to List** | `control.append` | Agrega elemento a un array |
-| **Wait** | `control.wait` | Pausa la ejecución N segundos |
+| Nodo               | Tipo             | Descripción                    |
+| ------------------ | ---------------- | ------------------------------ |
+| **Set Variable**   | `control.set`    | Asigna un valor a una variable |
+| **Append to List** | `control.append` | Agrega elemento a un array     |
+| **Wait**           | `control.wait`   | Pausa la ejecución N segundos  |
 
 ## DSL Structure
 
@@ -972,19 +992,19 @@ Los nodos contenedores almacenan sus hijos en la propiedad `children`:
 
 ### Studio (TypeScript/React)
 
-| Archivo | Descripción |
-|---------|-------------|
-| [studio/src/components/GroupNode.tsx](../studio/src/components/GroupNode.tsx) | Componente visual de contenedores |
-| [studio/src/components/FlowEditor.tsx](../studio/src/components/FlowEditor.tsx) | Registro de nodeTypes |
-| [studio/src/types/flow.ts](../studio/src/types/flow.ts) | `CONTAINER_NODE_TYPES`, `isContainerNodeType()` |
-| [studio/src/store/projectStore.ts](../studio/src/store/projectStore.ts) | Conversión DSL ↔ FlowNodes con children |
-| [studio/src/data/nodeTemplates.ts](../studio/src/data/nodeTemplates.ts) | Definición de nodos contenedor |
+| Archivo                                                                         | Descripción                                     |
+| ------------------------------------------------------------------------------- | ----------------------------------------------- |
+| [studio/src/components/GroupNode.tsx](../studio/src/components/GroupNode.tsx)   | Componente visual de contenedores               |
+| [studio/src/components/FlowEditor.tsx](../studio/src/components/FlowEditor.tsx) | Registro de nodeTypes                           |
+| [studio/src/types/flow.ts](../studio/src/types/flow.ts)                         | `CONTAINER_NODE_TYPES`, `isContainerNodeType()` |
+| [studio/src/store/projectStore.ts](../studio/src/store/projectStore.ts)         | Conversión DSL ↔ FlowNodes con children         |
+| [studio/src/data/nodeTemplates.ts](../studio/src/data/nodeTemplates.ts)         | Definición de nodos contenedor                  |
 
 ### Engine (Python)
 
-| Archivo | Descripción |
-|---------|-------------|
-| [engine/skuldbot/compiler/templates/main_v2.robot.j2](../engine/skuldbot/compiler/templates/main_v2.robot.j2) | Handlers para control.* |
+| Archivo                                                                                                       | Descripción              |
+| ------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| [engine/skuldbot/compiler/templates/main_v2.robot.j2](../engine/skuldbot/compiler/templates/main_v2.robot.j2) | Handlers para control.\* |
 
 ---
 

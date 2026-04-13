@@ -64,20 +64,24 @@ SkuldBot ahora implementa una **arquitectura híbrida de Model Context Protocol 
 ### MCP Servers Implemented
 
 #### 1.1 Licensing Server
+
 **File:** `control-plane/api/src/mcp/servers/licensing.server.ts`
 
 **Tools:**
+
 - `validate_license_feature` - Valida si un feature está disponible
 - `check_entitlement` - Verifica límites de recursos (runners, users, etc)
 - `get_license_expiry` - Obtiene fecha de expiración
 - `check_available_seats` - Chequea asientos disponibles
 
 **Resources:**
+
 - `licenses://tenant/{tenantId}/current` - Licencia actual
 - `licenses://tenant/{tenantId}/features` - Features habilitados
 - `licenses://tenant/{tenantId}/entitlements` - Límites de recursos
 
 **Use Case:**
+
 ```typescript
 // Studio llama antes de habilitar un feature
 const result = await mcp.callTool('control-plane', {
@@ -85,7 +89,7 @@ const result = await mcp.callTool('control-plane', {
   arguments: {
     tenantId: 'acme-insurance',
     feature: 'ai_planner_v2',
-  }
+  },
 });
 
 if (!result.allowed) {
@@ -94,9 +98,11 @@ if (!result.allowed) {
 ```
 
 #### 1.2 Marketplace Server
+
 **File:** `control-plane/api/src/mcp/servers/marketplace.server.ts`
 
 **Tools:**
+
 - `search_marketplace` - Buscar bots por categoría/industria
 - `get_bot_details` - Detalles de un bot específico
 - `subscribe_to_bot` - Suscribirse a un bot rentable
@@ -105,11 +111,13 @@ if (!result.allowed) {
 - `list_subscribed_bots` - Listar bots suscritos
 
 **Resources:**
+
 - `marketplace://bots` - Catálogo completo de bots
 - `marketplace://bots/{category}` - Bots por categoría
 - `marketplace://tenant/{tenantId}/subscriptions` - Subscripciones activas
 
 **Use Case:**
+
 ```typescript
 // Studio UI: Marketplace Browser
 const bots = await mcp.callTool('control-plane', {
@@ -118,7 +126,7 @@ const bots = await mcp.callTool('control-plane', {
     tenantId: 'acme-insurance',
     category: 'claims',
     industry: 'insurance',
-  }
+  },
 });
 
 // User clicks "Install"
@@ -128,14 +136,16 @@ await mcp.callTool('control-plane', {
     tenantId: 'acme-insurance',
     botId: 'fnol-bot-v1',
     pricingTier: 'professional',
-  }
+  },
 });
 ```
 
 #### 1.3 Metering Server
+
 **File:** `control-plane/api/src/mcp/servers/metering.server.ts`
 
 **Tools:**
+
 - `report_bot_execution` - Reportar ejecución para billing
 - `get_current_usage` - Obtener uso actual del período
 - `get_tenant_usage_summary` - Resumen de uso del tenant
@@ -143,12 +153,14 @@ await mcp.callTool('control-plane', {
 - `get_active_runners` - Obtener runners activos
 
 **Resources:**
+
 - `metering://tenant/{tenantId}/current-period` - Uso del período actual
 - `metering://tenant/{tenantId}/bots/{botId}/usage` - Uso de un bot específico
 - `metering://tenant/{tenantId}/runners/active` - Runners activos
 - `metering://tenant/{tenantId}/projected-bill` - Factura proyectada
 
 **Critical Feature: "Whichever is Greater" Billing**
+
 ```typescript
 // Orchestrator reporta cada ejecución
 await controlPlaneClient.reportBotExecution({
@@ -160,7 +172,7 @@ await controlPlaneClient.reportBotExecution({
   metrics: {
     claimsCompleted: 1,
     apiCalls: 15,
-  }
+  },
 });
 
 // Metering calcula automáticamente:
@@ -171,33 +183,37 @@ await controlPlaneClient.reportBotExecution({
 ```
 
 #### 1.4 Billing Server
+
 **File:** `control-plane/api/src/mcp/servers/billing.server.ts`
 
 **Tools:**
+
 - `calculate_invoice` - Calcular factura para un período
 - `get_invoice` - Obtener factura existente
 - `list_invoices` - Listar facturas del tenant
 
 **Resources:**
+
 - `billing://tenant/{tenantId}/invoices` - Todas las facturas
 - `billing://tenant/{tenantId}/payment-methods` - Métodos de pago
 - `billing://invoices/{invoiceId}` - Detalles de factura
 
 **Invoice Structure:**
+
 ```json
 {
   "items": [
     {
       "category": "orchestrator_license",
-      "total": 500.00
+      "total": 500.0
     },
     {
       "category": "studio_licenses",
-      "total": 300.00
+      "total": 300.0
     },
     {
       "category": "runners",
-      "total": 1100.00
+      "total": 1100.0
     },
     {
       "category": "marketplace_bots",
@@ -205,20 +221,20 @@ await controlPlaneClient.reportBotExecution({
         {
           "botId": "fnol-bot-v1",
           "costs": {
-            "usageBased": 960.00,
-            "callBased": 3375.00,
-            "monthlyMinimum": 4000.00,
-            "charged": 4000.00
+            "usageBased": 960.0,
+            "callBased": 3375.0,
+            "monthlyMinimum": 4000.0,
+            "charged": 4000.0
           },
           "explanation": "Charged $4,000 (monthly minimum) as it is greater than usage-based ($960) and call-based ($3,375)"
         }
       ],
-      "total": 4600.00
+      "total": 4600.0
     }
   ],
-  "subtotal": 6500.00,
-  "tax": 650.00,
-  "total": 7150.00
+  "subtotal": 6500.0,
+  "tax": 650.0,
+  "total": 7150.0
 }
 ```
 
@@ -232,9 +248,11 @@ await controlPlaneClient.reportBotExecution({
 ### MCP Servers Implemented
 
 #### 2.1 Compliance Server
+
 **File:** `orchestrator/api/src/mcp/servers/compliance.server.ts`
 
 **Tools:**
+
 - `classify_data` - Detectar PHI/PII/PCI en datos
 - `route_llm_request` - Rutear LLM según clasificación
 - `redact_sensitive_data` - Redactar datos sensibles
@@ -243,12 +261,14 @@ await controlPlaneClient.reportBotExecution({
 - `get_compliance_report` - Generar reporte de compliance
 
 **Resources:**
+
 - `compliance://tenant/{tenantId}/policies` - Políticas de compliance
 - `compliance://tenant/{tenantId}/audit-log` - Log de auditoría
 - `compliance://tenant/{tenantId}/classification-rules` - Reglas de clasificación
 - `compliance://tenant/{tenantId}/llm-routing-config` - Config de routing LLM
 
 **Critical Feature: PHI/PII Classification**
+
 ```typescript
 // AI Planner classifica datos antes de enviar a LLM
 const result = await mcp.callTool('orchestrator', {
@@ -281,6 +301,7 @@ const result = await mcp.callTool('orchestrator', {
 ```
 
 **Critical Feature: LLM Routing**
+
 ```typescript
 // Rutear LLM según clasificación de datos
 const routing = await mcp.callTool('orchestrator', {
@@ -310,9 +331,11 @@ if (routing.route === 'private') {
 ```
 
 #### 2.2 Workflow Server
+
 **File:** `orchestrator/api/src/mcp/servers/workflow.server.ts`
 
 **Tools:**
+
 - `create_workflow_template` - Crear plantilla de workflow
 - `get_workflow_template` - Obtener plantilla
 - `list_workflow_templates` - Listar plantillas
@@ -322,12 +345,14 @@ if (routing.route === 'private') {
 - `clone_marketplace_bot` - Clonar bot del marketplace
 
 **Resources:**
+
 - `workflow://tenant/{tenantId}/templates` - Plantillas del tenant
 - `workflow://tenant/{tenantId}/templates/{category}` - Por categoría
 - `workflow://templates/{templateId}` - Detalles de plantilla
 - `workflow://templates/{templateId}/dsl` - DSL de plantilla
 
 **Use Case:**
+
 ```typescript
 // AI Planner sugiere usar una plantilla existente
 const templates = await mcp.callTool('orchestrator', {
@@ -335,8 +360,8 @@ const templates = await mcp.callTool('orchestrator', {
   arguments: {
     tenantId: 'acme-insurance',
     category: 'claims',
-    industry: 'insurance'
-  }
+    industry: 'insurance',
+  },
 });
 
 // User selecciona "FNOL Intake Workflow"
@@ -346,21 +371,23 @@ const instance = await mcp.callTool('orchestrator', {
     templateId: 'tpl-fnol-001',
     variableValues: {
       database_connection: 'postgres://...',
-      notification_email: 'claims@acme.com'
+      notification_email: 'claims@acme.com',
     },
-    name: 'ACME FNOL Bot'
-  }
+    name: 'ACME FNOL Bot',
+  },
 });
 
 // Resultado: Bot listo para ejecutar con variables sustituidas
 ```
 
 #### 2.3 Control Plane Client
+
 **File:** `orchestrator/api/src/mcp/clients/control-plane.client.ts`
 
 **Purpose:** Orchestrator reporta al Control Plane
 
 **Methods:**
+
 - `reportBotExecution()` - Envía métricas de ejecución
 - `reportRunnerHeartbeat()` - Reporta runners activos
 - `validateLicenseFeature()` - Valida features antes de usar
@@ -368,6 +395,7 @@ const instance = await mcp.callTool('orchestrator', {
 - `downloadBot()` - Descarga bot desde marketplace
 
 **Flow:**
+
 ```typescript
 // Runner ejecuta un bot
 runBot('fnol-bot-v1');
@@ -378,8 +406,8 @@ await controlPlaneClient.reportBotExecution({
   executionId: 'exec-456',
   metrics: {
     claimsCompleted: 1,
-    apiCalls: 20
-  }
+    apiCalls: 20,
+  },
 });
 
 // Control Plane actualiza metering y calcula costo
@@ -391,6 +419,7 @@ await controlPlaneClient.reportBotExecution({
 ## 3. Studio MCP Integration
 
 **Files:**
+
 - `studio/src-tauri/src/mcp/client.rs` - Rust MCP Client (HTTP)
 - `studio/src/components/marketplace/MarketplaceBrowser.tsx` - UI del Marketplace
 - `studio/src/components/usage/UsageDashboard.tsx` - UI de Usage & Billing
@@ -398,6 +427,7 @@ await controlPlaneClient.reportBotExecution({
 ### 3.1 MCP Client (Rust)
 
 **Capabilities:**
+
 - Conecta a múltiples servidores (Control Plane + Orchestrator)
 - Lista tools y resources
 - Llama tools de forma asíncrona
@@ -405,6 +435,7 @@ await controlPlaneClient.reportBotExecution({
 - Inyecta contexto en AI Planner
 
 **Configuration:**
+
 ```rust
 let mut mcp_client = MCPClient::new();
 
@@ -424,6 +455,7 @@ mcp_client.add_server(MCPServerConfig {
 ```
 
 **AI Planner Integration:**
+
 ```rust
 // AI Planner V2 obtiene contexto de MCP
 let mcp_context = mcp_client.get_context_for_planner().await;
@@ -447,6 +479,7 @@ let enhanced_prompt = format!(
 **File:** `studio/src/components/marketplace/MarketplaceBrowser.tsx`
 
 **Features:**
+
 - Búsqueda de bots por nombre/categoría/industria
 - Filtros por categoría e industria
 - Vista de cards con rating, pricing, y publisher
@@ -454,6 +487,7 @@ let enhanced_prompt = format!(
 - Integración con Control Plane MCP
 
 **Screenshots (conceptual):**
+
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  Marketplace                                     [v Current Month] [Export] │
@@ -481,6 +515,7 @@ let enhanced_prompt = format!(
 **File:** `studio/src/components/usage/UsageDashboard.tsx`
 
 **Features:**
+
 - Summary cards: Current cost, Projected monthly, Active bots
 - Bot-by-bot breakdown con métricas
 - "Whichever is greater" pricing explanation
@@ -488,6 +523,7 @@ let enhanced_prompt = format!(
 - Period selector (current/last/last 3 months)
 
 **Screenshots (conceptual):**
+
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  Usage & Billing                    [v Current Month] [Export] │
@@ -628,6 +664,7 @@ GET  /health                   # Health check
 ```
 
 **Authentication:**
+
 ```
 Headers:
   x-api-key: <control_plane_api_key>
@@ -648,6 +685,7 @@ GET  /health                   # Health check
 ```
 
 **Authentication:**
+
 ```
 Headers:
   x-tenant-id: <tenant_id>
@@ -672,7 +710,7 @@ Headers:
 ✅ **Data Redaction:** PHI es redactado en logs/reports  
 ✅ **Access Control:** Tenant isolation en Orchestrator  
 ✅ **Retention Policies:** 7 años (2555 días) para HIPAA  
-✅ **Evidence Pack:** Reportes de compliance automáticos  
+✅ **Evidence Pack:** Reportes de compliance automáticos
 
 ### 6.3 Zero Trust Architecture
 
@@ -689,6 +727,7 @@ Headers:
 ### 7.1 MCP Server Tests
 
 **Control Plane:**
+
 ```bash
 cd control-plane/api
 npm test
@@ -701,6 +740,7 @@ npm test -- billing.server.spec.ts
 ```
 
 **Orchestrator:**
+
 ```bash
 cd orchestrator/api
 npm test
@@ -720,6 +760,7 @@ cargo test mcp::client::tests
 ### 7.3 Integration Tests
 
 **Test 1: End-to-End Bot Execution**
+
 ```bash
 # Start Control Plane
 cd control-plane/api && npm run start:dev
@@ -738,6 +779,7 @@ cd studio && npm run tauri dev
 ```
 
 **Test 2: PHI Classification**
+
 ```bash
 # Send PHI data to Compliance MCP
 curl -X POST http://localhost:3000/api/v1/mcp/tools/call \
@@ -763,6 +805,7 @@ curl -X POST http://localhost:3000/api/v1/mcp/tools/call \
 ### 8.1 Control Plane (Central SaaS)
 
 **Infrastructure:**
+
 - AWS ECS / Kubernetes
 - Multi-AZ for HA
 - PostgreSQL RDS (multi-AZ)
@@ -770,6 +813,7 @@ curl -X POST http://localhost:3000/api/v1/mcp/tools/call \
 - CloudFront CDN
 
 **Deployment:**
+
 ```bash
 cd control-plane/api
 npm run build
@@ -781,6 +825,7 @@ kubectl apply -f k8s/control-plane/
 ```
 
 **Environment Variables:**
+
 ```env
 DB_HOST=control-plane-db.skuld.ai
 DB_PORT=5432
@@ -795,6 +840,7 @@ PORT=3000
 ### 8.2 Orchestrator (Per-Client PaaS)
 
 **Deployment Options:**
+
 1. **AWS CloudFormation Stack**
 2. **Azure ARM Template**
 3. **GCP Deployment Manager**
@@ -819,6 +865,7 @@ terraform apply
 ```
 
 **Environment Variables:**
+
 ```env
 DB_HOST=orchestrator-db.<tenant-vpc>
 DB_PORT=5432
@@ -837,6 +884,7 @@ PORT=3000
 ### 8.3 Studio (Desktop Installer)
 
 **Build:**
+
 ```bash
 cd studio
 npm run tauri build
@@ -850,6 +898,7 @@ npm run tauri build
 **MCP Configuration (user-editable):**
 
 `~/.skuldbot/mcp-config.json`:
+
 ```json
 {
   "servers": [
@@ -872,56 +921,65 @@ npm run tauri build
 ## 9. Benefits of Hybrid Architecture
 
 ### 9.1 Compliance
+
 ✅ PHI/PII nunca sale del VPC del cliente  
 ✅ Auditoría completa en Orchestrator  
 ✅ LLM routing automático según clasificación  
-✅ Cumple HIPAA, PCI-DSS, GDPR  
+✅ Cumple HIPAA, PCI-DSS, GDPR
 
 ### 9.2 Scalability
+
 ✅ Control Plane escala horizontalmente (SaaS multi-tenant)  
 ✅ Orchestrator escala por cliente (aislado)  
-✅ Runners escalan elásticamente  
+✅ Runners escalan elásticamente
 
 ### 9.3 Cost Efficiency
+
 ✅ Cliente paga solo por su Orchestrator (no shared infrastructure)  
 ✅ Skuld minimiza costos de infra centralizada  
-✅ Metering preciso con "whichever is greater" model  
+✅ Metering preciso con "whichever is greater" model
 
 ### 9.4 Market Reach
+
 ✅ **Sin limitantes de ventas**: Clientes HIPAA pueden adoptar sin miedo  
 ✅ **Marketplace funciona**: Bots se descargan a Orchestrator del cliente  
 ✅ **Licensing flexible**: Features se validan en runtime  
-✅ **Billing justo**: Solo se cobra por uso real  
+✅ **Billing justo**: Solo se cobra por uso real
 
 ---
 
 ## 10. Next Steps
 
 ### Phase 1: Testing (Week 1)
+
 - [ ] Unit tests para todos los MCP servers
 - [ ] Integration tests end-to-end
 - [ ] Load testing (1000+ concurrent requests)
 - [ ] Security audit (penetration testing)
 
 ### Phase 2: Documentation (Week 2)
+
 - [ ] API documentation (OpenAPI/Swagger)
 - [ ] Developer guides (how to add MCP server)
 - [ ] Customer deployment guides
 - [ ] Compliance certification docs
 
 ### Phase 3: Monitoring & Observability (Week 3)
+
 - [ ] Prometheus metrics para MCP servers
 - [ ] Grafana dashboards
 - [ ] Alerting rules (SLA violations)
 - [ ] Distributed tracing (OpenTelemetry)
 
 ### Phase 4: Beta Launch (Week 4-6)
+
 - [ ] Onboard 3 beta customers
 - [ ] Deploy Orchestrator en sus VPCs
 - [ ] Validar compliance con auditor externo
 - [ ] Refinar pricing basado en feedback
 
 ### Phase 5: GA Launch (Week 7+)
+
 - [ ] Public marketplace con 10+ bots
 - [ ] Self-service onboarding
 - [ ] Partner program (bot publishers)
@@ -934,9 +992,10 @@ npm run tauri build
 **Engineering Lead:** [Your Name]  
 **Architecture:** Hybrid MCP (Control Plane + Orchestrator)  
 **Status:** ✅ Implementation Complete  
-**Documentation:** This file + inline code comments  
+**Documentation:** This file + inline code comments
 
-**Questions?**  
+**Questions?**
+
 - Technical: Open GitHub issue
 - Business: sales@skuld.ai
 - Security: security@skuld.ai
@@ -946,5 +1005,3 @@ npm run tauri build
 **Document Version:** 1.0  
 **Last Updated:** January 27, 2026  
 **Authors:** AI Assistant + User (dubielvaldivia)
-
-

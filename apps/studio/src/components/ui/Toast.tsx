@@ -1,7 +1,7 @@
-import { X, CheckCircle2, XCircle, AlertTriangle, Info } from "lucide-react";
-import { useEffect } from "react";
+import { X, CheckCircle2, XCircle, AlertTriangle, Info } from 'lucide-react';
+import { useEffect } from 'react';
 
-export type ToastType = "success" | "error" | "warning" | "info";
+export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
 export interface Toast {
   id: string;
@@ -19,31 +19,31 @@ interface ToastProps {
 const toastConfig = {
   success: {
     icon: CheckCircle2,
-    bg: "bg-white",
-    border: "border-primary-200",
-    ring: "ring-1 ring-primary-100/50",
-    iconColor: "text-primary-600",
+    bg: 'bg-white',
+    border: 'border-primary-200',
+    ring: 'ring-1 ring-primary-100/50',
+    iconColor: 'text-primary-600',
   },
   error: {
     icon: XCircle,
-    bg: "bg-white",
-    border: "border-orange-200",
-    ring: "ring-1 ring-orange-100/50",
-    iconColor: "text-orange-600",
+    bg: 'bg-white',
+    border: 'border-orange-200',
+    ring: 'ring-1 ring-orange-100/50',
+    iconColor: 'text-orange-600',
   },
   warning: {
     icon: AlertTriangle,
-    bg: "bg-white",
-    border: "border-yellow-200",
-    ring: "ring-1 ring-yellow-100/50",
-    iconColor: "text-yellow-600",
+    bg: 'bg-white',
+    border: 'border-yellow-200',
+    ring: 'ring-1 ring-yellow-100/50',
+    iconColor: 'text-yellow-600',
   },
   info: {
     icon: Info,
-    bg: "bg-white",
-    border: "border-blue-200",
-    ring: "ring-1 ring-blue-100/50",
-    iconColor: "text-blue-600",
+    bg: 'bg-white',
+    border: 'border-blue-200',
+    ring: 'ring-1 ring-blue-100/50',
+    iconColor: 'text-blue-600',
   },
 };
 
@@ -74,22 +74,14 @@ export function ToastComponent({ toast, onClose }: ToastProps) {
     >
       {/* Icono con animación */}
       <div className="flex-shrink-0 pt-0.5 animate-in zoom-in duration-250 delay-75">
-        <Icon 
-          size={20} 
-          strokeWidth={2} 
-          className={config.iconColor}
-        />
+        <Icon size={20} strokeWidth={2} className={config.iconColor} />
       </div>
-      
+
       {/* Content */}
       <div className="flex-1 min-w-0 animate-in fade-in slide-in-from-right-2 duration-250 delay-100">
-        <p className="font-semibold text-sm text-neutral-900 leading-tight">
-          {toast.title}
-        </p>
+        <p className="font-semibold text-sm text-neutral-900 leading-tight">{toast.title}</p>
         {toast.description && (
-          <p className="text-sm text-neutral-600 mt-1 leading-relaxed">
-            {toast.description}
-          </p>
+          <p className="text-sm text-neutral-600 mt-1 leading-relaxed">{toast.description}</p>
         )}
       </div>
 

@@ -1,17 +1,17 @@
-import { create } from "zustand";
-import { invoke } from "@tauri-apps/api/tauri";
-import { FlowState, FlowNode, FlowEdge, FormTriggerConfig } from "../types/flow";
-import { useToastStore } from "./toastStore";
-import { useLogsStore } from "./logsStore";
-import { useDebugStore } from "./debugStore";
-import { buildExecutionDSL } from "../lib/dsl";
+import { create } from 'zustand';
+import { invoke } from '@tauri-apps/api/tauri';
+import { FlowState, FlowNode, FlowEdge, FormTriggerConfig } from '../types/flow';
+import { useToastStore } from './toastStore';
+import { useLogsStore } from './logsStore';
+import { useDebugStore } from './debugStore';
+import { buildExecutionDSL } from '../lib/dsl';
 import {
   getSchemaCandidateFromNodeData,
   parseNodeRuntimeTelemetryLine,
-} from "../utils/nodeRuntimeTelemetry";
+} from '../utils/nodeRuntimeTelemetry';
 
 // Re-export for convenience
-export type { FormTriggerConfig } from "../types/flow";
+export type { FormTriggerConfig } from '../types/flow';
 
 // Tauri command result types
 interface CompileResult {
@@ -62,20 +62,18 @@ export const clearPendingNodeTemplate = () => {
 
 // Helper function to find form trigger in nodes
 export const findFormTrigger = (nodes: FlowNode[]): FlowNode | null => {
-  return nodes.find(
-    (node) => node.data.nodeType === "trigger.form"
-  ) || null;
+  return nodes.find((node) => node.data.nodeType === 'trigger.form') || null;
 };
 
 // Helper function to get form trigger config
 export const getFormTriggerConfig = (node: FlowNode): FormTriggerConfig | null => {
-  if (node.data.nodeType !== "trigger.form") return null;
+  if (node.data.nodeType !== 'trigger.form') return null;
 
   const config = node.data.config || {};
   return {
-    formTitle: config.formTitle || "Form Input",
-    formDescription: config.formDescription || "",
-    submitButtonLabel: config.submitButtonLabel || "Run Bot",
+    formTitle: config.formTitle || 'Form Input',
+    formDescription: config.formDescription || '',
+    submitButtonLabel: config.submitButtonLabel || 'Run Bot',
     fields: config.fields || [],
   };
 };
@@ -86,8 +84,8 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   selectedNode: null,
   botInfo: {
     id: `bot-${Date.now()}`,
-    name: "New Bot",
-    description: "Bot description",
+    name: 'New Bot',
+    description: 'Bot description',
   },
 
   // Node Operations
@@ -100,12 +98,13 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   updateNode: (id, data) => {
     set((state) => {
       const updatedNodes = state.nodes.map((node) =>
-        node.id === id ? { ...node, data: { ...node.data, ...data } } : node
+        node.id === id ? { ...node, data: { ...node.data, ...data } } : node,
       );
       // Also update selectedNode if it's the one being edited
-      const updatedSelectedNode = state.selectedNode?.id === id
-        ? { ...state.selectedNode, data: { ...state.selectedNode.data, ...data } }
-        : state.selectedNode;
+      const updatedSelectedNode =
+        state.selectedNode?.id === id
+          ? { ...state.selectedNode, data: { ...state.selectedNode.data, ...data } }
+          : state.selectedNode;
       return {
         nodes: updatedNodes,
         selectedNode: updatedSelectedNode,
@@ -136,13 +135,13 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     // Convert DSL nodes to Flow nodes
     const flowNodes: FlowNode[] = dsl.nodes.map((dslNode, index) => ({
       id: dslNode.id,
-      type: "customNode",
+      type: 'customNode',
       position: { x: 250, y: 100 + index * 150 },
       data: {
         label: dslNode.label || dslNode.type,
         nodeType: dslNode.type,
         config: dslNode.config,
-        category: dslNode.type.split(".")[0] as any,
+        category: dslNode.type.split('.')[0] as any,
       },
     }));
 
@@ -150,28 +149,28 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     // Skip edges that point to "END" (implicit termination) or to the same node (legacy self-reference)
     const flowEdges: FlowEdge[] = [];
     dsl.nodes.forEach((dslNode) => {
-      if (dslNode.outputs.success !== dslNode.id && dslNode.outputs.success !== "END") {
+      if (dslNode.outputs.success !== dslNode.id && dslNode.outputs.success !== 'END') {
         flowEdges.push({
           id: `${dslNode.id}-success-${dslNode.outputs.success}`,
           source: dslNode.id,
           target: dslNode.outputs.success,
-          sourceHandle: "success",
-          type: "smoothstep",
+          sourceHandle: 'success',
+          type: 'smoothstep',
           animated: true,
-          data: { edgeType: "success" },
-          style: { stroke: "#10b981" },
+          data: { edgeType: 'success' },
+          style: { stroke: '#10b981' },
         });
       }
 
-      if (dslNode.outputs.error !== dslNode.id && dslNode.outputs.error !== "END") {
+      if (dslNode.outputs.error !== dslNode.id && dslNode.outputs.error !== 'END') {
         flowEdges.push({
           id: `${dslNode.id}-error-${dslNode.outputs.error}`,
           source: dslNode.id,
           target: dslNode.outputs.error,
-          sourceHandle: "error",
-          type: "smoothstep",
-          data: { edgeType: "error" },
-          style: { stroke: "#ef4444" },
+          sourceHandle: 'error',
+          type: 'smoothstep',
+          data: { edgeType: 'error' },
+          style: { stroke: '#ef4444' },
         });
       }
     });
@@ -182,7 +181,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       botInfo: {
         id: dsl.bot.id,
         name: dsl.bot.name,
-        description: dsl.bot.description || "",
+        description: dsl.bot.description || '',
       },
     });
   },
@@ -194,14 +193,12 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     const logs = useLogsStore.getState();
 
     if (state.nodes.length === 0) {
-      toast.warning("No nodes", "Add at least one node before compiling");
+      toast.warning('No nodes', 'Add at least one node before compiling');
       return;
     }
 
     // Check for triggers and auto-add Manual if none exists
-    const hasTrigger = state.nodes.some(
-      (node) => node.data.category === "trigger"
-    );
+    const hasTrigger = state.nodes.some((node) => node.data.category === 'trigger');
 
     const dsl = state.generateDSL();
 
@@ -212,13 +209,13 @@ export const useFlowStore = create<FlowState>((set, get) => ({
 
       const manualTriggerNode = {
         id: manualTriggerId,
-        type: "trigger.manual",
+        type: 'trigger.manual',
         config: {},
         outputs: {
           success: firstNodeId || manualTriggerId,
           error: manualTriggerId,
         },
-        label: "Manual Trigger",
+        label: 'Manual Trigger',
       };
 
       // Insert at beginning
@@ -226,28 +223,28 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       dsl.triggers = [manualTriggerId];
       dsl.start_node = manualTriggerId;
 
-      logs.info("Auto-added Manual Trigger (no trigger defined)");
-      toast.info("Trigger added", "Manual Trigger added automatically");
+      logs.info('Auto-added Manual Trigger (no trigger defined)');
+      toast.info('Trigger added', 'Manual Trigger added automatically');
     }
 
-    logs.info("Starting compilation...");
+    logs.info('Starting compilation...');
     logs.openPanel();
 
     try {
-      logs.info("Validating DSL...");
-      const result = await invoke<CompileResult>("compile_dsl", {
-        dsl: JSON.stringify(dsl)
+      logs.info('Validating DSL...');
+      const result = await invoke<CompileResult>('compile_dsl', {
+        dsl: JSON.stringify(dsl),
       });
 
-      logs.success("Bot compiled successfully", result.bot_path);
+      logs.success('Bot compiled successfully', result.bot_path);
       toast.success(
-        "Bot compiled",
-        `Package generated at: ${result.bot_path?.substring(result.bot_path.lastIndexOf('/') + 1) || 'temp'}`
+        'Bot compiled',
+        `Package generated at: ${result.bot_path?.substring(result.bot_path.lastIndexOf('/') + 1) || 'temp'}`,
       );
     } catch (error) {
       const errorMsg = String(error);
-      logs.error("Compilation error", errorMsg);
-      toast.error("Compilation error", errorMsg.substring(0, 100));
+      logs.error('Compilation error', errorMsg);
+      toast.error('Compilation error', errorMsg.substring(0, 100));
     }
   },
 
@@ -273,14 +270,12 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     const logs = useLogsStore.getState();
 
     if (state.nodes.length === 0) {
-      toast.warning("No nodes", "Add at least one node before running");
+      toast.warning('No nodes', 'Add at least one node before running');
       return;
     }
 
     // Check for triggers and auto-add Manual if none exists
-    const hasTrigger = state.nodes.some(
-      (node) => node.data.category === "trigger"
-    );
+    const hasTrigger = state.nodes.some((node) => node.data.category === 'trigger');
 
     const dsl = state.generateDSL();
 
@@ -291,20 +286,20 @@ export const useFlowStore = create<FlowState>((set, get) => ({
 
       const manualTriggerNode = {
         id: manualTriggerId,
-        type: "trigger.manual",
+        type: 'trigger.manual',
         config: {},
         outputs: {
           success: firstNodeId || manualTriggerId,
           error: manualTriggerId,
         },
-        label: "Manual Trigger",
+        label: 'Manual Trigger',
       };
 
       dsl.nodes.unshift(manualTriggerNode);
       dsl.triggers = [manualTriggerId];
       dsl.start_node = manualTriggerId;
 
-      logs.info("Auto-added Manual Trigger");
+      logs.info('Auto-added Manual Trigger');
     }
 
     // Add form data to DSL variables if provided
@@ -312,80 +307,84 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       dsl.variables = {
         ...dsl.variables,
         formData: {
-          type: "json" as const,
+          type: 'json' as const,
           value: formData,
         },
       };
-      logs.info("Form data received", JSON.stringify(formData));
+      logs.info('Form data received', JSON.stringify(formData));
     }
 
-    logs.info("Starting bot execution...");
+    logs.info('Starting bot execution...');
     logs.openPanel();
 
     try {
       // Debug: Log the DSL being sent
       const dslString = JSON.stringify(dsl, null, 2);
-      console.log("DSL being sent:", dslString);
-      logs.info("DSL generated", dslString.substring(0, 500) + "...");
-      
-      logs.info("Compiling bot...");
-      const result = await invoke<ExecutionResult>("run_bot", {
-        dsl: JSON.stringify(dsl)
+      console.log('DSL being sent:', dslString);
+      logs.info('DSL generated', dslString.substring(0, 500) + '...');
+
+      logs.info('Compiling bot...');
+      const result = await invoke<ExecutionResult>('run_bot', {
+        dsl: JSON.stringify(dsl),
       });
 
       // Parse and show logs, capture runtime telemetry for schema discovery
       const debugStore = useDebugStore.getState();
-      
-      console.log("[FlowStore] Run result:", result);
-      console.log("[FlowStore] Logs count:", result.logs?.length || 0);
-      
+
+      console.log('[FlowStore] Run result:', result);
+      console.log('[FlowStore] Logs count:', result.logs?.length || 0);
+
       if (result.logs && Array.isArray(result.logs)) {
         result.logs.forEach((log: string) => {
-          console.log("[FlowStore] Processing log:", log.substring(0, 100));
+          console.log('[FlowStore] Processing log:', log.substring(0, 100));
           // Check for runtime node telemetry (NODE_INPUT / NODE_ENVELOPE / NODE_OUTPUT)
           const runtimeTelemetry = parseNodeRuntimeTelemetryLine(log);
           if (runtimeTelemetry) {
             const { nodeId, data, channel } = runtimeTelemetry;
             if (nodeId) {
-              console.log("[FlowStore] Runtime telemetry:", channel, "node:", nodeId);
-              if (channel === "input") {
+              console.log('[FlowStore] Runtime telemetry:', channel, 'node:', nodeId);
+              if (channel === 'input') {
                 debugStore.markNodeInput(nodeId, data);
               } else {
-                debugStore.markNodeStatus(nodeId, "success", data);
+                debugStore.markNodeStatus(nodeId, 'success', data);
 
                 const flowNode = state.nodes.find((n) => n.id === nodeId);
                 const schemaCandidate = getSchemaCandidateFromNodeData(data);
-                if (flowNode && schemaCandidate && typeof schemaCandidate === "object") {
-                  console.log("[FlowStore] Discovering schema for:", nodeId, flowNode.data.nodeType);
+                if (flowNode && schemaCandidate && typeof schemaCandidate === 'object') {
+                  console.log(
+                    '[FlowStore] Discovering schema for:',
+                    nodeId,
+                    flowNode.data.nodeType,
+                  );
                   debugStore.discoverSchema(nodeId, flowNode.data.nodeType, schemaCandidate);
                 }
               }
             }
-          } else if (log.includes("ERROR")) {
+          } else if (log.includes('ERROR')) {
             logs.error(log);
-          } else if (log.includes("WARNING")) {
+          } else if (log.includes('WARNING')) {
             logs.warning(log);
-          } else if (log.includes("SUCCESS")) {
+          } else if (log.includes('SUCCESS')) {
             logs.success(log);
           } else {
             logs.info(log);
           }
         });
       } else if (result.output) {
-        logs.info("Bot output", result.output);
+        logs.info('Bot output', result.output);
       }
 
       if (result.success) {
-        logs.success("Bot executed successfully");
-        toast.success("Execution successful", "The bot ran correctly");
+        logs.success('Bot executed successfully');
+        toast.success('Execution successful', 'The bot ran correctly');
       } else {
-        logs.error("Bot failed during execution");
-        toast.error("Execution failed", "Check the logs for more details");
+        logs.error('Bot failed during execution');
+        toast.error('Execution failed', 'Check the logs for more details');
       }
     } catch (error) {
       const errorMsg = String(error);
-      logs.error("Execution error", errorMsg);
-      toast.error("Execution error", errorMsg.substring(0, 100));
+      logs.error('Execution error', errorMsg);
+      toast.error('Execution error', errorMsg.substring(0, 100));
     }
   },
 }));

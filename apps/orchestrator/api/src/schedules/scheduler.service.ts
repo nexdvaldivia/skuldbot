@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleInit,
-  OnModuleDestroy,
-} from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThanOrEqual, In, DataSource, QueryRunner } from 'typeorm';
@@ -180,15 +175,11 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
 
       if (result[0]?.acquired) {
         this.isLeader = true;
-        this.logger.log(
-          `Instance ${this.instanceId} acquired scheduler leadership`,
-        );
+        this.logger.log(`Instance ${this.instanceId} acquired scheduler leadership`);
         this.startScheduler();
         this.startLockRenewal();
       } else {
-        this.logger.log(
-          `Instance ${this.instanceId} is standby (another instance is leader)`,
-        );
+        this.logger.log(`Instance ${this.instanceId} is standby (another instance is leader)`);
         // Retry periodically
         setTimeout(() => this.tryAcquireLeadership(), 30000);
       }
@@ -207,9 +198,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const lockId = this.hashCode(this.lockConfig.lockKey);
-      await this.lockQueryRunner.query(`SELECT pg_advisory_unlock($1)`, [
-        lockId,
-      ]);
+      await this.lockQueryRunner.query(`SELECT pg_advisory_unlock($1)`, [lockId]);
       await this.lockQueryRunner.release();
       this.lockQueryRunner = null;
       this.isLeader = false;
@@ -268,9 +257,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
       return; // Already running
     }
 
-    this.logger.log(
-      `Starting scheduler with ${this.tickIntervalMs}ms tick interval`,
-    );
+    this.logger.log(`Starting scheduler with ${this.tickIntervalMs}ms tick interval`);
     this.isRunning = true;
     this.startedAt = new Date();
 
@@ -337,9 +324,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
             }
           } catch (error) {
             result.errors++;
-            this.logger.error(
-              `Error processing schedule ${schedule.id}: ${error}`,
-            );
+            this.logger.error(`Error processing schedule ${schedule.id}: ${error}`);
           }
         }
       } catch (error) {
@@ -388,10 +373,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
    * Process a single schedule
    * Returns true if triggered, false if skipped
    */
-  private async processSchedule(
-    schedule: Schedule,
-    now: Date,
-  ): Promise<boolean> {
+  private async processSchedule(schedule: Schedule, now: Date): Promise<boolean> {
     // Check if schedule is still valid (could have changed during tick)
     const currentSchedule = await this.scheduleRepository.findOne({
       where: { id: schedule.id },
@@ -402,10 +384,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
     }
 
     // Check effective dates
-    if (
-      currentSchedule.effectiveFrom &&
-      now < currentSchedule.effectiveFrom
-    ) {
+    if (currentSchedule.effectiveFrom && now < currentSchedule.effectiveFrom) {
       return false;
     }
     if (currentSchedule.effectiveUntil && now > currentSchedule.effectiveUntil) {
@@ -418,9 +397,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
 
     // Check blackout windows
     if (this.isInBlackoutWindow(currentSchedule, now)) {
-      this.logger.debug(
-        `Schedule ${schedule.id} is in blackout window, skipping`,
-      );
+      this.logger.debug(`Schedule ${schedule.id} is in blackout window, skipping`);
       // Calculate next run after blackout
       await this.calculateAndUpdateNextRun(currentSchedule, now);
       return false;
@@ -442,10 +419,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
     }
 
     // Handle catchup for missed executions
-    const missedCount = await this.calculateMissedExecutions(
-      currentSchedule,
-      now,
-    );
+    const missedCount = await this.calculateMissedExecutions(currentSchedule, now);
     if (missedCount > 1) {
       await this.handleCatchup(currentSchedule, missedCount, now);
     }
@@ -473,19 +447,14 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
 
       // Check day of week
       if (window.daysOfWeek && window.daysOfWeek.length > 0) {
-        const nowInTz = new Date(
-          now.toLocaleString('en-US', { timeZone: timezone }),
-        );
+        const nowInTz = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
         const dayOfWeek = nowInTz.getDay();
         if (!window.daysOfWeek.includes(dayOfWeek)) continue;
       }
 
       // Check time range
-      const nowInTz = new Date(
-        now.toLocaleString('en-US', { timeZone: timezone }),
-      );
-      const currentTime =
-        nowInTz.getHours() * 60 + nowInTz.getMinutes();
+      const nowInTz = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+      const currentTime = nowInTz.getHours() * 60 + nowInTz.getMinutes();
 
       const [startH, startM] = window.startTime.split(':').map(Number);
       const [endH, endM] = window.endTime.split(':').map(Number);
@@ -517,8 +486,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
     const quotaConfig = (schedule as any).quotaConfig;
     if (!quotaConfig) return true;
 
-    const { hourlyLimit, dailyLimit, weeklyLimit, monthlyLimit } =
-      quotaConfig;
+    const { hourlyLimit, dailyLimit, weeklyLimit, monthlyLimit } = quotaConfig;
     const now = new Date();
 
     // Helper to count executions in time range
@@ -596,10 +564,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
     const count = await this.executionRepository.count({
       where: {
         scheduleId,
-        status: In([
-          ScheduleExecutionStatus.RUNNING,
-          ScheduleExecutionStatus.PENDING,
-        ]),
+        status: In([ScheduleExecutionStatus.RUNNING, ScheduleExecutionStatus.PENDING]),
       },
     });
     return count > 0;
@@ -608,22 +573,15 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
   /**
    * Handle overlap based on policy
    */
-  private async handleOverlap(
-    schedule: Schedule,
-    now: Date,
-  ): Promise<boolean> {
+  private async handleOverlap(schedule: Schedule, now: Date): Promise<boolean> {
     switch (schedule.overlapPolicy) {
       case ScheduleOverlapPolicy.SKIP:
-        this.logger.debug(
-          `Schedule ${schedule.id} has running execution, skipping (SKIP policy)`,
-        );
+        this.logger.debug(`Schedule ${schedule.id} has running execution, skipping (SKIP policy)`);
         await this.calculateAndUpdateNextRun(schedule, now);
         return false;
 
       case ScheduleOverlapPolicy.QUEUE:
-        this.logger.debug(
-          `Schedule ${schedule.id} has running execution, queuing (QUEUE policy)`,
-        );
+        this.logger.debug(`Schedule ${schedule.id} has running execution, queuing (QUEUE policy)`);
         // Create a pending execution to run after current completes
         await this.schedulesService.processScheduleTrigger({
           scheduleId: schedule.id,
@@ -659,10 +617,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
     await this.executionRepository.update(
       {
         scheduleId,
-        status: In([
-          ScheduleExecutionStatus.RUNNING,
-          ScheduleExecutionStatus.PENDING,
-        ]),
+        status: In([ScheduleExecutionStatus.RUNNING, ScheduleExecutionStatus.PENDING]),
       },
       {
         status: ScheduleExecutionStatus.CANCELLED,
@@ -674,16 +629,10 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
   /**
    * Calculate number of missed executions
    */
-  private async calculateMissedExecutions(
-    schedule: Schedule,
-    now: Date,
-  ): Promise<number> {
+  private async calculateMissedExecutions(schedule: Schedule, now: Date): Promise<number> {
     if (!schedule.lastRunAt) return 0;
 
-    const cronParser = new CronParser(
-      schedule.cronExpression || '* * * * *',
-      schedule.timezone,
-    );
+    const cronParser = new CronParser(schedule.cronExpression || '* * * * *', schedule.timezone);
 
     let missed = 0;
     let nextRun = cronParser.getNextRunAfter(schedule.lastRunAt);
@@ -699,11 +648,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
   /**
    * Handle catchup for missed executions
    */
-  private async handleCatchup(
-    schedule: Schedule,
-    missedCount: number,
-    now: Date,
-  ): Promise<void> {
+  private async handleCatchup(schedule: Schedule, missedCount: number, now: Date): Promise<void> {
     switch (schedule.catchupPolicy) {
       case ScheduleCatchupPolicy.NONE:
         // Skip all missed executions
@@ -759,9 +704,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
 
       this.logger.log(`Successfully triggered schedule ${schedule.id}`);
     } catch (error) {
-      this.logger.error(
-        `Failed to trigger schedule ${schedule.id}: ${error}`,
-      );
+      this.logger.error(`Failed to trigger schedule ${schedule.id}: ${error}`);
 
       // Update consecutive failure count
       const newFailureCount = (schedule.consecutiveFailures || 0) + 1;
@@ -772,10 +715,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
       };
 
       // Check auto-pause threshold
-      if (
-        schedule.autoPauseAfterFailures &&
-        newFailureCount >= schedule.autoPauseAfterFailures
-      ) {
+      if (schedule.autoPauseAfterFailures && newFailureCount >= schedule.autoPauseAfterFailures) {
         updates.status = ScheduleStatus.ERROR;
         this.logger.warn(
           `Schedule ${schedule.id} auto-paused after ${newFailureCount} consecutive failures`,
@@ -794,29 +734,22 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
   /**
    * Calculate and update next run time
    */
-  private async calculateAndUpdateNextRun(
-    schedule: Schedule,
-    currentTime: Date,
-  ): Promise<void> {
+  private async calculateAndUpdateNextRun(schedule: Schedule, currentTime: Date): Promise<void> {
     let nextRun: Date | null = null;
 
     switch (schedule.triggerType) {
       case ScheduleTriggerType.CRON:
         if (schedule.cronExpression) {
-          const cronParser = new CronParser(
-            schedule.cronExpression,
-            schedule.timezone,
-          );
+          const cronParser = new CronParser(schedule.cronExpression, schedule.timezone);
           nextRun = cronParser.getNextRun();
         }
         break;
 
       case ScheduleTriggerType.INTERVAL:
-        const intervalSeconds = (schedule as any).intervalSeconds || (schedule as any).intervalConfig?.seconds;
+        const intervalSeconds =
+          (schedule as any).intervalSeconds || (schedule as any).intervalConfig?.seconds;
         if (intervalSeconds) {
-          nextRun = new Date(
-            currentTime.getTime() + intervalSeconds * 1000,
-          );
+          nextRun = new Date(currentTime.getTime() + intervalSeconds * 1000);
         }
         break;
 
@@ -826,10 +759,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
         if (calendarDates.length > 0) {
           const futureDates = calendarDates
             .filter((dateStr: string) => new Date(dateStr) > currentTime)
-            .sort(
-              (a: string, b: string) =>
-                new Date(a).getTime() - new Date(b).getTime(),
-            );
+            .sort((a: string, b: string) => new Date(a).getTime() - new Date(b).getTime());
 
           if (futureDates.length > 0) {
             nextRun = new Date(futureDates[0]);
@@ -856,10 +786,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
   async cleanupOldExecutions(): Promise<void> {
     if (!this.isLeader) return;
 
-    const retentionDays = this.configService.get<number>(
-      'SCHEDULER_EXECUTION_RETENTION_DAYS',
-      90,
-    );
+    const retentionDays = this.configService.get<number>('SCHEDULER_EXECUTION_RETENTION_DAYS', 90);
 
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
@@ -879,9 +806,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
         .execute();
 
       if (result.affected && result.affected > 0) {
-        this.logger.log(
-          `Cleaned up ${result.affected} old execution records`,
-        );
+        this.logger.log(`Cleaned up ${result.affected} old execution records`);
       }
     } catch (error) {
       this.logger.error(`Failed to cleanup old executions: ${error}`);
@@ -907,9 +832,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
           await this.scheduleRepository.update(schedule.id, {
             status: ScheduleStatus.ACTIVE,
           });
-          this.logger.log(
-            `Schedule ${schedule.id} quota reset, reactivated`,
-          );
+          this.logger.log(`Schedule ${schedule.id} quota reset, reactivated`);
         }
       }
     } catch (error) {

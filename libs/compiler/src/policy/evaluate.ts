@@ -1,9 +1,5 @@
 import { CFG, isPseudo } from '../types/cfg';
-import {
-  Classification,
-  ControlType,
-  CLASSIFICATION_RANK,
-} from '../types/classification';
+import { Classification, ControlType, CLASSIFICATION_RANK } from '../types/classification';
 import { NodeManifest, createUnknownNodeManifest } from '../types/manifest';
 import { NodeClassInfo } from '../types/execution-plan';
 import {
@@ -50,13 +46,7 @@ export function evaluatePolicies(
 
     // Evaluate each policy rule
     for (const rule of policyPack.rules) {
-      const matches = evaluateCondition(
-        rule.when,
-        nodeId,
-        node.type,
-        nodeClass,
-        manifest,
-      );
+      const matches = evaluateCondition(rule.when, nodeId, node.type, nodeClass, manifest);
 
       if (matches) {
         applyAction(result, nodeId, rule, manifest);
@@ -64,13 +54,7 @@ export function evaluatePolicies(
     }
 
     // Auto-inject controls based on classification + capabilities
-    autoInjectClassificationControls(
-      result,
-      nodeId,
-      nodeClass,
-      manifest,
-      policyPack,
-    );
+    autoInjectClassificationControls(result, nodeId, nodeClass, manifest, policyPack);
   }
 
   return result;
@@ -204,10 +188,7 @@ function applyAction(
         for (const control of action.controls) {
           // Add control if node supports it, or if it's a generic control
           // Generic controls: AUDIT_LOG, DLP_SCAN, HITL_APPROVAL
-          if (
-            supportedControls.has(control) ||
-            isGenericControl(control)
-          ) {
+          if (supportedControls.has(control) || isGenericControl(control)) {
             result.requiresControls[nodeId].add(control);
           } else {
             // Node doesn't support required control -> warn
@@ -234,9 +215,10 @@ function autoInjectClassificationControls(
   manifest: NodeManifest,
   policyPack: TenantPolicyPack,
 ): void {
-  const maxClass = CLASSIFICATION_RANK[nodeClass.in] >= CLASSIFICATION_RANK[nodeClass.out]
-    ? nodeClass.in
-    : nodeClass.out;
+  const maxClass =
+    CLASSIFICATION_RANK[nodeClass.in] >= CLASSIFICATION_RANK[nodeClass.out]
+      ? nodeClass.in
+      : nodeClass.out;
 
   // Always audit log for non-trivial data
   if (CLASSIFICATION_RANK[maxClass] >= CLASSIFICATION_RANK['PII']) {
@@ -314,10 +296,7 @@ export function shouldBlockCompilation(result: PolicyResult): boolean {
 /**
  * Get all controls for a node from policy result
  */
-export function getNodeControls(
-  result: PolicyResult,
-  nodeId: string,
-): ControlType[] {
+export function getNodeControls(result: PolicyResult, nodeId: string): ControlType[] {
   return Array.from(result.requiresControls[nodeId] ?? new Set());
 }
 

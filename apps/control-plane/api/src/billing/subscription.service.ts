@@ -163,8 +163,10 @@ export class SubscriptionService {
     subscription.gracePeriodEnds = undefined;
 
     // Reactivate if was suspended
-    if (subscription.status === SubscriptionStatus.PAST_DUE ||
-        subscription.status === SubscriptionStatus.SUSPENDED) {
+    if (
+      subscription.status === SubscriptionStatus.PAST_DUE ||
+      subscription.status === SubscriptionStatus.SUSPENDED
+    ) {
       subscription.status = SubscriptionStatus.ACTIVE;
       subscription.botsCanRun = true;
       subscription.botsDisabledReason = undefined;
@@ -241,8 +243,10 @@ export class SubscriptionService {
     }
 
     // Multiple failures or past grace period: Suspend
-    if (subscription.failedPaymentAttempts >= 3 ||
-        (subscription.gracePeriodEnds && new Date() > subscription.gracePeriodEnds)) {
+    if (
+      subscription.failedPaymentAttempts >= 3 ||
+      (subscription.gracePeriodEnds && new Date() > subscription.gracePeriodEnds)
+    ) {
       await this.suspendSubscription(
         subscription,
         `Payment failed ${subscription.failedPaymentAttempts} times: ${errorMessage}`,
@@ -360,10 +364,7 @@ export class SubscriptionService {
   /**
    * Get payment history for a tenant
    */
-  async getPaymentHistory(
-    tenantId: string,
-    limit: number = 20,
-  ): Promise<PaymentHistory[]> {
+  async getPaymentHistory(tenantId: string, limit: number = 20): Promise<PaymentHistory[]> {
     return this.paymentHistoryRepository.find({
       where: { tenantId },
       order: { createdAt: 'DESC' },
@@ -422,10 +423,7 @@ export class SubscriptionService {
     for (const subscription of expiredTrials) {
       // If no payment method set up, suspend
       if (!subscription.stripePaymentMethodId) {
-        await this.suspendSubscription(
-          subscription,
-          'Trial expired without payment method setup',
-        );
+        await this.suspendSubscription(subscription, 'Trial expired without payment method setup');
         suspendedCount++;
       } else {
         // Payment method exists, activate subscription
@@ -438,9 +436,7 @@ export class SubscriptionService {
     }
 
     if (suspendedCount > 0) {
-      this.logger.warn(
-        `Suspended ${suspendedCount} subscriptions due to trial expiration`,
-      );
+      this.logger.warn(`Suspended ${suspendedCount} subscriptions due to trial expiration`);
     }
 
     return suspendedCount;
@@ -470,9 +466,7 @@ export class SubscriptionService {
     subscription.failedPaymentAttempts = 0;
     subscription.gracePeriodEnds = undefined;
 
-    this.logger.log(
-      `Subscription for tenant ${tenantId} manually reactivated by ${reactivatedBy}`,
-    );
+    this.logger.log(`Subscription for tenant ${tenantId} manually reactivated by ${reactivatedBy}`);
 
     return this.subscriptionRepository.save(subscription);
   }

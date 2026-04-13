@@ -11,6 +11,7 @@ El Studio ahora está completamente integrado con el Engine vía Tauri.
 **Archivo**: `src-tauri/src/main.rs`
 
 **Commands implementados:**
+
 - `compile_dsl` - Compilar DSL a Bot Package
 - `run_bot` - Ejecutar bot en modo debug
 - `validate_dsl` - Validar DSL
@@ -21,6 +22,7 @@ El Studio ahora está completamente integrado con el Engine vía Tauri.
 ### 2. Frontend (TypeScript)
 
 **Archivos modificados:**
+
 - `src/store/flowStore.ts` - Usa `invoke` de Tauri
 - `src/components/Toolbar.tsx` - File dialogs con Tauri
 - `src/App.tsx` - Indicator de estado del Engine
@@ -108,6 +110,7 @@ npm run tauri:dev
 ### Para Producción
 
 Al compilar con `npm run tauri:build`, el Engine debe estar:
+
 - Instalado en el sistema del usuario, O
 - Incluido en el bundle de la app
 
@@ -123,20 +126,24 @@ npm run tauri:dev
 ### Ver Logs del Engine
 
 Los logs del Engine Python aparecen en:
+
 - Console del navegador (si hay errores)
 - Terminal de Rust (stdout/stderr)
 
 ### Errores Comunes
 
 **Error: "Failed to execute Python"**
+
 - Solución: Asegúrate de tener Python 3 instalado
 - Verifica: `python3 --version` o `python --version`
 
 **Error: "No module named 'skuldbot'"**
+
 - Solución: El path al Engine no es correcto
 - Verifica: `get_engine_path()` en `main.rs`
 
 **Error: "Command not found: tauri"**
+
 - Solución: Instala Tauri CLI
 - Comando: `npm install -D @tauri-apps/cli`
 
@@ -177,6 +184,7 @@ fn get_engine_path() -> PathBuf {
 ### Agregar Nuevos Commands
 
 1. Agregar command en `main.rs`:
+
 ```rust
 #[tauri::command]
 async fn mi_comando(param: String) -> Result<String, String> {
@@ -186,6 +194,7 @@ async fn mi_comando(param: String) -> Result<String, String> {
 ```
 
 2. Registrar en el handler:
+
 ```rust
 .invoke_handler(tauri::generate_handler![
     compile_dsl,
@@ -195,6 +204,7 @@ async fn mi_comando(param: String) -> Result<String, String> {
 ```
 
 3. Llamar desde frontend:
+
 ```typescript
 const result = await invoke('mi_comando', { param: 'valor' });
 ```
@@ -233,8 +243,3 @@ npm run tauri:build
 ---
 
 **Última actualización**: 16 de Diciembre 2025
-
-
-
-
-

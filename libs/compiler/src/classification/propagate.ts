@@ -102,10 +102,7 @@ function transfer(
   const manifest = manifests[node.type] ?? createUnknownNodeManifest(node.type);
 
   // Get max of what the node produces
-  const producesMax = maxOfClassifications(
-    manifest.data.produces,
-    'UNCLASSIFIED',
-  );
+  const producesMax = maxOfClassifications(manifest.data.produces, 'UNCLASSIFIED');
 
   let outClass: Classification;
 
@@ -128,10 +125,7 @@ function transfer(
     case 'TRANSFORM':
       // Start with pass-through, then potentially lower via controls
       outClass = maxClass(inClass, producesMax);
-      outClass = applyTransformControls(
-        outClass,
-        injectedControls[nodeId] ?? [],
-      );
+      outClass = applyTransformControls(outClass, injectedControls[nodeId] ?? []);
       break;
 
     default:

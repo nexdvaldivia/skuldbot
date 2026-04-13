@@ -31,10 +31,23 @@ import {
   Loader2,
 } from 'lucide-react';
 
-const statusConfig: Record<string, { color: string; bgColor: string; icon: React.ElementType; label: string }> = {
-  active: { color: 'text-emerald-700', bgColor: 'bg-emerald-50', icon: CheckCircle2, label: 'Active' },
+const statusConfig: Record<
+  string,
+  { color: string; bgColor: string; icon: React.ElementType; label: string }
+> = {
+  active: {
+    color: 'text-emerald-700',
+    bgColor: 'bg-emerald-50',
+    icon: CheckCircle2,
+    label: 'Active',
+  },
   trialing: { color: 'text-blue-700', bgColor: 'bg-blue-50', icon: Clock, label: 'Trial' },
-  past_due: { color: 'text-amber-700', bgColor: 'bg-amber-50', icon: AlertTriangle, label: 'Past Due' },
+  past_due: {
+    color: 'text-amber-700',
+    bgColor: 'bg-amber-50',
+    icon: AlertTriangle,
+    label: 'Past Due',
+  },
   suspended: { color: 'text-red-700', bgColor: 'bg-red-50', icon: Ban, label: 'Suspended' },
   canceled: { color: 'text-zinc-600', bgColor: 'bg-zinc-100', icon: XCircle, label: 'Canceled' },
   unpaid: { color: 'text-red-700', bgColor: 'bg-red-50', icon: XCircle, label: 'Unpaid' },
@@ -116,7 +129,8 @@ export default function SubscriptionDetailPage() {
       toast({
         variant: 'error',
         title: 'Failed to load subscription',
-        description: error instanceof Error ? error.message : 'Could not fetch subscription details.',
+        description:
+          error instanceof Error ? error.message : 'Could not fetch subscription details.',
       });
     } finally {
       setLoading(false);
@@ -197,7 +211,9 @@ export default function SubscriptionDetailPage() {
         <div className="bg-white rounded-xl border border-zinc-200/80 px-5 py-12 text-center">
           <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto mb-3" />
           <p className="text-sm font-medium text-zinc-900">No subscription found</p>
-          <p className="text-sm text-zinc-500 mt-1">Tenant {tenantId} has no active subscription record.</p>
+          <p className="text-sm text-zinc-500 mt-1">
+            Tenant {tenantId} has no active subscription record.
+          </p>
         </div>
       </div>
     );
@@ -227,7 +243,9 @@ export default function SubscriptionDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${status.bgColor} ${status.color}`}>
+          <span
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${status.bgColor} ${status.color}`}
+          >
             <StatusIcon className="h-4 w-4" />
             {status.label}
           </span>
@@ -264,26 +282,40 @@ export default function SubscriptionDetailPage() {
               <div>
                 <p className="text-sm text-zinc-500 mb-1">Billing Cycle</p>
                 <p className="text-sm font-medium text-zinc-900">
-                  {subscription.currentPeriodStart ? new Date(subscription.currentPeriodStart).toLocaleDateString() : 'N/A'}
-                  {' '}–{' '}
-                  {subscription.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : 'N/A'}
+                  {subscription.currentPeriodStart
+                    ? new Date(subscription.currentPeriodStart).toLocaleDateString()
+                    : 'N/A'}{' '}
+                  –{' '}
+                  {subscription.currentPeriodEnd
+                    ? new Date(subscription.currentPeriodEnd).toLocaleDateString()
+                    : 'N/A'}
                 </p>
               </div>
               <div>
                 <p className="text-sm text-zinc-500 mb-1">Bot Execution</p>
-                <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium ${
-                  subscription.botsCanRun ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
-                }`}>
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium ${
+                    subscription.botsCanRun
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : 'bg-red-50 text-red-700'
+                  }`}
+                >
                   {subscription.botsCanRun ? (
-                    <><CheckCircle2 className="h-3 w-3" /> Enabled</>
+                    <>
+                      <CheckCircle2 className="h-3 w-3" /> Enabled
+                    </>
                   ) : (
-                    <><Ban className="h-3 w-3" /> Disabled</>
+                    <>
+                      <Ban className="h-3 w-3" /> Disabled
+                    </>
                   )}
                 </span>
               </div>
               <div>
                 <p className="text-sm text-zinc-500 mb-1">Grace Period</p>
-                <p className="text-sm font-medium text-zinc-900">{subscription.gracePeriodDays} days</p>
+                <p className="text-sm font-medium text-zinc-900">
+                  {subscription.gracePeriodDays} days
+                </p>
               </div>
             </div>
           </section>
@@ -339,20 +371,28 @@ export default function SubscriptionDetailPage() {
                       <DollarSign className="h-4 w-4 text-zinc-500" />
                     </div>
                     <div>
-                      <p className="font-medium text-zinc-900">Invoice {payment.invoicePeriod || 'N/A'}</p>
-                      <p className="text-sm text-zinc-500">{new Date(payment.createdAt).toLocaleDateString()}</p>
+                      <p className="font-medium text-zinc-900">
+                        Invoice {payment.invoicePeriod || 'N/A'}
+                      </p>
+                      <p className="text-sm text-zinc-500">
+                        {new Date(payment.createdAt).toLocaleDateString()}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="font-medium text-zinc-900">${payment.amount.toLocaleString()}</p>
-                    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${paymentStatusClass[payment.status] || 'bg-zinc-100 text-zinc-700'}`}>
+                    <span
+                      className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${paymentStatusClass[payment.status] || 'bg-zinc-100 text-zinc-700'}`}
+                    >
                       {payment.status}
                     </span>
                   </div>
                 </div>
               ))}
               {payments.length === 0 && (
-                <div className="px-5 py-8 text-center text-sm text-zinc-500">No payment history available.</div>
+                <div className="px-5 py-8 text-center text-sm text-zinc-500">
+                  No payment history available.
+                </div>
               )}
             </div>
           </section>
@@ -412,16 +452,22 @@ export default function SubscriptionDetailPage() {
               {Object.entries(usage?.metrics || {}).map(([metric, data]) => (
                 <div key={metric} className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-zinc-900 capitalize">{metric.replace(/_/g, ' ')}</p>
+                    <p className="text-sm font-medium text-zinc-900 capitalize">
+                      {metric.replace(/_/g, ' ')}
+                    </p>
                     <p className="text-xs text-zinc-500">{data.quantity.toLocaleString()} units</p>
                   </div>
-                  <p className="text-sm font-medium text-zinc-900">${Number(data.amount || 0).toLocaleString()}</p>
+                  <p className="text-sm font-medium text-zinc-900">
+                    ${Number(data.amount || 0).toLocaleString()}
+                  </p>
                 </div>
               ))}
               {usage && (
                 <div className="pt-4 border-t border-zinc-100 flex items-center justify-between">
                   <p className="font-medium text-zinc-900">Total Usage</p>
-                  <p className="text-lg font-semibold text-zinc-900">${Number(usage.totalAmount || 0).toLocaleString()}</p>
+                  <p className="text-lg font-semibold text-zinc-900">
+                    ${Number(usage.totalAmount || 0).toLocaleString()}
+                  </p>
                 </div>
               )}
               {!usage && !meteringSummary && (
@@ -451,9 +497,7 @@ export default function SubscriptionDetailPage() {
                 </div>
               ))}
               {marketplaceSubscriptions.length === 0 && (
-                <p className="text-sm text-zinc-500">
-                  No active marketplace subscriptions.
-                </p>
+                <p className="text-sm text-zinc-500">No active marketplace subscriptions.</p>
               )}
             </div>
           </section>
@@ -497,12 +541,16 @@ export default function SubscriptionDetailPage() {
             <div className="p-5 space-y-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-zinc-500">Created</span>
-                <span className="text-zinc-900">{new Date(subscription.createdAt).toLocaleDateString()}</span>
+                <span className="text-zinc-900">
+                  {new Date(subscription.createdAt).toLocaleDateString()}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-zinc-500">Next Billing</span>
                 <span className="text-zinc-900">
-                  {subscription.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : 'N/A'}
+                  {subscription.currentPeriodEnd
+                    ? new Date(subscription.currentPeriodEnd).toLocaleDateString()
+                    : 'N/A'}
                 </span>
               </div>
               <div className="flex justify-between">

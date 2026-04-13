@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  ConflictException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -214,9 +209,7 @@ export class TenantsService {
   }
 
   private toDetailDto(tenant: Tenant): TenantDetailResponseDto {
-    const activeLicense = tenant.licenses?.find(
-      (l) => l.status === 'active' && l.isValid(),
-    );
+    const activeLicense = tenant.licenses?.find((l) => l.status === 'active' && l.isValid());
 
     return {
       ...this.toResponseDto(tenant),

@@ -259,12 +259,7 @@ export class UsersController {
     @Param('id') userId: string,
     @Body() dto: AdminResetPasswordDto,
   ): Promise<{ message: string; temporaryPassword?: string }> {
-    return this.usersService.adminResetPassword(
-      tenantId,
-      userId,
-      dto,
-      currentUser,
-    );
+    return this.usersService.adminResetPassword(tenantId, userId, dto, currentUser);
   }
 
   // ============================================================================

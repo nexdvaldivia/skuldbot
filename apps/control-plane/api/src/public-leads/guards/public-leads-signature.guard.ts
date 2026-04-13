@@ -1,9 +1,4 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { verifyGatewaySignature } from '../public-leads-signature.util';
 
@@ -34,9 +29,7 @@ export class PublicLeadsSignatureGuard implements CanActivate {
       .filter((value) => value.length > 0);
 
     if (allowedGateways.length === 0) {
-      throw new UnauthorizedException(
-        'Lead intake allowlist is not configured for gateways',
-      );
+      throw new UnauthorizedException('Lead intake allowlist is not configured for gateways');
     }
 
     if (!allowedGateways.includes(gatewayId)) {
@@ -85,10 +78,7 @@ export class PublicLeadsSignatureGuard implements CanActivate {
     return configured.trim();
   }
 
-  private readHeader(
-    headers: Record<string, string | string[] | undefined>,
-    name: string,
-  ): string {
+  private readHeader(headers: Record<string, string | string[] | undefined>, name: string): string {
     const value = headers[name];
     if (Array.isArray(value)) {
       return value[0]?.trim() ?? '';

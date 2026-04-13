@@ -39,10 +39,7 @@ interface InternalRedactionOptions {
   seen: WeakSet<object>;
 }
 
-export function redactSensitiveData<T>(
-  value: T,
-  options: RedactionOptions = {},
-): T {
+export function redactSensitiveData<T>(value: T, options: RedactionOptions = {}): T {
   const internal: InternalRedactionOptions = {
     maxDepth: options.maxDepth ?? 8,
     maxEntries: options.maxEntries ?? 300,

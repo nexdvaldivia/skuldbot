@@ -172,14 +172,15 @@ function App() {
             <div>
               <h1 className="text-sm font-semibold text-foreground">SkuldBot Runner</h1>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className={cn(
-                  "status-dot",
-                  status?.running ? "status-online" : "status-offline"
-                )} />
-                <span className={cn(
-                  "text-xs",
-                  status?.running ? "text-[hsl(var(--success))]" : "text-muted-foreground"
-                )}>
+                <span
+                  className={cn('status-dot', status?.running ? 'status-online' : 'status-offline')}
+                />
+                <span
+                  className={cn(
+                    'text-xs',
+                    status?.running ? 'text-[hsl(var(--success))]' : 'text-muted-foreground',
+                  )}
+                >
                   {status?.running ? 'Running' : 'Stopped'}
                 </span>
               </div>
@@ -191,15 +192,15 @@ function App() {
 
         <nav className="flex-1 p-3">
           <div className="space-y-1">
-            {navItems.map(item => (
+            {navItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => setCurrentPage(item.id)}
                 className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+                  'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
                   currentPage === item.id
-                    ? "bg-primary/10 text-primary font-medium"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    ? 'bg-primary/10 text-primary font-medium'
+                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
                 )}
               >
                 <item.icon className="w-4 h-4" />
@@ -247,21 +248,18 @@ function App() {
       <main className="flex-1 overflow-auto">
         <div className="p-6 max-w-5xl mx-auto">
           {currentPage === 'dashboard' && (
-            <DashboardPage status={status} config={config} systemInfo={systemInfo} onRefresh={loadData} />
-          )}
-          {currentPage === 'config' && (
-            <ConfigPage
-              key={JSON.stringify(config ?? {})}
+            <DashboardPage
+              status={status}
               config={config}
-              onSave={loadConfig}
+              systemInfo={systemInfo}
+              onRefresh={loadData}
             />
           )}
-          {currentPage === 'secrets' && (
-            <SecretsPage />
+          {currentPage === 'config' && (
+            <ConfigPage key={JSON.stringify(config ?? {})} config={config} onSave={loadConfig} />
           )}
-          {currentPage === 'logs' && (
-            <LogsPage />
-          )}
+          {currentPage === 'secrets' && <SecretsPage />}
+          {currentPage === 'logs' && <LogsPage />}
         </div>
       </main>
     </div>
@@ -272,7 +270,7 @@ function DashboardPage({
   status,
   config,
   systemInfo,
-  onRefresh
+  onRefresh,
 }: {
   status: RunnerStatus | null;
   config: RunnerConfig | null;
@@ -314,7 +312,8 @@ function DashboardPage({
               <div>
                 <p className="font-medium text-foreground">Configuration Required</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Please configure the Orchestrator URL and register this runner to start receiving jobs.
+                  Please configure the Orchestrator URL and register this runner to start receiving
+                  jobs.
                 </p>
               </div>
             </div>
@@ -326,12 +325,12 @@ function DashboardPage({
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className={cn(
-                "w-10 h-10 rounded-lg flex items-center justify-center",
-                status?.running 
-                  ? "bg-[hsl(var(--success))]/10" 
-                  : "bg-muted"
-              )}>
+              <div
+                className={cn(
+                  'w-10 h-10 rounded-lg flex items-center justify-center',
+                  status?.running ? 'bg-[hsl(var(--success))]/10' : 'bg-muted',
+                )}
+              >
                 {status?.running ? (
                   <Wifi className="w-5 h-5 text-[hsl(var(--success))]" />
                 ) : (
@@ -339,11 +338,15 @@ function DashboardPage({
                 )}
               </div>
               <div>
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Status</p>
-                <p className={cn(
-                  "text-lg font-semibold",
-                  status?.running ? "text-[hsl(var(--success))]" : "text-muted-foreground"
-                )}>
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                  Status
+                </p>
+                <p
+                  className={cn(
+                    'text-lg font-semibold',
+                    status?.running ? 'text-[hsl(var(--success))]' : 'text-muted-foreground',
+                  )}
+                >
                   {status?.running ? 'Running' : 'Stopped'}
                 </p>
               </div>
@@ -358,7 +361,9 @@ function DashboardPage({
                 <Clock className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Uptime</p>
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                  Uptime
+                </p>
                 <p className="text-lg font-semibold text-foreground">
                   {status?.running ? formatUptime(status.uptime_seconds) : '-'}
                 </p>
@@ -374,8 +379,12 @@ function DashboardPage({
                 <CheckCircle className="w-5 h-5 text-[hsl(var(--success))]" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Completed</p>
-                <p className="text-lg font-semibold text-foreground">{status?.jobs_completed ?? 0}</p>
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                  Completed
+                </p>
+                <p className="text-lg font-semibold text-foreground">
+                  {status?.jobs_completed ?? 0}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -388,7 +397,9 @@ function DashboardPage({
                 <XCircle className="w-5 h-5 text-destructive" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Failed</p>
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                  Failed
+                </p>
                 <p className="text-lg font-semibold text-foreground">{status?.jobs_failed ?? 0}</p>
               </div>
             </div>
@@ -423,34 +434,53 @@ function DashboardPage({
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <InfoRow label="Runner ID" value={config?.runner_id || status?.runner_id || '-'} mono />
+              <InfoRow
+                label="Runner ID"
+                value={config?.runner_id || status?.runner_id || '-'}
+                mono
+              />
               <InfoRow label="Name" value={config?.runner_name || '-'} />
-              <InfoRow label="Orchestrator" value={config?.orchestrator_url || 'Not configured'} truncate />
+              <InfoRow
+                label="Orchestrator"
+                value={config?.orchestrator_url || 'Not configured'}
+                truncate
+              />
               <InfoRow label="API Key" value={config?.api_key ? '********' : 'Not set'} />
               <InfoRow
                 label="Capabilities"
                 value={
-                  config?.capabilities?.length
-                    ? <div className="flex gap-1 flex-wrap justify-end">
-                        {config.capabilities.map(cap => (
-                          <Badge key={cap} variant="secondary" className="text-xs">{cap}</Badge>
-                        ))}
-                      </div>
-                    : '-'
+                  config?.capabilities?.length ? (
+                    <div className="flex gap-1 flex-wrap justify-end">
+                      {config.capabilities.map((cap) => (
+                        <Badge key={cap} variant="secondary" className="text-xs">
+                          {cap}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    '-'
+                  )
                 }
               />
               <InfoRow
-                label={<span className="flex items-center gap-2"><Tag className="w-3.5 h-3.5" />Labels</span>}
+                label={
+                  <span className="flex items-center gap-2">
+                    <Tag className="w-3.5 h-3.5" />
+                    Labels
+                  </span>
+                }
                 value={
-                  config?.labels && Object.keys(config.labels).length > 0
-                    ? <div className="flex gap-1 flex-wrap justify-end">
-                        {Object.entries(config.labels).map(([key, value]) => (
-                          <Badge key={key} variant="outline" className="text-xs font-mono">
-                            {key}: {value}
-                          </Badge>
-                        ))}
-                      </div>
-                    : '-'
+                  config?.labels && Object.keys(config.labels).length > 0 ? (
+                    <div className="flex gap-1 flex-wrap justify-end">
+                      {Object.entries(config.labels).map(([key, value]) => (
+                        <Badge key={key} variant="outline" className="text-xs font-mono">
+                          {key}: {value}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    '-'
+                  )
                 }
               />
             </div>
@@ -466,17 +496,36 @@ function DashboardPage({
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <InfoRow 
-                label={<span className="flex items-center gap-2"><Monitor className="w-3.5 h-3.5" />OS</span>} 
-                value={systemInfo?.os ? systemInfo.os.charAt(0).toUpperCase() + systemInfo.os.slice(1) : '-'} 
+              <InfoRow
+                label={
+                  <span className="flex items-center gap-2">
+                    <Monitor className="w-3.5 h-3.5" />
+                    OS
+                  </span>
+                }
+                value={
+                  systemInfo?.os
+                    ? systemInfo.os.charAt(0).toUpperCase() + systemInfo.os.slice(1)
+                    : '-'
+                }
               />
-              <InfoRow 
-                label={<span className="flex items-center gap-2"><Cpu className="w-3.5 h-3.5" />CPU Cores</span>} 
-                value={systemInfo?.cpu_count || '-'} 
+              <InfoRow
+                label={
+                  <span className="flex items-center gap-2">
+                    <Cpu className="w-3.5 h-3.5" />
+                    CPU Cores
+                  </span>
+                }
+                value={systemInfo?.cpu_count || '-'}
               />
-              <InfoRow 
-                label={<span className="flex items-center gap-2"><HardDrive className="w-3.5 h-3.5" />Memory</span>} 
-                value={formatMemory(systemInfo?.memory_total_gb)} 
+              <InfoRow
+                label={
+                  <span className="flex items-center gap-2">
+                    <HardDrive className="w-3.5 h-3.5" />
+                    Memory
+                  </span>
+                }
+                value={formatMemory(systemInfo?.memory_total_gb)}
               />
               <InfoRow label="Hostname" value={systemInfo?.hostname || '-'} />
               <InfoRow label="Architecture" value={systemInfo?.platform || '-'} />
@@ -488,25 +537,27 @@ function DashboardPage({
   );
 }
 
-function InfoRow({ 
-  label, 
-  value, 
-  mono, 
-  truncate 
-}: { 
-  label: React.ReactNode; 
-  value: React.ReactNode; 
+function InfoRow({
+  label,
+  value,
+  mono,
+  truncate,
+}: {
+  label: React.ReactNode;
+  value: React.ReactNode;
   mono?: boolean;
   truncate?: boolean;
 }) {
   return (
     <div className="flex justify-between items-center text-sm">
       <span className="text-muted-foreground">{label}</span>
-      <span className={cn(
-        mono && "font-mono text-xs",
-        truncate && "truncate max-w-[180px]",
-        "text-foreground"
-      )}>
+      <span
+        className={cn(
+          mono && 'font-mono text-xs',
+          truncate && 'truncate max-w-[180px]',
+          'text-foreground',
+        )}
+      >
         {value}
       </span>
     </div>
@@ -571,7 +622,7 @@ function LabelsEditor({
         <Input
           type="text"
           value={newKey}
-          onChange={e => setNewKey(e.target.value)}
+          onChange={(e) => setNewKey(e.target.value)}
           onKeyDown={handleKeyPress}
           placeholder="Key (e.g., environment)"
           className="flex-1"
@@ -579,7 +630,7 @@ function LabelsEditor({
         <Input
           type="text"
           value={newValue}
-          onChange={e => setNewValue(e.target.value)}
+          onChange={(e) => setNewValue(e.target.value)}
           onKeyDown={handleKeyPress}
           placeholder="Value (e.g., production)"
           className="flex-1"
@@ -649,7 +700,7 @@ function ConfigPage({ config, onSave }: { config: RunnerConfig | null; onSave: (
       });
 
       if (result.api_key) {
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           api_key: result.api_key,
           runner_id: result.runner_id,
@@ -678,9 +729,7 @@ function ConfigPage({ config, onSave }: { config: RunnerConfig | null; onSave: (
             <Wifi className="w-4 h-4 text-primary" />
             Orchestrator Connection
           </CardTitle>
-          <CardDescription>
-            Connect this runner to your SkuldBot Orchestrator
-          </CardDescription>
+          <CardDescription>Connect this runner to your SkuldBot Orchestrator</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -690,7 +739,9 @@ function ConfigPage({ config, onSave }: { config: RunnerConfig | null; onSave: (
                 id="orchestrator_url"
                 type="url"
                 value={formData.orchestrator_url || ''}
-                onChange={e => setFormData(prev => ({ ...prev, orchestrator_url: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, orchestrator_url: e.target.value }))
+                }
                 placeholder="https://orchestrator.example.com"
                 className="flex-1"
               />
@@ -712,7 +763,7 @@ function ConfigPage({ config, onSave }: { config: RunnerConfig | null; onSave: (
                   id="api_key"
                   type={showApiKey ? 'text' : 'password'}
                   value={formData.api_key || ''}
-                  onChange={e => setFormData(prev => ({ ...prev, api_key: e.target.value }))}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, api_key: e.target.value }))}
                   placeholder="skr_..."
                   className="pr-10"
                 />
@@ -724,9 +775,7 @@ function ConfigPage({ config, onSave }: { config: RunnerConfig | null; onSave: (
                   {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <Button onClick={() => setShowRegisterModal(true)}>
-                Register
-              </Button>
+              <Button onClick={() => setShowRegisterModal(true)}>Register</Button>
             </div>
             <p className="text-xs text-muted-foreground">
               Click Register to get an API Key from the Orchestrator
@@ -741,9 +790,7 @@ function ConfigPage({ config, onSave }: { config: RunnerConfig | null; onSave: (
             <Server className="w-4 h-4 text-primary" />
             Runner Identity
           </CardTitle>
-          <CardDescription>
-            Configure how this runner identifies itself
-          </CardDescription>
+          <CardDescription>Configure how this runner identifies itself</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -752,7 +799,7 @@ function ConfigPage({ config, onSave }: { config: RunnerConfig | null; onSave: (
               id="runner_name"
               type="text"
               value={formData.runner_name || ''}
-              onChange={e => setFormData(prev => ({ ...prev, runner_name: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, runner_name: e.target.value }))}
               placeholder="My Runner"
             />
           </div>
@@ -763,10 +810,15 @@ function ConfigPage({ config, onSave }: { config: RunnerConfig | null; onSave: (
               id="capabilities"
               type="text"
               value={formData.capabilities?.join(', ') || ''}
-              onChange={e => setFormData(prev => ({
-                ...prev,
-                capabilities: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
-              }))}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  capabilities: e.target.value
+                    .split(',')
+                    .map((s) => s.trim())
+                    .filter(Boolean),
+                }))
+              }
               placeholder="web, desktop, office"
             />
             <p className="text-xs text-muted-foreground">
@@ -783,13 +835,14 @@ function ConfigPage({ config, onSave }: { config: RunnerConfig | null; onSave: (
             Labels
           </CardTitle>
           <CardDescription>
-            Key-value pairs for targeting specific runners. Bots can specify labels to run only on matching runners.
+            Key-value pairs for targeting specific runners. Bots can specify labels to run only on
+            matching runners.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <LabelsEditor
             labels={formData.labels || {}}
-            onChange={(labels) => setFormData(prev => ({ ...prev, labels }))}
+            onChange={(labels) => setFormData((prev) => ({ ...prev, labels }))}
           />
           <Card className="border-primary/20 bg-primary/5">
             <CardContent className="p-3">
@@ -797,7 +850,8 @@ function ConfigPage({ config, onSave }: { config: RunnerConfig | null; onSave: (
                 <span className="font-medium text-foreground">Example:</span> Use labels like{' '}
                 <code className="bg-muted px-1 rounded">environment: production</code>,{' '}
                 <code className="bg-muted px-1 rounded">department: finance</code>, or{' '}
-                <code className="bg-muted px-1 rounded">sap: installed</code> to target bots to this specific runner.
+                <code className="bg-muted px-1 rounded">sap: installed</code> to target bots to this
+                specific runner.
               </p>
             </CardContent>
           </Card>
@@ -810,9 +864,7 @@ function ConfigPage({ config, onSave }: { config: RunnerConfig | null; onSave: (
             <Clock className="w-4 h-4 text-primary" />
             Timing Settings
           </CardTitle>
-          <CardDescription>
-            Configure polling and timeout intervals
-          </CardDescription>
+          <CardDescription>Configure polling and timeout intervals</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 gap-4">
@@ -822,7 +874,9 @@ function ConfigPage({ config, onSave }: { config: RunnerConfig | null; onSave: (
                 id="poll_interval"
                 type="number"
                 value={formData.poll_interval || 5}
-                onChange={e => setFormData(prev => ({ ...prev, poll_interval: parseInt(e.target.value) }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, poll_interval: parseInt(e.target.value) }))
+                }
                 min={1}
               />
             </div>
@@ -832,7 +886,9 @@ function ConfigPage({ config, onSave }: { config: RunnerConfig | null; onSave: (
                 id="heartbeat_interval"
                 type="number"
                 value={formData.heartbeat_interval || 30}
-                onChange={e => setFormData(prev => ({ ...prev, heartbeat_interval: parseInt(e.target.value) }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, heartbeat_interval: parseInt(e.target.value) }))
+                }
                 min={10}
               />
             </div>
@@ -842,7 +898,9 @@ function ConfigPage({ config, onSave }: { config: RunnerConfig | null; onSave: (
                 id="job_timeout"
                 type="number"
                 value={formData.job_timeout || 3600}
-                onChange={e => setFormData(prev => ({ ...prev, job_timeout: parseInt(e.target.value) }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, job_timeout: parseInt(e.target.value) }))
+                }
                 min={60}
               />
             </div>
@@ -869,7 +927,9 @@ function ConfigPage({ config, onSave }: { config: RunnerConfig | null; onSave: (
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Orchestrator:</span>
-                  <span className="font-mono text-xs truncate max-w-[200px]">{formData.orchestrator_url}</span>
+                  <span className="font-mono text-xs truncate max-w-[200px]">
+                    {formData.orchestrator_url}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Runner Name:</span>
@@ -981,7 +1041,13 @@ function SecretsPage() {
             Manage encrypted secrets for your bots
           </p>
         </div>
-        <Button onClick={() => { setEditingSecret(null); setNewSecret({ key: '', value: '', description: '' }); setShowAddModal(true); }}>
+        <Button
+          onClick={() => {
+            setEditingSecret(null);
+            setNewSecret({ key: '', value: '', description: '' });
+            setShowAddModal(true);
+          }}
+        >
           <Plus className="w-4 h-4" />
           Add Secret
         </Button>
@@ -1011,8 +1077,11 @@ function SecretsPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {secrets.map(secret => (
-                <div key={secret.name} className="flex items-center justify-between p-3 rounded-lg border border-border/50 hover:bg-accent/30 group transition-colors">
+              {secrets.map((secret) => (
+                <div
+                  key={secret.name}
+                  className="flex items-center justify-between p-3 rounded-lg border border-border/50 hover:bg-accent/30 group transition-colors"
+                >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                       <Key className="w-4 h-4 text-primary" />
@@ -1065,13 +1134,16 @@ function SecretsPage() {
           <div>
             <p className="text-sm font-medium mb-2">In Bot DSL</p>
             <pre className="bg-muted rounded-lg p-3 text-xs font-mono overflow-x-auto">
-{'${vault.my_secret_key}\n${secret:api_credentials}'}
+              {'${vault.my_secret_key}\n${secret:api_credentials}'}
             </pre>
           </div>
           <Card className="border-[hsl(var(--warning))]/30 bg-[hsl(var(--warning))]/5">
             <CardContent className="p-3">
               <p className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">Security Note:</span> Secrets are stored in your operating system's secure keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service). They are resolved at runtime and never sent to the Orchestrator.
+                <span className="font-medium text-foreground">Security Note:</span> Secrets are
+                stored in your operating system's secure keychain (macOS Keychain, Windows
+                Credential Manager, Linux Secret Service). They are resolved at runtime and never
+                sent to the Orchestrator.
               </p>
             </CardContent>
           </Card>
@@ -1096,7 +1168,7 @@ function SecretsPage() {
                   id="secret_key"
                   type="text"
                   value={newSecret.key}
-                  onChange={e => setNewSecret(prev => ({ ...prev, key: e.target.value }))}
+                  onChange={(e) => setNewSecret((prev) => ({ ...prev, key: e.target.value }))}
                   placeholder="e.g., API_KEY, DB_PASSWORD"
                   disabled={!!editingSecret}
                   className="font-mono"
@@ -1108,8 +1180,10 @@ function SecretsPage() {
                   id="secret_value"
                   type="password"
                   value={newSecret.value}
-                  onChange={e => setNewSecret(prev => ({ ...prev, value: e.target.value }))}
-                  placeholder={editingSecret ? '(leave empty to keep current)' : 'Enter secret value'}
+                  onChange={(e) => setNewSecret((prev) => ({ ...prev, value: e.target.value }))}
+                  placeholder={
+                    editingSecret ? '(leave empty to keep current)' : 'Enter secret value'
+                  }
                 />
               </div>
               <div className="space-y-2">
@@ -1118,7 +1192,9 @@ function SecretsPage() {
                   id="secret_description"
                   type="text"
                   value={newSecret.description}
-                  onChange={e => setNewSecret(prev => ({ ...prev, description: e.target.value }))}
+                  onChange={(e) =>
+                    setNewSecret((prev) => ({ ...prev, description: e.target.value }))
+                  }
                   placeholder="e.g., Production API key for SAP"
                 />
               </div>
@@ -1159,13 +1235,17 @@ function LogsPage() {
             <input
               type="checkbox"
               checked={autoScroll}
-              onChange={e => setAutoScroll(e.target.checked)}
+              onChange={(e) => setAutoScroll(e.target.checked)}
               className="rounded border-input text-primary focus:ring-primary"
             />
             <span className="text-sm text-muted-foreground">Auto-scroll</span>
           </label>
-          <Button variant="outline" size="sm">Clear</Button>
-          <Button variant="outline" size="sm">Export</Button>
+          <Button variant="outline" size="sm">
+            Clear
+          </Button>
+          <Button variant="outline" size="sm">
+            Export
+          </Button>
         </div>
       </div>
 
@@ -1188,12 +1268,18 @@ function LogsPage() {
             logs.map((log, i) => (
               <div key={i} className="py-1 hover:bg-[#161b22] px-2 rounded">
                 <span className="text-[#8b949e]">[{log.timestamp}]</span>
-                <span className={cn(
-                  "ml-2",
-                  log.level === 'error' ? 'text-[#f85149]' :
-                  log.level === 'warn' ? 'text-[#d29922]' :
-                  'text-[#58a6ff]'
-                )}>[{log.level.toUpperCase()}]</span>
+                <span
+                  className={cn(
+                    'ml-2',
+                    log.level === 'error'
+                      ? 'text-[#f85149]'
+                      : log.level === 'warn'
+                        ? 'text-[#d29922]'
+                        : 'text-[#58a6ff]',
+                  )}
+                >
+                  [{log.level.toUpperCase()}]
+                </span>
                 <span className="text-[#c9d1d9] ml-2">{log.message}</span>
               </div>
             ))

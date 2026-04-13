@@ -14,10 +14,10 @@ import { User } from '../../users/entities/user.entity';
  * Auditor role/type
  */
 export enum AuditorRole {
-  EXTERNAL_AUDITOR = 'external_auditor',   // External audit firm
-  INTERNAL_AUDITOR = 'internal_auditor',   // Internal compliance team
+  EXTERNAL_AUDITOR = 'external_auditor', // External audit firm
+  INTERNAL_AUDITOR = 'internal_auditor', // Internal compliance team
   COMPLIANCE_OFFICER = 'compliance_officer', // Organization compliance officer
-  REGULATOR = 'regulator',                 // Regulatory body
+  REGULATOR = 'regulator', // Regulatory body
 }
 
 /**
@@ -196,10 +196,7 @@ export class Auditor {
   /**
    * Calculate expiration date from duration preset
    */
-  static calculateExpirationDate(
-    duration: AuditorAccessDuration,
-    customDate?: Date,
-  ): Date {
+  static calculateExpirationDate(duration: AuditorAccessDuration, customDate?: Date): Date {
     const now = new Date();
 
     switch (duration) {

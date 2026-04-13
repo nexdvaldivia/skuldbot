@@ -80,11 +80,7 @@ export class BillingEnforcementService implements OnModuleInit {
     }
 
     try {
-      const entitlement = await this.checkEntitlement(
-        tenantId,
-        'concurrent_runs',
-        1,
-      );
+      const entitlement = await this.checkEntitlement(tenantId, 'concurrent_runs', 1);
       if (!entitlement.allowed) {
         return { allowed: false, reason: entitlement.reason };
       }
@@ -99,10 +95,7 @@ export class BillingEnforcementService implements OnModuleInit {
       if (this.shouldFailClosed()) {
         return {
           allowed: false,
-          reason:
-            error instanceof Error
-              ? error.message
-              : 'Control-Plane enforcement unavailable',
+          reason: error instanceof Error ? error.message : 'Control-Plane enforcement unavailable',
         };
       }
 
@@ -235,10 +228,7 @@ export class BillingEnforcementService implements OnModuleInit {
   }
 
   private shouldFailClosed(): boolean {
-    const configured = this.configService.get<string | boolean>(
-      'ENFORCEMENT_FAIL_CLOSED',
-      true,
-    );
+    const configured = this.configService.get<string | boolean>('ENFORCEMENT_FAIL_CLOSED', true);
     if (typeof configured === 'boolean') {
       return configured;
     }
@@ -251,10 +241,7 @@ export class BillingEnforcementService implements OnModuleInit {
   }
 
   private getOrchestratorId(): string {
-    return this.configService.get<string>(
-      'ORCHESTRATOR_ID',
-      'orchestrator-local',
-    );
+    return this.configService.get<string>('ORCHESTRATOR_ID', 'orchestrator-local');
   }
 
   private async requestControlPlane<T>(
@@ -265,9 +252,7 @@ export class BillingEnforcementService implements OnModuleInit {
   ): Promise<T> {
     const controlPlaneUrl = this.getControlPlaneUrl();
     if (!controlPlaneUrl) {
-      throw new ServiceUnavailableException(
-        'CONTROL_PLANE_URL is not configured',
-      );
+      throw new ServiceUnavailableException('CONTROL_PLANE_URL is not configured');
     }
 
     const traceId = randomUUID();

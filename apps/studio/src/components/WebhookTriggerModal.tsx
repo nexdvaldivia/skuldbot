@@ -1,12 +1,16 @@
-import { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
-import { X, Play, Loader2, Code } from "lucide-react";
-import { Button } from "./ui/Button";
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { X, Play, Loader2, Code } from 'lucide-react';
+import { Button } from './ui/Button';
 
 interface WebhookTriggerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: { body: Record<string, any>; headers: Record<string, string>; query: Record<string, string> }) => void;
+  onSubmit: (data: {
+    body: Record<string, any>;
+    headers: Record<string, string>;
+    query: Record<string, string>;
+  }) => void;
   isLoading?: boolean;
   webhookConfig: {
     path?: string;
@@ -25,7 +29,7 @@ export function WebhookTriggerModal({
   const [headersJson, setHeadersJson] = useState('{}');
   const [queryJson, setQueryJson] = useState('{}');
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"body" | "headers" | "query">("body");
+  const [activeTab, setActiveTab] = useState<'body' | 'headers' | 'query'>('body');
 
   useEffect(() => {
     if (isOpen) {
@@ -46,7 +50,7 @@ export function WebhookTriggerModal({
 
       onSubmit({ body, headers, query });
     } catch (err) {
-      setError("Invalid JSON format. Please check your input.");
+      setError('Invalid JSON format. Please check your input.');
     }
   };
 
@@ -64,11 +68,9 @@ export function WebhookTriggerModal({
         <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-slate-100">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse" />
-            <span className="text-sm font-medium text-slate-700">
-              Simulate Webhook
-            </span>
+            <span className="text-sm font-medium text-slate-700">Simulate Webhook</span>
             <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-              {webhookConfig.method || "POST"} {webhookConfig.path || "/webhook"}
+              {webhookConfig.method || 'POST'} {webhookConfig.path || '/webhook'}
             </span>
           </div>
           <Button
@@ -87,18 +89,18 @@ export function WebhookTriggerModal({
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Tabs */}
             <div className="flex border-b border-slate-200">
-              {(["body", "headers", "query"] as const).map((tab) => (
+              {(['body', 'headers', 'query'] as const).map((tab) => (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => setActiveTab(tab)}
                   className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                     activeTab === tab
-                      ? "border-blue-500 text-blue-600"
-                      : "border-transparent text-slate-500 hover:text-slate-700"
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-slate-500 hover:text-slate-700'
                   }`}
                 >
-                  {tab === "body" ? "Body" : tab === "headers" ? "Headers" : "Query Params"}
+                  {tab === 'body' ? 'Body' : tab === 'headers' ? 'Headers' : 'Query Params'}
                 </button>
               ))}
             </div>
@@ -110,10 +112,16 @@ export function WebhookTriggerModal({
                 JSON
               </div>
               <textarea
-                value={activeTab === "body" ? bodyJson : activeTab === "headers" ? headersJson : queryJson}
+                value={
+                  activeTab === 'body'
+                    ? bodyJson
+                    : activeTab === 'headers'
+                      ? headersJson
+                      : queryJson
+                }
                 onChange={(e) => {
-                  if (activeTab === "body") setBodyJson(e.target.value);
-                  else if (activeTab === "headers") setHeadersJson(e.target.value);
+                  if (activeTab === 'body') setBodyJson(e.target.value);
+                  else if (activeTab === 'headers') setHeadersJson(e.target.value);
                   else setQueryJson(e.target.value);
                 }}
                 disabled={isLoading}
@@ -131,8 +139,8 @@ export function WebhookTriggerModal({
 
             {/* Help text */}
             <p className="text-xs text-slate-400">
-              Enter the JSON payload that would be received by the webhook.
-              This simulates an incoming HTTP request.
+              Enter the JSON payload that would be received by the webhook. This simulates an
+              incoming HTTP request.
             </p>
 
             {/* Submit Button */}

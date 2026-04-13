@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
-import { open } from "@tauri-apps/api/dialog";
-import { SkuldLogo } from "./ui/SkuldLogo";
-import { Button } from "./ui/Button";
-import { useProjectStore } from "../store/projectStore";
-import { useNavigationStore } from "../store/navigationStore";
-import { RecentProject } from "../types/project";
+import { useEffect, useState } from 'react';
+import { open } from '@tauri-apps/api/dialog';
+import { SkuldLogo } from './ui/SkuldLogo';
+import { Button } from './ui/Button';
+import { useProjectStore } from '../store/projectStore';
+import { useNavigationStore } from '../store/navigationStore';
+import { RecentProject } from '../types/project';
 import {
   FolderPlus,
   FolderOpen,
@@ -16,7 +16,7 @@ import {
   Bot,
   Zap,
   AlertCircle,
-} from "lucide-react";
+} from 'lucide-react';
 
 interface CreateProjectDialogProps {
   isOpen: boolean;
@@ -24,9 +24,9 @@ interface CreateProjectDialogProps {
 }
 
 function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProps) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [path, setPath] = useState("");
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [path, setPath] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const { createProject } = useProjectStore();
   const { setView } = useNavigationStore();
@@ -35,10 +35,10 @@ function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProps) {
     const selected = await open({
       directory: true,
       multiple: false,
-      title: "Select folder for project",
+      title: 'Select folder for project',
     });
 
-    if (selected && typeof selected === "string") {
+    if (selected && typeof selected === 'string') {
       setPath(selected);
     }
   };
@@ -48,9 +48,9 @@ function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProps) {
 
     setIsCreating(true);
     try {
-      const fullPath = `${path}/${name.toLowerCase().replace(/\s+/g, "-")}`;
+      const fullPath = `${path}/${name.toLowerCase().replace(/\s+/g, '-')}`;
       await createProject(fullPath, name, description || undefined);
-      setView("project");
+      setView('project');
       onClose();
     } finally {
       setIsCreating(false);
@@ -62,15 +62,11 @@ function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProps) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6">
-        <h2 className="text-xl font-semibold text-slate-800 mb-4">
-          Create New Project
-        </h2>
+        <h2 className="text-xl font-semibold text-slate-800 mb-4">Create New Project</h2>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Project Name
-            </label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Project Name</label>
             <input
               type="text"
               value={name}
@@ -94,9 +90,7 @@ function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Location
-            </label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Location</label>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -113,9 +107,9 @@ function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProps) {
 
           {path && name && (
             <div className="text-sm text-slate-500">
-              Project will be created at:{" "}
+              Project will be created at:{' '}
               <span className="font-mono text-slate-700">
-                {path}/{name.toLowerCase().replace(/\s+/g, "-")}
+                {path}/{name.toLowerCase().replace(/\s+/g, '-')}
               </span>
             </div>
           )}
@@ -125,11 +119,8 @@ function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProps) {
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            onClick={handleCreate}
-            disabled={!name.trim() || !path || isCreating}
-          >
-            {isCreating ? "Creating..." : "Create Project"}
+          <Button onClick={handleCreate} disabled={!name.trim() || !path || isCreating}>
+            {isCreating ? 'Creating...' : 'Create Project'}
           </Button>
         </div>
       </div>
@@ -149,48 +140,45 @@ export default function WelcomeScreen() {
   }, [loadRecentProjects]);
 
   useEffect(() => {
-    const dismissed = localStorage.getItem("skuldbot.permissions_notice_dismissed");
-    if (dismissed === "true") {
+    const dismissed = localStorage.getItem('skuldbot.permissions_notice_dismissed');
+    if (dismissed === 'true') {
       setShowPermissionsNotice(false);
     }
   }, []);
 
   const dismissPermissionsNotice = () => {
-    localStorage.setItem("skuldbot.permissions_notice_dismissed", "true");
+    localStorage.setItem('skuldbot.permissions_notice_dismissed', 'true');
     setShowPermissionsNotice(false);
   };
 
   const handleOpenProject = async () => {
     const selected = await open({
       filters: [
-        { name: "SkuldBot Project", extensions: ["skuld"] },
-        { name: "All Files", extensions: ["*"] },
+        { name: 'SkuldBot Project', extensions: ['skuld'] },
+        { name: 'All Files', extensions: ['*'] },
       ],
       multiple: false,
-      title: "Open SkuldBot Project",
+      title: 'Open SkuldBot Project',
     });
 
-    if (selected && typeof selected === "string") {
+    if (selected && typeof selected === 'string') {
       await openProject(selected);
-      setView("project");
+      setView('project');
     }
   };
 
   const handleOpenRecent = async (project: RecentProject) => {
     try {
-      console.log("Opening recent project:", project.path);
+      console.log('Opening recent project:', project.path);
       await openProject(project.path);
-      console.log("Project opened successfully, switching view");
-      setView("project");
+      console.log('Project opened successfully, switching view');
+      setView('project');
     } catch (error) {
-      console.error("Failed to open recent project:", error);
+      console.error('Failed to open recent project:', error);
     }
   };
 
-  const handleRemoveRecent = async (
-    e: React.MouseEvent,
-    project: RecentProject
-  ) => {
+  const handleRemoveRecent = async (e: React.MouseEvent, project: RecentProject) => {
     e.stopPropagation();
     await removeRecentProject(project.path);
   };
@@ -198,12 +186,10 @@ export default function WelcomeScreen() {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffDays = Math.floor(
-      (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
-    );
+    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) return "Today";
-    if (diffDays === 1) return "Yesterday";
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays} days ago`;
     return date.toLocaleDateString();
   };
@@ -215,7 +201,9 @@ export default function WelcomeScreen() {
         <div className="flex items-center gap-4 mb-8">
           <SkuldLogo size={48} className="text-white" />
           <div>
-            <h1 className="text-2xl font-bold text-white leading-tight">SkuldBot<sup className="text-[10px] font-normal align-super ml-0.5">TM</sup></h1>
+            <h1 className="text-2xl font-bold text-white leading-tight">
+              SkuldBot<sup className="text-[10px] font-normal align-super ml-0.5">TM</sup>
+            </h1>
             <p className="text-primary-200 text-xs -mt-0.5">Automation Designer</p>
           </div>
         </div>
@@ -227,20 +215,29 @@ export default function WelcomeScreen() {
             Intelligent Automation
           </h2>
           <p className="text-primary-200 text-lg leading-relaxed">
-            Build powerful RPA + AI automations for regulated industries.
-            HIPAA-compliant data processing, AI-powered data quality,
-            and enterprise-grade security built-in.
+            Build powerful RPA + AI automations for regulated industries. HIPAA-compliant data
+            processing, AI-powered data quality, and enterprise-grade security built-in.
           </p>
           <div className="flex flex-wrap gap-2 mt-4">
             <span className="px-2 py-1 bg-white/10 rounded text-xs text-primary-100">RPA</span>
             <span className="px-2 py-1 bg-white/10 rounded text-xs text-primary-100">AI</span>
-            <span className="px-2 py-1 bg-white/10 rounded text-xs text-primary-100">Data Quality</span>
-            <span className="px-2 py-1 bg-white/10 rounded text-xs text-primary-100">Compliance</span>
+            <span className="px-2 py-1 bg-white/10 rounded text-xs text-primary-100">
+              Data Quality
+            </span>
+            <span className="px-2 py-1 bg-white/10 rounded text-xs text-primary-100">
+              Compliance
+            </span>
           </div>
           <div className="flex flex-wrap gap-2 mt-2">
-            <span className="px-2 py-1 bg-emerald-500/20 rounded text-xs text-emerald-200">HIPAA</span>
-            <span className="px-2 py-1 bg-emerald-500/20 rounded text-xs text-emerald-200">SOC2</span>
-            <span className="px-2 py-1 bg-emerald-500/20 rounded text-xs text-emerald-200">PCI-DSS</span>
+            <span className="px-2 py-1 bg-emerald-500/20 rounded text-xs text-emerald-200">
+              HIPAA
+            </span>
+            <span className="px-2 py-1 bg-emerald-500/20 rounded text-xs text-emerald-200">
+              SOC2
+            </span>
+            <span className="px-2 py-1 bg-emerald-500/20 rounded text-xs text-emerald-200">
+              PCI-DSS
+            </span>
           </div>
         </div>
 
@@ -256,12 +253,8 @@ export default function WelcomeScreen() {
         </div>
 
         <div className="mt-8 pt-4 border-t border-primary-500/30">
-          <p className="text-primary-300 text-sm">
-            v0.1.0 - All Rights Reserved
-          </p>
-          <p className="text-primary-400 text-xs mt-1">
-            Skuld, LLC - An Asgard Insight company
-          </p>
+          <p className="text-primary-300 text-sm">v0.1.0 - All Rights Reserved</p>
+          <p className="text-primary-400 text-xs mt-1">Skuld, LLC - An Asgard Insight company</p>
         </div>
       </div>
 
@@ -277,9 +270,9 @@ export default function WelcomeScreen() {
                 <div className="flex-1">
                   <h4 className="font-medium text-amber-900">Permisos de archivos</h4>
                   <p className="text-sm text-amber-800 mt-1">
-                    En macOS, Skuldbot Studio necesita acceso a carpetas para abrir proyectos y bots.
-                    Si ves errores de permiso, habilita Full Disk Access para la app o abre el proyecto
-                    desde el selector de archivos.
+                    En macOS, Skuldbot Studio necesita acceso a carpetas para abrir proyectos y
+                    bots. Si ves errores de permiso, habilita Full Disk Access para la app o abre el
+                    proyecto desde el selector de archivos.
                   </p>
                 </div>
                 <Button variant="ghost" size="sm" onClick={dismissPermissionsNotice}>
@@ -295,7 +288,7 @@ export default function WelcomeScreen() {
           {/* Quick Start - Highlighted */}
           <div className="mb-6">
             <button
-              onClick={() => setView("quickstart")}
+              onClick={() => setView('quickstart')}
               className="w-full flex items-center gap-4 p-5 bg-gradient-to-r from-primary-500 to-primary-600 rounded-xl shadow-lg hover:shadow-xl hover:from-primary-600 hover:to-primary-700 transition-all group text-left"
             >
               <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
@@ -313,9 +306,7 @@ export default function WelcomeScreen() {
 
           {/* Project Actions */}
           <div className="mb-8">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">
-              Projects
-            </h3>
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">Projects</h3>
             <div className="grid grid-cols-2 gap-4">
               <button
                 onClick={() => setShowCreateDialog(true)}
@@ -326,9 +317,7 @@ export default function WelcomeScreen() {
                 </div>
                 <div>
                   <h4 className="font-medium text-slate-800">New Project</h4>
-                  <p className="text-sm text-slate-500">
-                    Create a multi-bot project
-                  </p>
+                  <p className="text-sm text-slate-500">Create a multi-bot project</p>
                 </div>
               </button>
 
@@ -341,9 +330,7 @@ export default function WelcomeScreen() {
                 </div>
                 <div>
                   <h4 className="font-medium text-slate-800">Open Project</h4>
-                  <p className="text-sm text-slate-500">
-                    Open an existing project
-                  </p>
+                  <p className="text-sm text-slate-500">Open an existing project</p>
                 </div>
               </button>
             </div>
@@ -353,9 +340,7 @@ export default function WelcomeScreen() {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <Clock className="w-4 h-4 text-slate-400" />
-              <h3 className="text-lg font-semibold text-slate-800">
-                Recent Projects
-              </h3>
+              <h3 className="text-lg font-semibold text-slate-800">Recent Projects</h3>
             </div>
 
             {recentProjects.length === 0 ? (
@@ -380,12 +365,8 @@ export default function WelcomeScreen() {
                       <Bot className="w-5 h-5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-slate-800 truncate">
-                        {project.name}
-                      </h4>
-                      <p className="text-sm text-slate-500 truncate">
-                        {project.path}
-                      </p>
+                      <h4 className="font-medium text-slate-800 truncate">{project.name}</h4>
+                      <p className="text-sm text-slate-500 truncate">{project.path}</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-slate-400">
@@ -409,10 +390,7 @@ export default function WelcomeScreen() {
       </div>
 
       {/* Create Project Dialog */}
-      <CreateProjectDialog
-        isOpen={showCreateDialog}
-        onClose={() => setShowCreateDialog(false)}
-      />
+      <CreateProjectDialog isOpen={showCreateDialog} onClose={() => setShowCreateDialog(false)} />
     </div>
   );
 }

@@ -60,22 +60,20 @@ export const CurrentTenant = createParamDecorator(
  * }
  * ```
  */
-export const TenantId = createParamDecorator(
-  (_data: unknown, ctx: ExecutionContext): string => {
-    const request = ctx.switchToHttp().getRequest();
+export const TenantId = createParamDecorator((_data: unknown, ctx: ExecutionContext): string => {
+  const request = ctx.switchToHttp().getRequest();
 
-    // First check if tenant is loaded from license
-    if (request.tenant?.id) {
-      return request.tenant.id;
-    }
+  // First check if tenant is loaded from license
+  if (request.tenant?.id) {
+    return request.tenant.id;
+  }
 
-    // Fallback to user's tenantId
-    if (request.user?.tenantId) {
-      return request.user.tenantId;
-    }
+  // Fallback to user's tenantId
+  if (request.user?.tenantId) {
+    return request.user.tenantId;
+  }
 
-    // Return empty string as fallback to satisfy TypeScript
-    // Guards should prevent reaching this point
-    return '';
-  },
-);
+  // Return empty string as fallback to satisfy TypeScript
+  // Guards should prevent reaching this point
+  return '';
+});

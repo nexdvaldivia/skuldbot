@@ -1,5 +1,5 @@
-import { create } from "zustand";
-import { FlowNode, FlowEdge } from "../types/flow";
+import { create } from 'zustand';
+import { FlowNode, FlowEdge } from '../types/flow';
 
 interface HistorySnapshot {
   nodes: FlowNode[];
@@ -112,9 +112,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     const nodeIds = new Set(nodes.map((n) => n.id));
 
     // Only copy edges that connect selected nodes
-    const relevantEdges = edges.filter(
-      (e) => nodeIds.has(e.source) && nodeIds.has(e.target)
-    );
+    const relevantEdges = edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
 
     set({
       clipboard: {
@@ -134,7 +132,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
 // Helper to generate new IDs for pasted nodes
 export function generatePasteIds(
   clipboard: ClipboardData,
-  offset: { x: number; y: number } = { x: 50, y: 50 }
+  offset: { x: number; y: number } = { x: 50, y: 50 },
 ): { nodes: FlowNode[]; edges: FlowEdge[] } {
   const idMap = new Map<string, string>();
   const timestamp = Date.now();
@@ -176,7 +174,7 @@ export function generatePasteIds(
 export function duplicateNodes(
   selectedNodes: FlowNode[],
   allEdges: FlowEdge[],
-  offset: { x: number; y: number } = { x: 50, y: 50 }
+  offset: { x: number; y: number } = { x: 50, y: 50 },
 ): { nodes: FlowNode[]; edges: FlowEdge[] } {
   const idMap = new Map<string, string>();
   const timestamp = Date.now();
@@ -199,9 +197,7 @@ export function duplicateNodes(
   });
 
   // Only copy edges between selected nodes
-  const relevantEdges = allEdges.filter(
-    (e) => nodeIds.has(e.source) && nodeIds.has(e.target)
-  );
+  const relevantEdges = allEdges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
 
   // Update edge references
   const newEdges = relevantEdges.map((edge) => {

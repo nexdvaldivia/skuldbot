@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  UseGuards,
-  Request,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { ComplianceServer } from './servers/compliance.server';
 import { WorkflowServer } from './servers/workflow.server';
 import { BYOMService } from './services/byom.service';
@@ -14,7 +6,7 @@ import { ToolCallDto, MCPCapabilitiesDto } from './dto/tool-call.dto';
 
 /**
  * MCP Controller for Orchestrator
- * 
+ *
  * Exposes MCP servers via REST API
  * Endpoints:
  * - GET  /api/v1/mcp/tools
@@ -171,4 +163,3 @@ export class MCPController {
     };
   }
 }
-

@@ -22,7 +22,10 @@ import {
   Loader2,
 } from 'lucide-react';
 
-const executionModeConfig: Record<string, { icon: React.ElementType; label: string; bgColor: string; textColor: string }> = {
+const executionModeConfig: Record<
+  string,
+  { icon: React.ElementType; label: string; bgColor: string; textColor: string }
+> = {
   cloud: { icon: Cloud, label: 'Cloud', bgColor: 'bg-blue-50', textColor: 'text-blue-700' },
   runner: { icon: Server, label: 'Runner', bgColor: 'bg-violet-50', textColor: 'text-violet-700' },
   hybrid: { icon: Zap, label: 'Hybrid', bgColor: 'bg-amber-50', textColor: 'text-amber-700' },
@@ -44,7 +47,9 @@ function getSubmissionDate(submission: MarketplaceBot): string {
 function getPricingLabel(submission: MarketplaceBot): string {
   const pricingModel = submission.pricing?.model || submission.pricingModel;
   if (pricingModel === 'subscription') {
-    return submission.pricing?.monthlyBase ? `$${submission.pricing.monthlyBase}/mo` : 'Subscription';
+    return submission.pricing?.monthlyBase
+      ? `$${submission.pricing.monthlyBase}/mo`
+      : 'Subscription';
   }
   if (pricingModel === 'usage') {
     return 'Pay per use';
@@ -74,7 +79,8 @@ export default function SubmissionsPage() {
       toast({
         variant: 'error',
         title: 'Failed to load submissions',
-        description: error instanceof Error ? error.message : 'Could not fetch marketplace submissions.',
+        description:
+          error instanceof Error ? error.message : 'Could not fetch marketplace submissions.',
       });
     } finally {
       setLoading(false);
@@ -189,7 +195,8 @@ export default function SubmissionsPage() {
       ) : (
         <div className="space-y-4">
           {submissions.map((submission) => {
-            const execMode = executionModeConfig[submission.executionMode] || executionModeConfig.cloud;
+            const execMode =
+              executionModeConfig[submission.executionMode] || executionModeConfig.cloud;
             const ExecIcon = execMode.icon;
             const category = categoryConfig[submission.category] || categoryConfig.custom;
             const isExpanded = expandedSubmission === submission.id;
@@ -198,7 +205,10 @@ export default function SubmissionsPage() {
             const checklistProgress = getChecklistProgress(submission.id);
 
             return (
-              <div key={submission.id} className="bg-white rounded-xl border border-zinc-200/80 overflow-hidden">
+              <div
+                key={submission.id}
+                className="bg-white rounded-xl border border-zinc-200/80 overflow-hidden"
+              >
                 <div className="px-5 py-4 border-b border-zinc-100 bg-zinc-50/50">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-4">
@@ -208,13 +218,19 @@ export default function SubmissionsPage() {
                       <div>
                         <div className="flex items-center gap-3 flex-wrap">
                           <h3 className="font-semibold text-zinc-900">{submission.name}</h3>
-                          <span className="text-sm text-zinc-400">v{submission.currentVersion}</span>
+                          <span className="text-sm text-zinc-400">
+                            v{submission.currentVersion}
+                          </span>
                         </div>
                         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${category.bgColor} ${category.textColor}`}>
+                          <span
+                            className={`px-2 py-0.5 rounded text-xs font-medium ${category.bgColor} ${category.textColor}`}
+                          >
                             {submission.category}
                           </span>
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${execMode.bgColor} ${execMode.textColor}`}>
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${execMode.bgColor} ${execMode.textColor}`}
+                          >
                             <ExecIcon className="h-3 w-3" />
                             {execMode.label}
                           </span>
@@ -233,7 +249,11 @@ export default function SubmissionsPage() {
                     >
                       <Eye className="h-4 w-4" />
                       {isExpanded ? 'Collapse' : 'Review'}
-                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      {isExpanded ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -244,7 +264,9 @@ export default function SubmissionsPage() {
                       <Building2 className="h-5 w-5 text-zinc-400 mt-0.5" />
                       <div>
                         <p className="text-xs text-zinc-500 uppercase tracking-wide">Publisher</p>
-                        <p className="font-medium text-zinc-900 text-sm">{submission.publisher.name}</p>
+                        <p className="font-medium text-zinc-900 text-sm">
+                          {submission.publisher.name}
+                        </p>
                         {submission.publisher.email && (
                           <p className="text-xs text-zinc-500">{submission.publisher.email}</p>
                         )}
@@ -272,9 +294,13 @@ export default function SubmissionsPage() {
                       <DollarSign className="h-5 w-5 text-zinc-400 mt-0.5" />
                       <div>
                         <p className="text-xs text-zinc-500 uppercase tracking-wide">Pricing</p>
-                        <p className="font-medium text-zinc-900 text-sm">{getPricingLabel(submission)}</p>
+                        <p className="font-medium text-zinc-900 text-sm">
+                          {getPricingLabel(submission)}
+                        </p>
                         {submission.pricing?.minimumMonthly && (
-                          <p className="text-xs text-zinc-500">Min: ${submission.pricing.minimumMonthly}/mo</p>
+                          <p className="text-xs text-zinc-500">
+                            Min: ${submission.pricing.minimumMonthly}/mo
+                          </p>
                         )}
                       </div>
                     </div>
@@ -285,7 +311,10 @@ export default function SubmissionsPage() {
                   {submission.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mb-4">
                       {submission.tags.map((tag) => (
-                        <span key={tag} className="px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 text-xs">
+                        <span
+                          key={tag}
+                          className="px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 text-xs"
+                        >
                           {tag}
                         </span>
                       ))}
@@ -301,18 +330,25 @@ export default function SubmissionsPage() {
                             <p className="text-xs text-zinc-500 mb-2">Connections Required</p>
                             <div className="flex flex-wrap gap-1.5">
                               {(submission.requirements?.connections || []).map((conn) => (
-                                <span key={conn} className="px-2 py-0.5 rounded border border-zinc-200 bg-white text-zinc-700 text-xs">
+                                <span
+                                  key={conn}
+                                  className="px-2 py-0.5 rounded border border-zinc-200 bg-white text-zinc-700 text-xs"
+                                >
                                   {conn}
                                 </span>
                               ))}
                               {(submission.requirements?.connections || []).length === 0 && (
-                                <span className="text-xs text-zinc-500">No declared connections</span>
+                                <span className="text-xs text-zinc-500">
+                                  No declared connections
+                                </span>
                               )}
                             </div>
                           </div>
                           <div className="p-3 rounded-lg bg-zinc-50">
                             <p className="text-xs text-zinc-500 mb-2">Min Engine Version</p>
-                            <p className="font-medium text-zinc-900">{submission.requirements?.minEngineVersion || 'Not specified'}</p>
+                            <p className="font-medium text-zinc-900">
+                              {submission.requirements?.minEngineVersion || 'Not specified'}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -320,7 +356,9 @@ export default function SubmissionsPage() {
                       <div>
                         <div className="flex items-center justify-between mb-3">
                           <h4 className="font-medium text-zinc-900 text-sm">Review Checklist</h4>
-                          <span className="text-xs text-zinc-500">{checklistProgress}/5 completed</span>
+                          <span className="text-xs text-zinc-500">
+                            {checklistProgress}/5 completed
+                          </span>
                         </div>
                         <div className="space-y-2">
                           {[
@@ -354,7 +392,11 @@ export default function SubmissionsPage() {
                       disabled={pendingActionId === submission.id}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-zinc-200 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors disabled:opacity-60"
                     >
-                      {pendingActionId === submission.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                      {pendingActionId === submission.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <XCircle className="h-4 w-4" />
+                      )}
                       Reject
                     </button>
                     <button
@@ -362,7 +404,11 @@ export default function SubmissionsPage() {
                       disabled={pendingActionId === submission.id}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-sm font-medium text-white hover:bg-indigo-700 transition-colors disabled:opacity-60"
                     >
-                      {pendingActionId === submission.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                      {pendingActionId === submission.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4" />
+                      )}
                       Approve
                     </button>
                   </div>

@@ -1,22 +1,16 @@
-import { useState, useCallback } from "react";
-import { ProtectionRule, ProtectionMethodType } from "../types/flow";
-import { Icon } from "./ui/Icon";
-import { Button } from "./ui/Button";
-import { Input } from "./ui/Input";
-import { Label } from "./ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
+import { useState, useCallback } from 'react';
+import { ProtectionRule, ProtectionMethodType } from '../types/flow';
+import { Icon } from './ui/Icon';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 interface ProtectionBuilderProps {
   value: ProtectionRule[];
   onChange: (rules: ProtectionRule[]) => void;
   availableFields?: string[]; // Fields from predecessor nodes
-  dataType: "pii" | "phi"; // PII or PHI protection
+  dataType: 'pii' | 'phi'; // PII or PHI protection
 }
 
 // Available protection methods with their metadata
@@ -25,87 +19,86 @@ const PROTECTION_METHODS: {
   label: string;
   icon: string;
   description: string;
-  params?: { name: string; label: string; type: "text" | "number" | "boolean" | "select"; options?: { value: string; label: string }[] }[];
+  params?: {
+    name: string;
+    label: string;
+    type: 'text' | 'number' | 'boolean' | 'select';
+    options?: { value: string; label: string }[];
+  }[];
 }[] = [
   {
-    value: "skip",
-    label: "Skip (Pass Through)",
-    icon: "ArrowRight",
-    description: "Include field without transformation",
-    params: []
+    value: 'skip',
+    label: 'Skip (Pass Through)',
+    icon: 'ArrowRight',
+    description: 'Include field without transformation',
+    params: [],
   },
   {
-    value: "mask",
-    label: "Mask",
-    icon: "EyeOff",
-    description: "Replace with *** characters",
+    value: 'mask',
+    label: 'Mask',
+    icon: 'EyeOff',
+    description: 'Replace with *** characters',
     params: [
-      { name: "mask_char", label: "Mask Character", type: "text" },
-      { name: "preserve_last", label: "Show Last N Chars", type: "number" },
-    ]
+      { name: 'mask_char', label: 'Mask Character', type: 'text' },
+      { name: 'preserve_last', label: 'Show Last N Chars', type: 'number' },
+    ],
   },
   {
-    value: "redact",
-    label: "Redact",
-    icon: "Eraser",
-    description: "Replace with [REDACTED]",
+    value: 'redact',
+    label: 'Redact',
+    icon: 'Eraser',
+    description: 'Replace with [REDACTED]',
+    params: [{ name: 'replacement', label: 'Replacement Text', type: 'text' }],
+  },
+  {
+    value: 'pseudonymize',
+    label: 'Pseudonymize',
+    icon: 'UserX',
+    description: 'Replace with consistent fake values',
     params: [
-      { name: "replacement", label: "Replacement Text", type: "text" },
-    ]
+      { name: 'consistent', label: 'Keep Consistent', type: 'boolean' },
+      { name: 'prefix', label: 'Prefix', type: 'text' },
+    ],
   },
   {
-    value: "pseudonymize",
-    label: "Pseudonymize",
-    icon: "UserX",
-    description: "Replace with consistent fake values",
-    params: [
-      { name: "consistent", label: "Keep Consistent", type: "boolean" },
-      { name: "prefix", label: "Prefix", type: "text" },
-    ]
-  },
-  {
-    value: "hash",
-    label: "Hash",
-    icon: "Hash",
-    description: "Apply cryptographic hash",
+    value: 'hash',
+    label: 'Hash',
+    icon: 'Hash',
+    description: 'Apply cryptographic hash',
     params: [
       {
-        name: "algorithm",
-        label: "Algorithm",
-        type: "select",
+        name: 'algorithm',
+        label: 'Algorithm',
+        type: 'select',
         options: [
-          { value: "sha256", label: "SHA-256" },
-          { value: "sha512", label: "SHA-512" },
-          { value: "md5", label: "MD5" },
-        ]
+          { value: 'sha256', label: 'SHA-256' },
+          { value: 'sha512', label: 'SHA-512' },
+          { value: 'md5', label: 'MD5' },
+        ],
       },
-      { name: "truncate", label: "Truncate Length", type: "number" },
-    ]
+      { name: 'truncate', label: 'Truncate Length', type: 'number' },
+    ],
   },
   {
-    value: "generalize",
-    label: "Generalize",
-    icon: "Minimize2",
-    description: "Reduce precision (age -> range)",
-    params: []
+    value: 'generalize',
+    label: 'Generalize',
+    icon: 'Minimize2',
+    description: 'Reduce precision (age -> range)',
+    params: [],
   },
   {
-    value: "encrypt",
-    label: "Encrypt",
-    icon: "Lock",
-    description: "Reversible encryption",
-    params: [
-      { name: "key_var", label: "Encryption Key Variable", type: "text" },
-    ]
+    value: 'encrypt',
+    label: 'Encrypt',
+    icon: 'Lock',
+    description: 'Reversible encryption',
+    params: [{ name: 'key_var', label: 'Encryption Key Variable', type: 'text' }],
   },
   {
-    value: "tokenize",
-    label: "Tokenize",
-    icon: "Key",
-    description: "Replace with tokens (reversible)",
-    params: [
-      { name: "token_prefix", label: "Token Prefix", type: "text" },
-    ]
+    value: 'tokenize',
+    label: 'Tokenize',
+    icon: 'Key',
+    description: 'Replace with tokens (reversible)',
+    params: [{ name: 'token_prefix', label: 'Token Prefix', type: 'text' }],
   },
 ];
 
@@ -119,7 +112,12 @@ const stopPropagation = (e: React.KeyboardEvent) => {
   e.stopPropagation();
 };
 
-export function ProtectionBuilder({ value, onChange, availableFields = [], dataType }: ProtectionBuilderProps) {
+export function ProtectionBuilder({
+  value,
+  onChange,
+  availableFields = [],
+  dataType,
+}: ProtectionBuilderProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
   // Use only fields from predecessor nodes - no suggestions mixed in
@@ -128,8 +126,8 @@ export function ProtectionBuilder({ value, onChange, availableFields = [], dataT
   const addRule = useCallback(() => {
     const newRule: ProtectionRule = {
       id: generateRuleId(),
-      field: availableFields[0] || "",
-      method: "mask",
+      field: availableFields[0] || '',
+      method: 'mask',
     };
     onChange([...value, newRule]);
     setExpandedIndex(value.length);
@@ -143,7 +141,7 @@ export function ProtectionBuilder({ value, onChange, availableFields = [], dataT
       });
       onChange(updatedRules);
     },
-    [value, onChange]
+    [value, onChange],
   );
 
   const deleteRule = useCallback(
@@ -155,28 +153,28 @@ export function ProtectionBuilder({ value, onChange, availableFields = [], dataT
         setExpandedIndex(expandedIndex - 1);
       }
     },
-    [value, onChange, expandedIndex]
+    [value, onChange, expandedIndex],
   );
 
   const moveRule = useCallback(
-    (index: number, direction: "up" | "down") => {
+    (index: number, direction: 'up' | 'down') => {
       if (
-        (direction === "up" && index === 0) ||
-        (direction === "down" && index === value.length - 1)
+        (direction === 'up' && index === 0) ||
+        (direction === 'down' && index === value.length - 1)
       ) {
         return;
       }
 
-      const newIndex = direction === "up" ? index - 1 : index + 1;
+      const newIndex = direction === 'up' ? index - 1 : index + 1;
       const newRules = [...value];
       [newRules[index], newRules[newIndex]] = [newRules[newIndex], newRules[index]];
       onChange(newRules);
     },
-    [value, onChange]
+    [value, onChange],
   );
 
-  const typeLabel = dataType === "phi" ? "PHI" : "PII";
-  const typeColor = dataType === "phi" ? "rose" : "amber";
+  const typeLabel = dataType === 'phi' ? 'PHI' : 'PII';
+  const typeColor = dataType === 'phi' ? 'rose' : 'amber';
 
   return (
     <div className="space-y-3">
@@ -185,13 +183,7 @@ export function ProtectionBuilder({ value, onChange, availableFields = [], dataT
         <Label className="text-sm font-medium text-slate-700">
           {typeLabel} Protection Rules ({value.length})
         </Label>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={addRule}
-          className="h-7 text-xs"
-        >
+        <Button type="button" variant="outline" size="sm" onClick={addRule} className="h-7 text-xs">
           <Icon name="Plus" size={14} className="mr-1" />
           Add Field
         </Button>
@@ -199,7 +191,9 @@ export function ProtectionBuilder({ value, onChange, availableFields = [], dataT
 
       {/* Rules List */}
       {value.length === 0 ? (
-        <div className={`flex flex-col items-center justify-center py-8 px-4 border border-dashed border-${typeColor}-200 rounded-lg bg-${typeColor}-50/50`}>
+        <div
+          className={`flex flex-col items-center justify-center py-8 px-4 border border-dashed border-${typeColor}-200 rounded-lg bg-${typeColor}-50/50`}
+        >
           <Icon name="ShieldCheck" size={24} className={`text-${typeColor}-400 mb-2`} />
           <p className="text-sm text-slate-500 text-center">
             No protection rules yet. Click "Add Field" to configure {typeLabel} protection.
@@ -216,9 +210,7 @@ export function ProtectionBuilder({ value, onChange, availableFields = [], dataT
               isExpanded={expandedIndex === index}
               availableFields={availableFields}
               typeColor={typeColor}
-              onToggle={() =>
-                setExpandedIndex(expandedIndex === index ? null : index)
-              }
+              onToggle={() => setExpandedIndex(expandedIndex === index ? null : index)}
               onUpdate={(updates) => updateRule(rule.id, updates)}
               onDelete={() => deleteRule(index)}
               onMove={(dir) => moveRule(index, dir)}
@@ -240,7 +232,7 @@ interface RuleItemProps {
   onToggle: () => void;
   onUpdate: (updates: Partial<ProtectionRule>) => void;
   onDelete: () => void;
-  onMove: (direction: "up" | "down") => void;
+  onMove: (direction: 'up' | 'down') => void;
 }
 
 function RuleItem({
@@ -285,14 +277,16 @@ function RuleItem({
         </div>
 
         {/* Protection Icon */}
-        <div className={`w-6 h-6 rounded bg-${typeColor}-50 flex items-center justify-center text-${typeColor}-500`}>
-          <Icon name={protectionMethod?.icon || "ShieldCheck"} size={14} />
+        <div
+          className={`w-6 h-6 rounded bg-${typeColor}-50 flex items-center justify-center text-${typeColor}-500`}
+        >
+          <Icon name={protectionMethod?.icon || 'ShieldCheck'} size={14} />
         </div>
 
         {/* Rule Summary */}
         <div className="flex-1 min-w-0">
           <span className="text-sm font-medium text-slate-700 truncate block">
-            {rule.field || "(no field)"}
+            {rule.field || '(no field)'}
             {rule.outputName && rule.outputName !== rule.field && (
               <span className="text-emerald-500 mx-1">→ {rule.outputName}</span>
             )}
@@ -300,9 +294,7 @@ function RuleItem({
             <span className="text-slate-500">{protectionMethod?.label || rule.method}</span>
           </span>
           {protectionMethod && (
-            <span className="text-xs text-slate-400">
-              {protectionMethod.description}
-            </span>
+            <span className="text-xs text-slate-400">{protectionMethod.description}</span>
           )}
         </div>
 
@@ -310,7 +302,7 @@ function RuleItem({
         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
-            onClick={() => onMove("up")}
+            onClick={() => onMove('up')}
             disabled={index === 0}
             className="p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
           >
@@ -318,7 +310,7 @@ function RuleItem({
           </button>
           <button
             type="button"
-            onClick={() => onMove("down")}
+            onClick={() => onMove('down')}
             disabled={index === total - 1}
             className="p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
           >
@@ -332,7 +324,7 @@ function RuleItem({
             <Icon name="Trash2" size={14} />
           </button>
           <Icon
-            name={isExpanded ? "ChevronUp" : "ChevronDown"}
+            name={isExpanded ? 'ChevronUp' : 'ChevronDown'}
             size={16}
             className="text-slate-400 ml-1"
           />
@@ -347,10 +339,7 @@ function RuleItem({
             <div>
               <Label className="text-xs text-slate-500">Field to Protect</Label>
               {availableFields.length > 0 ? (
-                <Select
-                  value={rule.field}
-                  onValueChange={(val) => onUpdate({ field: val })}
-                >
+                <Select value={rule.field} onValueChange={(val) => onUpdate({ field: val })}>
                   <SelectTrigger className="h-8 text-sm mt-1">
                     <SelectValue placeholder="Select field..." />
                   </SelectTrigger>
@@ -378,10 +367,10 @@ function RuleItem({
             <div>
               <Label className="text-xs text-slate-500">Output Name (optional)</Label>
               <Input
-                value={rule.outputName || ""}
+                value={rule.outputName || ''}
                 onChange={(e) => onUpdate({ outputName: e.target.value || undefined })}
                 onKeyDown={stopPropagation}
-                placeholder={rule.field || "Same as input"}
+                placeholder={rule.field || 'Same as input'}
                 className="h-8 text-sm mt-1"
               />
             </div>
@@ -418,7 +407,7 @@ function RuleItem({
               {protectionMethod.params.map((param) => (
                 <div key={param.name}>
                   <Label className="text-xs text-slate-400">{param.label}</Label>
-                  {param.type === "select" && param.options ? (
+                  {param.type === 'select' && param.options ? (
                     <Select
                       value={rule.params?.[param.name] || param.options[0]?.value}
                       onValueChange={(val) => handleParamChange(param.name, val)}
@@ -434,7 +423,7 @@ function RuleItem({
                         ))}
                       </SelectContent>
                     </Select>
-                  ) : param.type === "boolean" ? (
+                  ) : param.type === 'boolean' ? (
                     <div className="flex items-center mt-1">
                       <input
                         type="checkbox"
@@ -444,32 +433,39 @@ function RuleItem({
                       />
                       <span className="ml-2 text-sm text-slate-600">{param.label}</span>
                     </div>
-                  ) : param.type === "number" ? (
+                  ) : param.type === 'number' ? (
                     <Input
                       type="number"
-                      value={rule.params?.[param.name] ?? ""}
+                      value={rule.params?.[param.name] ?? ''}
                       onChange={(e) =>
                         handleParamChange(
                           param.name,
-                          e.target.value ? parseInt(e.target.value) : undefined
+                          e.target.value ? parseInt(e.target.value) : undefined,
                         )
                       }
                       onKeyDown={stopPropagation}
                       className="h-8 text-sm mt-1"
-                      placeholder={param.name === "preserve_last" ? "4" : param.name === "truncate" ? "8" : ""}
+                      placeholder={
+                        param.name === 'preserve_last' ? '4' : param.name === 'truncate' ? '8' : ''
+                      }
                     />
                   ) : (
                     <Input
-                      value={rule.params?.[param.name] || ""}
+                      value={rule.params?.[param.name] || ''}
                       onChange={(e) => handleParamChange(param.name, e.target.value)}
                       onKeyDown={stopPropagation}
                       placeholder={
-                        param.name === "mask_char" ? "*" :
-                        param.name === "replacement" ? "[REDACTED]" :
-                        param.name === "prefix" ? "PSEUDO_" :
-                        param.name === "token_prefix" ? "TOK_" :
-                        param.name === "key_var" ? "${vault.encryption_key}" :
-                        ""
+                        param.name === 'mask_char'
+                          ? '*'
+                          : param.name === 'replacement'
+                            ? '[REDACTED]'
+                            : param.name === 'prefix'
+                              ? 'PSEUDO_'
+                              : param.name === 'token_prefix'
+                                ? 'TOK_'
+                                : param.name === 'key_var'
+                                  ? '${vault.encryption_key}'
+                                  : ''
                       }
                       className="h-8 text-sm mt-1"
                     />

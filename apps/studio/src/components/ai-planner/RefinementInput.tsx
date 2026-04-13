@@ -3,18 +3,13 @@
  * Chat-like input for refining the automation plan with AI
  */
 
-import { useState } from "react";
-import { Send, Loader2, MessageSquare } from "lucide-react";
-import { useAIPlannerStore } from "../../store/aiPlannerStore";
+import { useState } from 'react';
+import { Send, Loader2, MessageSquare } from 'lucide-react';
+import { useAIPlannerStore } from '../../store/aiPlannerStore';
 
 export function RefinementInput() {
-  const {
-    refinementInput,
-    setRefinementInput,
-    refineWithAI,
-    isGenerating,
-    conversation,
-  } = useAIPlannerStore();
+  const { refinementInput, setRefinementInput, refineWithAI, isGenerating, conversation } =
+    useAIPlannerStore();
 
   const [isFocused, setIsFocused] = useState(false);
 
@@ -25,7 +20,7 @@ export function RefinementInput() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
     }
@@ -33,10 +28,10 @@ export function RefinementInput() {
 
   // Suggested refinements
   const suggestions = [
-    "Add error handling with email notification",
-    "Add a logging step for each action",
-    "Make this run on a daily schedule",
-    "Add a condition to skip duplicates",
+    'Add error handling with email notification',
+    'Add a logging step for each action',
+    'Make this run on a daily schedule',
+    'Add a condition to skip duplicates',
   ];
 
   return (
@@ -53,13 +48,13 @@ export function RefinementInput() {
             <div
               key={msg.id}
               className={`p-2 rounded-lg text-xs ${
-                msg.role === "user"
-                  ? "bg-primary-50 text-primary-800 ml-4"
-                  : "bg-slate-100 text-slate-700 mr-4"
+                msg.role === 'user'
+                  ? 'bg-primary-50 text-primary-800 ml-4'
+                  : 'bg-slate-100 text-slate-700 mr-4'
               }`}
             >
               <span className="font-medium text-[10px] uppercase tracking-wide block mb-1 opacity-60">
-                {msg.role === "user" ? "You" : "AI"}
+                {msg.role === 'user' ? 'You' : 'AI'}
               </span>
               {msg.content}
             </div>
@@ -70,9 +65,7 @@ export function RefinementInput() {
       {/* Input */}
       <div
         className={`relative border rounded-xl transition-all ${
-          isFocused
-            ? "border-primary-300 ring-2 ring-primary-100"
-            : "border-slate-200"
+          isFocused ? 'border-primary-300 ring-2 ring-primary-100' : 'border-slate-200'
         }`}
       >
         <textarea
@@ -91,8 +84,8 @@ export function RefinementInput() {
           disabled={!refinementInput.trim() || isGenerating}
           className={`absolute right-2 bottom-2 p-2 rounded-lg transition-colors ${
             refinementInput.trim() && !isGenerating
-              ? "bg-primary-500 text-white hover:bg-primary-600"
-              : "bg-slate-100 text-slate-400"
+              ? 'bg-primary-500 text-white hover:bg-primary-600'
+              : 'bg-slate-100 text-slate-400'
           }`}
         >
           {isGenerating ? (

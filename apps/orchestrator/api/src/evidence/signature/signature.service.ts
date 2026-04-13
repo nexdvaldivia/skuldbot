@@ -72,10 +72,7 @@ export class SignatureService {
 
       // Generate certificate fingerprint (in production, use actual certificate)
       const publicKeyDer = this.publicKey.export({ type: 'spki', format: 'der' });
-      this.certificateFingerprint = crypto
-        .createHash('sha256')
-        .update(publicKeyDer)
-        .digest('hex');
+      this.certificateFingerprint = crypto.createHash('sha256').update(publicKeyDer).digest('hex');
 
       this.logger.log(`Signature service initialized with local ${this.algorithm} keys`);
     } else {

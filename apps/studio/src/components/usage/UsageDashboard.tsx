@@ -1,14 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
 import { useToastStore } from '../../store/toastStore';
-import {
-  Activity,
-  TrendingUp,
-  DollarSign,
-  AlertCircle,
-  Loader2,
-  Download,
-} from 'lucide-react';
+import { Activity, TrendingUp, DollarSign, AlertCircle, Loader2, Download } from 'lucide-react';
 
 interface UsageData {
   period: string;
@@ -69,9 +62,9 @@ export const UsageDashboard: React.FC = () => {
       await invoke('export_usage_report', {
         period: usage?.period,
       });
-      toast.success("Report Exported", "Usage report exported successfully");
+      toast.success('Report Exported', 'Usage report exported successfully');
     } catch (err: any) {
-      toast.error("Export Failed", err.message || "Failed to export usage report");
+      toast.error('Export Failed', err.message || 'Failed to export usage report');
     }
   };
 
@@ -138,9 +131,7 @@ export const UsageDashboard: React.FC = () => {
                 <p className="text-3xl font-bold text-gray-900 dark:text-white">
                   ${usage.totalCost.toFixed(2)}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {usage.period}
-                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{usage.period}</p>
               </div>
 
               {/* Projected Monthly */}
@@ -162,17 +153,13 @@ export const UsageDashboard: React.FC = () => {
               {/* Active Bots */}
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-gray-600 dark:text-gray-400 text-sm">
-                    Active Bots
-                  </span>
+                  <span className="text-gray-600 dark:text-gray-400 text-sm">Active Bots</span>
                   <Activity className="w-5 h-5 text-[#35D399]" />
                 </div>
                 <p className="text-3xl font-bold text-gray-900 dark:text-white">
                   {usage.botUsage.length}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  In current period
-                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">In current period</p>
               </div>
             </div>
 
@@ -191,10 +178,7 @@ export const UsageDashboard: React.FC = () => {
                   </p>
                 ) : (
                   usage.botUsage.map((bot) => (
-                    <div
-                      key={bot.botId}
-                      className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4"
-                    >
+                    <div key={bot.botId} className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
                       {/* Bot Header */}
                       <div className="flex items-center justify-between mb-3">
                         <div>
@@ -209,9 +193,7 @@ export const UsageDashboard: React.FC = () => {
                           <p className="text-2xl font-bold text-[#35D399]">
                             ${bot.costs.charged.toFixed(2)}
                           </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            Charged
-                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Charged</p>
                         </div>
                       </div>
 
@@ -229,9 +211,7 @@ export const UsageDashboard: React.FC = () => {
                         )}
                         {bot.metrics.apiCalls !== undefined && (
                           <div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              API Calls
-                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">API Calls</p>
                             <p className="text-lg font-semibold text-gray-900 dark:text-white">
                               {bot.metrics.apiCalls}
                             </p>
@@ -249,9 +229,7 @@ export const UsageDashboard: React.FC = () => {
                         )}
                         {bot.metrics.executionCount !== undefined && (
                           <div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              Executions
-                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Executions</p>
                             <p className="text-lg font-semibold text-gray-900 dark:text-white">
                               {bot.metrics.executionCount}
                             </p>
@@ -264,33 +242,26 @@ export const UsageDashboard: React.FC = () => {
                         <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
                           <div className="grid grid-cols-3 gap-4 text-sm">
                             <div>
-                              <p className="text-gray-600 dark:text-gray-400">
-                                Usage-based
-                              </p>
+                              <p className="text-gray-600 dark:text-gray-400">Usage-based</p>
                               <p className="font-semibold text-gray-900 dark:text-white">
                                 ${bot.costs.usageBased.toFixed(2)}
                               </p>
                             </div>
                             <div>
-                              <p className="text-gray-600 dark:text-gray-400">
-                                Call-based
-                              </p>
+                              <p className="text-gray-600 dark:text-gray-400">Call-based</p>
                               <p className="font-semibold text-gray-900 dark:text-white">
                                 ${bot.costs.callBased.toFixed(2)}
                               </p>
                             </div>
                             <div>
-                              <p className="text-gray-600 dark:text-gray-400">
-                                Monthly Min
-                              </p>
+                              <p className="text-gray-600 dark:text-gray-400">Monthly Min</p>
                               <p className="font-semibold text-gray-900 dark:text-white">
                                 ${bot.costs.monthlyMinimum.toFixed(2)}
                               </p>
                             </div>
                           </div>
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                            Charged: Maximum of usage-based, call-based, or
-                            monthly minimum
+                            Charged: Maximum of usage-based, call-based, or monthly minimum
                           </p>
                         </div>
                       )}

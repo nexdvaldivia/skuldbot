@@ -109,10 +109,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
  * Validates refresh tokens for token rotation.
  */
 @Injectable()
-export class RefreshTokenStrategy extends PassportStrategy(
-  Strategy,
-  'jwt-refresh',
-) {
+export class RefreshTokenStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
   constructor(
     private readonly configService: ConfigService,
     @InjectRepository(User)
@@ -122,14 +119,13 @@ export class RefreshTokenStrategy extends PassportStrategy(
       jwtFromRequest: ExtractJwt.fromExtractors([
         // Refresh token typically comes from body or cookie
         (request: any) => {
-          return (
-            request?.body?.refreshToken ||
-            request?.cookies?.refresh_token
-          );
+          return request?.body?.refreshToken || request?.cookies?.refresh_token;
         },
       ]),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_REFRESH_SECRET') || 'default-refresh-secret-change-in-production',
+      secretOrKey:
+        configService.get<string>('JWT_REFRESH_SECRET') ||
+        'default-refresh-secret-change-in-production',
       algorithms: ['HS256'],
       passReqToCallback: true, // Pass request to validate for token extraction
     } as any);
@@ -137,8 +133,7 @@ export class RefreshTokenStrategy extends PassportStrategy(
 
   async validate(request: any, payload: JwtPayload): Promise<any> {
     // Get the refresh token from the request
-    const refreshToken =
-      request?.body?.refreshToken || request?.cookies?.refresh_token;
+    const refreshToken = request?.body?.refreshToken || request?.cookies?.refresh_token;
 
     const user = await this.userRepository.findOne({
       where: { id: payload.sub },

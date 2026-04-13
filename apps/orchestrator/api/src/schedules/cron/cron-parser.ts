@@ -50,13 +50,7 @@ export class CronParser {
     // Handle ranges (1-5)
     if (part.includes('-')) {
       const [start, end] = part.split('-').map((n) => parseInt(n, 10));
-      return (
-        !isNaN(start) &&
-        !isNaN(end) &&
-        start >= range.min &&
-        end <= range.max &&
-        start <= end
-      );
+      return !isNaN(start) && !isNaN(end) && start >= range.min && end <= range.max && start <= end;
     }
 
     // Handle lists (1,2,3)
@@ -77,7 +71,7 @@ export class CronParser {
     // In production, use a proper library like cron-parser
     const [minute, hour, dayOfMonth, month, dayOfWeek] = this.parts;
 
-    let candidate = new Date(from);
+    const candidate = new Date(from);
     candidate.setSeconds(0);
     candidate.setMilliseconds(0);
     candidate.setMinutes(candidate.getMinutes() + 1); // Start from next minute
@@ -223,13 +217,31 @@ export class CronParser {
     const [minute, hour, dayOfMonth, month, dayOfWeek] = this.parts;
 
     // Simple descriptions for common patterns
-    if (minute === '0' && hour === '0' && dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
+    if (
+      minute === '0' &&
+      hour === '0' &&
+      dayOfMonth === '*' &&
+      month === '*' &&
+      dayOfWeek === '*'
+    ) {
       return 'Daily at midnight';
     }
-    if (minute === '0' && hour === '9' && dayOfMonth === '*' && month === '*' && dayOfWeek === '1-5') {
+    if (
+      minute === '0' &&
+      hour === '9' &&
+      dayOfMonth === '*' &&
+      month === '*' &&
+      dayOfWeek === '1-5'
+    ) {
       return 'Weekdays at 9:00 AM';
     }
-    if (minute === '*/5' && hour === '*' && dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
+    if (
+      minute === '*/5' &&
+      hour === '*' &&
+      dayOfMonth === '*' &&
+      month === '*' &&
+      dayOfWeek === '*'
+    ) {
       return 'Every 5 minutes';
     }
 

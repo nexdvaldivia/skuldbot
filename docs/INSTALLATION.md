@@ -4,23 +4,23 @@
 
 ### macOS
 
-| Componente | Version Minima | Notas |
-|------------|----------------|-------|
-| macOS | 11.0 (Big Sur) | Apple Silicon o Intel |
-| Node.js | 18.x | LTS recomendado |
-| Python | 3.10+ | 3.11 o 3.12 recomendado |
-| Rust | 1.70+ | Para compilar Tauri |
-| Xcode | 14+ | **Completo** (no solo Command Line Tools) |
+| Componente | Version Minima | Notas                                     |
+| ---------- | -------------- | ----------------------------------------- |
+| macOS      | 11.0 (Big Sur) | Apple Silicon o Intel                     |
+| Node.js    | 18.x           | LTS recomendado                           |
+| Python     | 3.10+          | 3.11 o 3.12 recomendado                   |
+| Rust       | 1.70+          | Para compilar Tauri                       |
+| Xcode      | 14+            | **Completo** (no solo Command Line Tools) |
 
 ### Windows
 
-| Componente | Version Minima | Notas |
-|------------|----------------|-------|
-| Windows | 10/11 | 64-bit |
-| Node.js | 18.x | LTS recomendado |
-| Python | 3.10+ | Agregar a PATH |
-| Rust | 1.70+ | Con MSVC toolchain |
-| WebView2 | Latest | Incluido en Windows 11 |
+| Componente | Version Minima | Notas                  |
+| ---------- | -------------- | ---------------------- |
+| Windows    | 10/11          | 64-bit                 |
+| Node.js    | 18.x           | LTS recomendado        |
+| Python     | 3.10+          | Agregar a PATH         |
+| Rust       | 1.70+          | Con MSVC toolchain     |
+| WebView2   | Latest         | Incluido en Windows 11 |
 
 ---
 
@@ -107,17 +107,17 @@ npm run dev
 
 ### Dependencias Base (siempre instaladas)
 
-| Paquete | Version | Proposito |
-|---------|---------|-----------|
-| robotframework | >=6.1.0 | Motor de ejecucion |
-| pydantic | >=2.0.0 | Validacion de datos |
-| pyyaml | >=6.0 | Configuracion YAML |
-| jinja2 | >=3.1.0 | Templates para compilacion |
+| Paquete        | Version | Proposito                  |
+| -------------- | ------- | -------------------------- |
+| robotframework | >=6.1.0 | Motor de ejecucion         |
+| pydantic       | >=2.0.0 | Validacion de datos        |
+| pyyaml         | >=6.0   | Configuracion YAML         |
+| jinja2         | >=3.1.0 | Templates para compilacion |
 
 ### Dependencias RPA (opcionales)
 
-| Paquete | Version | Proposito |
-|---------|---------|-----------|
+| Paquete      | Version  | Proposito              |
+| ------------ | -------- | ---------------------- |
 | rpaframework | >=27.0.0 | Framework RPA completo |
 
 El paquete `rpaframework` incluye:
@@ -138,6 +138,7 @@ El paquete `rpaframework` incluye:
 **Causa**: Solo tienes Command Line Tools, no Xcode completo.
 
 **Solucion**:
+
 1. Instalar Xcode desde App Store
 2. Ejecutar: `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`
 
@@ -158,6 +159,7 @@ pip install -e .
 **Causa**: Ya hay una instancia del Studio corriendo.
 
 **Solucion**:
+
 ```bash
 # Encontrar y matar el proceso
 lsof -i :1420
@@ -169,6 +171,7 @@ kill -9 <PID>
 **Causa**: Engine no esta instalado en modo editable.
 
 **Solucion**:
+
 ```bash
 cd engine
 source .venv/bin/activate
@@ -221,6 +224,7 @@ npm run tauri dev
 ```
 
 Debe abrir una ventana de aplicacion con:
+
 - Sidebar izquierdo con nodos
 - Canvas central (React Flow)
 - Toolbar superior

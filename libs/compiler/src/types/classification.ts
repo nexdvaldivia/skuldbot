@@ -2,12 +2,7 @@
  * Data classification levels
  * Dominance order: CREDENTIALS > PCI > PHI > PII > UNCLASSIFIED
  */
-export type Classification =
-  | 'UNCLASSIFIED'
-  | 'PII'
-  | 'PHI'
-  | 'PCI'
-  | 'CREDENTIALS';
+export type Classification = 'UNCLASSIFIED' | 'PII' | 'PHI' | 'PCI' | 'CREDENTIALS';
 
 export const CLASSIFICATION_RANK: Record<Classification, number> = {
   UNCLASSIFIED: 0,

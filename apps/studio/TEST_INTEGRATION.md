@@ -99,9 +99,10 @@ npm run tauri:dev
 1. Click en botón **"Compilar"**
 2. Espera ~2-3 segundos
 3. Deberías ver:
+
    ```
    ✅ Bot compilado exitosamente!
-   
+
    Path: /var/folders/.../bots/test-bot-XXX
    ```
 
@@ -110,9 +111,10 @@ npm run tauri:dev
 1. Click en botón **"▶️ Ejecutar"**
 2. Espera ~3-5 segundos
 3. Deberías ver:
+
    ```
    ✅ Bot ejecutado!
-   
+
    Resultado:
    STATUS: success
    DURATION: 1.23
@@ -135,18 +137,21 @@ Prueba con múltiples nodos:
 **Síntoma**: "Engine no disponible"
 
 **Solución 1**: Verifica Python
+
 ```bash
 python3 --version
 python3 -c "import sys; print(sys.path)"
 ```
 
 **Solución 2**: Verifica Engine path
+
 ```bash
 cd ../engine
 pwd  # Copia este path
 ```
 
 Edita `src-tauri/src/main.rs` línea ~40:
+
 ```rust
 fn get_engine_path() -> PathBuf {
     PathBuf::from("/RUTA/COMPLETA/AL/engine")  // <-- Tu path
@@ -154,6 +159,7 @@ fn get_engine_path() -> PathBuf {
 ```
 
 **Solución 3**: Instala dependencias del Engine
+
 ```bash
 cd ../engine
 pip3 install --user -e .
@@ -162,6 +168,7 @@ pip3 install --user -e .
 ### Problema: "Failed to execute Python"
 
 **Solución**: Verifica que `python3` está en PATH
+
 ```bash
 which python3
 # O en Windows:
@@ -169,6 +176,7 @@ where python
 ```
 
 Si no está, edita `main.rs` línea ~60:
+
 ```rust
 fn get_python_executable() -> String {
     "/usr/bin/python3".to_string()  // Path completo
@@ -178,6 +186,7 @@ fn get_python_executable() -> String {
 ### Problema: "No module named 'skuldbot'"
 
 **Solución**: Instala el Engine
+
 ```bash
 cd ../engine
 pip3 install --user -e .
@@ -188,6 +197,7 @@ pip3 install --user -e .
 **Error**: "error: linking with `cc` failed"
 
 **Solución**: Instala build tools
+
 ```bash
 # macOS
 xcode-select --install
@@ -202,6 +212,7 @@ sudo apt install build-essential
 ### Problema: Puerto 1420 ocupado
 
 **Solución**: Cambia el puerto en `vite.config.ts`:
+
 ```typescript
 server: {
   port: 3000,  // Cambia aquí
@@ -210,6 +221,7 @@ server: {
 ```
 
 Y en `tauri.conf.json`:
+
 ```json
 "devPath": "http://localhost:3000"
 ```
@@ -252,15 +264,18 @@ Una vez que todo funciona:
 ## 📝 Notas Importantes
 
 ### Primera Ejecución de Tauri
+
 - Toma 5-10 minutos (compila Rust + todas las deps)
 - Solo la primera vez
 - Siguientes ejecuciones: ~10-20 segundos
 
 ### Logs del Engine
+
 - Aparecen en la terminal donde ejecutaste `tauri:dev`
 - Busca líneas con "🔧", "✅", "❌"
 
 ### Hot Reload
+
 - Cambios en React: Hot reload automático ✅
 - Cambios en Rust: Requiere recompilar (Ctrl+C y npm run tauri:dev)
 
@@ -274,6 +289,7 @@ Una vez que todo funciona:
 ## ✨ Estado Esperado
 
 Después de seguir esta guía:
+
 - ✅ Studio ejecutándose con Tauri
 - ✅ Engine conectado
 - ✅ Puedes compilar bots
@@ -285,8 +301,3 @@ Después de seguir esta guía:
 ---
 
 **Tiempo estimado**: 20-30 minutos (primera vez)
-
-
-
-
-

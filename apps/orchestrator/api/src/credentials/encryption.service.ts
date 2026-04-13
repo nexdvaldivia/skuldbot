@@ -82,9 +82,7 @@ export class EncryptionService implements OnModuleInit {
 
     // Validate master key (should be at least 32 chars, hex or base64)
     if (masterKey.length < 32) {
-      throw new Error(
-        'ENCRYPTION_MASTER_KEY must be at least 32 characters long',
-      );
+      throw new Error('ENCRYPTION_MASTER_KEY must be at least 32 characters long');
     }
 
     // Derive KEK from master key using PBKDF2
@@ -215,12 +213,7 @@ export class EncryptionService implements OnModuleInit {
    * @param keyId - Encryption key ID
    * @returns Decrypted plaintext
    */
-  decrypt(
-    ciphertext: string,
-    iv: string,
-    authTag: string,
-    keyId: string,
-  ): string {
+  decrypt(ciphertext: string, iv: string, authTag: string, keyId: string): string {
     const dek = this.getDek(keyId);
     if (!dek) {
       throw new Error(`Encryption key not found: ${keyId}`);
@@ -230,14 +223,9 @@ export class EncryptionService implements OnModuleInit {
     const authTagBuffer = Buffer.from(authTag, 'base64');
 
     // Create decipher
-    const decipher = crypto.createDecipheriv(
-      this.ALGORITHM,
-      dek.key,
-      ivBuffer,
-      {
-        authTagLength: this.AUTH_TAG_LENGTH,
-      },
-    );
+    const decipher = crypto.createDecipheriv(this.ALGORITHM, dek.key, ivBuffer, {
+      authTagLength: this.AUTH_TAG_LENGTH,
+    });
 
     // Set auth tag (must be called before update/final)
     decipher.setAuthTag(authTagBuffer);

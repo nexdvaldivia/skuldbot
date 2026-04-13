@@ -176,10 +176,7 @@ export interface SsoSession {
 /**
  * Pre-configured provider templates.
  */
-export const PROVIDER_TEMPLATES: Record<
-  string,
-  Partial<OidcConfig> | Partial<SamlConfig>
-> = {
+export const PROVIDER_TEMPLATES: Record<string, Partial<OidcConfig> | Partial<SamlConfig>> = {
   // Google Workspace
   [SsoProvider.GOOGLE]: {
     protocol: SsoProtocol.OIDC,

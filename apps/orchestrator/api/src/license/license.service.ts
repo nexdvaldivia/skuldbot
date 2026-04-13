@@ -91,7 +91,9 @@ export class LicenseService implements OnModuleInit {
       this.lastValidation = new Date();
 
       if (this.licenseInfo?.valid) {
-        this.logger.log(`License validated: ${this.licenseInfo.type} - ${this.licenseInfo.tenantSlug}`);
+        this.logger.log(
+          `License validated: ${this.licenseInfo.type} - ${this.licenseInfo.tenantSlug}`,
+        );
       } else {
         this.logger.warn(`License invalid: ${this.licenseInfo?.message}`);
       }
@@ -178,7 +180,10 @@ export class LicenseService implements OnModuleInit {
     return !!features[feature];
   }
 
-  checkLimit(limit: 'maxBots' | 'maxRunners' | 'maxConcurrentRuns' | 'maxRunsPerMonth', current: number): boolean {
+  checkLimit(
+    limit: 'maxBots' | 'maxRunners' | 'maxConcurrentRuns' | 'maxRunsPerMonth',
+    current: number,
+  ): boolean {
     const features = this.getFeatures();
     if (!features) return false;
     const maxValue = features[limit];

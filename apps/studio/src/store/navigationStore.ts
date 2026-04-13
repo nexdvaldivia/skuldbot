@@ -1,6 +1,6 @@
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import { NavigationView } from "../types/project";
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { NavigationView } from '../types/project';
 
 // ============================================================
 // Navigation Store State
@@ -42,7 +42,7 @@ export const useNavigationStore = create<NavigationStoreState>()(
   persist(
     (set) => ({
       // Initial state
-      currentView: "welcome",
+      currentView: 'welcome',
       sidebarCollapsed: false,
       projectExplorerWidth: DEFAULT_PROJECT_EXPLORER_WIDTH,
       rightPanelWidth: DEFAULT_RIGHT_PANEL_WIDTH,
@@ -51,19 +51,16 @@ export const useNavigationStore = create<NavigationStoreState>()(
       // Actions
       setView: (view) => set({ currentView: view }),
 
-      toggleSidebar: () =>
-        set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+      toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
 
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
 
       setProjectExplorerWidth: (width) =>
         set({ projectExplorerWidth: Math.max(180, Math.min(400, width)) }),
 
-      setRightPanelWidth: (width) =>
-        set({ rightPanelWidth: Math.max(250, Math.min(500, width)) }),
+      setRightPanelWidth: (width) => set({ rightPanelWidth: Math.max(250, Math.min(500, width)) }),
 
-      setLogsHeight: (height) =>
-        set({ logsHeight: Math.max(100, Math.min(400, height)) }),
+      setLogsHeight: (height) => set({ logsHeight: Math.max(100, Math.min(400, height)) }),
 
       resetLayout: () =>
         set({
@@ -74,13 +71,13 @@ export const useNavigationStore = create<NavigationStoreState>()(
         }),
     }),
     {
-      name: "skuldbot-navigation",
+      name: 'skuldbot-navigation',
       partialize: (state) => ({
         sidebarCollapsed: state.sidebarCollapsed,
         projectExplorerWidth: state.projectExplorerWidth,
         rightPanelWidth: state.rightPanelWidth,
         logsHeight: state.logsHeight,
       }),
-    }
-  )
+    },
+  ),
 );

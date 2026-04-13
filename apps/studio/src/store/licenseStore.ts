@@ -1,12 +1,8 @@
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import { invoke } from "@tauri-apps/api/tauri";
-import {
-  LicenseModule,
-  LicenseInfo,
-  LicenseValidationResponse,
-} from "../types/ai-planner";
-import { useToastStore } from "./toastStore";
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { invoke } from '@tauri-apps/api/tauri';
+import { LicenseModule, LicenseInfo, LicenseValidationResponse } from '../types/ai-planner';
+import { useToastStore } from './toastStore';
 
 // ============================================================
 // Module Features Mapping
@@ -17,37 +13,28 @@ import { useToastStore } from "./toastStore";
  * This defines what capabilities are unlocked by each module.
  */
 const MODULE_FEATURES: Record<LicenseModule, string[]> = {
-  studio: [
-    "flowEditor",
-    "localExecution",
-    "projectManagement",
-    "170+BaseNodes",
-  ],
+  studio: ['flowEditor', 'localExecution', 'projectManagement', '170+BaseNodes'],
   skuldai: [
-    "aiPlanner",
-    "aiRefinement",
-    "localLLM",
-    "ai.llm_prompt",
-    "ai.agent",
-    "ai.extract_data",
-    "ai.summarize",
-    "ai.classify",
-    "ai.translate",
-    "ai.sentiment",
-    "ai.vision",
-    "ai.embeddings",
+    'aiPlanner',
+    'aiRefinement',
+    'localLLM',
+    'ai.llm_prompt',
+    'ai.agent',
+    'ai.extract_data',
+    'ai.summarize',
+    'ai.classify',
+    'ai.translate',
+    'ai.sentiment',
+    'ai.vision',
+    'ai.embeddings',
   ],
-  skuldcompliance: [
-    "compliance.protect_pii",
-    "compliance.protect_phi",
-    "compliance.audit_log",
-  ],
+  skuldcompliance: ['compliance.protect_pii', 'compliance.protect_phi', 'compliance.audit_log'],
   skulddataquality: [
-    "dataquality.validate",
-    "dataquality.profile_data",
-    "dataquality.generate_report",
-    "ai.repair_data",
-    "ai.suggest_repairs",
+    'dataquality.validate',
+    'dataquality.profile_data',
+    'dataquality.generate_report',
+    'ai.repair_data',
+    'ai.suggest_repairs',
   ],
 };
 
@@ -57,27 +44,27 @@ const MODULE_FEATURES: Record<LicenseModule, string[]> = {
  */
 const NODE_LICENSE_REQUIREMENTS: Record<string, LicenseModule> = {
   // AI nodes require SkuldAI
-  "ai.llm_prompt": "skuldai",
-  "ai.agent": "skuldai",
-  "ai.extract_data": "skuldai",
-  "ai.summarize": "skuldai",
-  "ai.classify": "skuldai",
-  "ai.translate": "skuldai",
-  "ai.sentiment": "skuldai",
-  "ai.vision": "skuldai",
-  "ai.embeddings": "skuldai",
+  'ai.llm_prompt': 'skuldai',
+  'ai.agent': 'skuldai',
+  'ai.extract_data': 'skuldai',
+  'ai.summarize': 'skuldai',
+  'ai.classify': 'skuldai',
+  'ai.translate': 'skuldai',
+  'ai.sentiment': 'skuldai',
+  'ai.vision': 'skuldai',
+  'ai.embeddings': 'skuldai',
 
   // Compliance nodes require SkuldCompliance
-  "compliance.protect_pii": "skuldcompliance",
-  "compliance.protect_phi": "skuldcompliance",
-  "compliance.audit_log": "skuldcompliance",
+  'compliance.protect_pii': 'skuldcompliance',
+  'compliance.protect_phi': 'skuldcompliance',
+  'compliance.audit_log': 'skuldcompliance',
 
   // Data Quality nodes require SkuldDataQuality
-  "dataquality.validate": "skulddataquality",
-  "dataquality.profile_data": "skulddataquality",
-  "dataquality.generate_report": "skulddataquality",
-  "ai.repair_data": "skulddataquality",
-  "ai.suggest_repairs": "skulddataquality",
+  'dataquality.validate': 'skulddataquality',
+  'dataquality.profile_data': 'skulddataquality',
+  'dataquality.generate_report': 'skulddataquality',
+  'ai.repair_data': 'skulddataquality',
+  'ai.suggest_repairs': 'skulddataquality',
 };
 
 // ============================================================
@@ -98,7 +85,9 @@ interface LicenseStoreState {
   lastValidated: string | null;
 
   // Actions
-  activateLicense: (key: string) => Promise<{ success: boolean; module?: LicenseModule; error?: string }>;
+  activateLicense: (
+    key: string,
+  ) => Promise<{ success: boolean; module?: LicenseModule; error?: string }>;
   validateAllLicenses: () => Promise<void>;
   deactivateLicense: (module: LicenseModule) => void;
   hasModule: (module: LicenseModule) => boolean;
@@ -135,22 +124,27 @@ export const useLicenseStore = create<LicenseStoreState>()(
         try {
           // Check for dev all-access key
           const keyUpper = key.toUpperCase();
-          const isDevKey = keyUpper === "DEV-ALL-ACCESS" || keyUpper === "KHIPUS-DEV-2024";
+          const isDevKey = keyUpper === 'DEV-ALL-ACCESS' || keyUpper === 'KHIPUS-DEV-2024';
 
           // Call Tauri backend to validate license with server
-          const response = await invoke<LicenseValidationResponse>("validate_license", {
+          const response = await invoke<LicenseValidationResponse>('validate_license', {
             licenseKey: key,
           });
 
           if (!response.valid) {
             set({ isValidating: false });
-            toast.error("Invalid License", response.error || "License key is invalid or expired");
-            return { success: false, error: response.error || "Invalid license key" };
+            toast.error('Invalid License', response.error || 'License key is invalid or expired');
+            return { success: false, error: response.error || 'Invalid license key' };
           }
 
           // For dev key, activate ALL modules at once
           if (isDevKey) {
-            const allModules: LicenseModule[] = ["studio", "skuldai", "skuldcompliance", "skulddataquality"];
+            const allModules: LicenseModule[] = [
+              'studio',
+              'skuldai',
+              'skuldcompliance',
+              'skulddataquality',
+            ];
             const devLicenses: LicenseInfo[] = allModules.map((module) => ({
               module,
               licenseKey: key,
@@ -166,12 +160,9 @@ export const useLicenseStore = create<LicenseStoreState>()(
 
             get()._updateEnabledFeatures();
 
-            toast.success(
-              "Dev License Activated",
-              "All modules activated for development"
-            );
+            toast.success('Dev License Activated', 'All modules activated for development');
 
-            return { success: true, module: "studio" as LicenseModule };
+            return { success: true, module: 'studio' as LicenseModule };
           }
 
           // Add to active licenses
@@ -205,15 +196,15 @@ export const useLicenseStore = create<LicenseStoreState>()(
           get()._updateEnabledFeatures();
 
           toast.success(
-            "License Activated",
-            `${response.module.charAt(0).toUpperCase() + response.module.slice(1)} module activated`
+            'License Activated',
+            `${response.module.charAt(0).toUpperCase() + response.module.slice(1)} module activated`,
           );
 
           return { success: true, module: response.module };
         } catch (error) {
-          console.error("Failed to activate license:", error);
+          console.error('Failed to activate license:', error);
           set({ isValidating: false });
-          toast.error("Activation Failed", String(error));
+          toast.error('Activation Failed', String(error));
           return { success: false, error: String(error) };
         }
       },
@@ -235,7 +226,7 @@ export const useLicenseStore = create<LicenseStoreState>()(
 
         for (const license of activeLicenses) {
           try {
-            const response = await invoke<LicenseValidationResponse>("validate_license", {
+            const response = await invoke<LicenseValidationResponse>('validate_license', {
               licenseKey: license.licenseKey,
             });
 
@@ -276,7 +267,7 @@ export const useLicenseStore = create<LicenseStoreState>()(
         set({ activeLicenses: newLicenses });
         get()._updateEnabledFeatures();
 
-        toast.info("License Deactivated", `${module} module has been deactivated`);
+        toast.info('License Deactivated', `${module} module has been deactivated`);
       },
 
       // ============================================================
@@ -297,7 +288,7 @@ export const useLicenseStore = create<LicenseStoreState>()(
         const { hasModule } = get();
 
         // First check if Studio is activated (base requirement)
-        if (!hasModule("studio")) {
+        if (!hasModule('studio')) {
           return false;
         }
 
@@ -314,14 +305,12 @@ export const useLicenseStore = create<LicenseStoreState>()(
       },
 
       isStudioActivated: () => {
-        return get().hasModule("studio");
+        return get().hasModule('studio');
       },
 
       getActivatedModules: () => {
         const { activeLicenses } = get();
-        return activeLicenses
-          .filter((l) => l.isValid)
-          .map((l) => l.module);
+        return activeLicenses.filter((l) => l.isValid).map((l) => l.module);
       },
 
       // ============================================================
@@ -343,7 +332,7 @@ export const useLicenseStore = create<LicenseStoreState>()(
       },
     }),
     {
-      name: "skuldbot-licenses",
+      name: 'skuldbot-licenses',
       // Custom serialization to handle Set
       partialize: (state) => ({
         activeLicenses: state.activeLicenses,
@@ -355,8 +344,8 @@ export const useLicenseStore = create<LicenseStoreState>()(
           state._updateEnabledFeatures();
         }
       },
-    }
-  )
+    },
+  ),
 );
 
 // ============================================================
@@ -368,7 +357,7 @@ export const useLicenseStore = create<LicenseStoreState>()(
  */
 export const useCanUseAIPlanner = () => {
   const hasFeature = useLicenseStore((state) => state.hasFeature);
-  return hasFeature("aiPlanner");
+  return hasFeature('aiPlanner');
 };
 
 /**
@@ -391,9 +380,9 @@ export const useLicenseStatus = () => {
     isActivated: isStudioActivated(),
     modules: getActivatedModules(),
     licenses: activeLicenses,
-    hasAI: activeLicenses.some((l) => l.module === "skuldai" && l.isValid),
-    hasCompliance: activeLicenses.some((l) => l.module === "skuldcompliance" && l.isValid),
-    hasDataQuality: activeLicenses.some((l) => l.module === "skulddataquality" && l.isValid),
+    hasAI: activeLicenses.some((l) => l.module === 'skuldai' && l.isValid),
+    hasCompliance: activeLicenses.some((l) => l.module === 'skuldcompliance' && l.isValid),
+    hasDataQuality: activeLicenses.some((l) => l.module === 'skulddataquality' && l.isValid),
   };
 };
 

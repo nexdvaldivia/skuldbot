@@ -1,13 +1,11 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
 // https://vite.dev/config/
 // Note: JavaScript obfuscation is handled by terser minification below
 // For stronger obfuscation, consider rollup-plugin-obfuscator in CI/CD
 export default defineConfig({
-  plugins: [
-    react(),
-  ],
+  plugins: [react()],
   build: {
     // Minification settings
     minify: 'terser',
@@ -42,4 +40,4 @@ export default defineConfig({
   define: {
     'process.env': {},
   },
-})
+});

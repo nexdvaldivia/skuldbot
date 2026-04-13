@@ -6,10 +6,7 @@ import { computeGatewaySignature } from '../public-leads-signature.util';
 
 type HeaderMap = Record<string, string | string[] | undefined>;
 
-function createExecutionContext(
-  headers: HeaderMap,
-  body: unknown,
-): ExecutionContext {
+function createExecutionContext(headers: HeaderMap, body: unknown): ExecutionContext {
   return {
     switchToHttp: () => ({
       getRequest: () => ({ headers, body }),

@@ -112,7 +112,7 @@ export class RunsProcessor extends WorkerHost {
 
       // Create job assignment for runner
       const jobAssignment = {
-        jobId: job.id as string,
+        jobId: job.id,
         runId,
         botId: version.botId,
         botPackageUrl,
@@ -287,9 +287,7 @@ export class RunsProcessor extends WorkerHost {
     return secrets;
   }
 
-  private extractCredentialKeys(
-    compiledPlan: Record<string, unknown>,
-  ): string[] {
+  private extractCredentialKeys(compiledPlan: Record<string, unknown>): string[] {
     const keys = new Set<string>();
     const queue: unknown[] = [compiledPlan];
     const seen = new Set<unknown>();
@@ -310,10 +308,7 @@ export class RunsProcessor extends WorkerHost {
       }
 
       for (const [entryKey, entryValue] of Object.entries(current)) {
-        if (
-          entryKey === 'credentialRef' &&
-          typeof entryValue === 'string'
-        ) {
+        if (entryKey === 'credentialRef' && typeof entryValue === 'string') {
           const normalized = entryValue.trim();
           if (normalized) {
             keys.add(normalized);
@@ -321,9 +316,7 @@ export class RunsProcessor extends WorkerHost {
         }
 
         if (typeof entryValue === 'string') {
-          this.extractCredentialKeysFromText(entryValue).forEach((key) =>
-            keys.add(key),
-          );
+          this.extractCredentialKeysFromText(entryValue).forEach((key) => keys.add(key));
         } else if (entryValue && typeof entryValue === 'object') {
           queue.push(entryValue);
         }

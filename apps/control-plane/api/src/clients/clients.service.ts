@@ -88,10 +88,7 @@ export class ClientsService {
       `Invalid client plan "${dto.plan}"`,
     );
 
-    const status = await this.lookupsService.getDefaultCode(
-      LOOKUP_DOMAIN_CLIENT_STATUS,
-      'pending',
-    );
+    const status = await this.lookupsService.getDefaultCode(LOOKUP_DOMAIN_CLIENT_STATUS, 'pending');
 
     const client = this.clientRepository.create({
       ...dto,
@@ -228,10 +225,7 @@ export class ClientsService {
   private async resolveRequiredStatus(code: string): Promise<string> {
     const normalized = code.trim().toLowerCase();
     try {
-      await this.lookupsService.assertActiveCode(
-        LOOKUP_DOMAIN_CLIENT_STATUS,
-        normalized,
-      );
+      await this.lookupsService.assertActiveCode(LOOKUP_DOMAIN_CLIENT_STATUS, normalized);
       return normalized;
     } catch {
       throw new BadRequestException(

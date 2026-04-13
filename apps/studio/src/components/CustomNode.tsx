@@ -1,205 +1,220 @@
-import { memo, useState, useRef, useEffect, useMemo } from "react";
-import { createPortal } from "react-dom";
-import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
-import { FlowNodeData, NodeCategory } from "../types/flow";
-import { getNodeTemplate } from "../data/nodeTemplates";
-import { useValidationStore } from "../store/validationStore";
-import { useDebugStore, useNodeDebugState } from "../store/debugStore";
-import { Icon } from "./ui/Icon";
-import { AlertCircle, AlertTriangle, Circle, Trash2, CheckCircle2, Play, Loader2, X, Pin } from "lucide-react";
+import { memo, useState, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
+import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
+import { FlowNodeData, NodeCategory } from '../types/flow';
+import { getNodeTemplate } from '../data/nodeTemplates';
+import { useValidationStore } from '../store/validationStore';
+import { useDebugStore, useNodeDebugState } from '../store/debugStore';
+import { Icon } from './ui/Icon';
+import {
+  AlertCircle,
+  AlertTriangle,
+  Circle,
+  Trash2,
+  CheckCircle2,
+  Play,
+  Loader2,
+  X,
+  Pin,
+} from 'lucide-react';
 
 // Category color mapping - Light theme
-const categoryStyles: Record<NodeCategory, { bg: string; border: string; icon: string; accent: string }> = {
+const categoryStyles: Record<
+  NodeCategory,
+  { bg: string; border: string; icon: string; accent: string }
+> = {
   web: {
-    bg: "bg-blue-50",
-    border: "border-blue-200",
-    icon: "text-blue-600",
-    accent: "bg-blue-500",
+    bg: 'bg-blue-50',
+    border: 'border-blue-200',
+    icon: 'text-blue-600',
+    accent: 'bg-blue-500',
   },
   desktop: {
-    bg: "bg-indigo-50",
-    border: "border-indigo-200",
-    icon: "text-indigo-600",
-    accent: "bg-indigo-500",
+    bg: 'bg-indigo-50',
+    border: 'border-indigo-200',
+    icon: 'text-indigo-600',
+    accent: 'bg-indigo-500',
   },
   storage: {
-    bg: "bg-amber-50",
-    border: "border-amber-200",
-    icon: "text-amber-600",
-    accent: "bg-gradient-to-r from-amber-500 to-orange-500",
+    bg: 'bg-amber-50',
+    border: 'border-amber-200',
+    icon: 'text-amber-600',
+    accent: 'bg-gradient-to-r from-amber-500 to-orange-500',
   },
   files: {
-    bg: "bg-orange-50",
-    border: "border-orange-200",
-    icon: "text-orange-600",
-    accent: "bg-orange-500",
+    bg: 'bg-orange-50',
+    border: 'border-orange-200',
+    icon: 'text-orange-600',
+    accent: 'bg-orange-500',
   },
   excel: {
-    bg: "bg-green-50",
-    border: "border-green-200",
-    icon: "text-green-600",
-    accent: "bg-green-500",
+    bg: 'bg-green-50',
+    border: 'border-green-200',
+    icon: 'text-green-600',
+    accent: 'bg-green-500',
   },
   email: {
-    bg: "bg-pink-50",
-    border: "border-pink-200",
-    icon: "text-pink-600",
-    accent: "bg-pink-500",
+    bg: 'bg-pink-50',
+    border: 'border-pink-200',
+    icon: 'text-pink-600',
+    accent: 'bg-pink-500',
   },
   api: {
-    bg: "bg-emerald-50",
-    border: "border-emerald-200",
-    icon: "text-emerald-600",
-    accent: "bg-emerald-500",
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-200',
+    icon: 'text-emerald-600',
+    accent: 'bg-emerald-500',
   },
   database: {
-    bg: "bg-cyan-50",
-    border: "border-cyan-200",
-    icon: "text-cyan-600",
-    accent: "bg-cyan-500",
+    bg: 'bg-cyan-50',
+    border: 'border-cyan-200',
+    icon: 'text-cyan-600',
+    accent: 'bg-cyan-500',
   },
   document: {
-    bg: "bg-red-50",
-    border: "border-red-200",
-    icon: "text-red-600",
-    accent: "bg-red-500",
+    bg: 'bg-red-50',
+    border: 'border-red-200',
+    icon: 'text-red-600',
+    accent: 'bg-red-500',
   },
   ai: {
-    bg: "bg-violet-50",
-    border: "border-violet-200",
-    icon: "text-violet-600",
-    accent: "bg-gradient-to-r from-violet-500 to-fuchsia-500",
+    bg: 'bg-violet-50',
+    border: 'border-violet-200',
+    icon: 'text-violet-600',
+    accent: 'bg-gradient-to-r from-violet-500 to-fuchsia-500',
   },
   vectordb: {
-    bg: "bg-purple-50",
-    border: "border-purple-200",
-    icon: "text-purple-600",
-    accent: "bg-gradient-to-r from-purple-500 to-indigo-500",
+    bg: 'bg-purple-50',
+    border: 'border-purple-200',
+    icon: 'text-purple-600',
+    accent: 'bg-gradient-to-r from-purple-500 to-indigo-500',
   },
   code: {
-    bg: "bg-slate-100",
-    border: "border-slate-300",
-    icon: "text-slate-700",
-    accent: "bg-gradient-to-r from-orange-500 to-slate-600",
+    bg: 'bg-slate-100',
+    border: 'border-slate-300',
+    icon: 'text-slate-700',
+    accent: 'bg-gradient-to-r from-orange-500 to-slate-600',
   },
   python: {
-    bg: "bg-yellow-50",
-    border: "border-yellow-300",
-    icon: "text-yellow-600",
-    accent: "bg-gradient-to-r from-blue-500 to-yellow-500",
+    bg: 'bg-yellow-50',
+    border: 'border-yellow-300',
+    icon: 'text-yellow-600',
+    accent: 'bg-gradient-to-r from-blue-500 to-yellow-500',
   },
   control: {
-    bg: "bg-slate-50",
-    border: "border-slate-200",
-    icon: "text-slate-600",
-    accent: "bg-slate-500",
+    bg: 'bg-slate-50',
+    border: 'border-slate-200',
+    icon: 'text-slate-600',
+    accent: 'bg-slate-500',
   },
   logging: {
-    bg: "bg-gray-50",
-    border: "border-gray-200",
-    icon: "text-gray-600",
-    accent: "bg-gray-500",
+    bg: 'bg-gray-50',
+    border: 'border-gray-200',
+    icon: 'text-gray-600',
+    accent: 'bg-gray-500',
   },
   security: {
-    bg: "bg-amber-50",
-    border: "border-amber-200",
-    icon: "text-amber-600",
-    accent: "bg-amber-500",
+    bg: 'bg-amber-50',
+    border: 'border-amber-200',
+    icon: 'text-amber-600',
+    accent: 'bg-amber-500',
   },
   human: {
-    bg: "bg-teal-50",
-    border: "border-teal-200",
-    icon: "text-teal-600",
-    accent: "bg-teal-500",
+    bg: 'bg-teal-50',
+    border: 'border-teal-200',
+    icon: 'text-teal-600',
+    accent: 'bg-teal-500',
   },
   compliance: {
-    bg: "bg-rose-50",
-    border: "border-rose-200",
-    icon: "text-rose-600",
-    accent: "bg-gradient-to-r from-rose-500 to-red-500",
+    bg: 'bg-rose-50',
+    border: 'border-rose-200',
+    icon: 'text-rose-600',
+    accent: 'bg-gradient-to-r from-rose-500 to-red-500',
   },
   dataquality: {
-    bg: "bg-sky-50",
-    border: "border-sky-200",
-    icon: "text-sky-600",
-    accent: "bg-gradient-to-r from-sky-500 to-blue-500",
+    bg: 'bg-sky-50',
+    border: 'border-sky-200',
+    icon: 'text-sky-600',
+    accent: 'bg-gradient-to-r from-sky-500 to-blue-500',
   },
   data: {
-    bg: "bg-cyan-50",
-    border: "border-cyan-300",
-    icon: "text-cyan-600",
-    accent: "bg-gradient-to-r from-cyan-500 to-teal-500",
+    bg: 'bg-cyan-50',
+    border: 'border-cyan-300',
+    icon: 'text-cyan-600',
+    accent: 'bg-gradient-to-r from-cyan-500 to-teal-500',
   },
   trigger: {
-    bg: "bg-emerald-50",
-    border: "border-emerald-200",
-    icon: "text-emerald-600",
-    accent: "bg-emerald-500",
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-200',
+    icon: 'text-emerald-600',
+    accent: 'bg-emerald-500',
   },
   voice: {
-    bg: "bg-fuchsia-50",
-    border: "border-fuchsia-200",
-    icon: "text-fuchsia-600",
-    accent: "bg-fuchsia-500",
+    bg: 'bg-fuchsia-50',
+    border: 'border-fuchsia-200',
+    icon: 'text-fuchsia-600',
+    accent: 'bg-fuchsia-500',
   },
   insurance: {
-    bg: "bg-lime-50",
-    border: "border-lime-200",
-    icon: "text-lime-600",
-    accent: "bg-lime-500",
+    bg: 'bg-lime-50',
+    border: 'border-lime-200',
+    icon: 'text-lime-600',
+    accent: 'bg-lime-500',
   },
   ms365: {
-    bg: "bg-sky-50",
-    border: "border-sky-200",
-    icon: "text-sky-600",
-    accent: "bg-[#0078d4]",
+    bg: 'bg-sky-50',
+    border: 'border-sky-200',
+    icon: 'text-sky-600',
+    accent: 'bg-[#0078d4]',
   },
   bot: {
-    bg: "bg-rose-50",
-    border: "border-rose-200",
-    icon: "text-rose-600",
-    accent: "bg-rose-500",
+    bg: 'bg-rose-50',
+    border: 'border-rose-200',
+    icon: 'text-rose-600',
+    accent: 'bg-rose-500',
   },
 };
 
 function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
   const template = getNodeTemplate(data.nodeType);
   const style = categoryStyles[data.category] || categoryStyles.control;
-  const isAI = data.category === "ai";
-  const isPython = data.category === "python";
-  const isTrigger = data.category === "trigger";
-  const isVectorDB = data.category === "vectordb";
-  const isAIAgent = data.nodeType === "ai.agent"; // Special handling for AI Agent with tools
-  const isVectorMemory = data.nodeType === "vectordb.memory"; // Special handling for Vector Memory node
-  const isEmbeddings = data.nodeType === "ai.embeddings"; // Special handling for Embeddings node
-  const isAIModel = data.nodeType === "ai.model"; // Special handling for AI Model node
+  const isAI = data.category === 'ai';
+  const isPython = data.category === 'python';
+  const isTrigger = data.category === 'trigger';
+  const isVectorDB = data.category === 'vectordb';
+  const isAIAgent = data.nodeType === 'ai.agent'; // Special handling for AI Agent with tools
+  const isVectorMemory = data.nodeType === 'vectordb.memory'; // Special handling for Vector Memory node
+  const isEmbeddings = data.nodeType === 'ai.embeddings'; // Special handling for Embeddings node
+  const isAIModel = data.nodeType === 'ai.model'; // Special handling for AI Model node
   const isAIConfigNode = isEmbeddings || isAIModel; // Config nodes don't have success/error handles
   const needsEmbeddingsInput = isVectorMemory; // Only Vector Memory needs separate embeddings input (AI Agent has it in the bottom bar)
 
   // AI nodes that need a model connection (but are NOT ai.agent which has its own bottom bar)
   const AI_TASK_NODES = [
-    "ai.extract_data",
-    "ai.summarize",
-    "ai.classify",
-    "ai.translate",
-    "ai.sentiment",
-    "ai.vision",
-    "ai.repair_data",
-    "ai.suggest_repairs",
+    'ai.extract_data',
+    'ai.summarize',
+    'ai.classify',
+    'ai.translate',
+    'ai.sentiment',
+    'ai.vision',
+    'ai.repair_data',
+    'ai.suggest_repairs',
   ];
   const isAITaskNode = AI_TASK_NODES.includes(data.nodeType);
 
   // MS365 connection nodes
-  const isMS365Connection = data.nodeType === "ms365.connection";
+  const isMS365Connection = data.nodeType === 'ms365.connection';
   // MS365 consumer nodes require the connection input handle.
-  const isMS365Trigger = (data.nodeType === "trigger.ms365_email" || data.category === "ms365") && !isMS365Connection;
+  const isMS365Trigger =
+    (data.nodeType === 'trigger.ms365_email' || data.category === 'ms365') && !isMS365Connection;
   const needsMS365Connection = isMS365Trigger;
 
   // Storage Provider connection nodes
-  const isStorageProvider = data.nodeType === "storage.provider";
-  const needsStorageProvider = data.nodeType.startsWith("files.") || 
-    data.nodeType === "storage.transfer" || 
-    data.nodeType === "storage.sync";
+  const isStorageProvider = data.nodeType === 'storage.provider';
+  const needsStorageProvider =
+    data.nodeType.startsWith('files.') ||
+    data.nodeType === 'storage.transfer' ||
+    data.nodeType === 'storage.sync';
 
   // Config nodes that only have connection output (no success/error)
   const isConnectionConfigNode = isMS365Connection || isStorageProvider;
@@ -209,18 +224,20 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
   // Get validation issues for this node
   const { getNodeIssues } = useValidationStore();
   const nodeIssues = getNodeIssues(id);
-  const hasErrors = nodeIssues.some((i) => i.severity === "error");
-  const hasWarnings = nodeIssues.some((i) => i.severity === "warning") && !hasErrors;
+  const hasErrors = nodeIssues.some((i) => i.severity === 'error');
+  const hasWarnings = nodeIssues.some((i) => i.severity === 'warning') && !hasErrors;
 
   // Get debug state for this node
   const { toggleBreakpoint, runSingleNode, sessionState } = useDebugStore();
-  const { isCurrentNode, hasBreakpoint, isDebugging, status, output, error, isPinned } = useNodeDebugState(id);
+  const { isCurrentNode, hasBreakpoint, isDebugging, status, output, error, isPinned } =
+    useNodeDebugState(id);
 
   // Get execution timing and item count for flow-style display
   const nodeExecution = sessionState?.nodeExecutions?.[id];
-  const executionDuration = nodeExecution?.startTime && nodeExecution?.endTime
-    ? ((nodeExecution.endTime - nodeExecution.startTime) / 1000).toFixed(1)
-    : null;
+  const executionDuration =
+    nodeExecution?.startTime && nodeExecution?.endTime
+      ? ((nodeExecution.endTime - nodeExecution.startTime) / 1000).toFixed(1)
+      : null;
 
   // Calculate item count from output data
   const itemCount = useMemo(() => {
@@ -305,24 +322,25 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
         border
         shadow-sm
         transition-all duration-200
-        ${isTrigger ? "ring-2 ring-emerald-300" : ""}
-        ${isConnectionTested ? "ring-2 ring-emerald-400 border-emerald-400" : ""}
-        ${hasErrors ? "ring-2 ring-red-400 border-red-400" : ""}
-        ${hasWarnings && !isConnectionTested ? "ring-2 ring-yellow-400 border-yellow-400" : ""}
-        ${isCurrentNode && isDebugging ? "ring-2 ring-blue-500 border-blue-500" : ""}
-        ${status === "running" ? "ring-2 ring-blue-400 border-blue-400" : ""}
-        ${status === "success" ? "ring-2 ring-green-400 border-green-400" : ""}
-        ${status === "error" ? "ring-2 ring-red-500 border-red-500" : ""}
-        ${selected
-          ? "border-primary ring-2 ring-primary/20 shadow-lg scale-[1.02]"
-          : `${style.border} hover:shadow-lg hover:scale-[1.01]`
+        ${isTrigger ? 'ring-2 ring-emerald-300' : ''}
+        ${isConnectionTested ? 'ring-2 ring-emerald-400 border-emerald-400' : ''}
+        ${hasErrors ? 'ring-2 ring-red-400 border-red-400' : ''}
+        ${hasWarnings && !isConnectionTested ? 'ring-2 ring-yellow-400 border-yellow-400' : ''}
+        ${isCurrentNode && isDebugging ? 'ring-2 ring-blue-500 border-blue-500' : ''}
+        ${status === 'running' ? 'ring-2 ring-blue-400 border-blue-400' : ''}
+        ${status === 'success' ? 'ring-2 ring-green-400 border-green-400' : ''}
+        ${status === 'error' ? 'ring-2 ring-red-500 border-red-500' : ''}
+        ${
+          selected
+            ? 'border-primary ring-2 ring-primary/20 shadow-lg scale-[1.02]'
+            : `${style.border} hover:shadow-lg hover:scale-[1.01]`
         }
       `}
       style={{ minWidth: 180 }}
     >
-      {(status === "running" || status === "success") && (
+      {(status === 'running' || status === 'success') && (
         <div className="absolute top-2 right-2 z-20">
-          {status === "running" ? (
+          {status === 'running' ? (
             <div className="w-5 h-5 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center shadow-sm">
               <Loader2 className="w-3 h-3 text-blue-500 animate-spin" />
             </div>
@@ -339,17 +357,14 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
         className="absolute -top-2 -left-2 z-20 w-5 h-5 rounded-full cursor-pointer flex items-center justify-center bg-white border border-slate-200 shadow-sm hover:border-red-300 hover:bg-red-50 transition-colors"
         onClick={handleBreakpointClick}
         onMouseDown={(e) => e.stopPropagation()}
-        title={hasBreakpoint ? "Remove breakpoint" : "Add breakpoint"}
+        title={hasBreakpoint ? 'Remove breakpoint' : 'Add breakpoint'}
       >
         <Circle
-          className={`w-3 h-3 ${hasBreakpoint
-            ? "fill-red-500 text-red-500"
-            : "text-slate-400"
-            }`}
+          className={`w-3 h-3 ${hasBreakpoint ? 'fill-red-500 text-red-500' : 'text-slate-400'}`}
         />
       </button>
 
-      {(selected && (isAIConfigNode || isConnectionConfigNode)) && (
+      {selected && (isAIConfigNode || isConnectionConfigNode) && (
         <button
           type="button"
           className="absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full cursor-pointer flex items-center justify-center bg-white border border-slate-200 shadow-sm hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-colors"
@@ -361,7 +376,6 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
         </button>
       )}
 
-
       {/* START Badge for Triggers */}
       {isTrigger && (
         <div className="absolute -top-2.5 left-3 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm uppercase tracking-wide">
@@ -370,7 +384,7 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
       )}
 
       {/* Debug status indicator */}
-      {isDebugging && status === "running" && (
+      {isDebugging && status === 'running' && (
         <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm animate-pulse">
           Running
         </div>
@@ -389,19 +403,34 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
 
       {/* Connection Verified Badge - shown for connection nodes that have been tested */}
       {isConnectionTested && !hasErrors && !selected && (
-        <div className="absolute -top-2 -right-2 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm z-10" title="Connection verified">
+        <div
+          className="absolute -top-2 -right-2 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow-sm z-10"
+          title="Connection verified"
+        >
           <CheckCircle2 className="w-3 h-3 text-white" />
         </div>
       )}
 
       {/* Validation Error/Warning Badge - shown when NOT selected (delete button takes priority) */}
       {hasErrors && !isDebugging && !selected && (
-        <div className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-sm z-10" title={nodeIssues.filter(i => i.severity === "error").map(i => i.message).join("\n")}>
+        <div
+          className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-sm z-10"
+          title={nodeIssues
+            .filter((i) => i.severity === 'error')
+            .map((i) => i.message)
+            .join('\n')}
+        >
           <AlertCircle className="w-3 h-3 text-white" />
         </div>
       )}
       {hasWarnings && !isConnectionTested && !isDebugging && !selected && (
-        <div className="absolute -top-2 -right-2 w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center shadow-sm z-10" title={nodeIssues.filter(i => i.severity === "warning").map(i => i.message).join("\n")}>
+        <div
+          className="absolute -top-2 -right-2 w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center shadow-sm z-10"
+          title={nodeIssues
+            .filter((i) => i.severity === 'warning')
+            .map((i) => i.message)
+            .join('\n')}
+        >
           <AlertTriangle className="w-3 h-3 text-white" />
         </div>
       )}
@@ -573,20 +602,26 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
       )}
 
       {/* Content */}
-      <div className={`flex items-center gap-3 px-3.5 py-3 ${isTrigger ? "pt-4" : ""} ${isAIAgent ? "pt-4" : ""}`}>
+      <div
+        className={`flex items-center gap-3 px-3.5 py-3 ${isTrigger ? 'pt-4' : ''} ${isAIAgent ? 'pt-4' : ''}`}
+      >
         {/* Icon container */}
-        <div className={`
+        <div
+          className={`
           relative flex-shrink-0 w-9 h-9 rounded-lg
           ${style.bg}
           flex items-center justify-center
           ${style.icon}
-          ${isAI || isPython ? "ring-1 ring-violet-200" : ""}
-          ${isVectorDB ? "ring-1 ring-purple-200" : ""}
-          ${isTrigger ? "ring-1 ring-emerald-200" : ""}
-        `}>
+          ${isAI || isPython ? 'ring-1 ring-violet-200' : ''}
+          ${isVectorDB ? 'ring-1 ring-purple-200' : ''}
+          ${isTrigger ? 'ring-1 ring-emerald-200' : ''}
+        `}
+        >
           {template && <Icon name={template.icon} size={18} />}
           {(isAI || isPython) && (
-            <div className={`absolute -top-1 -right-1 w-3 h-3 ${isAI ? "bg-gradient-to-r from-violet-500 to-fuchsia-500" : "bg-gradient-to-r from-blue-500 to-yellow-500"} rounded-full border-2 border-white`} />
+            <div
+              className={`absolute -top-1 -right-1 w-3 h-3 ${isAI ? 'bg-gradient-to-r from-violet-500 to-fuchsia-500' : 'bg-gradient-to-r from-blue-500 to-yellow-500'} rounded-full border-2 border-white`}
+            />
           )}
           {isVectorDB && (
             <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full border-2 border-white" />
@@ -595,9 +630,7 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
 
         {/* Label */}
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-semibold text-slate-800 truncate block">
-            {data.label}
-          </span>
+          <span className="text-sm font-semibold text-slate-800 truncate block">{data.label}</span>
           {template && (
             <span className="text-[11px] text-slate-400 font-mono truncate block">
               {template.type}
@@ -607,25 +640,32 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
       </div>
 
       {/* flow-style execution info badge - shows after execution */}
-      {(status === "success" || status === "error") && (itemCount !== null || executionDuration !== null) && (
-        <div className={`flex items-center gap-2 px-3 py-1.5 text-[10px] border-t rounded-b-xl ${
-          status === "success" 
-            ? "bg-green-50/80 border-green-200" 
-            : "bg-red-50/80 border-red-200"
-          }`}>
-          {itemCount !== null && (
-            <span className={`flex items-center gap-1 ${status === "success" ? "text-green-700" : "text-red-700"}`}>
-              <span className="font-semibold">{itemCount}</span>
-              <span className="opacity-80">{itemCount === 1 ? "item" : "items"}</span>
-            </span>
-          )}
-          {executionDuration !== null && (
-            <span className={`flex items-center gap-1 ml-auto ${status === "success" ? "text-green-600" : "text-red-600"}`}>
-              <span className="font-medium">{executionDuration}s</span>
-            </span>
-          )}
-        </div>
-      )}
+      {(status === 'success' || status === 'error') &&
+        (itemCount !== null || executionDuration !== null) && (
+          <div
+            className={`flex items-center gap-2 px-3 py-1.5 text-[10px] border-t rounded-b-xl ${
+              status === 'success'
+                ? 'bg-green-50/80 border-green-200'
+                : 'bg-red-50/80 border-red-200'
+            }`}
+          >
+            {itemCount !== null && (
+              <span
+                className={`flex items-center gap-1 ${status === 'success' ? 'text-green-700' : 'text-red-700'}`}
+              >
+                <span className="font-semibold">{itemCount}</span>
+                <span className="opacity-80">{itemCount === 1 ? 'item' : 'items'}</span>
+              </span>
+            )}
+            {executionDuration !== null && (
+              <span
+                className={`flex items-center gap-1 ml-auto ${status === 'success' ? 'text-green-600' : 'text-red-600'}`}
+              >
+                <span className="font-medium">{executionDuration}s</span>
+              </span>
+            )}
+          </div>
+        )}
 
       {/* Output Handles - NOT shown for config nodes (AI Model, Embeddings, MS365 Connection) */}
       {!isAIConfigNode && !isConnectionConfigNode && (
@@ -729,116 +769,146 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
 
       {/* Node Toolbar - appears below the node when selected or has run status */}
       {/* Extra margin for nodes with bottom handles (AI Agent, AI Task nodes, MS365 Trigger) */}
-      {(selected || status === "success" || status === "error") && !isAIConfigNode && !isConnectionConfigNode && (
-        <div
-          className={`absolute left-0 right-0 top-full flex justify-end gap-1 z-20 ${isAIAgent || isAITaskNode || isMS365Trigger ? "mt-6" : "mt-1"
+      {(selected || status === 'success' || status === 'error') &&
+        !isAIConfigNode &&
+        !isConnectionConfigNode && (
+          <div
+            className={`absolute left-0 right-0 top-full flex justify-end gap-1 z-20 ${
+              isAIAgent || isAITaskNode || isMS365Trigger ? 'mt-6' : 'mt-1'
             }`}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          {/* Run/Rerun Button - always available to run the node */}
-          <button
-            type="button"
-            className={`w-6 h-6 rounded cursor-pointer flex items-center justify-center shadow-sm transition-all ${isRunningNode
-              ? "bg-blue-500 animate-pulse"
-              : "bg-slate-100 hover:bg-green-500 hover:text-white text-slate-600"
-              }`}
-            onClick={handleRunNode}
-            disabled={isRunningNode || isDebugging}
-            title={isRunningNode ? "Running..." : "Run this node"}
+            onMouseDown={(e) => e.stopPropagation()}
           >
-            {isRunningNode ? (
-              <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
-            ) : (
-              <Play className="w-3.5 h-3.5" />
-            )}
-          </button>
-
-          {/* View Output Button - only when there's output */}
-          {(status === "success" || status === "error") && (
+            {/* Run/Rerun Button - always available to run the node */}
             <button
               type="button"
-              className={`w-6 h-6 rounded cursor-pointer flex items-center justify-center shadow-sm transition-all ${status === "success"
-                ? "bg-emerald-500 hover:bg-emerald-600"
-                : "bg-red-500 hover:bg-red-600"
-                }`}
-              onClick={handleToggleOutput}
-              title="View output"
+              className={`w-6 h-6 rounded cursor-pointer flex items-center justify-center shadow-sm transition-all ${
+                isRunningNode
+                  ? 'bg-blue-500 animate-pulse'
+                  : 'bg-slate-100 hover:bg-green-500 hover:text-white text-slate-600'
+              }`}
+              onClick={handleRunNode}
+              disabled={isRunningNode || isDebugging}
+              title={isRunningNode ? 'Running...' : 'Run this node'}
             >
-              {status === "success" ? (
-                <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+              {isRunningNode ? (
+                <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
               ) : (
-                <AlertCircle className="w-3.5 h-3.5 text-white" />
+                <Play className="w-3.5 h-3.5" />
               )}
             </button>
-          )}
 
-          {/* Delete Button - only when selected */}
-          {selected && (
-            <button
-              type="button"
-              className="w-6 h-6 rounded cursor-pointer flex items-center justify-center bg-slate-100 hover:bg-orange-500 hover:text-white text-slate-600 shadow-sm transition-all"
-              onClick={handleDeleteClick}
-              title="Delete node"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-      )}
+            {/* View Output Button - only when there's output */}
+            {(status === 'success' || status === 'error') && (
+              <button
+                type="button"
+                className={`w-6 h-6 rounded cursor-pointer flex items-center justify-center shadow-sm transition-all ${
+                  status === 'success'
+                    ? 'bg-emerald-500 hover:bg-emerald-600'
+                    : 'bg-red-500 hover:bg-red-600'
+                }`}
+                onClick={handleToggleOutput}
+                title="View output"
+              >
+                {status === 'success' ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                ) : (
+                  <AlertCircle className="w-3.5 h-3.5 text-white" />
+                )}
+              </button>
+            )}
+
+            {/* Delete Button - only when selected */}
+            {selected && (
+              <button
+                type="button"
+                className="w-6 h-6 rounded cursor-pointer flex items-center justify-center bg-slate-100 hover:bg-orange-500 hover:text-white text-slate-600 shadow-sm transition-all"
+                onClick={handleDeleteClick}
+                title="Delete node"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
     </div>
   );
 
   // Output Panel - rendered as a portal to appear above React Flow edges
-  const outputPanel = showOutput && hasOutput && outputPosition && createPortal(
-    <div
-      className="fixed bg-white border rounded-lg shadow-2xl overflow-hidden"
-      style={{
-        top: outputPosition.top,
-        left: outputPosition.left,
-        minWidth: 250,
-        maxWidth: 400,
-        zIndex: 10000,
-      }}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      {/* Header */}
-      <div className={`flex items-center justify-between px-3 py-1.5 ${status === "success" ? "bg-emerald-50 border-b border-emerald-100" : "bg-red-50 border-b border-red-100"
-        }`}>
-        <span className={`text-xs font-semibold ${status === "success" ? "text-emerald-700" : "text-red-700"
-          }`}>
-          {status === "success" ? "Output" : "Error"}
-        </span>
-        <button
-          onClick={handleToggleOutput}
-          className="p-0.5 hover:bg-white/50 rounded"
+  const outputPanel =
+    showOutput &&
+    hasOutput &&
+    outputPosition &&
+    createPortal(
+      <div
+        className="fixed bg-white border rounded-lg shadow-2xl overflow-hidden"
+        style={{
+          top: outputPosition.top,
+          left: outputPosition.left,
+          minWidth: 250,
+          maxWidth: 400,
+          zIndex: 10000,
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div
+          className={`flex items-center justify-between px-3 py-1.5 ${
+            status === 'success'
+              ? 'bg-emerald-50 border-b border-emerald-100'
+              : 'bg-red-50 border-b border-red-100'
+          }`}
         >
-          <X className="w-3 h-3 text-slate-500" />
-        </button>
-      </div>
-      {/* Content */}
-      <div className="p-3 max-h-48 overflow-auto">
-        {error ? (
-          <pre className="text-xs text-red-600 whitespace-pre-wrap font-mono">{error}</pre>
-        ) : output ? (
-          <pre className="text-xs text-slate-700 whitespace-pre-wrap font-mono">
-            {typeof output === "object"
-              ? JSON.stringify(output, (key, value) => {
-                // Redact sensitive fields
-                const sensitiveKeys = ['password', 'secret', 'api_key', 'apiKey', 'token', 'client_secret', 'clientSecret', 'access_token', 'accessToken', 'private_key', 'privateKey'];
-                if (sensitiveKeys.some(k => key.toLowerCase().includes(k.toLowerCase()))) {
-                  return '••••••••';
-                }
-                return value;
-              }, 2)
-              : String(output)}
-          </pre>
-        ) : (
-          <span className="text-xs text-slate-400 italic">No output</span>
-        )}
-      </div>
-    </div>,
-    document.body
-  );
+          <span
+            className={`text-xs font-semibold ${
+              status === 'success' ? 'text-emerald-700' : 'text-red-700'
+            }`}
+          >
+            {status === 'success' ? 'Output' : 'Error'}
+          </span>
+          <button onClick={handleToggleOutput} className="p-0.5 hover:bg-white/50 rounded">
+            <X className="w-3 h-3 text-slate-500" />
+          </button>
+        </div>
+        {/* Content */}
+        <div className="p-3 max-h-48 overflow-auto">
+          {error ? (
+            <pre className="text-xs text-red-600 whitespace-pre-wrap font-mono">{error}</pre>
+          ) : output ? (
+            <pre className="text-xs text-slate-700 whitespace-pre-wrap font-mono">
+              {typeof output === 'object'
+                ? JSON.stringify(
+                    output,
+                    (key, value) => {
+                      // Redact sensitive fields
+                      const sensitiveKeys = [
+                        'password',
+                        'secret',
+                        'api_key',
+                        'apiKey',
+                        'token',
+                        'client_secret',
+                        'clientSecret',
+                        'access_token',
+                        'accessToken',
+                        'private_key',
+                        'privateKey',
+                      ];
+                      if (sensitiveKeys.some((k) => key.toLowerCase().includes(k.toLowerCase()))) {
+                        return '••••••••';
+                      }
+                      return value;
+                    },
+                    2,
+                  )
+                : String(output)}
+            </pre>
+          ) : (
+            <span className="text-xs text-slate-400 italic">No output</span>
+          )}
+        </div>
+      </div>,
+      document.body,
+    );
 
   return (
     <>

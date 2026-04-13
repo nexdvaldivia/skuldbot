@@ -51,9 +51,7 @@ export class PaymentMethodService {
 
       if (!existing) {
         await this.paymentConfigRepository.save(config);
-        this.logger.log(
-          `Created default payment config for ${config.productType}`,
-        );
+        this.logger.log(`Created default payment config for ${config.productType}`);
       }
     }
   }
@@ -151,9 +149,7 @@ export class PaymentMethodService {
 
     // For card, create a regular SetupIntent
     // The Stripe provider would need a similar method for cards
-    throw new BadRequestException(
-      'Card setup not yet implemented - use Stripe Checkout',
-    );
+    throw new BadRequestException('Card setup not yet implemented - use Stripe Checkout');
   }
 
   /**
@@ -184,9 +180,7 @@ export class PaymentMethodService {
     });
 
     if (!config) {
-      throw new BadRequestException(
-        `Payment config not found for ${productType}`,
-      );
+      throw new BadRequestException(`Payment config not found for ${productType}`);
     }
 
     // Validate: at least one method must be enabled
@@ -194,9 +188,7 @@ export class PaymentMethodService {
     const newCardEnabled = update.cardEnabled ?? config.cardEnabled;
 
     if (!newAchEnabled && !newCardEnabled) {
-      throw new BadRequestException(
-        'At least one payment method must be enabled',
-      );
+      throw new BadRequestException('At least one payment method must be enabled');
     }
 
     Object.assign(config, update);

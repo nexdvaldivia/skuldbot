@@ -156,10 +156,7 @@ export class RetentionService {
   /**
    * Calculate expiration date for a policy.
    */
-  async calculateExpiration(
-    policyId: string,
-    createdAt: Date = new Date(),
-  ): Promise<Date | null> {
+  async calculateExpiration(policyId: string, createdAt: Date = new Date()): Promise<Date | null> {
     const policy = this.policies.get(policyId);
 
     if (!policy || policy.retentionDays === null) {

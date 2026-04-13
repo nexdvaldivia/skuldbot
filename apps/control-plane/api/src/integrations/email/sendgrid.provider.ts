@@ -62,7 +62,7 @@ export class SendGridProvider implements EmailProvider {
     try {
       const [response] = await sgMail.send(msg);
       return {
-        messageId: response.headers['x-message-id'] as string || '',
+        messageId: (response.headers['x-message-id'] as string) || '',
         success: true,
       };
     } catch (error) {
@@ -86,7 +86,7 @@ export class SendGridProvider implements EmailProvider {
     try {
       const [response] = await sgMail.send(msg);
       return {
-        messageId: response.headers['x-message-id'] as string || '',
+        messageId: (response.headers['x-message-id'] as string) || '',
         success: true,
       };
     } catch (error) {

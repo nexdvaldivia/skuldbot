@@ -9,7 +9,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, Like, ILike } from 'typeorm';
 import { User, UserStatus, AuthProvider } from './entities/user.entity';
 import { Role } from '../roles/entities/role.entity';
-import { AuditLog, AuditCategory, AuditAction, AuditResult } from '../audit/entities/audit-log.entity';
+import {
+  AuditLog,
+  AuditCategory,
+  AuditAction,
+  AuditResult,
+} from '../audit/entities/audit-log.entity';
 import { PasswordService, TokenService } from '../common/crypto/password.service';
 import {
   CreateUserDto,
@@ -55,10 +60,7 @@ export class UsersService {
   // CRUD OPERATIONS
   // ============================================================================
 
-  async findAll(
-    tenantId: string,
-    query: ListUsersQueryDto,
-  ): Promise<PaginatedUsersResponseDto> {
+  async findAll(tenantId: string, query: ListUsersQueryDto): Promise<PaginatedUsersResponseDto> {
     const {
       search,
       status,
@@ -364,10 +366,7 @@ export class UsersService {
     }
 
     // Prevent deactivating last admin
-    if (
-      dto.status !== UserStatus.ACTIVE &&
-      user.roles.some((r) => r.name === 'admin')
-    ) {
+    if (dto.status !== UserStatus.ACTIVE && user.roles.some((r) => r.name === 'admin')) {
       const adminCount = await this.userRepository
         .createQueryBuilder('user')
         .innerJoin('user.roles', 'role')
@@ -404,11 +403,7 @@ export class UsersService {
     return this.findOne(tenantId, userId);
   }
 
-  async delete(
-    tenantId: string,
-    userId: string,
-    deletedBy: User,
-  ): Promise<void> {
+  async delete(tenantId: string, userId: string, deletedBy: User): Promise<void> {
     const user = await this.userRepository.findOne({
       where: { id: userId, tenantId },
       relations: ['roles'],
@@ -608,7 +603,7 @@ export class UsersService {
       },
       roles: roles.map((r) => ({ id: r.id, name: r.name })),
       createdAt: user.createdAt,
-      expiresAt: user.emailVerificationExpires!,
+      expiresAt: user.emailVerificationExpires,
     };
   }
 
@@ -639,11 +634,7 @@ export class UsersService {
     return { message: 'Invitation has been resent.' };
   }
 
-  async revokeInvitation(
-    tenantId: string,
-    userId: string,
-    revokedBy: User,
-  ): Promise<void> {
+  async revokeInvitation(tenantId: string, userId: string, revokedBy: User): Promise<void> {
     const user = await this.userRepository.findOne({
       where: { id: userId, tenantId, status: UserStatus.PENDING_VERIFICATION },
     });
@@ -737,11 +728,12 @@ export class UsersService {
       status: user.status,
       emailVerified: user.emailVerified,
       mfaEnabled: user.mfaEnabled,
-      roles: user.roles?.map((r) => ({
-        id: r.id,
-        name: r.name,
-        displayName: r.displayName,
-      })) || [],
+      roles:
+        user.roles?.map((r) => ({
+          id: r.id,
+          name: r.name,
+          displayName: r.displayName,
+        })) || [],
       timezone: user.timezone,
       locale: user.locale,
       lastLoginAt: user.lastLoginAt,

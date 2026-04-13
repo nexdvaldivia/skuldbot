@@ -1,6 +1,7 @@
 # Studio Editor - Roadmap Completo
 
 ## Completado
+
 - [x] Editor visual con React Flow
 - [x] Nodos básicos (web, archivos, variables)
 - [x] Sistema de proyectos con múltiples bots
@@ -16,6 +17,7 @@
 ## NODOS
 
 ### Web Automation
+
 - [ ] browser.open - Abrir navegador
 - [ ] browser.close - Cerrar navegador
 - [ ] browser.navigate - Navegar a URL
@@ -40,6 +42,7 @@
 - [ ] browser.alert_handle - Manejar alertas
 
 ### Desktop Automation
+
 - [ ] desktop.click - Click en coordenadas/imagen
 - [ ] desktop.type - Escribir texto
 - [ ] desktop.hotkey - Combinación de teclas
@@ -59,6 +62,7 @@
 - [ ] desktop.kill_process - Matar proceso
 
 ### Excel
+
 - [ ] excel.open - Abrir workbook
 - [ ] excel.create - Crear workbook
 - [ ] excel.save - Guardar workbook
@@ -90,6 +94,7 @@
 - [ ] excel.export_csv - Exportar a CSV
 
 ### PDF
+
 - [ ] pdf.read_text - Extraer texto
 - [ ] pdf.read_tables - Extraer tablas
 - [ ] pdf.read_images - Extraer imágenes
@@ -109,6 +114,7 @@
 - [ ] pdf.sign - Firmar PDF
 
 ### Email
+
 - [ ] email.send_smtp - Enviar email SMTP
 - [ ] email.send_outlook - Enviar via Outlook
 - [ ] email.send_gmail - Enviar via Gmail API
@@ -126,6 +132,7 @@
 - [ ] email.create_draft - Crear borrador
 
 ### Files & Folders
+
 - [ ] file.read - Leer archivo
 - [ ] file.write - Escribir archivo
 - [ ] file.append - Agregar a archivo
@@ -146,6 +153,7 @@
 - [ ] folder.move - Mover carpeta
 
 ### Data & JSON
+
 - [ ] json.parse - Parsear JSON
 - [ ] json.stringify - Convertir a JSON
 - [ ] json.get - Obtener valor (JSONPath)
@@ -162,6 +170,7 @@
 - [ ] yaml.stringify - Convertir a YAML
 
 ### API & HTTP
+
 - [ ] http.get - GET request
 - [ ] http.post - POST request
 - [ ] http.put - PUT request
@@ -179,6 +188,7 @@
 - [ ] websocket.close - Cerrar conexión
 
 ### Database
+
 - [ ] db.connect - Conectar a BD
 - [ ] db.query - Ejecutar query
 - [ ] db.insert - Insertar registros
@@ -190,6 +200,7 @@
 - [ ] db.export - Exportar a CSV/Excel
 
 ### AI & OCR
+
 - [ ] ai.openai_chat - Chat con GPT
 - [ ] ai.openai_complete - Completar texto
 - [ ] ai.openai_image - Generar imagen
@@ -205,6 +216,7 @@
 - [ ] ocr.find_text - Buscar texto en imagen
 
 ### Control Flow
+
 - [ ] control.if - Condicional
 - [ ] control.switch - Switch/Case
 - [ ] control.loop - Loop N veces
@@ -221,6 +233,7 @@
 - [ ] control.return - Retornar valor
 
 ### Variables & Data
+
 - [ ] var.set - Setear variable
 - [ ] var.get - Obtener variable
 - [ ] var.increment - Incrementar
@@ -252,6 +265,7 @@
 - [ ] list.join - Unir como string
 
 ### Logging & Debug
+
 - [ ] log.info - Log información
 - [ ] log.warning - Log advertencia
 - [ ] log.error - Log error
@@ -262,6 +276,7 @@
 - [ ] debug.dump - Mostrar variable
 
 ### Notifications
+
 - [ ] notify.toast - Notificación local
 - [ ] notify.email - Enviar notificación email
 - [ ] notify.slack - Enviar a Slack
@@ -270,6 +285,7 @@
 - [ ] notify.webhook - Llamar webhook
 
 ### Triggers
+
 - [x] trigger.manual - Ejecución manual
 - [x] trigger.form - Formulario de entrada
 - [ ] trigger.file_watch - Observar carpeta
@@ -282,6 +298,7 @@
 ## FUNCIONES DEL EDITOR
 
 ### Edición Básica
+
 - [ ] Undo/Redo con historial ilimitado
 - [ ] Copy/Paste nodos (con conexiones)
 - [ ] Duplicar nodos (Ctrl+D)
@@ -293,6 +310,7 @@
 - [ ] Auto-layout de flujo
 
 ### Navegación
+
 - [ ] Zoom to fit
 - [ ] Centrar en nodo seleccionado
 - [ ] Minimap navegable
@@ -302,6 +320,7 @@
 - [ ] Historial de posiciones (back/forward)
 
 ### Organización Visual
+
 - [ ] Comentarios/Notas en canvas
 - [ ] Grupos de nodos (containers)
 - [ ] Colores personalizados de nodos
@@ -311,6 +330,7 @@
 - [ ] Capas/layers
 
 ### Debugger Visual
+
 - [ ] Breakpoints en nodos
 - [ ] Ejecución paso a paso (F10)
 - [ ] Step into subproceso (F11)
@@ -327,6 +347,7 @@
 - [ ] Modo slow-motion
 
 ### Keyboard Shortcuts
+
 - [ ] Ctrl+S - Guardar
 - [ ] Ctrl+Z - Undo
 - [ ] Ctrl+Y - Redo
@@ -348,6 +369,7 @@
 - [ ] Ctrl+1 - Zoom to fit
 
 ### Validación y Errores
+
 - [ ] Validación en tiempo real
 - [ ] Indicador de errores en nodos
 - [ ] Panel de problemas
@@ -357,6 +379,7 @@
 - [ ] Detectar nodos sin conectar
 
 ### Versionado
+
 - [ ] Historial de cambios local
 - [ ] Comparar versiones (diff visual)
 - [ ] Rollback a versión anterior
@@ -364,6 +387,7 @@
 - [ ] Auto-backup periódico
 
 ### Templates y Snippets
+
 - [ ] Guardar selección como snippet
 - [ ] Biblioteca de snippets
 - [ ] Templates de bots predefinidos
@@ -371,12 +395,14 @@
 - [ ] Compartir templates
 
 ### Colaboración (futuro)
+
 - [ ] Edición colaborativa en tiempo real
 - [ ] Comentarios y revisiones
 - [ ] Asignación de tareas
 - [ ] Notificaciones de cambios
 
 ### Import/Export
+
 - [ ] Exportar bot como JSON
 - [ ] Importar bot desde JSON
 - [ ] Exportar como imagen (PNG/SVG)
@@ -384,6 +410,7 @@
 - [ ] Exportar a código Python
 
 ### UI/UX
+
 - [ ] Tema oscuro/claro
 - [ ] Personalizar colores de categorías
 - [ ] Paneles redimensionables
@@ -397,18 +424,21 @@
 ## PRIORIDADES DE IMPLEMENTACIÓN
 
 ### Inmediato (Sprint 1)
+
 1. Undo/Redo
 2. Copy/Paste/Duplicar
 3. Keyboard shortcuts básicos
 4. Validación en tiempo real
 
 ### Corto plazo (Sprint 2-3)
+
 1. Debugger visual básico (breakpoints, step)
 2. Nodos de Excel (operaciones principales)
 3. Nodos de Email (enviar/leer)
 4. Búsqueda de nodos
 
 ### Mediano plazo (Sprint 4-6)
+
 1. Nodos de PDF
 2. Nodos de Database
 3. Control flow avanzado (loops, parallel)
@@ -416,6 +446,7 @@
 5. Templates y snippets
 
 ### Largo plazo
+
 1. Nodos de IA
 2. Versionado completo
 3. Import/Export avanzado

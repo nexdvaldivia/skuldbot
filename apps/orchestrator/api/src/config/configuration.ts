@@ -1,6 +1,5 @@
 const nodeEnv = process.env.NODE_ENV ?? 'development';
-const isLocalRuntime =
-  nodeEnv === 'development' || nodeEnv === 'local' || nodeEnv === 'test';
+const isLocalRuntime = nodeEnv === 'development' || nodeEnv === 'local' || nodeEnv === 'test';
 const synchronizeRequested = (process.env.DATABASE_SYNCHRONIZE ?? 'false').toLowerCase() === 'true';
 
 export default () => ({

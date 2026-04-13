@@ -59,8 +59,7 @@ export class AuthService {
   async register(_dto: RegisterDto): Promise<AuthResponseDto> {
     throw new ForbiddenException({
       code: 'SELF_REGISTRATION_DISABLED',
-      message:
-        'Self-registration is disabled. Accounts must be created by an administrator.',
+      message: 'Self-registration is disabled. Accounts must be created by an administrator.',
     });
   }
 
@@ -88,16 +87,14 @@ export class AuthService {
   async forgotPassword(_dto: ForgotPasswordDto): Promise<{ message: string }> {
     throw new ForbiddenException({
       code: 'PASSWORD_RECOVERY_DISABLED',
-      message:
-        'Password recovery is disabled. Contact your administrator for credential reset.',
+      message: 'Password recovery is disabled. Contact your administrator for credential reset.',
     });
   }
 
   async resetPassword(_dto: ResetPasswordDto): Promise<{ message: string }> {
     throw new ForbiddenException({
       code: 'PASSWORD_RECOVERY_DISABLED',
-      message:
-        'Password reset via self-service is disabled. Contact your administrator.',
+      message: 'Password reset via self-service is disabled. Contact your administrator.',
     });
   }
 

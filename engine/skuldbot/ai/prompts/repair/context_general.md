@@ -1,10 +1,10 @@
 ---
-version: "1.0"
-created: "2025-12-18"
-author: "Skuldbot Team"
-node: "ai.repair_data"
-context: "general"
-description: "General-purpose context for AI data repair"
+version: '1.0'
+created: '2025-12-18'
+author: 'Skuldbot Team'
+node: 'ai.repair_data'
+context: 'general'
+description: 'General-purpose context for AI data repair'
 audit_required: false
 compliance_tags: []
 ---
@@ -16,6 +16,7 @@ Standard data cleaning practices for non-regulated data.
 ### ALLOWED OPERATIONS
 
 #### Format Normalization
+
 - Date standardization to ISO 8601
 - Phone number formatting
 - Currency formatting
@@ -24,6 +25,7 @@ Standard data cleaning practices for non-regulated data.
 - Case normalization for codes
 
 #### Semantic Cleanup
+
 - Obvious typo corrections
 - Case normalization for names
 - Whitespace cleanup
@@ -31,6 +33,7 @@ Standard data cleaning practices for non-regulated data.
 - Encoding fixes (UTF-8)
 
 #### Value Inference
+
 - Only when evidence is very clear
 - Require confidence >= 0.90
 - Document reasoning
@@ -56,23 +59,28 @@ Standard data cleaning practices for non-regulated data.
 ### COMMON REPAIRS
 
 #### Dates
+
 - "12/25/2024" → "2024-12-25"
 - "Dec 25, 2024" → "2024-12-25"
 - "25-12-2024" → "2024-12-25"
 
 #### Phone Numbers
+
 - "555-1234567" → "+1-555-123-4567"
 - "(555) 123 4567" → "+1-555-123-4567"
 
 #### Email
+
 - "USER@EXAMPLE.COM" → "user@example.com"
 - " user@example.com " → "user@example.com"
 
 #### Names
+
 - "john doe" → "John Doe"
 - "JOHN DOE" → "John Doe"
 
 #### Status Values
+
 - "ACTIVE" → "active"
 - "Active" → "active"
 - " active " → "active"
@@ -80,6 +88,7 @@ Standard data cleaning practices for non-regulated data.
 ### CONFIDENCE THRESHOLDS
 
 For general data:
+
 - Format normalization: >= 0.85
 - Semantic cleanup: >= 0.90
 - Value inference: >= 0.90

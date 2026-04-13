@@ -1,12 +1,7 @@
 import { CFG, isPseudo, END, ROOT_SCOPE } from '../types/cfg';
 import { ControlType } from '../types/classification';
 import { NodeManifest, createUnknownNodeManifest } from '../types/manifest';
-import {
-  ExecutionPlan,
-  ExecutionStep,
-  Jump,
-  NodeClassInfo,
-} from '../types/execution-plan';
+import { ExecutionPlan, ExecutionStep, Jump, NodeClassInfo } from '../types/execution-plan';
 import { PolicyResult } from '../types/policy';
 import { getNodeControls } from '../policy/evaluate';
 
@@ -104,11 +99,7 @@ export function compileExecutionPlan(
 /**
  * Build jumps from CFG edges for a node
  */
-function buildJumps(
-  nodeId: string,
-  cfg: CFG,
-  stepIdMap: Map<string, string>,
-): Jump[] {
+function buildJumps(nodeId: string, cfg: CFG, stepIdMap: Map<string, string>): Jump[] {
   const jumps: Jump[] = [];
   const seenPorts = new Set<string>();
 
@@ -168,9 +159,10 @@ function resolveJumpTarget(
     if (scope !== ROOT_SCOPE) {
       const container = cfg.nodesById.get(scope);
       if (container?.outputs?.done) {
-        const doneTarget = container.outputs.done === 'END'
-          ? END(getParentScope(scope, cfg))
-          : container.outputs.done;
+        const doneTarget =
+          container.outputs.done === 'END'
+            ? END(getParentScope(scope, cfg))
+            : container.outputs.done;
         return resolveJumpTarget(doneTarget, cfg, stepIdMap, visited);
       }
     }
@@ -240,10 +232,7 @@ function getParentScope(scopeId: string, cfg: CFG): string {
 /**
  * Find the entry step ID
  */
-function findEntryStep(
-  cfg: CFG,
-  stepIdMap: Map<string, string>,
-): string {
+function findEntryStep(cfg: CFG, stepIdMap: Map<string, string>): string {
   // Follow from ROOT ENTRY
   const entrySuccessors = cfg.succ.get(`__ENTRY__:${ROOT_SCOPE}`);
   if (entrySuccessors && entrySuccessors.size > 0) {
@@ -269,10 +258,7 @@ function findEntryStep(
  * - Expand credentials references
  * - Validate required fields
  */
-function resolveConfig(
-  config: Record<string, any>,
-  nodeType: string,
-): Record<string, any> {
+function resolveConfig(config: Record<string, any>, nodeType: string): Record<string, any> {
   // For now, pass through. Expression resolution happens at runtime
   return { ...config };
 }
@@ -348,7 +334,7 @@ export function hashExecutionPlan(plan: ExecutionPlan): string {
   let hash = 0;
   for (let i = 0; i < content.length; i++) {
     const char = content.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash; // Convert to 32-bit integer
   }
   return Math.abs(hash).toString(16).padStart(8, '0');

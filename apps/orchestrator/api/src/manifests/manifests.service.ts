@@ -1,8 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  NodeManifest,
-  createUnknownNodeManifest,
-} from '@skuldbot/compiler';
+import { NodeManifest, createUnknownNodeManifest } from '@skuldbot/compiler';
 
 /**
  * Service for managing node manifests
@@ -19,9 +16,7 @@ export class ManifestsService {
   /**
    * Get manifests for a list of node types
    */
-  async getManifestsForTypes(
-    types: string[],
-  ): Promise<Record<string, NodeManifest>> {
+  async getManifestsForTypes(types: string[]): Promise<Record<string, NodeManifest>> {
     const result: Record<string, NodeManifest> = {};
 
     for (const type of types) {

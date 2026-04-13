@@ -8,11 +8,7 @@ import {
   Matches,
   IsUUID,
 } from 'class-validator';
-import {
-  TenantEnvironment,
-  TenantDeploymentType,
-  TenantStatus,
-} from '../entities/tenant.entity';
+import { TenantEnvironment, TenantDeploymentType, TenantStatus } from '../entities/tenant.entity';
 
 export class CreateTenantDto {
   @IsUUID()

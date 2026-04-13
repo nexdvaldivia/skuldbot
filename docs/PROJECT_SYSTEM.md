@@ -7,6 +7,7 @@
 SkuldBot Studio introduce un sistema de proyectos multi-bot tipo IDE que permite organizar, versionar y gestionar automatizaciones RPA + IA de manera profesional.
 
 **SkuldBot** es una plataforma de automatización inteligente que combina:
+
 - **RPA (Robotic Process Automation)**: Automatización de tareas repetitivas
 - **IA (Inteligencia Artificial)**: Toma de decisiones inteligente, procesamiento de lenguaje natural, y más
 
@@ -165,25 +166,25 @@ Undo/Redo persistente por bot:
 
 ### Settings Generales
 
-| Setting | Descripción | Default |
-|---------|-------------|---------|
-| `defaultBrowser` | Browser para automatización web | chromium |
-| `defaultHeadless` | Ejecutar sin UI visible | false |
-| `logLevel` | Nivel de detalle de logs | INFO |
+| Setting           | Descripción                     | Default  |
+| ----------------- | ------------------------------- | -------- |
+| `defaultBrowser`  | Browser para automatización web | chromium |
+| `defaultHeadless` | Ejecutar sin UI visible         | false    |
+| `logLevel`        | Nivel de detalle de logs        | INFO     |
 
 ### Auto-Save
 
-| Setting | Descripción | Default |
-|---------|-------------|---------|
-| `enabled` | Activar auto-guardado | true |
-| `intervalMs` | Intervalo mínimo entre guardados | 5000 |
+| Setting      | Descripción                      | Default |
+| ------------ | -------------------------------- | ------- |
+| `enabled`    | Activar auto-guardado            | true    |
+| `intervalMs` | Intervalo mínimo entre guardados | 5000    |
 
 ### Historial de Versiones
 
-| Setting | Descripción | Default |
-|---------|-------------|---------|
-| `enabled` | Activar historial | true |
-| `maxVersions` | Máximo de versiones a mantener | 50 |
+| Setting       | Descripción                    | Default |
+| ------------- | ------------------------------ | ------- |
+| `enabled`     | Activar historial              | true    |
+| `maxVersions` | Máximo de versiones a mantener | 50      |
 
 ---
 
@@ -199,8 +200,8 @@ Undo/Redo persistente por bot:
 
 ```yaml
 # .skuldbot/env.local (gitignored)
-API_KEY: "sk-xxxxx"
-DATABASE_URL: "postgres://..."
+API_KEY: 'sk-xxxxx'
+DATABASE_URL: 'postgres://...'
 
 # O en UI de Settings > Environment
 ```
@@ -220,16 +221,16 @@ Las variables marcadas como "secret" se encriptan en disco y nunca se muestran e
 
 ## Keyboard Shortcuts
 
-| Shortcut | Acción |
-|----------|--------|
-| `Ctrl/Cmd + S` | Guardar bot actual |
-| `Ctrl/Cmd + W` | Cerrar tab actual |
-| `Ctrl/Cmd + Tab` | Siguiente tab |
-| `Ctrl/Cmd + Shift + Tab` | Tab anterior |
-| `Ctrl/Cmd + N` | Nuevo bot |
-| `Delete/Backspace` | Eliminar nodo seleccionado |
-| `Ctrl/Cmd + Z` | Deshacer |
-| `Ctrl/Cmd + Y` | Rehacer |
+| Shortcut                 | Acción                     |
+| ------------------------ | -------------------------- |
+| `Ctrl/Cmd + S`           | Guardar bot actual         |
+| `Ctrl/Cmd + W`           | Cerrar tab actual          |
+| `Ctrl/Cmd + Tab`         | Siguiente tab              |
+| `Ctrl/Cmd + Shift + Tab` | Tab anterior               |
+| `Ctrl/Cmd + N`           | Nuevo bot                  |
+| `Delete/Backspace`       | Eliminar nodo seleccionado |
+| `Ctrl/Cmd + Z`           | Deshacer                   |
+| `Ctrl/Cmd + Y`           | Rehacer                    |
 
 ---
 
@@ -239,71 +240,71 @@ Las variables marcadas como "secret" se encriptan en disco y nunca se muestran e
 
 ```typescript
 // Crear proyecto
-invoke('create_project', { path, name, description })
+invoke('create_project', { path, name, description });
 
 // Abrir proyecto
-invoke('open_project', { path })
+invoke('open_project', { path });
 
 // Guardar manifest
-invoke('save_project_manifest', { path, manifest })
+invoke('save_project_manifest', { path, manifest });
 ```
 
 ### Comandos de Bot
 
 ```typescript
 // Crear bot
-invoke('create_bot', { projectPath, name, description })
+invoke('create_bot', { projectPath, name, description });
 
 // Cargar bot
-invoke('load_bot', { botPath })
+invoke('load_bot', { botPath });
 
 // Guardar bot
-invoke('save_bot', { botPath, dsl })
+invoke('save_bot', { botPath, dsl });
 
 // Eliminar bot
-invoke('delete_bot', { botPath })
+invoke('delete_bot', { botPath });
 ```
 
 ### Comandos de Historial
 
 ```typescript
 // Guardar versión
-invoke('save_bot_version', { botPath, dsl, description })
+invoke('save_bot_version', { botPath, dsl, description });
 
 // Listar versiones
-invoke('list_bot_versions', { botPath })
+invoke('list_bot_versions', { botPath });
 
 // Cargar versión específica
-invoke('load_bot_version', { botPath, versionId })
+invoke('load_bot_version', { botPath, versionId });
 
 // Limpiar versiones antiguas
-invoke('cleanup_old_versions', { botPath, maxVersions })
+invoke('cleanup_old_versions', { botPath, maxVersions });
 ```
 
 ### Comandos de Assets
 
 ```typescript
 // Listar assets
-invoke('list_assets', { assetsPath })
+invoke('list_assets', { assetsPath });
 
 // Copiar asset
-invoke('copy_asset', { source, destination })
+invoke('copy_asset', { source, destination });
 
 // Eliminar asset
-invoke('delete_asset', { path })
+invoke('delete_asset', { path });
 ```
 
 ### Proyectos Recientes
 
 ```typescript
 // Obtener recientes
-invoke('get_recent_projects')
+invoke('get_recent_projects');
 
 // Agregar a recientes
-invoke('add_recent_project', { path, name })
+invoke('add_recent_project', { path, name });
 
 // Remover de recientes
-invoke('remove_recent_project', { path })
+invoke('remove_recent_project', { path });
 ```
 
 ---
@@ -379,6 +380,7 @@ interface NavigationStoreState {
 ### WelcomeScreen
 
 Pantalla inicial con:
+
 - Logo y branding
 - Botones de crear/abrir proyecto
 - Lista de proyectos recientes
@@ -387,6 +389,7 @@ Pantalla inicial con:
 ### ProjectExplorer
 
 Panel lateral con:
+
 - Árbol de navegación
 - Secciones: Bots, Shared, Settings
 - Acciones contextuales
@@ -395,6 +398,7 @@ Panel lateral con:
 ### TabBar
 
 Barra de tabs:
+
 - Tabs con iconos por tipo
 - Indicador de cambios sin guardar
 - Botón de cerrar
@@ -403,6 +407,7 @@ Barra de tabs:
 ### ProjectToolbar
 
 Barra de herramientas:
+
 - Logo y nombre de proyecto
 - Nombre del bot activo
 - Botones: Save, Build, Run
@@ -412,6 +417,7 @@ Barra de herramientas:
 ### BotEditor
 
 Editor principal:
+
 - Canvas de React Flow
 - Drag & drop de nodos
 - Conexiones entre nodos
@@ -420,6 +426,7 @@ Editor principal:
 ### AutoSaveManager
 
 Componente invisible que:
+
 - Detecta cambios
 - Aplica debounce
 - Guarda automáticamente
@@ -441,20 +448,26 @@ Si tienes bots creados con la versión anterior (sin sistema de proyectos):
 ## Preguntas Frecuentes
 
 ### ¿Dónde se guardan los proyectos?
+
 En la ubicación que elijas al crear el proyecto. Puedes usar cualquier carpeta.
 
 ### ¿Se puede usar con Git?
+
 Sí. La estructura está diseñada para control de versiones:
+
 - `.skuldbot/cache/` y `env.local` están en `.gitignore`
 - Los archivos `.json` son legibles y mergeables
 
 ### ¿Cuántos bots puede tener un proyecto?
+
 No hay límite técnico. El límite práctico depende de tu hardware.
 
 ### ¿Se sincronizan los proyectos en la nube?
+
 Actualmente no. Usa tu propio sistema (Git, Dropbox, etc.) para sincronizar la carpeta del proyecto.
 
 ### ¿Puedo usar el mismo bot en múltiples proyectos?
+
 No directamente. Puedes duplicar el bot o usar la carpeta `shared/` para código común.
 
 ---
@@ -462,6 +475,7 @@ No directamente. Puedes duplicar el bot o usar la carpeta `shared/` para código
 ## Soporte
 
 Para soporte técnico:
+
 - Email: support@skuld.io
 - Documentación: https://docs.skuld.io
 
@@ -472,6 +486,7 @@ Para soporte técnico:
 SkuldBot no es solo otra herramienta de RPA. Es una plataforma de **automatización inteligente** que combina lo mejor de dos mundos:
 
 ### Capacidades RPA
+
 - Automatización web (navegación, scraping, formularios)
 - Automatización de desktop (Windows, macOS)
 - Procesamiento de archivos (Excel, PDF, CSV)
@@ -479,6 +494,7 @@ SkuldBot no es solo otra herramienta de RPA. Es una plataforma de **automatizaci
 - Email y notificaciones
 
 ### Capacidades de IA
+
 - **Procesamiento de Lenguaje Natural (NLP)**: Extraer información de textos no estructurados
 - **Visión por Computadora**: OCR inteligente, clasificación de imágenes
 - **Toma de Decisiones**: Modelos de ML para routing inteligente
@@ -487,20 +503,20 @@ SkuldBot no es solo otra herramienta de RPA. Es una plataforma de **automatizaci
 
 ### Casos de Uso
 
-| Escenario | RPA Solo | RPA + IA |
-|-----------|----------|----------|
-| Extraer datos de facturas | Campos fijos | Cualquier formato |
-| Clasificar emails | Por reglas | Por intención |
-| Responder consultas | Templates | Respuestas personalizadas |
-| Procesar documentos | Estructurados | Cualquier documento |
-| Validar información | Reglas estáticas | Validación semántica |
+| Escenario                 | RPA Solo         | RPA + IA                  |
+| ------------------------- | ---------------- | ------------------------- |
+| Extraer datos de facturas | Campos fijos     | Cualquier formato         |
+| Clasificar emails         | Por reglas       | Por intención             |
+| Responder consultas       | Templates        | Respuestas personalizadas |
+| Procesar documentos       | Estructurados    | Cualquier documento       |
+| Validar información       | Reglas estáticas | Validación semántica      |
 
 ---
 
 **SkuldBot Studio** - All Rights Reserved
 **Skuld, LLC** - An Asgard Insight company
 
-*Plataforma de Automatización Inteligente RPA + IA*
+_Plataforma de Automatización Inteligente RPA + IA_
 
 Versión: 0.1.0
 Última actualización: Diciembre 2025

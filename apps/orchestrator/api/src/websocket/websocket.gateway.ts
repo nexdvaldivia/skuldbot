@@ -22,9 +22,7 @@ import { Logger } from '@nestjs/common';
   },
   namespace: '/ws',
 })
-export class RealtimeGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
-{
+export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(RealtimeGateway.name);
 
   @WebSocketServer()
@@ -62,10 +60,7 @@ export class RealtimeGateway
    * Subscribe to a run's real-time updates
    */
   @SubscribeMessage('subscribe:run')
-  handleSubscribeRun(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { runId: string },
-  ) {
+  handleSubscribeRun(@ConnectedSocket() client: Socket, @MessageBody() data: { runId: string }) {
     const { runId } = data;
     this.logger.log(`Client ${client.id} subscribing to run ${runId}`);
 
@@ -73,7 +68,7 @@ export class RealtimeGateway
     if (!this.runSubscriptions.has(runId)) {
       this.runSubscriptions.set(runId, new Set());
     }
-    this.runSubscriptions.get(runId)!.add(client.id);
+    this.runSubscriptions.get(runId).add(client.id);
 
     // Track on socket
     this.socketRuns.get(client.id)?.add(runId);
@@ -88,10 +83,7 @@ export class RealtimeGateway
    * Unsubscribe from a run's updates
    */
   @SubscribeMessage('unsubscribe:run')
-  handleUnsubscribeRun(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { runId: string },
-  ) {
+  handleUnsubscribeRun(@ConnectedSocket() client: Socket, @MessageBody() data: { runId: string }) {
     const { runId } = data;
     this.logger.log(`Client ${client.id} unsubscribing from run ${runId}`);
 

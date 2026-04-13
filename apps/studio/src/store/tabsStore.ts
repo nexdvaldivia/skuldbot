@@ -1,5 +1,5 @@
-import { create } from "zustand";
-import { Tab } from "../types/project";
+import { create } from 'zustand';
+import { Tab } from '../types/project';
 
 // ============================================================
 // Tabs Store State
@@ -10,7 +10,7 @@ interface TabsStoreState {
   activeTabId: string | null;
 
   // Actions
-  openTab: (tab: Omit<Tab, "isActive">) => void;
+  openTab: (tab: Omit<Tab, 'isActive'>) => void;
   closeTab: (tabId: string) => void;
   closeOtherTabs: (tabId: string) => void;
   closeAllTabs: () => void;
@@ -55,10 +55,7 @@ export const useTabsStore = create<TabsStoreState>((set, get) => ({
     };
 
     set({
-      tabs: [
-        ...tabs.map((t) => ({ ...t, isActive: false })),
-        newTab,
-      ],
+      tabs: [...tabs.map((t) => ({ ...t, isActive: false })), newTab],
       activeTabId: newTab.id,
     });
   },
@@ -152,9 +149,7 @@ export const useTabsStore = create<TabsStoreState>((set, get) => ({
     const { tabs } = get();
 
     set({
-      tabs: tabs.map((t) =>
-        t.id === tabId ? { ...t, isDirty } : t
-      ),
+      tabs: tabs.map((t) => (t.id === tabId ? { ...t, isDirty } : t)),
     });
   },
 
@@ -162,9 +157,7 @@ export const useTabsStore = create<TabsStoreState>((set, get) => ({
     const { tabs } = get();
 
     set({
-      tabs: tabs.map((t) =>
-        t.id === tabId ? { ...t, title } : t
-      ),
+      tabs: tabs.map((t) => (t.id === tabId ? { ...t, title } : t)),
     });
   },
 
@@ -188,7 +181,7 @@ export const useTabsStore = create<TabsStoreState>((set, get) => ({
 
   getTabByBotId: (botId) => {
     const { tabs } = get();
-    return tabs.find((t) => t.type === "bot" && t.botId === botId);
+    return tabs.find((t) => t.type === 'bot' && t.botId === botId);
   },
 
   hasTab: (tabId) => {

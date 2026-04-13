@@ -104,9 +104,7 @@ describe('BillingService - usage ingest idempotency', () => {
     } as unknown as ConfigService;
 
     usageBatchRepository.findOne.mockResolvedValue(null);
-    usageIngestEventRepository.find.mockRejectedValue(
-      new Error('database timeout'),
-    );
+    usageIngestEventRepository.find.mockRejectedValue(new Error('database timeout'));
     usageIngestDeadLetterRepository.findOne.mockResolvedValue(null);
 
     const service = new BillingService(
@@ -186,9 +184,7 @@ describe('BillingService - usage ingest idempotency', () => {
       ],
     };
 
-    await expect(service.ingestUsageBatch('orch-1', batch)).rejects.toThrow(
-      'evidence-like field',
-    );
+    await expect(service.ingestUsageBatch('orch-1', batch)).rejects.toThrow('evidence-like field');
 
     expect(usageIngestDeadLetterRepository.save).not.toHaveBeenCalled();
     expect(usageRecordRepository.save).not.toHaveBeenCalled();

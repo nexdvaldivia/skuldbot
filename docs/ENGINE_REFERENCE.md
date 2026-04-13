@@ -19,6 +19,7 @@ pip install -e .
 ```
 
 Esto instala:
+
 - `robotframework>=6.1.0` - Motor de ejecucion
 - `pydantic>=2.0.0` - Validacion de datos
 - `pyyaml>=6.0` - Configuracion
@@ -207,13 +208,13 @@ class BrowserOpenNode:
 
 ### Tipos de ConfigField
 
-| Tipo | Descripcion | Propiedades extra |
-|------|-------------|-------------------|
-| `text` | Campo de texto | `placeholder` |
-| `textarea` | Texto multilinea | `rows` |
-| `number` | Campo numerico | `min`, `max` |
-| `boolean` | Switch on/off | - |
-| `select` | Lista desplegable | `options` |
+| Tipo       | Descripcion       | Propiedades extra |
+| ---------- | ----------------- | ----------------- |
+| `text`     | Campo de texto    | `placeholder`     |
+| `textarea` | Texto multilinea  | `rows`            |
+| `number`   | Campo numerico    | `min`, `max`      |
+| `boolean`  | Switch on/off     | -                 |
+| `select`   | Lista desplegable | `options`         |
 
 ---
 
@@ -230,16 +231,18 @@ class BrowserOpenNode:
 ### Ejemplo de salida
 
 **Input DSL:**
+
 ```json
 {
   "nodes": [
-    {"id": "1", "type": "trigger.manual", "outputs": {"success": "2"}},
-    {"id": "2", "type": "browser.open", "config": {"url": "https://example.com"}}
+    { "id": "1", "type": "trigger.manual", "outputs": { "success": "2" } },
+    { "id": "2", "type": "browser.open", "config": { "url": "https://example.com" } }
   ]
 }
 ```
 
 **Output main.robot:**
+
 ```robot
 *** Settings ***
 Library    Browser
@@ -346,17 +349,20 @@ class LogEntry:
 
 ```json
 {
-  "nodes": [{
-    "type": "browser.fill",
-    "config": {
-      "selector": "#password",
-      "value": "${vault.PASSWORD}"
+  "nodes": [
+    {
+      "type": "browser.fill",
+      "config": {
+        "selector": "#password",
+        "value": "${vault.PASSWORD}"
+      }
     }
-  }]
+  ]
 }
 ```
 
 Los secrets se resuelven en runtime desde:
+
 1. Variables de entorno
 2. Orchestrator vault (en produccion)
 3. Archivo .env local (desarrollo)

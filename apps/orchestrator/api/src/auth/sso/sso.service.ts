@@ -11,7 +11,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Role } from '../../roles/entities/role.entity';
-import { AuditLog, AuditCategory, AuditAction, AuditResult } from '../../audit/entities/audit-log.entity';
+import {
+  AuditLog,
+  AuditCategory,
+  AuditAction,
+  AuditResult,
+} from '../../audit/entities/audit-log.entity';
 import { Session, RefreshToken } from '../../users/entities/api-key.entity';
 import { TokenService } from '../../common/crypto/password.service';
 import { OidcService } from './oidc.strategy';
@@ -22,13 +27,7 @@ import { LicenseService } from '../../license/license.service';
 function generateSamlMetadata(_config: SamlConfig): string {
   throw new Error('SAML support is temporarily unavailable. Please use OIDC.');
 }
-import {
-  SsoProtocol,
-  SamlConfig,
-  OidcConfig,
-  SsoState,
-  PROVIDER_TEMPLATES,
-} from './sso.types';
+import { SsoProtocol, SamlConfig, OidcConfig, SsoState, PROVIDER_TEMPLATES } from './sso.types';
 import {
   ConfigureSamlDto,
   ConfigureOidcDto,
@@ -103,7 +102,7 @@ export class SsoService {
     const ssoConfig = license.features?.ssoConfig as SamlConfig | OidcConfig | null;
     const ssoEnabled = license.features?.ssoEnabled === true;
     const ssoEnforced = license.features?.ssoEnforced === true;
-    const ssoProvider = license.features?.ssoProvider as string | null;
+    const ssoProvider = license.features?.ssoProvider;
 
     return {
       id: license.tenant.id,
@@ -127,7 +126,7 @@ export class SsoService {
     const ssoConfig = license.features?.ssoConfig as SamlConfig | OidcConfig | null;
     const ssoEnabled = license.features?.ssoEnabled === true;
     const ssoEnforced = license.features?.ssoEnforced === true;
-    const ssoProvider = license.features?.ssoProvider as string | null;
+    const ssoProvider = license.features?.ssoProvider;
 
     return {
       id: license.tenant.id,
@@ -210,7 +209,8 @@ export class SsoService {
     // This method is kept for API compatibility but will throw an error.
     throw new BadRequestException({
       code: 'SSO_CONFIG_VIA_CONTROL_PLANE',
-      message: 'SSO configuration must be done via the Control Plane. Please contact your administrator.',
+      message:
+        'SSO configuration must be done via the Control Plane. Please contact your administrator.',
     });
   }
 
@@ -223,18 +223,17 @@ export class SsoService {
     // This method is kept for API compatibility but will throw an error.
     throw new BadRequestException({
       code: 'SSO_CONFIG_VIA_CONTROL_PLANE',
-      message: 'SSO configuration must be done via the Control Plane. Please contact your administrator.',
+      message:
+        'SSO configuration must be done via the Control Plane. Please contact your administrator.',
     });
   }
 
-  async disableSso(
-    tenantId: string,
-    disabledBy: User,
-  ): Promise<{ message: string }> {
+  async disableSso(tenantId: string, disabledBy: User): Promise<{ message: string }> {
     // In single-tenant mode, SSO configuration is managed via the Control Plane.
     throw new BadRequestException({
       code: 'SSO_CONFIG_VIA_CONTROL_PLANE',
-      message: 'SSO configuration must be done via the Control Plane. Please contact your administrator.',
+      message:
+        'SSO configuration must be done via the Control Plane. Please contact your administrator.',
     });
   }
 
@@ -346,10 +345,7 @@ export class SsoService {
   // SAML AUTHENTICATION
   // ============================================================================
 
-  async initiateSamlLogin(
-    tenantSlug: string,
-    returnUrl?: string,
-  ): Promise<string> {
+  async initiateSamlLogin(tenantSlug: string, returnUrl?: string): Promise<string> {
     this.assertSamlAvailability();
     const tenant = await this.getTenantSsoInfoBySlug(tenantSlug);
 
@@ -390,15 +386,10 @@ export class SsoService {
     // For now, we'll assume the MultiTenantSamlStrategy handles validation
 
     // This is a placeholder - actual SAML response parsing requires passport-saml
-    throw new BadRequestException(
-      'SAML callback should be handled by passport-saml strategy',
-    );
+    throw new BadRequestException('SAML callback should be handled by passport-saml strategy');
   }
 
-  async initiateSamlLogout(
-    tenantSlug: string,
-    sessionIndex?: string,
-  ): Promise<string | null> {
+  async initiateSamlLogout(tenantSlug: string, sessionIndex?: string): Promise<string | null> {
     this.assertSamlAvailability();
     const tenant = await this.getTenantSsoInfoBySlug(tenantSlug);
 
@@ -444,11 +435,7 @@ export class SsoService {
     refreshToken: string;
     returnUrl?: string;
   }> {
-    const { user, tokens } = await this.oidcService.handleCallback(
-      tenantSlug,
-      code,
-      state,
-    );
+    const { user, tokens } = await this.oidcService.handleCallback(tenantSlug, code, state);
 
     // Create auth session and generate JWT tokens
     const authTokens = await this.createAuthSession(user, clientInfo);
@@ -456,9 +443,7 @@ export class SsoService {
     // Get return URL from state
     let returnUrl: string | undefined;
     try {
-      const stateData: SsoState = JSON.parse(
-        Buffer.from(state, 'base64url').toString(),
-      );
+      const stateData: SsoState = JSON.parse(Buffer.from(state, 'base64url').toString());
       returnUrl = stateData.returnUrl;
     } catch {
       // Ignore state parsing errors
@@ -486,7 +471,6 @@ export class SsoService {
   // ============================================================================
   // HELPERS
   // ============================================================================
-
 
   private async createAuthSession(
     user: User,
@@ -540,9 +524,7 @@ export class SsoService {
       userId: user.id,
       tenantId: user.tenantId,
       familyId,
-      expiresAt: new Date(
-        Date.now() + this.parseExpiryToSeconds(refreshTokenExpiry) * 1000,
-      ),
+      expiresAt: new Date(Date.now() + this.parseExpiryToSeconds(refreshTokenExpiry) * 1000),
     });
 
     await this.refreshTokenRepository.save(storedToken);
@@ -586,10 +568,7 @@ export class SsoService {
     });
   }
 
-  private generateSamlAuthnRequest(
-    config: SamlConfig,
-    relayState?: string,
-  ): string {
+  private generateSamlAuthnRequest(config: SamlConfig, relayState?: string): string {
     // Simplified SAML AuthnRequest - in production use passport-saml
     const id = `_${this.tokenService.generateSecureToken(16)}`;
     const issueInstant = new Date().toISOString();
@@ -614,10 +593,7 @@ export class SsoService {
     return Buffer.from(request).toString('base64');
   }
 
-  private generateSamlLogoutRequest(
-    config: SamlConfig,
-    sessionIndex?: string,
-  ): string {
+  private generateSamlLogoutRequest(config: SamlConfig, sessionIndex?: string): string {
     const id = `_${this.tokenService.generateSecureToken(16)}`;
     const issueInstant = new Date().toISOString();
 
@@ -645,11 +621,16 @@ export class SsoService {
     const num = parseInt(value, 10);
 
     switch (unit) {
-      case 's': return num;
-      case 'm': return num * 60;
-      case 'h': return num * 60 * 60;
-      case 'd': return num * 60 * 60 * 24;
-      default: return 900;
+      case 's':
+        return num;
+      case 'm':
+        return num * 60;
+      case 'h':
+        return num * 60 * 60;
+      case 'd':
+        return num * 60 * 60 * 24;
+      default:
+        return 900;
     }
   }
 

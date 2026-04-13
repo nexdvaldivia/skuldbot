@@ -1,5 +1,5 @@
-import { EdgeProps, getSmoothStepPath, useReactFlow, EdgeLabelRenderer } from "reactflow";
-import { Trash2, Wrench, Brain, Sparkles, MessageSquare } from "lucide-react";
+import { EdgeProps, getSmoothStepPath, useReactFlow, EdgeLabelRenderer } from 'reactflow';
+import { Trash2, Wrench, Brain, Sparkles, MessageSquare } from 'lucide-react';
 
 export default function AnimatedEdge({
   id,
@@ -31,17 +31,15 @@ export default function AnimatedEdge({
 
   // Use source node color for all edge types
   // Fall back to semantic colors only if no source color is available
-  const strokeColor = sourceColor || (
-    edgeType === "success" ? "#10b981" :
-    edgeType === "error" ? "#f97316" :
-    "#6b7280" // Default gray
-  );
+  const strokeColor =
+    sourceColor ||
+    (edgeType === 'success' ? '#10b981' : edgeType === 'error' ? '#f97316' : '#6b7280'); // Default gray
 
   // Keep semantic flags for labels/icons
-  const isTool = edgeType === "tool";
-  const isMemory = edgeType === "memory";
-  const isEmbeddings = edgeType === "embeddings";
-  const isModel = edgeType === "model";
+  const isTool = edgeType === 'tool';
+  const isMemory = edgeType === 'memory';
+  const isEmbeddings = edgeType === 'embeddings';
+  const isModel = edgeType === 'model';
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -77,7 +75,7 @@ export default function AnimatedEdge({
             className="nodrag nopan absolute flex items-center gap-1 px-2 py-1 rounded-full text-white text-xs font-medium shadow-lg"
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY - 20}px)`,
-              pointerEvents: "none",
+              pointerEvents: 'none',
               backgroundColor: strokeColor,
             }}
           >
@@ -93,12 +91,16 @@ export default function AnimatedEdge({
             className="nodrag nopan absolute flex items-center gap-1 px-2 py-1 rounded-full text-white text-xs font-medium shadow-lg"
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY - 20}px)`,
-              pointerEvents: "none",
+              pointerEvents: 'none',
               backgroundColor: strokeColor,
             }}
           >
             <Brain className="w-3 h-3" />
-            {data?.memoryType === "retrieve" ? "RAG" : data?.memoryType === "store" ? "Store" : "Memory"}
+            {data?.memoryType === 'retrieve'
+              ? 'RAG'
+              : data?.memoryType === 'store'
+                ? 'Store'
+                : 'Memory'}
           </div>
         </EdgeLabelRenderer>
       )}
@@ -109,7 +111,7 @@ export default function AnimatedEdge({
             className="nodrag nopan absolute flex items-center gap-1 px-2 py-1 rounded-full text-white text-xs font-medium shadow-lg"
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY - 20}px)`,
-              pointerEvents: "none",
+              pointerEvents: 'none',
               backgroundColor: strokeColor,
             }}
           >
@@ -125,7 +127,7 @@ export default function AnimatedEdge({
             className="nodrag nopan absolute flex items-center gap-1 px-2 py-1 rounded-full text-white text-xs font-medium shadow-lg"
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY - 20}px)`,
-              pointerEvents: "none",
+              pointerEvents: 'none',
               backgroundColor: strokeColor,
             }}
           >
@@ -142,7 +144,7 @@ export default function AnimatedEdge({
             className="nodrag nopan absolute w-7 h-7 rounded-full cursor-pointer flex items-center justify-center border-2 border-white shadow-lg transition-colors hover:brightness-110"
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-              pointerEvents: "all",
+              pointerEvents: 'all',
               zIndex: 9999,
               backgroundColor: strokeColor,
             }}

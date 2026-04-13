@@ -33,15 +33,7 @@ import { PasswordService, TokenService } from '../common/crypto/password.service
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      User,
-      ApiKey,
-      RefreshToken,
-      Session,
-      Role,
-      Permission,
-      AuditLog,
-    ]),
+    TypeOrmModule.forFeature([User, ApiKey, RefreshToken, Session, Role, Permission, AuditLog]),
   ],
   controllers: [UsersController],
   providers: [UsersService, PasswordService, TokenService],

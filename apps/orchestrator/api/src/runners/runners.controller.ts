@@ -60,11 +60,7 @@ export class RunnersController {
     getResourceId: (_req, response: RunnerAuditResponse) => response.id,
     getResourceName: (_req, response: RunnerAuditResponse) => response.name,
   })
-  register(
-    @TenantId() tenantId: string,
-    @Body() dto: RegisterRunnerDto,
-    @Req() req: Request,
-  ) {
+  register(@TenantId() tenantId: string, @Body() dto: RegisterRunnerDto, @Req() req: Request) {
     const ipAddress = req.ip || req.socket.remoteAddress;
     return this.runnersService.register(tenantId, dto, ipAddress);
   }
@@ -136,10 +132,7 @@ export class RunnersController {
     resourceType: 'runner',
     getResourceId: (req: RunnerAuditRequest) => req.params?.runnerId,
   })
-  regenerateApiKey(
-    @TenantId() tenantId: string,
-    @Param('runnerId') runnerId: string,
-  ) {
+  regenerateApiKey(@TenantId() tenantId: string, @Param('runnerId') runnerId: string) {
     return this.runnersService.regenerateApiKey(tenantId, runnerId);
   }
 }
@@ -193,13 +186,9 @@ export class RunnerAgentController {
     resourceType: 'run',
     getResourceId: (req: RunnerAuditRequest) => req.body?.runId,
     // Record only error progress events to avoid excessive audit volume.
-    skipAudit: (req: RunnerAuditRequest) =>
-      req.body?.eventType !== 'step_error',
+    skipAudit: (req: RunnerAuditRequest) => req.body?.eventType !== 'step_error',
   })
-  reportProgress(
-    @CurrentRunner() runner: Runner,
-    @Body() dto: ReportProgressDto,
-  ) {
+  reportProgress(@CurrentRunner() runner: Runner, @Body() dto: ReportProgressDto) {
     return this.runnersService.reportProgress(runner, dto);
   }
 

@@ -18,6 +18,7 @@ rustc --version
 ```
 
 Si falta algo:
+
 - Node.js: https://nodejs.org/
 - Python: https://python.org/
 - Rust: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
@@ -81,6 +82,7 @@ npm run tauri:dev
 ## 🎉 ¡Felicidades!
 
 Acabas de:
+
 - ✅ Crear un bot RPA visualmente
 - ✅ Compilarlo a Robot Framework
 - ✅ Ejecutarlo con el Engine
@@ -157,13 +159,13 @@ Resultados en UI
 
 ## ⏱️ Tiempos Esperados
 
-| Acción | Primera vez | Siguientes veces |
-|--------|-------------|------------------|
-| Engine install | ~1 min | - |
-| npm install | ~2-3 min | - |
-| Tauri first compile | ~5-10 min | ~20 seg |
-| Compilar bot | ~2-3 seg | ~2-3 seg |
-| Ejecutar bot | ~3-5 seg | ~3-5 seg |
+| Acción              | Primera vez | Siguientes veces |
+| ------------------- | ----------- | ---------------- |
+| Engine install      | ~1 min      | -                |
+| npm install         | ~2-3 min    | -                |
+| Tauri first compile | ~5-10 min   | ~20 seg          |
+| Compilar bot        | ~2-3 seg    | ~2-3 seg         |
+| Ejecutar bot        | ~3-5 seg    | ~3-5 seg         |
 
 ---
 
@@ -178,8 +180,3 @@ Resultados en UI
 **Total time: ~15-20 minutos (incluyendo instalación)**
 
 ¡Disfruta tu editor RPA! 🎉
-
-
-
-
-

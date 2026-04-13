@@ -34,7 +34,7 @@ type InvoiceSnapshot = {
 
 /**
  * Billing MCP Server
- * 
+ *
  * Calculates invoices and manages billing cycles.
  * Integrates with BillingService and Stripe for real payments.
  */
@@ -252,10 +252,7 @@ export class BillingServer {
           return await this.getInvoice(toolCall.arguments.invoiceId);
 
         case 'list_invoices':
-          return await this.listInvoices(
-            toolCall.arguments.tenantId,
-            toolCall.arguments.limit,
-          );
+          return await this.listInvoices(toolCall.arguments.tenantId, toolCall.arguments.limit);
 
         default:
           return {
@@ -282,9 +279,7 @@ export class BillingServer {
     }
 
     // billing://tenant/{tenantId}/payment-methods
-    const paymentMatch = uri.match(
-      /billing:\/\/tenant\/([^/]+)\/payment-methods/,
-    );
+    const paymentMatch = uri.match(/billing:\/\/tenant\/([^/]+)\/payment-methods/);
     if (paymentMatch) {
       return await this.getPaymentMethodsResource(paymentMatch[1]);
     }
@@ -397,16 +392,10 @@ export class BillingServer {
     }
   }
 
-  private async calculateInvoice(
-    tenantId: string,
-    period: string,
-  ): Promise<ToolResult> {
+  private async calculateInvoice(tenantId: string, period: string): Promise<ToolResult> {
     this.assertPeriod(period);
 
-    const usageSummary = await this.billingService.getTenantUsageSummary(
-      tenantId,
-      period,
-    );
+    const usageSummary = await this.billingService.getTenantUsageSummary(tenantId, period);
     const subscription = await this.subscriptionService.getSubscription(tenantId);
     const paymentHistory = await this.subscriptionService.getPaymentHistory(tenantId, 100);
     const periodPayments = this.getPeriodPayments(paymentHistory, period);
@@ -484,15 +473,10 @@ export class BillingServer {
       };
     }
 
-    throw new Error(
-      `Invoice "${invoiceId}" is not in MCP-derived format inv-YYYY-MM-<tenantId>.`,
-    );
+    throw new Error(`Invoice "${invoiceId}" is not in MCP-derived format inv-YYYY-MM-<tenantId>.`);
   }
 
-  private async listInvoices(
-    tenantId: string,
-    limit: number = 12,
-  ): Promise<ToolResult> {
+  private async listInvoices(tenantId: string, limit: number = 12): Promise<ToolResult> {
     const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 12;
     const paymentHistory = await this.subscriptionService.getPaymentHistory(tenantId, 500);
     const discoveredPeriods = Array.from(
@@ -542,9 +526,7 @@ export class BillingServer {
   // Resource Implementations
   // ============================================================
 
-  private async getTenantInvoicesResource(
-    tenantId: string,
-  ): Promise<ResourceContent> {
+  private async getTenantInvoicesResource(tenantId: string): Promise<ResourceContent> {
     const invoices = await this.listInvoices(tenantId, 100);
 
     return {
@@ -554,9 +536,7 @@ export class BillingServer {
     };
   }
 
-  private async getPaymentMethodsResource(
-    tenantId: string,
-  ): Promise<ResourceContent> {
+  private async getPaymentMethodsResource(tenantId: string): Promise<ResourceContent> {
     const subscription = await this.subscriptionService.getSubscription(tenantId);
     const methods = subscription
       ? [
@@ -612,9 +592,7 @@ export class BillingServer {
     return `inv-${period}-${tenantId}`;
   }
 
-  private parseInvoiceId(
-    invoiceId: string,
-  ): { period: string; tenantId: string } | null {
+  private parseInvoiceId(invoiceId: string): { period: string; tenantId: string } | null {
     const match = invoiceId.match(/^inv-(\d{4}-(0[1-9]|1[0-2]))-(.+)$/);
     if (!match) {
       return null;
@@ -630,10 +608,7 @@ export class BillingServer {
     return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
   }
 
-  private getPeriodPayments(
-    paymentHistory: PaymentHistory[],
-    period: string,
-  ): PaymentHistory[] {
+  private getPeriodPayments(paymentHistory: PaymentHistory[], period: string): PaymentHistory[] {
     return paymentHistory.filter((payment) => payment.invoicePeriod === period);
   }
 

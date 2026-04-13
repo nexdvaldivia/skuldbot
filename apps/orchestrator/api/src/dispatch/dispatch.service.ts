@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -293,20 +289,12 @@ export class DispatchService {
       'concurrent_runs',
       runningCount + 1,
     );
-    await this.billingEnforcementService.checkQuota(
-      tenantId,
-      'runs_per_month',
-      1,
-    );
+    await this.billingEnforcementService.checkQuota(tenantId, 'runs_per_month', 1);
   }
 
   private async consumeRunQuotaOrRollback(run: Run): Promise<void> {
     try {
-      await this.billingEnforcementService.consumeQuota(
-        run.tenantId,
-        'runs_per_month',
-        1,
-      );
+      await this.billingEnforcementService.consumeQuota(run.tenantId, 'runs_per_month', 1);
     } catch (error) {
       await this.runRepository.delete({ id: run.id, tenantId: run.tenantId });
       throw error;

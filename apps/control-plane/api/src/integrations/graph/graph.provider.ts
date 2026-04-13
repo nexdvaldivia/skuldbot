@@ -78,9 +78,7 @@ export class MicrosoftGraphProvider implements GraphProvider {
   async getGroups(): Promise<GraphGroup[]> {
     this.ensureConfigured();
 
-    const response = await this.client!.api('/groups')
-      .select('id,displayName,description')
-      .get();
+    const response = await this.client!.api('/groups').select('id,displayName,description').get();
 
     return response.value.map(this.mapGroup);
   }

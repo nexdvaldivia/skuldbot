@@ -149,12 +149,7 @@ export class AuditController {
     @Query('limit') limitStr?: string,
   ): Promise<AuditLogResponseDto[]> {
     const limit = limitStr ? parseInt(limitStr, 10) : 100;
-    return this.auditService.findByResource(
-      tenantId,
-      resourceType,
-      resourceId,
-      limit,
-    );
+    return this.auditService.findByResource(tenantId, resourceType, resourceId, limit);
   }
 
   @Get('user/:id')

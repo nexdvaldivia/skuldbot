@@ -1,25 +1,32 @@
-import { Play, Square, Download, Save, Package, Loader2, Undo, Redo } from "lucide-react";
-import { useState } from "react";
-import { invoke } from "@tauri-apps/api/tauri";
-import { useProjectStore } from "../store/projectStore";
-import { useTabsStore } from "../store/tabsStore";
-import { useFlowStore, FormTriggerConfig } from "../store/flowStore";
-import { useHistoryStore } from "../store/historyStore";
-import { useToastStore } from "../store/toastStore";
-import { useLogsStore } from "../store/logsStore";
-import { useDebugStore } from "../store/debugStore";
-import { SkuldLogoBox } from "./ui/SkuldLogo";
-import { Button } from "./ui/Button";
-import FormTriggerModal from "./FormTriggerModal";
-import { DSLNode } from "../types/flow";
-import { buildExecutionDSL } from "../lib/dsl";
+import { Play, Square, Download, Save, Package, Loader2, Undo, Redo } from 'lucide-react';
+import { useState } from 'react';
+import { invoke } from '@tauri-apps/api/tauri';
+import { useProjectStore } from '../store/projectStore';
+import { useTabsStore } from '../store/tabsStore';
+import { useFlowStore, FormTriggerConfig } from '../store/flowStore';
+import { useHistoryStore } from '../store/historyStore';
+import { useToastStore } from '../store/toastStore';
+import { useLogsStore } from '../store/logsStore';
+import { useDebugStore } from '../store/debugStore';
+import { SkuldLogoBox } from './ui/SkuldLogo';
+import { Button } from './ui/Button';
+import FormTriggerModal from './FormTriggerModal';
+import { DSLNode } from '../types/flow';
+import { buildExecutionDSL } from '../lib/dsl';
 import {
   getSchemaCandidateFromNodeData,
   parseNodeRuntimeTelemetryLine,
-} from "../utils/nodeRuntimeTelemetry";
+} from '../utils/nodeRuntimeTelemetry';
 
 export default function ProjectToolbar() {
-  const { project, activeBotId, saveBot, getActiveBot, updateActiveBotNodes, updateActiveBotEdges } = useProjectStore();
+  const {
+    project,
+    activeBotId,
+    saveBot,
+    getActiveBot,
+    updateActiveBotNodes,
+    updateActiveBotEdges,
+  } = useProjectStore();
   const { tabs, setTabDirty } = useTabsStore();
   useFlowStore(); // Keep store reference for potential future use
   const { undo, redo, canUndo, canRedo } = useHistoryStore();
@@ -31,7 +38,7 @@ export default function ProjectToolbar() {
   const [isRunning, setIsRunning] = useState(false);
 
   // Check if any execution is running
-  const isExecutionRunning = isRunning || debugState === "running";
+  const isExecutionRunning = isRunning || debugState === 'running';
   const [isSaving, setIsSaving] = useState(false);
   const [showFormModal, setShowFormModal] = useState(false);
   const [formConfig, setFormConfig] = useState<FormTriggerConfig | null>(null);
@@ -69,7 +76,7 @@ export default function ProjectToolbar() {
 
   // Handle stop execution - uses the debugStore's stopDebug which handles everything
   const handleStop = async () => {
-    logs.info("Stopping execution...");
+    logs.info('Stopping execution...');
 
     // IMMEDIATELY reset local running state so Run button becomes enabled
     setIsRunning(false);
@@ -77,17 +84,17 @@ export default function ProjectToolbar() {
     try {
       // Stop both regular bot and debug processes via Tauri
       await Promise.all([
-        invoke("stop_bot").catch((e) => console.log("stop_bot error:", e)),
-        invoke("debug_stop").catch((e) => console.log("debug_stop error:", e)),
+        invoke('stop_bot').catch((e) => console.log('stop_bot error:', e)),
+        invoke('debug_stop').catch((e) => console.log('debug_stop error:', e)),
       ]);
 
       // Also call the store's stopDebug to reset UI state
       await stopDebug();
 
-      logs.success("Execution stopped");
-      toast.info("Execution stopped");
+      logs.success('Execution stopped');
+      toast.info('Execution stopped');
     } catch (error) {
-      logs.error("Failed to stop execution", String(error));
+      logs.error('Failed to stop execution', String(error));
       // Even on error, ensure we can run again
       setIsRunning(false);
     }
@@ -96,22 +103,20 @@ export default function ProjectToolbar() {
   // Check if bot requires form input
   const requiresFormInput = () => {
     if (!activeBot) return false;
-    return activeBot.nodes.some((n) => n.data.nodeType === "trigger.form");
+    return activeBot.nodes.some((n) => n.data.nodeType === 'trigger.form');
   };
 
   // Get form trigger config
   const getFormTriggerConfig = (): FormTriggerConfig | null => {
     if (!activeBot) return null;
-    const formTrigger = activeBot.nodes.find(
-      (n) => n.data.nodeType === "trigger.form"
-    );
+    const formTrigger = activeBot.nodes.find((n) => n.data.nodeType === 'trigger.form');
     if (!formTrigger) return null;
 
     const config = formTrigger.data.config || {};
     return {
-      formTitle: config.formTitle || "Form Input",
-      formDescription: config.formDescription || "",
-      submitButtonLabel: config.submitButtonLabel || "Run Bot",
+      formTitle: config.formTitle || 'Form Input',
+      formDescription: config.formDescription || '',
+      submitButtonLabel: config.submitButtonLabel || 'Run Bot',
       fields: config.fields || [],
     };
   };
@@ -125,7 +130,7 @@ export default function ProjectToolbar() {
       setTabDirty(`bot-${activeBotId}`, false);
       // Note: saveBot already shows a toast, no need to show another one
     } catch (error) {
-      toast.error("Save failed", String(error));
+      toast.error('Save failed', String(error));
     } finally {
       setIsSaving(false);
     }
@@ -135,7 +140,7 @@ export default function ProjectToolbar() {
     if (!activeBot || !hasNodes) return;
 
     setIsCompiling(true);
-    logs.info("Starting compilation...");
+    logs.info('Starting compilation...');
     logs.openPanel();
 
     try {
@@ -143,13 +148,11 @@ export default function ProjectToolbar() {
       const dsl = buildExecutionDSL(
         { id: activeBot.id, name: activeBot.name, description: activeBot.description },
         activeBot.nodes,
-        activeBot.edges
+        activeBot.edges,
       );
 
       // Auto-add manual trigger if none exists
-      const hasTrigger = activeBot.nodes.some(
-        (n) => n.data.category === "trigger"
-      );
+      const hasTrigger = activeBot.nodes.some((n) => n.data.category === 'trigger');
 
       if (!hasTrigger) {
         const manualTriggerId = `trigger-manual-${Date.now()}`;
@@ -157,32 +160,32 @@ export default function ProjectToolbar() {
 
         const manualTriggerNode: DSLNode = {
           id: manualTriggerId,
-          type: "trigger.manual",
+          type: 'trigger.manual',
           config: {},
           outputs: {
-            success: firstNodeId || "END",
-            error: "END",
+            success: firstNodeId || 'END',
+            error: 'END',
           },
-          label: "Manual Trigger",
+          label: 'Manual Trigger',
         };
 
         dsl.nodes.unshift(manualTriggerNode);
         dsl.triggers = [manualTriggerId];
         dsl.start_node = manualTriggerId;
 
-        logs.info("Auto-added Manual Trigger");
+        logs.info('Auto-added Manual Trigger');
       }
 
       const result = await invoke<{ success: boolean; message: string; bot_path?: string }>(
-        "compile_dsl",
-        { dsl: JSON.stringify(dsl) }
+        'compile_dsl',
+        { dsl: JSON.stringify(dsl) },
       );
 
-      logs.success("Bot compiled successfully", result.bot_path);
-      toast.success("Bot compiled", "Package generated");
+      logs.success('Bot compiled successfully', result.bot_path);
+      toast.success('Bot compiled', 'Package generated');
     } catch (error) {
-      logs.error("Compilation error", String(error));
-      toast.error("Compilation failed", String(error).substring(0, 100));
+      logs.error('Compilation error', String(error));
+      toast.error('Compilation failed', String(error).substring(0, 100));
     } finally {
       setIsCompiling(false);
     }
@@ -202,7 +205,7 @@ export default function ProjectToolbar() {
     }
 
     setIsRunning(true);
-    logs.info("Starting bot execution...");
+    logs.info('Starting bot execution...');
     logs.openPanel();
 
     try {
@@ -210,13 +213,11 @@ export default function ProjectToolbar() {
       const dsl = buildExecutionDSL(
         { id: activeBot.id, name: activeBot.name, description: activeBot.description },
         activeBot.nodes,
-        activeBot.edges
+        activeBot.edges,
       );
 
       // Auto-add manual trigger if none exists
-      const hasTrigger = activeBot.nodes.some(
-        (n) => n.data.category === "trigger"
-      );
+      const hasTrigger = activeBot.nodes.some((n) => n.data.category === 'trigger');
 
       if (!hasTrigger) {
         const manualTriggerId = `trigger-manual-${Date.now()}`;
@@ -224,13 +225,13 @@ export default function ProjectToolbar() {
 
         const manualTriggerNode: DSLNode = {
           id: manualTriggerId,
-          type: "trigger.manual",
+          type: 'trigger.manual',
           config: {},
           outputs: {
-            success: firstNodeId || "END",
-            error: "END",
+            success: firstNodeId || 'END',
+            error: 'END',
           },
-          label: "Manual Trigger",
+          label: 'Manual Trigger',
         };
 
         dsl.nodes.unshift(manualTriggerNode);
@@ -243,17 +244,19 @@ export default function ProjectToolbar() {
         dsl.variables = {
           ...dsl.variables,
           formData: {
-            type: "json",
+            type: 'json',
             value: formData,
           },
         };
-        logs.info("Form data received", JSON.stringify(formData));
+        logs.info('Form data received', JSON.stringify(formData));
       }
 
-      const result = await invoke<{ success: boolean; message: string; output?: string; logs?: string[] }>(
-        "run_bot",
-        { dsl: JSON.stringify(dsl) }
-      );
+      const result = await invoke<{
+        success: boolean;
+        message: string;
+        output?: string;
+        logs?: string[];
+      }>('run_bot', { dsl: JSON.stringify(dsl) });
 
       // Get debug store for storing execution results
       const debugStore = useDebugStore.getState();
@@ -264,24 +267,24 @@ export default function ProjectToolbar() {
           const runtimeTelemetry = parseNodeRuntimeTelemetryLine(log);
           if (runtimeTelemetry?.nodeId) {
             const { nodeId, data, channel } = runtimeTelemetry;
-            if (channel === "input") {
+            if (channel === 'input') {
               debugStore.markNodeInput(nodeId, data);
               return;
             }
-            debugStore.markNodeStatus(nodeId, "success", data);
+            debugStore.markNodeStatus(nodeId, 'success', data);
             const flowNode = activeBot.nodes.find((n) => n.id === nodeId);
             const schemaCandidate = getSchemaCandidateFromNodeData(data);
-            if (flowNode && schemaCandidate && typeof schemaCandidate === "object") {
+            if (flowNode && schemaCandidate && typeof schemaCandidate === 'object') {
               debugStore.discoverSchema(nodeId, flowNode.data.nodeType, schemaCandidate);
             }
             return;
           }
 
-          if (log.includes("ERROR")) {
+          if (log.includes('ERROR')) {
             logs.error(log);
-          } else if (log.includes("WARNING")) {
+          } else if (log.includes('WARNING')) {
             logs.warning(log);
-          } else if (log.includes("SUCCESS")) {
+          } else if (log.includes('SUCCESS')) {
             logs.success(log);
           } else {
             logs.info(log);
@@ -290,15 +293,15 @@ export default function ProjectToolbar() {
       }
 
       if (result.success) {
-        logs.success("Bot executed successfully");
-        toast.success("Execution successful");
+        logs.success('Bot executed successfully');
+        toast.success('Execution successful');
       } else {
-        logs.error("Bot failed during execution");
-        toast.error("Execution failed", "Check logs for details");
+        logs.error('Bot failed during execution');
+        toast.error('Execution failed', 'Check logs for details');
       }
     } catch (error) {
-      logs.error("Execution error", String(error));
-      toast.error("Execution failed", String(error).substring(0, 100));
+      logs.error('Execution error', String(error));
+      toast.error('Execution failed', String(error).substring(0, 100));
     } finally {
       setIsRunning(false);
       setShowFormModal(false);
@@ -311,20 +314,20 @@ export default function ProjectToolbar() {
     const dsl = buildExecutionDSL(
       { id: activeBot.id, name: activeBot.name, description: activeBot.description },
       activeBot.nodes,
-      activeBot.edges
+      activeBot.edges,
     );
 
     const blob = new Blob([JSON.stringify(dsl, null, 2)], {
-      type: "application/json",
+      type: 'application/json',
     });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url;
-    a.download = `${activeBot.name.replace(/\s+/g, "-").toLowerCase()}.json`;
+    a.download = `${activeBot.name.replace(/\s+/g, '-').toLowerCase()}.json`;
     a.click();
     URL.revokeObjectURL(url);
 
-    toast.success("DSL exported");
+    toast.success('DSL exported');
   };
 
   return (
@@ -335,7 +338,11 @@ export default function ProjectToolbar() {
           <SkuldLogoBox size="sm" />
           <div>
             <span className="text-sm font-semibold text-slate-700 leading-tight block">
-              {project?.project.name || <>SkuldBot<sup className="text-[8px] font-normal align-super ml-0.5">TM</sup></>}
+              {project?.project.name || (
+                <>
+                  SkuldBot<sup className="text-[8px] font-normal align-super ml-0.5">TM</sup>
+                </>
+              )}
             </span>
             <span className="text-[10px] text-slate-400 -mt-0.5 block">Automation Designer</span>
           </div>
@@ -363,11 +370,7 @@ export default function ProjectToolbar() {
           title="Save (Ctrl+S)"
           className="text-slate-500 hover:text-slate-700"
         >
-          {isSaving ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4" />
-          )}
+          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           <span className="ml-1">Save</span>
         </Button>
 
@@ -399,11 +402,7 @@ export default function ProjectToolbar() {
           title="Run"
           className="text-slate-500 hover:text-slate-700"
         >
-          {isRunning ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Play className="h-4 w-4" />
-          )}
+          {isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
           <span className="ml-1">Run</span>
         </Button>
 
@@ -413,12 +412,13 @@ export default function ProjectToolbar() {
           size="sm"
           onClick={handleStop}
           title="Stop execution"
-          className={isExecutionRunning
-            ? "text-red-600 bg-red-100 hover:bg-red-200 animate-pulse"
-            : "text-red-500 hover:text-red-700 hover:bg-red-50"
+          className={
+            isExecutionRunning
+              ? 'text-red-600 bg-red-100 hover:bg-red-200 animate-pulse'
+              : 'text-red-500 hover:text-red-700 hover:bg-red-50'
           }
         >
-          <Square className="h-4 w-4" fill={isExecutionRunning ? "currentColor" : "none"} />
+          <Square className="h-4 w-4" fill={isExecutionRunning ? 'currentColor' : 'none'} />
           <span className="ml-1">Stop</span>
         </Button>
 

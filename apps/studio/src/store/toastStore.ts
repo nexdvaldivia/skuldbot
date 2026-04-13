@@ -1,9 +1,9 @@
-import { create } from "zustand";
-import type { Toast } from "../components/ui/Toast";
+import { create } from 'zustand';
+import type { Toast } from '../components/ui/Toast';
 
 interface ToastStore {
   toasts: Toast[];
-  addToast: (toast: Omit<Toast, "id">) => void;
+  addToast: (toast: Omit<Toast, 'id'>) => void;
   removeToast: (id: string) => void;
   success: (title: string, description?: string) => void;
   error: (title: string, description?: string) => void;
@@ -29,7 +29,7 @@ export const useToastStore = create<ToastStore>((set) => ({
 
   success: (title, description) => {
     useToastStore.getState().addToast({
-      type: "success",
+      type: 'success',
       title,
       description,
       duration: 5000,
@@ -38,7 +38,7 @@ export const useToastStore = create<ToastStore>((set) => ({
 
   error: (title, description) => {
     useToastStore.getState().addToast({
-      type: "error",
+      type: 'error',
       title,
       description,
       duration: 7000,
@@ -47,7 +47,7 @@ export const useToastStore = create<ToastStore>((set) => ({
 
   warning: (title, description) => {
     useToastStore.getState().addToast({
-      type: "warning",
+      type: 'warning',
       title,
       description,
       duration: 6000,
@@ -56,11 +56,10 @@ export const useToastStore = create<ToastStore>((set) => ({
 
   info: (title, description) => {
     useToastStore.getState().addToast({
-      type: "info",
+      type: 'info',
       title,
       description,
       duration: 5000,
     });
   },
 }));
-

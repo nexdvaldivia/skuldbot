@@ -1,8 +1,8 @@
-import { useTabsStore } from "../store/tabsStore";
-import { useProjectStore } from "../store/projectStore";
-import { Tab } from "../types/project";
-import { X, Bot, Settings, FileJson, MoreHorizontal } from "lucide-react";
-import { useState } from "react";
+import { useTabsStore } from '../store/tabsStore';
+import { useProjectStore } from '../store/projectStore';
+import { Tab } from '../types/project';
+import { X, Bot, Settings, FileJson, MoreHorizontal } from 'lucide-react';
+import { useState } from 'react';
 
 interface TabItemProps {
   tab: Tab;
@@ -14,11 +14,11 @@ interface TabItemProps {
 function TabItem({ tab, onActivate, onClose, onContextMenu }: TabItemProps) {
   const getIcon = () => {
     switch (tab.type) {
-      case "bot":
+      case 'bot':
         return <Bot className="w-3.5 h-3.5" />;
-      case "settings":
+      case 'settings':
         return <Settings className="w-3.5 h-3.5" />;
-      case "env":
+      case 'env':
         return <FileJson className="w-3.5 h-3.5" />;
       default:
         return <FileJson className="w-3.5 h-3.5" />;
@@ -31,8 +31,8 @@ function TabItem({ tab, onActivate, onClose, onContextMenu }: TabItemProps) {
         group flex items-center gap-2 px-3 py-1.5 cursor-pointer border-b-2 min-w-0
         ${
           tab.isActive
-            ? "bg-white border-primary-500 text-slate-800"
-            : "bg-slate-100 border-transparent text-slate-600 hover:bg-slate-50"
+            ? 'bg-white border-primary-500 text-slate-800'
+            : 'bg-slate-100 border-transparent text-slate-600 hover:bg-slate-50'
         }
       `}
       onClick={onActivate}
@@ -40,9 +40,7 @@ function TabItem({ tab, onActivate, onClose, onContextMenu }: TabItemProps) {
     >
       <span className="text-slate-500">{getIcon()}</span>
       <span className="text-sm truncate max-w-[120px]">{tab.title}</span>
-      {tab.isDirty && (
-        <span className="w-2 h-2 rounded-full bg-primary-500 flex-shrink-0" />
-      )}
+      {tab.isDirty && <span className="w-2 h-2 rounded-full bg-primary-500 flex-shrink-0" />}
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -50,7 +48,7 @@ function TabItem({ tab, onActivate, onClose, onContextMenu }: TabItemProps) {
         }}
         className={`
           p-0.5 rounded hover:bg-slate-200 flex-shrink-0
-          ${tab.isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"}
+          ${tab.isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}
         `}
       >
         <X className="w-3.5 h-3.5" />
@@ -77,7 +75,7 @@ export default function TabBar() {
   const handleSaveTab = async () => {
     if (!contextMenu) return;
     const tab = tabs.find((t) => t.id === contextMenu.tabId);
-    if (tab?.type === "bot" && tab.botId) {
+    if (tab?.type === 'bot' && tab.botId) {
       await saveBot(tab.botId);
     }
     setContextMenu(null);
@@ -143,10 +141,7 @@ export default function TabBar() {
       {/* Context Menu */}
       {contextMenu && (
         <>
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setContextMenu(null)}
-          />
+          <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
           <div
             className="fixed bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-50 min-w-[160px]"
             style={{ left: contextMenu.x, top: contextMenu.y }}

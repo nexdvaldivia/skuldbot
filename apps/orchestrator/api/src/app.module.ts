@@ -43,8 +43,7 @@ enforceEnvironmentPolicy(process.env);
       // Regulated environments should inject env vars from platform/vault.
       // Local dotenv loading is opt-in via ALLOW_DOTENV=true.
       ignoreEnvFile: process.env.ALLOW_DOTENV !== 'true',
-      envFilePath:
-        process.env.ALLOW_DOTENV === 'true' ? ['.env.local', '.env'] : undefined,
+      envFilePath: process.env.ALLOW_DOTENV === 'true' ? ['.env.local', '.env'] : undefined,
     }),
 
     // Database

@@ -16,12 +16,12 @@ describe('ComplianceServer', () => {
   describe('getTools', () => {
     it('should return all compliance tools', () => {
       const tools = server.getTools();
-      
+
       expect(tools).toHaveLength(6);
-      expect(tools.map(t => t.name)).toContain('classify_data');
-      expect(tools.map(t => t.name)).toContain('route_llm_request');
-      expect(tools.map(t => t.name)).toContain('redact_sensitive_data');
-      expect(tools.map(t => t.name)).toContain('log_audit_event');
+      expect(tools.map((t) => t.name)).toContain('classify_data');
+      expect(tools.map((t) => t.name)).toContain('route_llm_request');
+      expect(tools.map((t) => t.name)).toContain('redact_sensitive_data');
+      expect(tools.map((t) => t.name)).toContain('log_audit_event');
     });
   });
 
@@ -43,8 +43,8 @@ describe('ComplianceServer', () => {
         expect(classified.overallClassification).toBe(DataClassification.PHI);
         expect(classified.requiresPrivateLLM).toBe(true);
         expect(classified.recommendedRoute).toBe(LLMRoute.PRIVATE);
-        
-        const ssnField = classified.fields.find(f => f.name === 'ssn');
+
+        const ssnField = classified.fields.find((f) => f.name === 'ssn');
         expect(ssnField.classification).toBe(DataClassification.PHI);
         expect(ssnField.confidence).toBeGreaterThan(0.9);
         expect(ssnField.detectedType).toBe('SSN');
@@ -99,8 +99,8 @@ describe('ComplianceServer', () => {
 
         expect(result.success).toBe(true);
         expect(result.result.overallClassification).toBe(DataClassification.PII);
-        
-        const emailField = result.result.fields.find(f => f.name === 'email');
+
+        const emailField = result.result.fields.find((f) => f.name === 'email');
         expect(emailField.classification).toBe(DataClassification.PII);
       });
 
@@ -137,8 +137,8 @@ describe('ComplianceServer', () => {
         expect(result.success).toBe(true);
         expect(result.result.overallClassification).toBe(DataClassification.PCI);
         expect(result.result.requiresPrivateLLM).toBe(true);
-        
-        const ccField = result.result.fields.find(f => f.name === 'credit_card');
+
+        const ccField = result.result.fields.find((f) => f.name === 'credit_card');
         expect(ccField.classification).toBe(DataClassification.PCI);
         expect(ccField.detectedType).toBe('Credit Card');
       });
@@ -151,9 +151,9 @@ describe('ComplianceServer', () => {
           arguments: {
             tenantId: 'test-tenant',
             data: {
-              patient_name: 'John Doe',      // PII
-              ssn: '123-45-6789',            // PHI (highest)
-              claim_amount: 5000,            // Internal
+              patient_name: 'John Doe', // PII
+              ssn: '123-45-6789', // PHI (highest)
+              claim_amount: 5000, // Internal
             },
           },
         });
@@ -457,7 +457,9 @@ describe('ComplianceServer', () => {
     });
 
     it('should read classification rules', async () => {
-      const resource = await server.readResource('compliance://tenant/test-tenant/classification-rules');
+      const resource = await server.readResource(
+        'compliance://tenant/test-tenant/classification-rules',
+      );
 
       const content = JSON.parse(resource.content);
       expect(content.phi).toBeDefined();
@@ -466,7 +468,9 @@ describe('ComplianceServer', () => {
     });
 
     it('should read LLM routing config', async () => {
-      const resource = await server.readResource('compliance://tenant/test-tenant/llm-routing-config');
+      const resource = await server.readResource(
+        'compliance://tenant/test-tenant/llm-routing-config',
+      );
 
       const content = JSON.parse(resource.content);
       expect(content.allowedRoutes).toBeDefined();
@@ -508,13 +512,11 @@ describe('ComplianceServer', () => {
 
       const resource = await server.readResource('compliance://tenant/test-tenant/audit-log');
       const content = JSON.parse(resource.content);
-      
+
       const phiLogs = content.logs.filter(
-        log => log.dataClassification === DataClassification.PHI
+        (log) => log.dataClassification === DataClassification.PHI,
       );
       expect(phiLogs.length).toBeGreaterThan(0);
     });
   });
 });
-
-

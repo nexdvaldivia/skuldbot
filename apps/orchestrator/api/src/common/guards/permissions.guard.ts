@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  CanActivate,
-  ExecutionContext,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import {
   PERMISSIONS_KEY,
@@ -38,10 +33,10 @@ export class PermissionsGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     // Get required permissions from decorator
-    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(
-      PERMISSIONS_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
     // No permissions required - allow access
     if (!requiredPermissions || requiredPermissions.length === 0) {
@@ -49,10 +44,11 @@ export class PermissionsGuard implements CanActivate {
     }
 
     // Get permission mode (default: 'all')
-    const mode = this.reflector.getAllAndOverride<PermissionMode>(
-      PERMISSIONS_MODE_KEY,
-      [context.getHandler(), context.getClass()],
-    ) || 'all';
+    const mode =
+      this.reflector.getAllAndOverride<PermissionMode>(PERMISSIONS_MODE_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]) || 'all';
 
     const request = context.switchToHttp().getRequest();
     const user = request.user as User;
@@ -70,9 +66,7 @@ export class PermissionsGuard implements CanActivate {
 
     if (mode === 'any') {
       // OR logic - need at least one permission
-      hasPermission = requiredPermissions.some((permission) =>
-        user.hasPermission(permission),
-      );
+      hasPermission = requiredPermissions.some((permission) => user.hasPermission(permission));
     } else {
       // AND logic - need all permissions
       missingPermissions = requiredPermissions.filter(

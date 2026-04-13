@@ -35,6 +35,7 @@ PYTHONPATH=/Users/dubielvaldivia/Documents/khipus/skuldbot-engine robot main.rob
 ```
 
 **Resultado esperado:**
+
 - Sin rpaframework: ❌ Error "No module named 'RPA'"
 - Con rpaframework: ✅ Abre navegador, navega, cierra
 
@@ -45,6 +46,7 @@ cat test_rpa_output/browser-test/main.robot
 ```
 
 Deberías ver:
+
 ```robot
 Open Available Browser    https://example.com    browser=chromium    headless=true
 ```
@@ -111,9 +113,9 @@ print(f"Bot creado en: {bot_dir}")
 ## ✅ Checklist de RPA
 
 - [x] Engine compila DSL → Robot Framework ✅
-- [x] Genera nodos control.* ✅
-- [x] Genera nodos browser.* ✅
-- [x] Genera nodos excel.* ✅
+- [x] Genera nodos control.\* ✅
+- [x] Genera nodos browser.\* ✅
+- [x] Genera nodos excel.\* ✅
 - [ ] rpaframework instalado ⚠️ (opcional)
 - [ ] Browser drivers instalados ⚠️ (opcional)
 
@@ -147,23 +149,26 @@ Una vez que rpaframework funcione, puedes hacer:
 ## 🐛 Troubleshooting
 
 **Error: "No module named 'RPA'"**
+
 ```bash
 pip3 install --user rpaframework
 ```
 
 **Error: "Browser not found"**
+
 ```bash
 pip3 install --user robotframework-browser
 rfbrowser init
 ```
 
 **Error: "No module named 'skuldbot'"**
+
 ```bash
 PYTHONPATH=/path/to/skuldbot-engine robot main.robot
 ```
 
 **Bot se ejecuta pero no hace nada**
+
 - Revisa que rpaframework esté instalado
 - Verifica el output.xml
 - Agrega más `control.log` para debugging
-

@@ -7,14 +7,8 @@ import {
   UsageIngestEvent,
   UsageIngestDeadLetter,
 } from './entities/usage-record.entity';
-import {
-  RevenueShareRecord,
-  PartnerPayout,
-} from './entities/revenue-share.entity';
-import {
-  TenantSubscription,
-  PaymentHistory,
-} from './entities/subscription.entity';
+import { RevenueShareRecord, PartnerPayout } from './entities/revenue-share.entity';
+import { TenantSubscription, PaymentHistory } from './entities/subscription.entity';
 import { PaymentConfig } from './entities/payment-config.entity';
 import { Partner } from '../marketplace/entities/partner.entity';
 import { BillingService } from './billing.service';

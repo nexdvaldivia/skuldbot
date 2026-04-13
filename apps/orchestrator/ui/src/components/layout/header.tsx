@@ -46,7 +46,11 @@ export function Header({ onMenuClick }: HeaderProps) {
           </button>
           <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-            <Input type="text" placeholder="Search bots, runs, runners..." className="pl-10 bg-white h-9" />
+            <Input
+              type="text"
+              placeholder="Search bots, runs, runners..."
+              className="pl-10 bg-white h-9"
+            />
           </div>
         </div>
 
@@ -70,7 +74,12 @@ export function Header({ onMenuClick }: HeaderProps) {
                 <p className="text-[13px] font-medium text-zinc-900 leading-none">Admin</p>
                 <p className="text-[11px] text-zinc-500 leading-none mt-0.5">admin@skuld.io</p>
               </div>
-              <ChevronDown className={cn('h-3.5 w-3.5 text-zinc-400 transition-transform', showUserMenu && 'rotate-180')} />
+              <ChevronDown
+                className={cn(
+                  'h-3.5 w-3.5 text-zinc-400 transition-transform',
+                  showUserMenu && 'rotate-180',
+                )}
+              />
             </button>
 
             {showUserMenu && (

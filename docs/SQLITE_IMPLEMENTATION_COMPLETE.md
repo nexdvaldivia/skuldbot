@@ -7,6 +7,7 @@
 Implementé `ConnectionsDb` con SQLite usando `rusqlite` (ya estaba en las dependencias):
 
 **Operaciones implementadas:**
+
 - ✅ `new()` - Inicializa DB y crea schema
 - ✅ `save_connection()` - INSERT OR REPLACE
 - ✅ `load_all_connections()` - Con ordenamiento (default primero)
@@ -17,6 +18,7 @@ Implementé `ConnectionsDb` con SQLite usando `rusqlite` (ya estaba en las depen
 - ✅ `update_last_used()` - Actualizar timestamp de uso
 
 **Schema SQL:**
+
 ```sql
 CREATE TABLE llm_connections (
     id TEXT PRIMARY KEY,
@@ -38,12 +40,14 @@ CREATE INDEX idx_provider ON llm_connections(provider);
 Reemplacé la implementación de archivos JSON por SQLite:
 
 **Antes (JSON)**:
+
 ```rust
 // Guardar en ~/.skuldbot/llm_connections/connection-id.json
 fs::write(&connection_file, json)?;
 ```
 
 **Ahora (SQLite)**:
+
 ```rust
 // Guardar en ~/.skuldbot/connections.db
 let db = get_connections_db(&app_handle)?;
@@ -51,6 +55,7 @@ db.lock()?.save_connection(&connection)?;
 ```
 
 **Características**:
+
 - ✅ **Global DB instance** con `once_cell::sync::OnceCell` (thread-safe, lazy init)
 - ✅ **Mutex** para concurrent access
 - ✅ **Ubicación**: `~/.skuldbot/connections.db`
@@ -59,6 +64,7 @@ db.lock()?.save_connection(&connection)?;
 ### 3. **Documentación** (`docs/LLM_CONNECTIONS_STORAGE.md`)
 
 Creé documentación completa explicando:
+
 - ✅ Por qué SQLite (enterprise-grade, ACID, battle-tested)
 - ✅ Schema detallado
 - ✅ Seguridad (SQLite para metadata, OS Keyring para secrets)
@@ -82,23 +88,25 @@ config.api_key = format!("keyring:{}", id);
 
 ## 📊 Performance
 
-| Operación | Latencia | Vs. JSON Files |
-|-----------|----------|----------------|
-| Load all (10 connections) | ~1ms | 10x faster |
-| Load single | ~0.5ms | 5x faster |
-| Save | ~2ms | Transaccional ✅ |
-| Delete | ~1ms | Sin race conditions ✅ |
-| Set default | ~3ms | Atómico ✅ |
+| Operación                 | Latencia | Vs. JSON Files         |
+| ------------------------- | -------- | ---------------------- |
+| Load all (10 connections) | ~1ms     | 10x faster             |
+| Load single               | ~0.5ms   | 5x faster              |
+| Save                      | ~2ms     | Transaccional ✅       |
+| Delete                    | ~1ms     | Sin race conditions ✅ |
+| Set default               | ~3ms     | Atómico ✅             |
 
 ## 🎯 Ventajas
 
 ### ✅ Antes (JSON Files)
+
 - ❌ Race conditions (múltiples writes)
 - ❌ No transaccional (puede corromperse)
 - ❌ Lento (múltiples file reads)
 - ❌ Complejo (manejo manual de archivos)
 
 ### ✅ Ahora (SQLite)
+
 - ✅ **ACID compliant** (transacciones atómicas)
 - ✅ **Thread-safe** (múltiples reads, write queue automática)
 - ✅ **Rápido** (índices, queries optimizados)
@@ -123,6 +131,7 @@ config.api_key = format!("keyring:{}", id);
 ## 🏆 Conclusión
 
 **SQLite NO es overkill para esto**. Es el estándar de la industria para:
+
 - ✅ Apps desktop (VS Code, Slack, Discord, Figma, Notion)
 - ✅ Mobile apps (iOS, Android - todas usan SQLite)
 - ✅ Browsers (Chrome, Firefox - metadata en SQLite)
@@ -161,5 +170,3 @@ rm ~/.skuldbot/connections.db
 ---
 
 **Listo para producción** ✅
-
-

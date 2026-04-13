@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, IsNull, Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
@@ -22,9 +19,7 @@ export class IntegrationsService {
     private readonly providerRegistry: ProviderRegistry,
   ) {}
 
-  async listConfigs(
-    query: ListProviderConfigsQueryDto,
-  ): Promise<SanitizedProviderConfig[]> {
+  async listConfigs(query: ListProviderConfigsQueryDto): Promise<SanitizedProviderConfig[]> {
     const where: FindOptionsWhere<ProviderConfig> = {};
     if (query.type) {
       where.type = query.type;
@@ -252,9 +247,7 @@ export class IntegrationsService {
     }
   }
 
-  private normalizeCredentials(
-    credentials: Record<string, string>,
-  ): Record<string, string> {
+  private normalizeCredentials(credentials: Record<string, string>): Record<string, string> {
     const normalized: Record<string, string> = {};
 
     for (const [key, value] of Object.entries(credentials)) {
@@ -275,9 +268,8 @@ export class IntegrationsService {
     try {
       return config.toSanitized();
     } catch {
-      const encryptedCredentials = (
-        config as unknown as { encryptedCredentials?: string | null }
-      ).encryptedCredentials;
+      const encryptedCredentials = (config as unknown as { encryptedCredentials?: string | null })
+        .encryptedCredentials;
 
       return {
         id: config.id,
@@ -298,4 +290,3 @@ export class IntegrationsService {
     }
   }
 }
-

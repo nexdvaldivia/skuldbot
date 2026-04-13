@@ -5,24 +5,28 @@
 ### ❌ PROBLEMAS IDENTIFICADOS
 
 #### 1. TIPOGRAFÍA
+
 - Montserrat es pesada, poco refinada para interfaces modernas
 - Falta jerarquía tipográfica real y consistente
 - Line heights inconsistentes entre componentes
 - Letter spacing sin optimizar para legibilidad
 
 #### 2. ESPACIADO
+
 - Sistema de spacing no sigue escala armónica
 - Gaps arbitrarios (2, 2.5, 3, 3.5) sin fundamento matemático
 - Falta ritmo vertical consistente
 - Padding/margin sin proporción áurea
 
 #### 3. COLORES
+
 - Grises muy saturados y azulados
 - Falta sutileza en gradientes
 - Contraste no optimizado para accesibilidad
 - Sin sistema de elevación claro (shadows inconsistentes)
 
 #### 4. MICROINTERACCIONES
+
 - Transiciones muy uniformes (todo 200ms sin variación)
 - Falta timing curves sofisticadas (ease-in, ease-out)
 - Scale effects muy evidentes y poco naturales
@@ -30,6 +34,7 @@
 - Estados hover/active sin elegancia
 
 #### 5. COMPOSICIÓN
+
 - Toolbar muy plano sin profundidad visual
 - Sidebar sin jerarquía clara
 - Nodes genéricos sin personalidad
@@ -42,12 +47,14 @@
 ### 1. SISTEMA TIPOGRÁFICO PERFECTO
 
 **Font Stack:**
+
 ```css
 Primary: Inter (variable font con feature settings)
 Mono: SF Mono / Menlo / Monaco
 ```
 
 **Escala Armónica:**
+
 - xs: 12px / line-height: 16px / letter-spacing: 0.01em
 - sm: 14px / line-height: 20px / letter-spacing: 0
 - base: 16px / line-height: 24px / letter-spacing: 0
@@ -55,6 +62,7 @@ Mono: SF Mono / Menlo / Monaco
 - xl: 20px / line-height: 30px / letter-spacing: -0.01em
 
 **Feature Settings:**
+
 - `cv02`: Open digits
 - `cv03`: Curved r
 - `cv04`: Open four
@@ -86,6 +94,7 @@ Mono: SF Mono / Menlo / Monaco
 ### 3. PALETA DE COLORES PROFESIONAL
 
 #### Verde Skuldbot (Primary) - Emerald
+
 ```
 400: #35D399 (Logo base - PRIMARY)
 500: #10b981 (Hover states)
@@ -94,6 +103,7 @@ Mono: SF Mono / Menlo / Monaco
 ```
 
 #### Grises Desaturados (Neutral)
+
 ```
 50:  #fafafa  (Backgrounds sutiles)
 100: #f5f5f5
@@ -140,6 +150,7 @@ smooth-out: cubic-bezier(0.0, 0.0, 0.2, 1)  - Salida
 ```
 
 **Duraciones:**
+
 - 150ms: Micro-interacciones (hover, focus)
 - 250ms: Interacciones medias (modales, dropdowns)
 - 350ms: Transiciones grandes (sidebars, panels)
@@ -151,6 +162,7 @@ smooth-out: cubic-bezier(0.0, 0.0, 0.2, 1)  - Salida
 ### 6. SISTEMA DE COMPONENTES
 
 #### Botones
+
 ```css
 .btn-primary
   - Height: 40px (10 en Tailwind)
@@ -172,6 +184,7 @@ smooth-out: cubic-bezier(0.0, 0.0, 0.2, 1)  - Salida
 ```
 
 #### Nodes
+
 ```
 - Border-radius: 12px (xl)
 - Padding: 20px (5 en Tailwind)
@@ -182,6 +195,7 @@ smooth-out: cubic-bezier(0.0, 0.0, 0.2, 1)  - Salida
 ```
 
 #### Sidebar
+
 ```
 - Background: neutral-50/40 con backdrop-blur
 - Cards: white/40 con backdrop-blur
@@ -192,6 +206,7 @@ smooth-out: cubic-bezier(0.0, 0.0, 0.2, 1)  - Salida
 ```
 
 #### Toolbar
+
 ```
 - Background: neutral-50/60 con backdrop-blur
 - Height: 64px
@@ -204,22 +219,26 @@ smooth-out: cubic-bezier(0.0, 0.0, 0.2, 1)  - Salida
 ### 7. MICROINTERACCIONES DELICIOSAS
 
 #### Scale Effects
+
 ```css
-active:scale-[0.98]  // Sutil, no 0.95
+active: scale-[0.98]; // Sutil, no 0.95
 ```
 
 #### Animaciones de Entrada
+
 ```css
 animate-in slide-in-from-right-5 fade-in duration-350
 animate-in zoom-in duration-250 delay-75
 ```
 
 #### Hover States Multicapa
+
 ```css
 hover:bg-white hover:border-neutral-300/60 hover:shadow-sm
 ```
 
 #### Transiciones Escalonadas
+
 ```css
 duration-250        // Elemento principal
 duration-250 delay-75   // Icono
@@ -231,21 +250,25 @@ duration-250 delay-100  // Texto
 ## 📐 PRINCIPIOS DE COMPOSICIÓN
 
 ### Golden Ratio
+
 - Sidebar: 320px (collapsed: 0)
 - Nodes: min-width 280px, max-width 340px
 - Aspect ratios: 16:9 para áreas de contenido
 
 ### Ritmo Vertical
+
 - Spacing entre secciones: 32px (8 en Tailwind)
 - Spacing entre grupos: 24px (6)
 - Spacing entre items: 8px (2)
 
 ### Jerarquía Visual
+
 1. **Primario:** Botón Run (primary-600, shadow)
 2. **Secundario:** Botón Compile (white, border)
 3. **Terciario:** Iconos ghost (transparent → hover:bg)
 
 ### Profundidad
+
 - Layer 0: Canvas (white)
 - Layer 1: Sidebar/Toolbar (neutral-50/40, backdrop-blur)
 - Layer 2: Cards (white/40, backdrop-blur)
@@ -257,6 +280,7 @@ duration-250 delay-100  // Texto
 ## 🎯 IMPLEMENTACIÓN TÉCNICA
 
 ### Tailwind Config
+
 ```js
 - Inter variable font con feature settings
 - Neutral palette (desaturada)
@@ -268,6 +292,7 @@ duration-250 delay-100  // Texto
 ```
 
 ### CSS Global
+
 ```css
 - Font smoothing optimizado
 - Border color por defecto: neutral-200
@@ -277,6 +302,7 @@ duration-250 delay-100  // Texto
 ```
 
 ### Componentes
+
 - Classes utilitarias reutilizables
 - Consistency en naming
 - Duration específica por tipo de interacción
@@ -287,6 +313,7 @@ duration-250 delay-100  // Texto
 ## ✅ RESULTADO FINAL
 
 ### Características Distintivas
+
 1. **Elegancia:** Grises desaturados, shadows suaves
 2. **Fluidez:** Timing curves sofisticadas, duraciones variables
 3. **Profundidad:** Backdrop blur, capas visuales claras
@@ -294,6 +321,7 @@ duration-250 delay-100  // Texto
 5. **Microinteracciones:** Animaciones escalonadas, scale effects sutiles
 
 ### Sensación
+
 - **Premium** como Linear o Vercel
 - **Moderna** como Figma o Framer
 - **Profesional** como Notion o Stripe
@@ -303,8 +331,3 @@ duration-250 delay-100  // Texto
 
 **Creado por el mejor diseñador de UI que ha existido.**
 **Nivel de excelencia: Maestro absoluto.**
-
-
-
-
-

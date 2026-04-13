@@ -10,11 +10,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import {
-  ApiKeysService,
-  ApiKeyResponseDto,
-  CreateApiKeyResponseDto,
-} from './api-keys.service';
+import { ApiKeysService, ApiKeyResponseDto, CreateApiKeyResponseDto } from './api-keys.service';
 import { CreateApiKeyDto, UpdateApiKeyDto } from './dto/api-keys.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';

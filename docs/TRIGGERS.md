@@ -74,30 +74,30 @@ Los **Triggers** son nodos especiales que inician la ejecucion de un bot. A dife
 
 ### Basicos
 
-| Tipo | DSL Type | Categoria | Descripcion |
-|------|----------|-----------|-------------|
-| Manual | `trigger.manual` | trigger | Ejecucion manual via UI/CLI |
-| Schedule | `trigger.schedule` | trigger | Cron expression |
-| Webhook | `trigger.webhook` | trigger | HTTP endpoint |
+| Tipo     | DSL Type           | Categoria | Descripcion                 |
+| -------- | ------------------ | --------- | --------------------------- |
+| Manual   | `trigger.manual`   | trigger   | Ejecucion manual via UI/CLI |
+| Schedule | `trigger.schedule` | trigger   | Cron expression             |
+| Webhook  | `trigger.webhook`  | trigger   | HTTP endpoint               |
 
 ### Eventos de Sistema
 
-| Tipo | DSL Type | Categoria | Descripcion |
-|------|----------|-----------|-------------|
-| File Watch | `trigger.file_watch` | trigger | Cambios en filesystem |
-| Email Received | `trigger.email_received` | trigger | IMAP/POP3 polling |
-| Queue | `trigger.queue` | trigger | Message queue consumer |
+| Tipo           | DSL Type                 | Categoria | Descripcion            |
+| -------------- | ------------------------ | --------- | ---------------------- |
+| File Watch     | `trigger.file_watch`     | trigger   | Cambios en filesystem  |
+| Email Received | `trigger.email_received` | trigger   | IMAP/POP3 polling      |
+| Queue          | `trigger.queue`          | trigger   | Message queue consumer |
 
 ### Integraciones
 
-| Tipo | DSL Type | Categoria | Descripcion |
-|------|----------|-----------|-------------|
-| **Form** | `trigger.form` | trigger | Formulario web |
-| API Polling | `trigger.api_polling` | trigger | HTTP polling periodico |
-| Database Change | `trigger.database_change` | trigger | CDC (Change Data Capture) |
-| Storage Event | `trigger.storage_event` | trigger | S3/MinIO events |
-| Message Bus | `trigger.message_bus` | trigger | Kafka/RabbitMQ/Redis |
-| Chat | `trigger.chat` | trigger | Slack/Teams/Telegram |
+| Tipo            | DSL Type                  | Categoria | Descripcion               |
+| --------------- | ------------------------- | --------- | ------------------------- |
+| **Form**        | `trigger.form`            | trigger   | Formulario web            |
+| API Polling     | `trigger.api_polling`     | trigger   | HTTP polling periodico    |
+| Database Change | `trigger.database_change` | trigger   | CDC (Change Data Capture) |
+| Storage Event   | `trigger.storage_event`   | trigger   | S3/MinIO events           |
+| Message Bus     | `trigger.message_bus`     | trigger   | Kafka/RabbitMQ/Redis      |
+| Chat            | `trigger.chat`            | trigger   | Slack/Teams/Telegram      |
 
 ---
 
@@ -205,13 +205,13 @@ En `flow.ts`:
 
 ```typescript
 export interface ConfigField {
-  type: "text" | "number" | "boolean" | "select" | "textarea" | "password" | "form-builder";
+  type: 'text' | 'number' | 'boolean' | 'select' | 'textarea' | 'password' | 'form-builder';
   // ...
 }
 
 export interface FormFieldDefinition {
   id: string;
-  type: "text" | "email" | "number" | "date" | "dropdown" | "checkbox" | "file" | "textarea";
+  type: 'text' | 'email' | 'number' | 'date' | 'dropdown' | 'checkbox' | 'file' | 'textarea';
   label: string;
   placeholder?: string;
   required?: boolean;
@@ -230,6 +230,7 @@ export interface FormFieldDefinition {
 Ubicacion: `studio/src/components/FormBuilder.tsx`
 
 Funcionalidades:
+
 - Agregar campos con boton "+ Add Field"
 - Expandir/colapsar configuracion de cada campo
 - Reordenar con botones ↑↓
@@ -241,6 +242,7 @@ Funcionalidades:
 Ubicacion: `studio/src/components/FormPreview.tsx`
 
 Funcionalidades:
+
 - Ventana flotante modal
 - Renderizado en tiempo real del formulario
 - Interaccion funcional (llenar y enviar)
@@ -345,8 +347,8 @@ interface BotDSL {
   };
   nodes: DSLNode[];
   variables?: Record<string, VariableDefinition>;
-  triggers?: string[];    // IDs de nodos trigger
-  start_node?: string;    // Deprecated, usar triggers[]
+  triggers?: string[]; // IDs de nodos trigger
+  start_node?: string; // Deprecated, usar triggers[]
 }
 ```
 
@@ -469,13 +471,13 @@ trigger: {
 
 ### CSS Classes
 
-| Elemento | Clase |
-|----------|-------|
-| Badge START | `bg-emerald-500 text-white text-[10px] font-bold` |
-| Borde trigger | `ring-2 ring-emerald-300` |
-| Icono container | `bg-emerald-50 text-emerald-500` |
-| Handle success | `bg-emerald-500` |
-| Handle error | `bg-orange-500` |
+| Elemento        | Clase                                             |
+| --------------- | ------------------------------------------------- |
+| Badge START     | `bg-emerald-500 text-white text-[10px] font-bold` |
+| Borde trigger   | `ring-2 ring-emerald-300`                         |
+| Icono container | `bg-emerald-50 text-emerald-500`                  |
+| Handle success  | `bg-emerald-500`                                  |
+| Handle error    | `bg-orange-500`                                   |
 
 ---
 

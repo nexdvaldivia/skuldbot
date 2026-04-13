@@ -79,9 +79,7 @@ export class UsageService {
       metadata: dto.metadata,
     });
 
-    this.logger.debug(
-      `Tracked usage: ${dto.metric} x${dto.quantity} for bot ${dto.botId}`,
-    );
+    this.logger.debug(`Tracked usage: ${dto.metric} x${dto.quantity} for bot ${dto.botId}`);
 
     return saved;
   }
@@ -103,11 +101,7 @@ export class UsageService {
   /**
    * Get usage summary for a tenant
    */
-  async getUsageSummary(
-    tenantId: string,
-    startDate: Date,
-    endDate: Date,
-  ): Promise<UsageSummary> {
+  async getUsageSummary(tenantId: string, startDate: Date, endDate: Date): Promise<UsageSummary> {
     const events = await this.usageEventRepository.find({
       where: {
         tenantId,

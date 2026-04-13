@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { createPortal } from "react-dom";
-import { X, Maximize2, Minimize2, ExternalLink } from "lucide-react";
-import { Button } from "./ui/Button";
-import { FormFieldDefinition } from "../types/flow";
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { X, Maximize2, Minimize2, ExternalLink } from 'lucide-react';
+import { Button } from './ui/Button';
+import { FormFieldDefinition } from '../types/flow';
 
 interface FormPreviewProps {
   isOpen: boolean;
@@ -29,7 +29,7 @@ export function FormPreview({ isOpen, onClose, formConfig }: FormPreviewProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
-    console.log("Form submitted:", formData);
+    console.log('Form submitted:', formData);
     // Reset after 2 seconds
     setTimeout(() => {
       setSubmitted(false);
@@ -39,23 +39,23 @@ export function FormPreview({ isOpen, onClose, formConfig }: FormPreviewProps) {
 
   const renderField = (field: FormFieldDefinition) => {
     const baseInputClass =
-      "w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent";
+      'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent';
 
     switch (field.type) {
-      case "text":
-      case "email":
+      case 'text':
+      case 'email':
         return (
           <input
             type={field.type}
             placeholder={field.placeholder}
             required={field.required}
-            value={formData[field.id] || ""}
+            value={formData[field.id] || ''}
             onChange={(e) => handleInputChange(field.id, e.target.value)}
             className={baseInputClass}
           />
         );
 
-      case "number":
+      case 'number':
         return (
           <input
             type="number"
@@ -63,40 +63,40 @@ export function FormPreview({ isOpen, onClose, formConfig }: FormPreviewProps) {
             required={field.required}
             min={field.validation?.min}
             max={field.validation?.max}
-            value={formData[field.id] || ""}
+            value={formData[field.id] || ''}
             onChange={(e) => handleInputChange(field.id, e.target.value)}
             className={baseInputClass}
           />
         );
 
-      case "date":
+      case 'date':
         return (
           <input
             type="date"
             required={field.required}
-            value={formData[field.id] || ""}
+            value={formData[field.id] || ''}
             onChange={(e) => handleInputChange(field.id, e.target.value)}
             className={baseInputClass}
           />
         );
 
-      case "textarea":
+      case 'textarea':
         return (
           <textarea
             placeholder={field.placeholder}
             required={field.required}
-            value={formData[field.id] || ""}
+            value={formData[field.id] || ''}
             onChange={(e) => handleInputChange(field.id, e.target.value)}
             rows={3}
             className={`${baseInputClass} resize-none`}
           />
         );
 
-      case "dropdown":
+      case 'dropdown':
         return (
           <select
             required={field.required}
-            value={formData[field.id] || ""}
+            value={formData[field.id] || ''}
             onChange={(e) => handleInputChange(field.id, e.target.value)}
             className={baseInputClass}
           >
@@ -109,7 +109,7 @@ export function FormPreview({ isOpen, onClose, formConfig }: FormPreviewProps) {
           </select>
         );
 
-      case "checkbox":
+      case 'checkbox':
         return (
           <label className="flex items-center gap-2 cursor-pointer">
             <input
@@ -123,14 +123,12 @@ export function FormPreview({ isOpen, onClose, formConfig }: FormPreviewProps) {
           </label>
         );
 
-      case "file":
+      case 'file':
         return (
           <input
             type="file"
             required={field.required}
-            onChange={(e) =>
-              handleInputChange(field.id, e.target.files?.[0]?.name || "")
-            }
+            onChange={(e) => handleInputChange(field.id, e.target.files?.[0]?.name || '')}
             className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
           />
         );
@@ -141,7 +139,7 @@ export function FormPreview({ isOpen, onClose, formConfig }: FormPreviewProps) {
             type="text"
             placeholder={field.placeholder}
             required={field.required}
-            value={formData[field.id] || ""}
+            value={formData[field.id] || ''}
             onChange={(e) => handleInputChange(field.id, e.target.value)}
             className={baseInputClass}
           />
@@ -152,10 +150,7 @@ export function FormPreview({ isOpen, onClose, formConfig }: FormPreviewProps) {
   const modal = (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
       <div
@@ -163,19 +158,15 @@ export function FormPreview({ isOpen, onClose, formConfig }: FormPreviewProps) {
           relative bg-gradient-to-br from-slate-50 to-white rounded-2xl shadow-2xl
           flex flex-col overflow-hidden
           transition-all duration-300 ease-out
-          ${isMaximized ? "w-full h-full m-0 rounded-none" : "w-[480px] max-h-[90vh] m-4"}
+          ${isMaximized ? 'w-full h-full m-0 rounded-none' : 'w-[480px] max-h-[90vh] m-4'}
         `}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-slate-100">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-emerald-500" />
-            <span className="text-sm font-medium text-slate-700">
-              Form Preview
-            </span>
-            <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-              Preview
-            </span>
+            <span className="text-sm font-medium text-slate-700">Form Preview</span>
+            <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">Preview</span>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -184,18 +175,9 @@ export function FormPreview({ isOpen, onClose, formConfig }: FormPreviewProps) {
               onClick={() => setIsMaximized(!isMaximized)}
               className="h-7 w-7"
             >
-              {isMaximized ? (
-                <Minimize2 className="h-4 w-4" />
-              ) : (
-                <Maximize2 className="h-4 w-4" />
-              )}
+              {isMaximized ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="h-7 w-7"
-            >
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -221,9 +203,7 @@ export function FormPreview({ isOpen, onClose, formConfig }: FormPreviewProps) {
                   />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-slate-800 mb-2">
-                Form Submitted!
-              </h3>
+              <h3 className="text-lg font-semibold text-slate-800 mb-2">Form Submitted!</h3>
               <p className="text-sm text-slate-500 text-center">
                 Data would be shown in the console.
                 <br />
@@ -236,12 +216,10 @@ export function FormPreview({ isOpen, onClose, formConfig }: FormPreviewProps) {
               {/* Form Title */}
               <div className="text-center pb-4 border-b border-slate-100">
                 <h2 className="text-xl font-bold text-slate-800">
-                  {formConfig.title || "Untitled Form"}
+                  {formConfig.title || 'Untitled Form'}
                 </h2>
                 {formConfig.description && (
-                  <p className="text-sm text-slate-500 mt-1">
-                    {formConfig.description}
-                  </p>
+                  <p className="text-sm text-slate-500 mt-1">{formConfig.description}</p>
                 )}
               </div>
 
@@ -249,20 +227,16 @@ export function FormPreview({ isOpen, onClose, formConfig }: FormPreviewProps) {
               {formConfig.fields.length === 0 ? (
                 <div className="text-center py-8 text-slate-400">
                   <p>No fields defined.</p>
-                  <p className="text-sm mt-1">
-                    Add fields in the Form Builder.
-                  </p>
+                  <p className="text-sm mt-1">Add fields in the Form Builder.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {formConfig.fields.map((field) => (
                     <div key={field.id}>
-                      {field.type !== "checkbox" && (
+                      {field.type !== 'checkbox' && (
                         <label className="block text-sm font-medium text-slate-700 mb-1.5">
                           {field.label}
-                          {field.required && (
-                            <span className="text-red-500 ml-1">*</span>
-                          )}
+                          {field.required && <span className="text-red-500 ml-1">*</span>}
                         </label>
                       )}
                       {renderField(field)}
@@ -277,7 +251,7 @@ export function FormPreview({ isOpen, onClose, formConfig }: FormPreviewProps) {
                   type="submit"
                   className="w-full py-3 bg-emerald-500 text-white font-medium rounded-lg hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-500/25"
                 >
-                  {formConfig.submitButtonLabel || "Submit"}
+                  {formConfig.submitButtonLabel || 'Submit'}
                 </button>
               )}
             </form>
@@ -288,7 +262,7 @@ export function FormPreview({ isOpen, onClose, formConfig }: FormPreviewProps) {
         <div className="px-4 py-3 bg-slate-50 border-t border-slate-100">
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-400">
-              {formConfig.fields.length} fields ·{" "}
+              {formConfig.fields.length} fields ·{' '}
               {formConfig.fields.filter((f) => f.required).length} required
             </span>
             <div className="flex items-center gap-1 text-xs text-slate-400">

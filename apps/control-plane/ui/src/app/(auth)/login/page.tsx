@@ -93,9 +93,7 @@ export default function LoginPage() {
         </div>
 
         {/* Footer */}
-        <p className="text-zinc-600 text-sm">
-          &copy; {new Date().getFullYear()} Skuld, LLC
-        </p>
+        <p className="text-zinc-600 text-sm">&copy; {new Date().getFullYear()} Skuld, LLC</p>
       </div>
 
       {/* Right Panel - Form */}
@@ -195,7 +193,9 @@ export default function LoginPage() {
               <div className="w-full border-t border-zinc-200" />
             </div>
             <div className="relative flex justify-center">
-              <span className="px-3 bg-zinc-50 text-zinc-400 text-xs uppercase tracking-wide">or</span>
+              <span className="px-3 bg-zinc-50 text-zinc-400 text-xs uppercase tracking-wide">
+                or
+              </span>
             </div>
           </div>
 
@@ -205,10 +205,10 @@ export default function LoginPage() {
             className="w-full h-11 flex items-center justify-center gap-3 rounded-lg border border-zinc-200 bg-white text-sm font-medium text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 transition-colors"
           >
             <svg className="h-4 w-4" viewBox="0 0 21 21">
-              <path fill="#f25022" d="M0 0h10v10H0z"/>
-              <path fill="#00a4ef" d="M0 11h10v10H0z"/>
-              <path fill="#7fba00" d="M11 0h10v10H11z"/>
-              <path fill="#ffb900" d="M11 11h10v10H11z"/>
+              <path fill="#f25022" d="M0 0h10v10H0z" />
+              <path fill="#00a4ef" d="M0 11h10v10H0z" />
+              <path fill="#7fba00" d="M11 0h10v10H11z" />
+              <path fill="#ffb900" d="M11 11h10v10H11z" />
             </svg>
             Continue with Microsoft
           </button>
@@ -216,7 +216,10 @@ export default function LoginPage() {
           {/* Support link */}
           <p className="mt-8 text-center text-sm text-zinc-500">
             Need access or password reset?{' '}
-            <a href="mailto:support@skuldbot.com" className="text-zinc-700 hover:text-zinc-900 font-medium">
+            <a
+              href="mailto:support@skuldbot.com"
+              className="text-zinc-700 hover:text-zinc-900 font-medium"
+            >
               Contact your administrator
             </a>
           </p>

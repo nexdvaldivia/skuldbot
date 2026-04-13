@@ -153,10 +153,7 @@ export default function BillingPage() {
         toast({
           variant: 'error',
           title: 'Failed to load billing',
-          description:
-            error instanceof Error
-              ? error.message
-              : 'Could not fetch subscriptions.',
+          description: error instanceof Error ? error.message : 'Could not fetch subscriptions.',
         });
       } finally {
         setLoading(false);
@@ -168,9 +165,7 @@ export default function BillingPage() {
 
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
-      const matchesSearch = row.tenantName
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase());
+      const matchesSearch = row.tenantName.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter === 'all' || row.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
@@ -181,7 +176,9 @@ export default function BillingPage() {
     .reduce((sum, row) => sum + (row.monthlyAmount || 0), 0);
   const activeCount = rows.filter((row) => row.status === 'active').length;
   const trialCount = rows.filter((row) => row.status === 'trialing').length;
-  const atRiskCount = rows.filter((row) => ['past_due', 'suspended', 'unpaid'].includes(row.status)).length;
+  const atRiskCount = rows.filter((row) =>
+    ['past_due', 'suspended', 'unpaid'].includes(row.status),
+  ).length;
 
   return (
     <div className="px-4 lg:px-8 py-6 lg:py-8 max-w-7xl mx-auto">
@@ -277,7 +274,9 @@ export default function BillingPage() {
                       </div>
                     </div>
                     <div className="col-span-2">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${status.bgColor} ${status.color}`}>
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${status.bgColor} ${status.color}`}
+                      >
                         <StatusIcon className="h-3 w-3" />
                         {status.label}
                       </span>
@@ -307,8 +306,8 @@ export default function BillingPage() {
                         {row.status === 'trialing' && row.trialEnd
                           ? `Trial ends ${new Date(row.trialEnd).toLocaleDateString()}`
                           : row.currentPeriodEnd
-                          ? new Date(row.currentPeriodEnd).toLocaleDateString()
-                          : '—'}
+                            ? new Date(row.currentPeriodEnd).toLocaleDateString()
+                            : '—'}
                       </span>
                       <ChevronRight className="h-4 w-4 text-zinc-300" />
                     </div>
@@ -328,7 +327,9 @@ export default function BillingPage() {
                       <ChevronRight className="h-5 w-5 text-zinc-300 flex-shrink-0" />
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${status.bgColor} ${status.color}`}>
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${status.bgColor} ${status.color}`}
+                      >
                         <StatusIcon className="h-3 w-3" />
                         {status.label}
                       </span>
@@ -375,13 +376,19 @@ function StatCard({
   };
 
   return (
-    <div className={`rounded-xl border p-4 ${highlight ? 'border-amber-200 bg-amber-50/30' : 'border-zinc-200/80 bg-white'}`}>
+    <div
+      className={`rounded-xl border p-4 ${highlight ? 'border-amber-200 bg-amber-50/30' : 'border-zinc-200/80 bg-white'}`}
+    >
       <div className="flex items-center gap-3 mb-3">
-        <div className={`h-8 w-8 rounded-lg ${colorClasses[color]} flex items-center justify-center`}>
+        <div
+          className={`h-8 w-8 rounded-lg ${colorClasses[color]} flex items-center justify-center`}
+        >
           <Icon className="h-4 w-4" />
         </div>
       </div>
-      <p className={`text-2xl font-semibold ${highlight ? 'text-amber-700' : 'text-zinc-900'}`}>{value}</p>
+      <p className={`text-2xl font-semibold ${highlight ? 'text-amber-700' : 'text-zinc-900'}`}>
+        {value}
+      </p>
       <p className="text-sm text-zinc-500 mt-0.5">{label}</p>
     </div>
   );

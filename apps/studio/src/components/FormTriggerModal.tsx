@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
-import { X, Play, Loader2 } from "lucide-react";
-import { Button } from "./ui/Button";
-import { FormFieldDefinition } from "../types/flow";
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { X, Play, Loader2 } from 'lucide-react';
+import { Button } from './ui/Button';
+import { FormFieldDefinition } from '../types/flow';
 
 interface FormTriggerModalProps {
   isOpen: boolean;
@@ -55,7 +55,7 @@ export function FormTriggerModal({
     formConfig.fields.forEach((field) => {
       if (field.required) {
         const value = formData[field.id];
-        if (value === undefined || value === "" || value === null) {
+        if (value === undefined || value === '' || value === null) {
           newErrors[field.id] = `${field.label} is required`;
         }
       }
@@ -81,53 +81,53 @@ export function FormTriggerModal({
       w-full px-3 py-2 border rounded-lg text-sm
       focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent
       transition-colors
-      ${hasError ? "border-red-300 bg-red-50" : "border-slate-200"}
+      ${hasError ? 'border-red-300 bg-red-50' : 'border-slate-200'}
     `;
 
     switch (field.type) {
-      case "text":
-      case "email":
+      case 'text':
+      case 'email':
         return (
           <input
             type={field.type}
             placeholder={field.placeholder}
-            value={formData[field.id] || ""}
+            value={formData[field.id] || ''}
             onChange={(e) => handleInputChange(field.id, e.target.value)}
             className={baseInputClass}
             disabled={isLoading}
           />
         );
 
-      case "number":
+      case 'number':
         return (
           <input
             type="number"
             placeholder={field.placeholder}
             min={field.validation?.min}
             max={field.validation?.max}
-            value={formData[field.id] || ""}
+            value={formData[field.id] || ''}
             onChange={(e) => handleInputChange(field.id, e.target.value)}
             className={baseInputClass}
             disabled={isLoading}
           />
         );
 
-      case "date":
+      case 'date':
         return (
           <input
             type="date"
-            value={formData[field.id] || ""}
+            value={formData[field.id] || ''}
             onChange={(e) => handleInputChange(field.id, e.target.value)}
             className={baseInputClass}
             disabled={isLoading}
           />
         );
 
-      case "textarea":
+      case 'textarea':
         return (
           <textarea
             placeholder={field.placeholder}
-            value={formData[field.id] || ""}
+            value={formData[field.id] || ''}
             onChange={(e) => handleInputChange(field.id, e.target.value)}
             rows={3}
             className={`${baseInputClass} resize-none`}
@@ -135,10 +135,10 @@ export function FormTriggerModal({
           />
         );
 
-      case "dropdown":
+      case 'dropdown':
         return (
           <select
-            value={formData[field.id] || ""}
+            value={formData[field.id] || ''}
             onChange={(e) => handleInputChange(field.id, e.target.value)}
             className={baseInputClass}
             disabled={isLoading}
@@ -152,7 +152,7 @@ export function FormTriggerModal({
           </select>
         );
 
-      case "checkbox":
+      case 'checkbox':
         return (
           <label className="flex items-center gap-2 cursor-pointer">
             <input
@@ -166,13 +166,11 @@ export function FormTriggerModal({
           </label>
         );
 
-      case "file":
+      case 'file':
         return (
           <input
             type="file"
-            onChange={(e) =>
-              handleInputChange(field.id, e.target.files?.[0]?.name || "")
-            }
+            onChange={(e) => handleInputChange(field.id, e.target.files?.[0]?.name || '')}
             className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
             disabled={isLoading}
           />
@@ -183,7 +181,7 @@ export function FormTriggerModal({
           <input
             type="text"
             placeholder={field.placeholder}
-            value={formData[field.id] || ""}
+            value={formData[field.id] || ''}
             onChange={(e) => handleInputChange(field.id, e.target.value)}
             className={baseInputClass}
             disabled={isLoading}
@@ -206,9 +204,7 @@ export function FormTriggerModal({
         <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-slate-100">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-sm font-medium text-slate-700">
-              Run Bot
-            </span>
+            <span className="text-sm font-medium text-slate-700">Run Bot</span>
             <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
               Form Input Required
             </span>
@@ -230,12 +226,10 @@ export function FormTriggerModal({
             {/* Form Title */}
             <div className="text-center pb-4 border-b border-slate-100">
               <h2 className="text-xl font-bold text-slate-800">
-                {formConfig.title || "Enter Form Data"}
+                {formConfig.title || 'Enter Form Data'}
               </h2>
               {formConfig.description && (
-                <p className="text-sm text-slate-500 mt-1">
-                  {formConfig.description}
-                </p>
+                <p className="text-sm text-slate-500 mt-1">{formConfig.description}</p>
               )}
             </div>
 
@@ -248,19 +242,15 @@ export function FormTriggerModal({
               <div className="space-y-4">
                 {formConfig.fields.map((field) => (
                   <div key={field.id}>
-                    {field.type !== "checkbox" && (
+                    {field.type !== 'checkbox' && (
                       <label className="block text-sm font-medium text-slate-700 mb-1.5">
                         {field.label}
-                        {field.required && (
-                          <span className="text-red-500 ml-1">*</span>
-                        )}
+                        {field.required && <span className="text-red-500 ml-1">*</span>}
                       </label>
                     )}
                     {renderField(field)}
                     {errors[field.id] && (
-                      <p className="text-xs text-red-500 mt-1">
-                        {errors[field.id]}
-                      </p>
+                      <p className="text-xs text-red-500 mt-1">{errors[field.id]}</p>
                     )}
                   </div>
                 ))}
@@ -281,7 +271,7 @@ export function FormTriggerModal({
               ) : (
                 <>
                   <Play className="w-4 h-4" />
-                  {formConfig.submitButtonLabel || "Run Bot"}
+                  {formConfig.submitButtonLabel || 'Run Bot'}
                 </>
               )}
             </button>
@@ -292,12 +282,10 @@ export function FormTriggerModal({
         <div className="px-4 py-3 bg-slate-50 border-t border-slate-100">
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-400">
-              {formConfig.fields.length} fields ·{" "}
+              {formConfig.fields.length} fields ·{' '}
               {formConfig.fields.filter((f) => f.required).length} required
             </span>
-            <span className="text-xs text-slate-400">
-              Data will be passed to bot as variables
-            </span>
+            <span className="text-xs text-slate-400">Data will be passed to bot as variables</span>
           </div>
         </div>
       </div>

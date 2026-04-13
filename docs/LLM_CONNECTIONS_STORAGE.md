@@ -38,16 +38,19 @@ CREATE INDEX idx_provider ON llm_connections(provider);
 **NO se almacenan en SQLite directamente**. Se usan 2 capas:
 
 #### 1. **SQLite** (Metadata)
+
 - Nombres, providers, configuraciones no-sensibles
 - Health status, timestamps
 - `config_json` contiene placeholders para secrets
 
 #### 2. **OS Keyring** (Secrets)
+
 - macOS: Keychain
 - Windows: Credential Manager
 - Linux: Secret Service (libsecret)
 
 **Ejemplo**:
+
 ```rust
 // Guardar API key en keyring
 keyring.set_password(&format!("skuldbot.connection.{}", connection_id), api_key)?;
@@ -63,12 +66,14 @@ db.save_connection(&connection)?;
 ## 📊 Operaciones
 
 ### Create
+
 ```rust
 let connection = LLMConnection { /* ... */ };
 db.save_connection(&connection)?; // INSERT OR REPLACE
 ```
 
 ### Read
+
 ```rust
 // Cargar todas
 let connections = db.load_all_connections()?;
@@ -78,6 +83,7 @@ let connection = db.load_connection("connection-id")?;
 ```
 
 ### Update
+
 ```rust
 // Actualizar salud
 db.update_health_status("id", &health_json)?;
@@ -90,11 +96,13 @@ db.save_connection(&updated_connection)?; // INSERT OR REPLACE
 ```
 
 ### Delete
+
 ```rust
 db.delete_connection("connection-id")?;
 ```
 
 ### Set Default
+
 ```rust
 // Unset todos, set uno
 db.set_default_connection("connection-id")?;
@@ -102,13 +110,13 @@ db.set_default_connection("connection-id")?;
 
 ## 🚀 Performance
 
-| Operación | Latencia |
-|-----------|----------|
-| Load all (10 connections) | ~1ms |
-| Load single | ~0.5ms |
-| Save | ~2ms |
-| Delete | ~1ms |
-| Set default | ~3ms |
+| Operación                 | Latencia |
+| ------------------------- | -------- |
+| Load all (10 connections) | ~1ms     |
+| Load single               | ~0.5ms   |
+| Save                      | ~2ms     |
+| Delete                    | ~1ms     |
+| Set default               | ~3ms     |
 
 **Todas las operaciones son síncronas y no bloquean la UI** (Tauri ejecuta en worker thread).
 
@@ -139,26 +147,27 @@ if old_connections_dir.exists() {
 
 ## 📈 Escalabilidad
 
-| Métrica | Valor |
-|---------|-------|
-| Max connections | ~10,000 (más que suficiente para un usuario) |
-| DB size (100 connections) | ~50KB |
-| Query speed | O(log n) con índice |
-| Concurrent reads | Ilimitadas |
-| Concurrent writes | Queue automática (no locks visibles al user) |
+| Métrica                   | Valor                                        |
+| ------------------------- | -------------------------------------------- |
+| Max connections           | ~10,000 (más que suficiente para un usuario) |
+| DB size (100 connections) | ~50KB                                        |
+| Query speed               | O(log n) con índice                          |
+| Concurrent reads          | Ilimitadas                                   |
+| Concurrent writes         | Queue automática (no locks visibles al user) |
 
 ## 🎯 Ventajas vs. Alternativas
 
-| Storage | Pro | Con |
-|---------|-----|-----|
-| **SQLite** ✅ | ACID, fast, reliable | Requiere librería |
-| JSON Files | Simple | No transaccional, race conditions |
-| localStorage | Web-native | Solo strings, 5-10MB limit |
-| IndexedDB | Async, grande | Complejo API, solo web |
+| Storage       | Pro                  | Con                               |
+| ------------- | -------------------- | --------------------------------- |
+| **SQLite** ✅ | ACID, fast, reliable | Requiere librería                 |
+| JSON Files    | Simple               | No transaccional, race conditions |
+| localStorage  | Web-native           | Solo strings, 5-10MB limit        |
+| IndexedDB     | Async, grande        | Complejo API, solo web            |
 
 ## 🏆 Conclusión
 
 **SQLite es la mejor opción para Studio** porque:
+
 - ✅ Desktop-first (no depende del navegador)
 - ✅ Enterprise-grade reliability
 - ✅ Zero latency (local)
@@ -166,5 +175,3 @@ if old_connections_dir.exists() {
 - ✅ Battle-tested (billions of deployments)
 
 **No es overkill**, es el estándar de la industria para apps desktop (VS Code, Slack, Discord, etc. usan SQLite).
-
-

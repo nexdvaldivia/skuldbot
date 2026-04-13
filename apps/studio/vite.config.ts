@@ -1,28 +1,27 @@
-import { defineConfig, type Plugin } from "vite";
-import react from "@vitejs/plugin-react";
-import path from "path";
+import { defineConfig, type Plugin } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
 
 type JsObfuscator = {
   obfuscate: (
     code: string,
-    options: Record<string, unknown>
+    options: Record<string, unknown>,
   ) => { getObfuscatedCode: () => string };
 };
 
 function createObfuscationPlugin(obfuscator: JsObfuscator): Plugin {
   return {
-    name: "studio-js-obfuscate",
-    apply: "build",
+    name: 'studio-js-obfuscate',
+    apply: 'build',
     generateBundle(_options, bundle) {
       for (const [fileName, item] of Object.entries(bundle)) {
-        if (item.type !== "chunk" || !fileName.endsWith(".js")) {
+        if (item.type !== 'chunk' || !fileName.endsWith('.js')) {
           continue;
         }
 
         const moduleIds = Object.keys(item.modules);
         const isVendorChunk =
-          moduleIds.length > 0 &&
-          moduleIds.every((moduleId) => moduleId.includes("node_modules"));
+          moduleIds.length > 0 && moduleIds.every((moduleId) => moduleId.includes('node_modules'));
         if (isVendorChunk) {
           continue;
         }
@@ -33,7 +32,7 @@ function createObfuscationPlugin(obfuscator: JsObfuscator): Plugin {
           deadCodeInjection: false,
           debugProtection: false,
           disableConsoleOutput: true,
-          identifierNamesGenerator: "hexadecimal",
+          identifierNamesGenerator: 'hexadecimal',
           log: false,
           numbersToExpressions: true,
           renameGlobals: false,
@@ -44,14 +43,14 @@ function createObfuscationPlugin(obfuscator: JsObfuscator): Plugin {
           stringArray: true,
           stringArrayCallsTransform: true,
           stringArrayCallsTransformThreshold: 0.75,
-          stringArrayEncoding: ["base64"],
+          stringArrayEncoding: ['base64'],
           stringArrayIndexShift: true,
           stringArrayRotate: true,
           stringArrayShuffle: true,
           stringArrayWrappersCount: 2,
           stringArrayWrappersChainedCalls: true,
           stringArrayWrappersParametersMaxCount: 4,
-          stringArrayWrappersType: "function",
+          stringArrayWrappersType: 'function',
           stringArrayThreshold: 0.75,
           transformObjectKeys: true,
           unicodeEscapeSequence: false,
@@ -66,15 +65,15 @@ function createObfuscationPlugin(obfuscator: JsObfuscator): Plugin {
 // https://vitejs.dev/config/
 export default defineConfig(async () => {
   const isProduction = !process.env.TAURI_DEBUG;
-  const shouldObfuscate = isProduction && process.env.STUDIO_OBFUSCATE === "true";
+  const shouldObfuscate = isProduction && process.env.STUDIO_OBFUSCATE === 'true';
 
   const plugins: any[] = [react()];
 
   let obfuscatorLib: JsObfuscator | null = null;
   try {
-    const obfuscatorModule = await import("javascript-obfuscator");
+    const obfuscatorModule = await import('javascript-obfuscator');
     const candidate = obfuscatorModule.default as JsObfuscator | undefined;
-    if (candidate && typeof candidate.obfuscate === "function") {
+    if (candidate && typeof candidate.obfuscate === 'function') {
       obfuscatorLib = candidate;
     }
   } catch {
@@ -94,29 +93,29 @@ export default defineConfig(async () => {
     server: {
       port: 1421,
       strictPort: true,
-      host: "127.0.0.1",
+      host: '127.0.0.1',
       watch: {
-        ignored: ["**/src-tauri/**"],
+        ignored: ['**/src-tauri/**'],
       },
     },
 
     resolve: {
       alias: {
-        "@": path.resolve(__dirname, "./src"),
+        '@': path.resolve(__dirname, './src'),
       },
     },
 
     // Tauri expects a fixed port, fail if that port is not available
     build: {
-      target: process.env.TAURI_PLATFORM == "windows" ? "chrome105" : "safari13",
+      target: process.env.TAURI_PLATFORM == 'windows' ? 'chrome105' : 'safari13',
       // Use terser for better minification in production
-      minify: isProduction ? "terser" : false,
+      minify: isProduction ? 'terser' : false,
       terserOptions: isProduction
         ? {
             compress: {
               drop_console: true,
               drop_debugger: true,
-              pure_funcs: ["console.log", "console.info", "console.debug"],
+              pure_funcs: ['console.log', 'console.info', 'console.debug'],
             },
             mangle: {
               toplevel: true,
@@ -132,34 +131,34 @@ export default defineConfig(async () => {
         ? {
             output: {
               manualChunks: (id: string) => {
-                if (!id.includes("node_modules")) {
+                if (!id.includes('node_modules')) {
                   return undefined;
                 }
 
-                const afterNodeModules = id.split("node_modules/")[1];
+                const afterNodeModules = id.split('node_modules/')[1];
                 if (!afterNodeModules) {
-                  return "vendor-misc";
+                  return 'vendor-misc';
                 }
 
-                const pathParts = afterNodeModules.split("/");
-                const packageName = pathParts[0]?.startsWith("@")
+                const pathParts = afterNodeModules.split('/');
+                const packageName = pathParts[0]?.startsWith('@')
                   ? `${pathParts[0]}/${pathParts[1]}`
                   : pathParts[0];
 
                 if (!packageName) {
-                  return "vendor-misc";
+                  return 'vendor-misc';
                 }
 
-                if (packageName === "detect-node-es") {
+                if (packageName === 'detect-node-es') {
                   return undefined;
                 }
 
-                return `vendor-${packageName.replace("@", "").replace("/", "-")}`;
+                return `vendor-${packageName.replace('@', '').replace('/', '-')}`;
               },
               // Randomize chunk names
-              chunkFileNames: "assets/[hash].js",
-              entryFileNames: "assets/[hash].js",
-              assetFileNames: "assets/[hash].[ext]",
+              chunkFileNames: 'assets/[hash].js',
+              entryFileNames: 'assets/[hash].js',
+              assetFileNames: 'assets/[hash].[ext]',
             },
           }
         : undefined,
@@ -171,7 +170,7 @@ export default defineConfig(async () => {
     // Prevent exposing environment variables
     define: isProduction
       ? {
-          "process.env": {},
+          'process.env': {},
         }
       : undefined,
   };

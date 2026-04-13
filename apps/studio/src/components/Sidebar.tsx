@@ -1,18 +1,24 @@
-import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
-import { ChevronRight, Search, GripVertical, Sparkles, MousePointer } from "lucide-react";
-import { nodeTemplates } from "../data/nodeTemplates";
-import { NodeTemplate, NodeCategory } from "../types/flow";
-import { Icon } from "./ui/Icon";
-import { Input } from "./ui/Input";
-import { categoryColors, categoryIcons, categoryNames, categoryOrder } from "../lib/design-tokens";
-import { ScrollArea } from "./ui/scroll-area";
-import { setDraggedNodeData, clearDraggedNodeData, setPendingNodeTemplate, getPendingNodeTemplate, clearPendingNodeTemplate } from "../store/flowStore";
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { ChevronRight, Search, GripVertical, Sparkles, MousePointer } from 'lucide-react';
+import { nodeTemplates } from '../data/nodeTemplates';
+import { NodeTemplate, NodeCategory } from '../types/flow';
+import { Icon } from './ui/Icon';
+import { Input } from './ui/Input';
+import { categoryColors, categoryIcons, categoryNames, categoryOrder } from '../lib/design-tokens';
+import { ScrollArea } from './ui/scroll-area';
+import {
+  setDraggedNodeData,
+  clearDraggedNodeData,
+  setPendingNodeTemplate,
+  getPendingNodeTemplate,
+  clearPendingNodeTemplate,
+} from '../store/flowStore';
 
 export default function Sidebar() {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Set<NodeCategory>>(
-    new Set(["trigger", "web", "ai"]) // Start with most common expanded
+    new Set(['trigger', 'web', 'ai']), // Start with most common expanded
   );
 
   const toggleCategory = (categoryId: NodeCategory) => {
@@ -28,9 +34,9 @@ export default function Sidebar() {
   const onDragStart = (event: React.DragEvent, nodeTemplate: NodeTemplate) => {
     const data = JSON.stringify(nodeTemplate);
     // Set multiple data types for better compatibility with Tauri/WebKit
-    event.dataTransfer.setData("application/reactflow", data);
-    event.dataTransfer.setData("text/plain", data);
-    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData('application/reactflow', data);
+    event.dataTransfer.setData('text/plain', data);
+    event.dataTransfer.effectAllowed = 'move';
     // Also store in global variable as workaround for WebKit/Tauri bug
     setDraggedNodeData(nodeTemplate);
   };
@@ -48,15 +54,18 @@ export default function Sidebar() {
         (n) =>
           n.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
           n.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          n.type.toLowerCase().includes(searchQuery.toLowerCase())
+          n.type.toLowerCase().includes(searchQuery.toLowerCase()),
       )
     : nodeTemplates;
 
   // Count nodes per category
-  const categoryCounts = categoryOrder.reduce((acc, cat) => {
-    acc[cat] = nodeTemplates.filter((n) => n.category === cat).length;
-    return acc;
-  }, {} as Record<NodeCategory, number>);
+  const categoryCounts = categoryOrder.reduce(
+    (acc, cat) => {
+      acc[cat] = nodeTemplates.filter((n) => n.category === cat).length;
+      return acc;
+    },
+    {} as Record<NodeCategory, number>,
+  );
 
   const totalNodes = nodeTemplates.length;
 
@@ -69,12 +78,8 @@ export default function Sidebar() {
             <Sparkles className="w-4 h-4" style={{ color: '#00A36C' }} />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-foreground">
-              Node Library
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              {totalNodes} nodes available
-            </p>
+            <h2 className="text-sm font-semibold text-foreground">Node Library</h2>
+            <p className="text-xs text-muted-foreground">{totalNodes} nodes available</p>
           </div>
         </div>
 
@@ -144,9 +149,11 @@ export default function Sidebar() {
                   >
                     <ChevronRight
                       size={14}
-                      className={`text-muted-foreground transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
+                      className={`text-muted-foreground transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`}
                     />
-                    <div className={`w-6 h-6 rounded-md flex items-center justify-center ${colors.bg} ${colors.text}`}>
+                    <div
+                      className={`w-6 h-6 rounded-md flex items-center justify-center ${colors.bg} ${colors.text}`}
+                    >
                       <Icon name={iconName} size={13} />
                     </div>
                     <span className="text-sm font-medium text-foreground flex-1 truncate">
@@ -202,8 +209,8 @@ function NodeItem({
   showCategory?: boolean;
 }) {
   const colors = categoryColors[node.category] || categoryColors.control;
-  const isAI = node.category === "ai";
-  const isPython = node.category === "python";
+  const isAI = node.category === 'ai';
+  const isPython = node.category === 'python';
   const isSpecial = isAI || isPython;
 
   // Check if this node is pending placement
@@ -215,7 +222,8 @@ function NodeItem({
       setIsPending(e.detail?.type === node.type);
     };
     window.addEventListener('pendingNodeChange', handlePendingChange as EventListener);
-    return () => window.removeEventListener('pendingNodeChange', handlePendingChange as EventListener);
+    return () =>
+      window.removeEventListener('pendingNodeChange', handlePendingChange as EventListener);
   }, [node.type]);
 
   const handleClick = () => {
@@ -260,24 +268,30 @@ function NodeItem({
         className={`
           group flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer
           border transition-all duration-100 select-none
-          ${isPending
-            ? "bg-primary/10 border-primary ring-2 ring-primary/20"
-            : "border-transparent hover:bg-emerald-50 hover:border-emerald-200"}
+          ${
+            isPending
+              ? 'bg-primary/10 border-primary ring-2 ring-primary/20'
+              : 'border-transparent hover:bg-emerald-50 hover:border-emerald-200'
+          }
           active:scale-[0.98]
-          ${isSpecial ? "hover:shadow-sm" : ""}
+          ${isSpecial ? 'hover:shadow-sm' : ''}
         `}
         style={{ WebkitUserDrag: 'element' } as React.CSSProperties}
       >
         {/* Icon */}
-        <div className={`
+        <div
+          className={`
           relative flex-shrink-0 w-7 h-7 rounded-md
           ${colors.bg} ${colors.text}
           flex items-center justify-center
-          ${isSpecial ? "ring-1 ring-inset ring-black/5" : ""}
-        `}>
+          ${isSpecial ? 'ring-1 ring-inset ring-black/5' : ''}
+        `}
+        >
           <Icon name={node.icon} size={13} />
           {isSpecial && (
-            <div className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ${colors.accent} ring-2 ring-card`} />
+            <div
+              className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ${colors.accent} ring-2 ring-card`}
+            />
           )}
         </div>
 
@@ -305,51 +319,50 @@ function NodeItem({
       </div>
 
       {/* Tooltip - rendered in portal to avoid overflow clipping */}
-      {showTooltip && createPortal(
-        <div
-          className="fixed z-[9999] pointer-events-none"
-          style={{
-            top: tooltipPos.top,
-            left: tooltipPos.left,
-            minWidth: '220px',
-            maxWidth: '280px'
-          }}
-        >
-          <div className="bg-slate-900 text-white rounded-lg shadow-2xl p-3 text-left animate-in fade-in slide-in-from-left-2 duration-150">
-            {/* Arrow */}
-            <div className="absolute left-0 top-3 -translate-x-full">
-              <div className="border-8 border-transparent border-r-slate-900" />
-            </div>
-
-            {/* Content */}
-            <div className="flex items-start gap-2.5">
-              <div className={`flex-shrink-0 w-8 h-8 rounded-lg ${colors.bg} ${colors.text} flex items-center justify-center`}>
-                <Icon name={node.icon} size={16} />
+      {showTooltip &&
+        createPortal(
+          <div
+            className="fixed z-[9999] pointer-events-none"
+            style={{
+              top: tooltipPos.top,
+              left: tooltipPos.left,
+              minWidth: '220px',
+              maxWidth: '280px',
+            }}
+          >
+            <div className="bg-slate-900 text-white rounded-lg shadow-2xl p-3 text-left animate-in fade-in slide-in-from-left-2 duration-150">
+              {/* Arrow */}
+              <div className="absolute left-0 top-3 -translate-x-full">
+                <div className="border-8 border-transparent border-r-slate-900" />
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-sm text-white leading-tight">
-                  {node.label}
+
+              {/* Content */}
+              <div className="flex items-start gap-2.5">
+                <div
+                  className={`flex-shrink-0 w-8 h-8 rounded-lg ${colors.bg} ${colors.text} flex items-center justify-center`}
+                >
+                  <Icon name={node.icon} size={16} />
                 </div>
-                <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                  {node.type}
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm text-white leading-tight">{node.label}</div>
+                  <div className="text-[10px] text-slate-400 font-mono mt-0.5">{node.type}</div>
                 </div>
               </div>
-            </div>
 
-            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-              {node.description}
-            </p>
+              <p className="text-xs text-slate-300 mt-2 leading-relaxed">{node.description}</p>
 
-            {/* Category badge */}
-            <div className="mt-2 pt-2 border-t border-slate-700">
-              <span className={`text-[10px] px-2 py-0.5 rounded-full ${colors.bg} ${colors.text} font-medium`}>
-                {categoryNames[node.category]}
-              </span>
+              {/* Category badge */}
+              <div className="mt-2 pt-2 border-t border-slate-700">
+                <span
+                  className={`text-[10px] px-2 py-0.5 rounded-full ${colors.bg} ${colors.text} font-medium`}
+                >
+                  {categoryNames[node.category]}
+                </span>
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

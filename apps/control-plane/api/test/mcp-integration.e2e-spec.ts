@@ -5,13 +5,13 @@ import { AppModule } from '../src/app.module';
 
 /**
  * Control Plane MCP Integration Tests (E2E)
- * 
+ *
  * Tests the complete flow of MCP operations across multiple servers:
  * 1. Licensing: Check feature entitlements
  * 2. Marketplace: Browse and subscribe to bots
  * 3. Metering: Report usage from Orchestrator
  * 4. Billing: Generate invoices and process payments
- * 
+ *
  * Simulates a realistic tenant journey from onboarding to billing.
  */
 describe('Control Plane MCP Integration (E2E)', () => {
@@ -209,7 +209,7 @@ describe('Control Plane MCP Integration (E2E)', () => {
 
       // Verify marketplace bot charges are included
       const marketplaceBots = response.body.result.items.find(
-        item => item.category === 'marketplace_bots',
+        (item) => item.category === 'marketplace_bots',
       );
       expect(marketplaceBots).toBeDefined();
       expect(marketplaceBots.total).toBeGreaterThan(0);
@@ -235,14 +235,12 @@ describe('Control Plane MCP Integration (E2E)', () => {
 
   describe('MCP Resource Discovery', () => {
     it('should list all available tools', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/api/v1/mcp/tools')
-        .expect(200);
+      const response = await request(app.getHttpServer()).get('/api/v1/mcp/tools').expect(200);
 
       expect(response.body.tools).toBeDefined();
       expect(response.body.tools.length).toBeGreaterThan(0);
 
-      const toolNames = response.body.tools.map(t => t.name);
+      const toolNames = response.body.tools.map((t) => t.name);
       expect(toolNames).toContain('check_license');
       expect(toolNames).toContain('list_marketplace_bots');
       expect(toolNames).toContain('report_usage');
@@ -250,9 +248,7 @@ describe('Control Plane MCP Integration (E2E)', () => {
     });
 
     it('should list all available resources', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/api/v1/mcp/resources')
-        .expect(200);
+      const response = await request(app.getHttpServer()).get('/api/v1/mcp/resources').expect(200);
 
       expect(response.body.resources).toBeDefined();
       expect(response.body.resources.length).toBeGreaterThan(0);
@@ -267,7 +263,7 @@ describe('Control Plane MCP Integration (E2E)', () => {
       expect(response.body.servers).toBeDefined();
       expect(Array.isArray(response.body.servers)).toBe(true);
 
-      const serverNames = response.body.servers.map(s => s.name);
+      const serverNames = response.body.servers.map((s) => s.name);
       expect(serverNames).toContain('licensing');
       expect(serverNames).toContain('marketplace');
       expect(serverNames).toContain('metering');
@@ -388,10 +384,10 @@ describe('Control Plane MCP Integration (E2E)', () => {
       // Should charge $4000 (whichever is greater)
       expect(invoice.body.success).toBe(true);
       const marketplaceBots = invoice.body.result.items.find(
-        item => item.category === 'marketplace_bots',
+        (item) => item.category === 'marketplace_bots',
       );
       if (marketplaceBots) {
-        const fnolBot = marketplaceBots.details.find(d => d.botId === 'fnol-bot-v1');
+        const fnolBot = marketplaceBots.details.find((d) => d.botId === 'fnol-bot-v1');
         if (fnolBot) {
           expect(fnolBot.costs.charged).toBe(4000);
           expect(fnolBot.explanation).toContain('greater');
@@ -402,18 +398,14 @@ describe('Control Plane MCP Integration (E2E)', () => {
 
   describe('Health and Observability', () => {
     it('should have healthy MCP endpoint', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/api/v1/mcp/health')
-        .expect(200);
+      const response = await request(app.getHttpServer()).get('/api/v1/mcp/health').expect(200);
 
       expect(response.body.status).toBe('healthy');
       expect(response.body.servers).toBeDefined();
     });
 
     it('should expose Prometheus metrics', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/metrics')
-        .expect(200);
+      const response = await request(app.getHttpServer()).get('/metrics').expect(200);
 
       expect(response.text).toContain('mcp_tool_calls_total');
       expect(response.text).toContain('mcp_tool_call_duration_seconds');
@@ -468,9 +460,7 @@ describe('Control Plane MCP Integration (E2E)', () => {
 
   describe('OpenAPI Documentation', () => {
     it('should serve OpenAPI spec', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/api/docs-json')
-        .expect(200);
+      const response = await request(app.getHttpServer()).get('/api/docs-json').expect(200);
 
       expect(response.body.openapi).toBeDefined();
       expect(response.body.paths).toBeDefined();
@@ -478,13 +468,9 @@ describe('Control Plane MCP Integration (E2E)', () => {
     });
 
     it('should serve Swagger UI', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/api/docs')
-        .expect(200);
+      const response = await request(app.getHttpServer()).get('/api/docs').expect(200);
 
       expect(response.text).toContain('swagger');
     });
   });
 });
-
-

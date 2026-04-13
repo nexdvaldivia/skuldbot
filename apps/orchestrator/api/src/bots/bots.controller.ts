@@ -41,11 +41,7 @@ export class BotsController {
   // Bot endpoints
 
   @Post()
-  create(
-    @TenantId() tenantId: string,
-    @CurrentUser() user: User,
-    @Body() dto: CreateBotDto,
-  ) {
+  create(@TenantId() tenantId: string, @CurrentUser() user: User, @Body() dto: CreateBotDto) {
     return this.botsService.create(tenantId, dto, user);
   }
 
@@ -59,11 +55,7 @@ export class BotsController {
   }
 
   @Get(':botId')
-  findOne(
-    @TenantId() tenantId: string,
-    @CurrentUser() user: User,
-    @Param('botId') botId: string,
-  ) {
+  findOne(@TenantId() tenantId: string, @CurrentUser() user: User, @Param('botId') botId: string) {
     return this.botsService.findOne(tenantId, botId, user);
   }
 
@@ -79,29 +71,17 @@ export class BotsController {
 
   @Delete(':botId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(
-    @TenantId() tenantId: string,
-    @CurrentUser() user: User,
-    @Param('botId') botId: string,
-  ) {
+  remove(@TenantId() tenantId: string, @CurrentUser() user: User, @Param('botId') botId: string) {
     return this.botsService.remove(tenantId, botId, user);
   }
 
   @Post(':botId/archive')
-  archive(
-    @TenantId() tenantId: string,
-    @CurrentUser() user: User,
-    @Param('botId') botId: string,
-  ) {
+  archive(@TenantId() tenantId: string, @CurrentUser() user: User, @Param('botId') botId: string) {
     return this.botsService.archive(tenantId, botId, user);
   }
 
   @Post(':botId/restore')
-  restore(
-    @TenantId() tenantId: string,
-    @CurrentUser() user: User,
-    @Param('botId') botId: string,
-  ) {
+  restore(@TenantId() tenantId: string, @CurrentUser() user: User, @Param('botId') botId: string) {
     return this.botsService.restore(tenantId, botId, user);
   }
 
@@ -126,11 +106,7 @@ export class BotsController {
   }
 
   @Post('import')
-  importBot(
-    @TenantId() tenantId: string,
-    @CurrentUser() user: User,
-    @Body() dto: ImportBotDto,
-  ) {
+  importBot(@TenantId() tenantId: string, @CurrentUser() user: User, @Body() dto: ImportBotDto) {
     return this.botsService.importBot(tenantId, dto, user);
   }
 

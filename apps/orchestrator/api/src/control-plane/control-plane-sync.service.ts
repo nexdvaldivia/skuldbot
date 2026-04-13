@@ -420,7 +420,7 @@ export class ControlPlaneSyncService implements OnModuleInit, OnModuleDestroy {
    */
   addDiscoveredSchema(schema: DiscoveredSchemaPayload): void {
     const existing = this.pendingSchemas.get(schema.nodeType);
-    
+
     if (existing) {
       // Merge fields from both schemas
       const mergedFields = this.mergeSchemaFields(existing.fields, schema.fields);
@@ -434,7 +434,9 @@ export class ControlPlaneSyncService implements OnModuleInit, OnModuleDestroy {
       });
     }
 
-    this.logger.debug(`Added discovered schema for ${schema.nodeType} (${this.pendingSchemas.size} pending)`);
+    this.logger.debug(
+      `Added discovered schema for ${schema.nodeType} (${this.pendingSchemas.size} pending)`,
+    );
   }
 
   /**
@@ -458,11 +460,11 @@ export class ControlPlaneSyncService implements OnModuleInit, OnModuleDestroy {
       this.syncStatus.schemas.status = 'syncing';
 
       const schemas = Array.from(this.pendingSchemas.values());
-      
+
       const response = await this.makeRequest('/api/schemas/bulk', {
         method: 'POST',
         body: JSON.stringify({
-          schemas: schemas.map(s => ({
+          schemas: schemas.map((s) => ({
             nodeType: s.nodeType,
             fields: s.fields,
             sampleCount: s.sampleCount,
@@ -475,10 +477,10 @@ export class ControlPlaneSyncService implements OnModuleInit, OnModuleDestroy {
       if (response.ok) {
         const result = await response.json();
         this.logger.log(`Synced ${result.processed} discovered schemas to Control-Plane`);
-        
+
         // Clear synced schemas
         this.pendingSchemas.clear();
-        
+
         this.syncStatus.schemas = {
           lastSync: new Date(),
           status: 'synced',
@@ -506,7 +508,7 @@ export class ControlPlaneSyncService implements OnModuleInit, OnModuleDestroy {
 
     const count = this.pendingSchemas.size;
     await this.syncDiscoveredSchemas();
-    
+
     return {
       success: this.syncStatus.schemas.status === 'synced',
       synced: count,

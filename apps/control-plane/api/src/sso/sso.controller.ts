@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Put,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
@@ -16,11 +8,7 @@ import { CP_PERMISSIONS } from '../common/authz/permissions';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { User, UserRole } from '../users/entities/user.entity';
 import { SsoService } from './sso.service';
-import {
-  ConfigureTenantSsoDto,
-  TenantSsoConfigResponseDto,
-  TestTenantSsoDto,
-} from './dto/sso.dto';
+import { ConfigureTenantSsoDto, TenantSsoConfigResponseDto, TestTenantSsoDto } from './dto/sso.dto';
 
 @Controller('sso')
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)

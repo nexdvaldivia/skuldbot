@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  UseGuards,
-  Header,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Header } from '@nestjs/common';
 import { SchemasService } from './schemas.service';
 import { SubmitSchemaDto, BulkSubmitSchemasDto } from './dto/schema.dto';
 
@@ -79,6 +71,3 @@ export class SchemasController {
     return { success: true };
   }
 }
-
-
-

@@ -60,7 +60,7 @@ export class OidcService {
     returnUrl?: string,
   ): Promise<{ url: string; state: string }> {
     const tenant = await this.getTenantWithSso(tenantSlug, 'oidc');
-    const config = tenant.ssoConfig as OidcConfig;
+    const config = tenant.ssoConfig;
 
     // Discover OIDC endpoints if not cached
     const endpoints = await this.discoverEndpoints(config);
@@ -133,7 +133,7 @@ export class OidcService {
     }
 
     const tenant = await this.getTenantWithSso(tenantSlug, 'oidc');
-    const config = tenant.ssoConfig as OidcConfig;
+    const config = tenant.ssoConfig;
 
     // Verify tenant matches
     if (tenant.id !== state.tenantId) {
@@ -215,9 +215,7 @@ export class OidcService {
   /**
    * Discover OIDC endpoints from discovery URL.
    */
-  private async discoverEndpoints(
-    config: OidcConfig,
-  ): Promise<{
+  private async discoverEndpoints(config: OidcConfig): Promise<{
     authorizationEndpoint: string;
     tokenEndpoint: string;
     userInfoEndpoint: string;
@@ -237,10 +235,10 @@ export class OidcService {
 
     // Use manual configuration
     return {
-      authorizationEndpoint: config.authorizationUrl!,
-      tokenEndpoint: config.tokenUrl!,
-      userInfoEndpoint: config.userInfoUrl!,
-      jwksUri: config.jwksUrl!,
+      authorizationEndpoint: config.authorizationUrl,
+      tokenEndpoint: config.tokenUrl,
+      userInfoEndpoint: config.userInfoUrl,
+      jwksUri: config.jwksUrl,
     };
   }
 
@@ -290,11 +288,7 @@ export class OidcService {
   /**
    * Validate ID token signature and claims.
    */
-  private async validateIdToken(
-    idToken: string,
-    config: OidcConfig,
-    nonce: string,
-  ): Promise<any> {
+  private async validateIdToken(idToken: string, config: OidcConfig, nonce: string): Promise<any> {
     const endpoints = await this.discoverEndpoints(config);
 
     // Get JWKS client (cached per tenant)
@@ -318,7 +312,7 @@ export class OidcService {
     }
 
     // Get signing key (client is guaranteed to exist at this point)
-    const key = await client!.getSigningKey(decoded.header.kid);
+    const key = await client.getSigningKey(decoded.header.kid);
     const publicKey = key.getPublicKey();
 
     // Verify token
@@ -375,21 +369,13 @@ export class OidcService {
     }
 
     // Extract optional claims
-    const firstName = mapping.firstName
-      ? this.getClaim(userInfo, mapping.firstName)
-      : undefined;
-    const lastName = mapping.lastName
-      ? this.getClaim(userInfo, mapping.lastName)
-      : undefined;
+    const firstName = mapping.firstName ? this.getClaim(userInfo, mapping.firstName) : undefined;
+    const lastName = mapping.lastName ? this.getClaim(userInfo, mapping.lastName) : undefined;
     const displayName = mapping.displayName
       ? this.getClaim(userInfo, mapping.displayName)
       : undefined;
-    const groups = mapping.groups
-      ? this.getClaimArray(userInfo, mapping.groups)
-      : undefined;
-    const picture = mapping.picture
-      ? this.getClaim(userInfo, mapping.picture)
-      : undefined;
+    const groups = mapping.groups ? this.getClaimArray(userInfo, mapping.groups) : undefined;
+    const picture = mapping.picture ? this.getClaim(userInfo, mapping.picture) : undefined;
 
     return {
       email: email.toLowerCase(),
@@ -453,10 +439,7 @@ export class OidcService {
     const user = this.userRepository.create({
       email: profile.email.toLowerCase(),
       firstName: profile.firstName || profile.displayName?.split(' ')[0] || 'User',
-      lastName:
-        profile.lastName ||
-        profile.displayName?.split(' ').slice(1).join(' ') ||
-        '',
+      lastName: profile.lastName || profile.displayName?.split(' ').slice(1).join(' ') || '',
       avatarUrl: profile.avatarUrl,
       tenantId: tenant.id,
       authProvider: AuthProvider.OIDC,

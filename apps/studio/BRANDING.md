@@ -3,11 +3,13 @@
 ## 🎨 Colores
 
 ### Color Primario (Verde Skuldbot)
+
 ```
 Pendiente: Obtener del sitio skuldbot.com
 ```
 
 ### Paleta de Colores
+
 ```css
 /* Primary (Verde Skuldbot) */
 --primary: [PENDIENTE];
@@ -44,11 +46,13 @@ Pendiente: Obtener del sitio skuldbot.com
 ## 🖼️ Logo
 
 ### Ubicación
+
 - Sitio web: https://skuldbot.com
 - Formato: [PENDIENTE]
 - Tamaño: [PENDIENTE]
 
 ### Uso en Studio
+
 - Toolbar (izquierda)
 - Splash screen (futuro)
 - About dialog (futuro)
@@ -56,13 +60,15 @@ Pendiente: Obtener del sitio skuldbot.com
 ## 📝 Tipografía
 
 ### Font Stack
+
 ```css
-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 
-             'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 
-             'Helvetica Neue', sans-serif;
+font-family:
+  -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell',
+  'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
 ```
 
 ### Mono Font (para logs)
+
 ```css
 font-family: 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
 ```
@@ -76,12 +82,8 @@ font-family: 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
 
 ---
 
-**Pendiente**: 
+**Pendiente**:
+
 - [ ] Obtener color verde exacto de skuldbot.com
 - [ ] Descargar logo
 - [ ] Aplicar branding
-
-
-
-
-

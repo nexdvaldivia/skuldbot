@@ -7,6 +7,7 @@
 ## Option 1: Ollama (Easiest - Recommended for Most)
 
 ### Step 1: Install Ollama (1 minute)
+
 ```bash
 # Linux/Mac
 curl -fsSL https://ollama.com/install.sh | sh
@@ -16,6 +17,7 @@ curl -fsSL https://ollama.com/install.sh | sh
 ```
 
 ### Step 2: Pull a Model (2 minutes)
+
 ```bash
 # Small & Fast (8B parameters) - Good for most tasks
 ollama pull llama3:8b-instruct
@@ -25,6 +27,7 @@ ollama pull llama3:70b-instruct
 ```
 
 ### Step 3: Configure in SkuldBot Studio (1 minute)
+
 ```yaml
 # In Studio → Settings → BYOM Configuration
 Provider: Ollama
@@ -35,6 +38,7 @@ Data Residency: Local
 ```
 
 ### Step 4: Test (30 seconds)
+
 ```bash
 # Studio will auto-test the connection
 # ✅ Status: Connected
@@ -49,6 +53,7 @@ Data Residency: Local
 ## Option 2: Docker Compose (Production Setup)
 
 ### Single Command Setup
+
 ```bash
 # Clone config
 git clone https://github.com/skuldbot/byom-configs
@@ -62,13 +67,14 @@ curl http://localhost:11434/api/tags
 ```
 
 ### `docker-compose.yml`
+
 ```yaml
 version: '3.8'
 services:
   ollama:
     image: ollama/ollama:latest
     ports:
-      - "11434:11434"
+      - '11434:11434'
     volumes:
       - ollama-data:/root/.ollama
     deploy:
@@ -84,6 +90,7 @@ volumes:
 ```
 
 ### Auto-pull Models
+
 ```bash
 # Add to startup script
 docker exec ollama ollama pull llama3:8b-instruct
@@ -94,11 +101,12 @@ docker exec ollama ollama pull llama3:8b-instruct
 ## Option 3: Cloud Deployment (AWS/Azure/GCP)
 
 ### AWS (Terraform - 3 minutes)
+
 ```hcl
 # main.tf
 module "byom_ollama" {
   source = "skuldbot/byom-ollama/aws"
-  
+
   instance_type = "g5.xlarge"  # ~$1.50/hr with GPU
   model_name    = "llama3:8b-instruct"
   vpc_id        = var.vpc_id
@@ -111,6 +119,7 @@ output "ollama_endpoint" {
 ```
 
 ### Deploy
+
 ```bash
 terraform init
 terraform apply -auto-approve
@@ -121,6 +130,7 @@ terraform output ollama_endpoint
 ```
 
 ### Configure in Studio
+
 ```yaml
 Provider: Ollama
 Endpoint: https://ollama.acme.internal:11434
@@ -161,15 +171,16 @@ Data Residency: us-east-1
 
 ## Model Selection Guide
 
-| Model | Size | Speed | Quality | Use Case | Cost/Month |
-|-------|------|-------|---------|----------|------------|
-| **llama3:8b** | 8B | ⚡⚡⚡ Fast | ⭐⭐⭐ Good | Most tasks, dev | $300 |
-| **llama3:70b** | 70B | ⚡ Slower | ⭐⭐⭐⭐⭐ Excellent | Production, complex | $3,000 |
-| **mistral:7b** | 7B | ⚡⚡⚡ Fast | ⭐⭐⭐ Good | Lightweight | $300 |
-| **mixtral:8x7b** | 47B | ⚡⚡ Medium | ⭐⭐⭐⭐ Very Good | Balanced | $1,500 |
-| **codellama:34b** | 34B | ⚡⚡ Medium | ⭐⭐⭐⭐ Code | Automation logic | $1,500 |
+| Model             | Size | Speed       | Quality              | Use Case            | Cost/Month |
+| ----------------- | ---- | ----------- | -------------------- | ------------------- | ---------- |
+| **llama3:8b**     | 8B   | ⚡⚡⚡ Fast | ⭐⭐⭐ Good          | Most tasks, dev     | $300       |
+| **llama3:70b**    | 70B  | ⚡ Slower   | ⭐⭐⭐⭐⭐ Excellent | Production, complex | $3,000     |
+| **mistral:7b**    | 7B   | ⚡⚡⚡ Fast | ⭐⭐⭐ Good          | Lightweight         | $300       |
+| **mixtral:8x7b**  | 47B  | ⚡⚡ Medium | ⭐⭐⭐⭐ Very Good   | Balanced            | $1,500     |
+| **codellama:34b** | 34B  | ⚡⚡ Medium | ⭐⭐⭐⭐ Code        | Automation logic    | $1,500     |
 
 **Recommendation for HIPAA:**
+
 - **Dev/Test:** llama3:8b ($300/mo)
 - **Production:** llama3:70b ($3,000/mo)
 - **Budget:** mixtral:8x7b ($1,500/mo)
@@ -179,6 +190,7 @@ Data Residency: us-east-1
 ## Common Configurations
 
 ### Small Practice (100-1K patients)
+
 ```yaml
 # Local machine or single AWS instance
 Provider: Ollama
@@ -189,6 +201,7 @@ Cost: ~$1,100/month
 ```
 
 ### Regional Hospital (10K-100K patients)
+
 ```yaml
 # Load-balanced cluster
 Provider: vLLM
@@ -199,6 +212,7 @@ Cost: ~$9,000/month
 ```
 
 ### National Health System (1M+ patients)
+
 ```yaml
 # Enterprise cluster with caching
 Provider: vLLM
@@ -213,6 +227,7 @@ Cost: ~$50,000/month (vs $300K with GPT-4)
 ## Troubleshooting
 
 ### Connection Failed
+
 ```bash
 # Check if Ollama is running
 curl http://localhost:11434/api/tags
@@ -225,6 +240,7 @@ journalctl -u ollama -f
 ```
 
 ### Slow Performance
+
 ```bash
 # Check GPU usage
 nvidia-smi
@@ -237,6 +253,7 @@ ollama pull llama3:8b-instruct-q4_K_M
 ```
 
 ### Out of Memory
+
 ```bash
 # Use smaller model
 ollama pull llama3:8b-instruct  # instead of 70b
@@ -250,24 +267,28 @@ ollama pull llama3:8b-instruct  # instead of 70b
 ## Security Checklist for HIPAA
 
 ### Network
+
 - [x] BYOM runs in private VPC (no public internet)
 - [x] TLS/SSL for all connections
 - [x] Firewall rules (only Studio can access)
 - [x] VPC peering (if Studio in different VPC)
 
 ### Data
+
 - [x] Encryption at rest (EBS volumes encrypted)
 - [x] Encryption in transit (HTTPS)
 - [x] No data logging (Ollama doesn't log prompts)
 - [x] Ephemeral context (cleared after each request)
 
 ### Access
+
 - [x] IAM roles (principle of least privilege)
 - [x] API keys rotated every 90 days
 - [x] Audit logs enabled
 - [x] MFA for admin access
 
 ### Compliance
+
 - [x] HIPAA Risk Assessment completed
 - [x] Policies & Procedures documented
 - [x] Staff training on PHI handling
@@ -279,8 +300,9 @@ ollama pull llama3:8b-instruct  # instead of 70b
 ## Cost Calculator
 
 ### Input Your Numbers
+
 ```
-Workflows per month:     [____] 
+Workflows per month:     [____]
 PHI data percentage:     [____]%
 Avg tokens per workflow: [____]
 
@@ -288,6 +310,7 @@ Calculate →
 ```
 
 ### Example: Small Practice
+
 ```
 Workflows:    1,000/month
 PHI:          80%
@@ -304,28 +327,33 @@ ROI:          Immediate
 ## Next Steps
 
 ### 1. Install Ollama (5 min)
+
 ```bash
 curl -fsSL https://ollama.com/install.sh | sh
 ollama pull llama3:8b-instruct
 ```
 
 ### 2. Configure Studio
+
 - Open Studio → Settings → BYOM
 - Add endpoint: `http://localhost:11434`
 - Select model: `llama3:8b-instruct`
 - Test connection
 
 ### 3. Enable HIPAA Mode
+
 - Settings → Compliance → Enable HIPAA
 - All PHI automatically routes to BYOM
 - Audit logs enabled
 
 ### 4. Test with Sample Data
+
 - Create test workflow with PHI
 - Verify LLM routes to BYOM (check logs)
 - Review audit trail
 
 ### 5. Production Deployment
+
 - Deploy Ollama to AWS/Azure (Terraform)
 - Update Studio endpoint
 - Run compliance validation
@@ -346,11 +374,9 @@ ollama pull llama3:8b-instruct
 **Difficulty:** ⭐ Easy (Ollama) to ⭐⭐⭐ Moderate (vLLM cluster)  
 **Cost:** $0 (local dev) to $1,100/month (production)  
 **HIPAA Ready:** ✅ Yes  
-**BAA Required:** ❌ No  
+**BAA Required:** ❌ No
 
 ---
 
-*Updated: 2026-01-27*  
-*Version: 1.0*
-
-
+_Updated: 2026-01-27_  
+_Version: 1.0_

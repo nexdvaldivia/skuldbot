@@ -13,9 +13,7 @@ export function buildFleetToken(
   orchestratorId: string,
   tenantId: string | null,
 ): FleetTokenResult {
-  const jwtSecret = configService
-    .get<string>('ORCHESTRATOR_FLEET_JWT_SECRET', '')
-    .trim();
+  const jwtSecret = configService.get<string>('ORCHESTRATOR_FLEET_JWT_SECRET', '').trim();
 
   if (jwtSecret) {
     const issuer = configService.get<string>(
@@ -26,10 +24,7 @@ export function buildFleetToken(
       'ORCHESTRATOR_FLEET_TOKEN_AUDIENCE',
       'skuld-control-plane-fleet',
     );
-    const expiresInSeconds = configService.get<number>(
-      'ORCHESTRATOR_FLEET_TOKEN_TTL_SECONDS',
-      120,
-    );
+    const expiresInSeconds = configService.get<number>('ORCHESTRATOR_FLEET_TOKEN_TTL_SECONDS', 120);
 
     const token = jwtService.sign(
       {
@@ -68,10 +63,7 @@ export function buildFleetAuthHeaders(
   tenantId: string | null,
   traceId?: string,
 ): Record<string, string> {
-  const contractVersion = configService.get<string>(
-    'ORCHESTRATOR_FLEET_CONTRACT_VERSION',
-    '1',
-  );
+  const contractVersion = configService.get<string>('ORCHESTRATOR_FLEET_CONTRACT_VERSION', '1');
   const tokenResult = buildFleetToken(configService, orchestratorId, tenantId);
 
   if (tokenResult.mode === 'none') {

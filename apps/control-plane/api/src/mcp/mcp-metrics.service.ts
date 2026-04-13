@@ -41,9 +41,7 @@ abstract class BaseMetric {
       }
     }
 
-    const sortedEntries = Object.entries(normalized).sort(([a], [b]) =>
-      a.localeCompare(b),
-    );
+    const sortedEntries = Object.entries(normalized).sort(([a], [b]) => a.localeCompare(b));
     const key = JSON.stringify(sortedEntries);
     return { key, labels: normalized };
   }
@@ -126,10 +124,7 @@ class Gauge extends BaseMetric implements MetricCollector {
 }
 
 class Histogram extends BaseMetric implements MetricCollector {
-  private readonly samples = new Map<
-    string,
-    { labels: LabelSet; count: number; sum: number }
-  >();
+  private readonly samples = new Map<string, { labels: LabelSet; count: number; sum: number }>();
 
   constructor(config: MetricConfig) {
     super(config.name, config.help, config.labelNames ?? []);

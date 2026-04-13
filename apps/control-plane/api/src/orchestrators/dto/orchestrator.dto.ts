@@ -18,8 +18,7 @@ export class RegisterOrchestratorDto {
   @MinLength(3)
   @MaxLength(120)
   @Matches(ORCHESTRATOR_ID_PATTERN, {
-    message:
-      'orchestratorId must contain only letters, numbers, dot, underscore, colon or hyphen',
+    message: 'orchestratorId must contain only letters, numbers, dot, underscore, colon or hyphen',
   })
   orchestratorId: string;
 
@@ -48,8 +47,7 @@ export class OrchestratorHeartbeatDto {
   @MinLength(3)
   @MaxLength(120)
   @Matches(ORCHESTRATOR_ID_PATTERN, {
-    message:
-      'orchestratorId must contain only letters, numbers, dot, underscore, colon or hyphen',
+    message: 'orchestratorId must contain only letters, numbers, dot, underscore, colon or hyphen',
   })
   orchestratorId: string;
 
@@ -72,8 +70,7 @@ export class DeregisterOrchestratorDto {
   @MinLength(3)
   @MaxLength(120)
   @Matches(ORCHESTRATOR_ID_PATTERN, {
-    message:
-      'orchestratorId must contain only letters, numbers, dot, underscore, colon or hyphen',
+    message: 'orchestratorId must contain only letters, numbers, dot, underscore, colon or hyphen',
   })
   orchestratorId: string;
 

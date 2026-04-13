@@ -5,12 +5,7 @@ import { TenantsService } from '../../tenants/tenants.service';
 import { MarketplaceService } from '../../marketplace/marketplace.service';
 import { LookupsService } from '../../lookups/lookups.service';
 import { LOOKUP_DOMAIN_LICENSE_TYPE } from '../../lookups/lookups.constants';
-import {
-  Tool,
-  Resource,
-  ToolResult,
-  ResourceContent,
-} from '../types/mcp.types';
+import { Tool, Resource, ToolResult, ResourceContent } from '../types/mcp.types';
 
 type FeatureBag = Record<string, unknown>;
 
@@ -24,7 +19,7 @@ const FEATURE_ACCESS_KEYS: Record<string, string[]> = {
 
 /**
  * Licensing MCP Server
- * 
+ *
  * Provides tools and resources for license validation and management.
  * Critical for Control Plane to validate what features each tenant can access.
  */
@@ -87,8 +82,7 @@ export class LicensingServer {
       },
       {
         name: 'check_bot_access',
-        description:
-          'Check if a tenant has access to a specific marketplace bot',
+        description: 'Check if a tenant has access to a specific marketplace bot',
         inputSchema: {
           type: 'object',
           properties: {
@@ -134,13 +128,7 @@ export class LicensingServer {
             },
             feature: {
               type: 'string',
-              enum: [
-                'marketplace',
-                'custom_nodes',
-                'ai_planner',
-                'compliance_tools',
-                'api_access',
-              ],
+              enum: ['marketplace', 'custom_nodes', 'ai_planner', 'compliance_tools', 'api_access'],
               description: 'Feature to check',
             },
           },
@@ -217,10 +205,7 @@ export class LicensingServer {
           );
 
         case 'check_bot_access':
-          return await this.checkBotAccess(
-            toolCall.arguments.tenantId,
-            toolCall.arguments.botId,
-          );
+          return await this.checkBotAccess(toolCall.arguments.tenantId, toolCall.arguments.botId);
 
         case 'get_license_limits':
           return await this.getLicenseLimits(toolCall.arguments.tenantId);
@@ -309,10 +294,7 @@ export class LicensingServer {
     };
   }
 
-  private async validateStudioLicense(
-    userId: string,
-    studioId: string,
-  ): Promise<ToolResult> {
+  private async validateStudioLicense(userId: string, studioId: string): Promise<ToolResult> {
     const tenantId = await this.resolveTenantIdForUser(userId);
     if (!tenantId) {
       return {
@@ -350,10 +332,7 @@ export class LicensingServer {
     };
   }
 
-  private async checkBotAccess(
-    tenantId: string,
-    botId: string,
-  ): Promise<ToolResult> {
+  private async checkBotAccess(tenantId: string, botId: string): Promise<ToolResult> {
     const tenantStatus = await this.licensesService.getTenantStatus(tenantId);
     if (!tenantStatus.isActive) {
       return {
@@ -455,10 +434,7 @@ export class LicensingServer {
       allowMarketplace: this.readBooleanFeature(features, FEATURE_ACCESS_KEYS.marketplace),
       allowCustomNodes: this.readBooleanFeature(features, FEATURE_ACCESS_KEYS.custom_nodes),
       allowAIPlanner: this.readBooleanFeature(features, FEATURE_ACCESS_KEYS.ai_planner),
-      allowComplianceTools: this.readBooleanFeature(
-        features,
-        FEATURE_ACCESS_KEYS.compliance_tools,
-      ),
+      allowComplianceTools: this.readBooleanFeature(features, FEATURE_ACCESS_KEYS.compliance_tools),
       allowApiAccess: this.readBooleanFeature(features, FEATURE_ACCESS_KEYS.api_access),
     };
 
@@ -468,10 +444,7 @@ export class LicensingServer {
     };
   }
 
-  private async checkFeatureAccess(
-    tenantId: string,
-    feature: string,
-  ): Promise<ToolResult> {
+  private async checkFeatureAccess(tenantId: string, feature: string): Promise<ToolResult> {
     const normalizedFeature = feature.trim().toLowerCase();
     const tenantStatus = await this.licensesService.getTenantStatus(tenantId);
     const features = this.normalizeFeatures(tenantStatus.features);
@@ -499,9 +472,7 @@ export class LicensingServer {
   // Resource Implementations
   // ============================================================
 
-  private async getOrchestratorLicenseResource(
-    tenantId: string,
-  ): Promise<ResourceContent> {
+  private async getOrchestratorLicenseResource(tenantId: string): Promise<ResourceContent> {
     const tenantStatus = await this.licensesService.getTenantStatus(tenantId);
     const limitsResult = await this.getLicenseLimits(tenantId);
 
@@ -524,9 +495,7 @@ export class LicensingServer {
     };
   }
 
-  private async getStudioLicensesResource(
-    tenantId: string,
-  ): Promise<ResourceContent> {
+  private async getStudioLicensesResource(tenantId: string): Promise<ResourceContent> {
     const tenantStatus = await this.licensesService.getTenantStatus(tenantId);
     const limitsResult = await this.getLicenseLimits(tenantId);
 
@@ -548,9 +517,7 @@ export class LicensingServer {
     };
   }
 
-  private async getRunnerLicensesResource(
-    tenantId: string,
-  ): Promise<ResourceContent> {
+  private async getRunnerLicensesResource(tenantId: string): Promise<ResourceContent> {
     const tenantStatus = await this.licensesService.getTenantStatus(tenantId);
     const limitsResult = await this.getLicenseLimits(tenantId);
 
@@ -642,10 +609,7 @@ export class LicensingServer {
     return false;
   }
 
-  private readNumberFeature(
-    features: FeatureBag,
-    keys: string[],
-  ): number | null {
+  private readNumberFeature(features: FeatureBag, keys: string[]): number | null {
     for (const key of keys) {
       const value = features[key];
       if (typeof value === 'number' && Number.isFinite(value)) {

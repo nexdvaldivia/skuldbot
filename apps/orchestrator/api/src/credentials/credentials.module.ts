@@ -9,10 +9,7 @@ import {
   VaultConnection,
 } from './entities/credential.entity';
 import { CredentialsService } from './credentials.service';
-import {
-  CredentialsController,
-  InternalCredentialsController,
-} from './credentials.controller';
+import { CredentialsController, InternalCredentialsController } from './credentials.controller';
 import { EncryptionService } from './encryption.service';
 
 /**

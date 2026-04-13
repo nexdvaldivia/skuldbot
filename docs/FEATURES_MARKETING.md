@@ -7,9 +7,11 @@
 ## Taglines
 
 ### Principal
+
 **"Automatización Inteligente RPA + IA"**
 
 ### Alternativos
+
 - "El futuro de la automatización empresarial"
 - "RPA potenciado por Inteligencia Artificial"
 - "Automatiza lo repetitivo. Inteligencia para lo complejo."
@@ -20,12 +22,15 @@
 ## Hero Section
 
 ### Headline
+
 **Automatiza tu negocio con IA**
 
 ### Subheadline
+
 Combina la potencia de RPA con inteligencia artificial para crear automatizaciones que piensan, aprenden y se adaptan.
 
 ### CTAs
+
 - "Empieza Gratis" (primary)
 - "Ver Demo" (secondary)
 - "Agendar Demo" (enterprise)
@@ -35,6 +40,7 @@ Combina la potencia de RPA con inteligencia artificial para crear automatizacion
 ## Value Propositions
 
 ### 1. Visual & No-Code / Low-Code
+
 **Diseña sin código o con poco código**
 
 Crea automatizaciones complejas con nuestro editor visual drag-and-drop. Sin necesidad de programar, pero con la flexibilidad de agregar código cuando lo necesites.
@@ -46,6 +52,7 @@ Crea automatizaciones complejas con nuestro editor visual drag-and-drop. Sin nec
 - Integración con Python para casos avanzados
 
 ### 2. RPA + IA Integrado
+
 **Inteligencia donde la necesitas**
 
 No solo automatiza tareas—agrégales inteligencia. Procesa documentos, entiende textos, toma decisiones.
@@ -56,6 +63,7 @@ No solo automatiza tareas—agrégales inteligencia. Procesa documentos, entiend
 - Integración con LLMs (OpenAI, Claude)
 
 ### 3. Enterprise Ready
+
 **Escala con confianza**
 
 Arquitectura robusta diseñada para empresas. Orquestación centralizada, ejecución distribuida.
@@ -66,6 +74,7 @@ Arquitectura robusta diseñada para empresas. Orquestación centralizada, ejecuc
 - Logs y auditoría completa
 
 ### 4. Desarrollo Local
+
 **Tu código, tu control**
 
 Desarrolla localmente con nuestro Studio desktop. Guarda en Git. Sin vendor lock-in.
@@ -79,22 +88,23 @@ Desarrolla localmente con nuestro Studio desktop. Guarda en Git. Sin vendor lock
 
 ## Features Grid
 
-| Feature | Descripción | Icono |
-|---------|-------------|-------|
-| **Editor Visual** | Drag & drop para crear flujos | Layout |
-| **+50 Nodos** | Web, Excel, Email, API, IA... | Blocks |
-| **Multi-Proyecto** | Organiza múltiples bots | Folder |
-| **Auto-Save** | Nunca pierdas trabajo | Save |
-| **Historial** | Undo/redo ilimitado | History |
-| **Variables** | Dev/Staging/Production | Settings |
-| **IA Integrada** | OCR, NLP, LLMs | Brain |
-| **Desktop Nativo** | Windows, macOS, Linux | Desktop |
+| Feature            | Descripción                   | Icono    |
+| ------------------ | ----------------------------- | -------- |
+| **Editor Visual**  | Drag & drop para crear flujos | Layout   |
+| **+50 Nodos**      | Web, Excel, Email, API, IA... | Blocks   |
+| **Multi-Proyecto** | Organiza múltiples bots       | Folder   |
+| **Auto-Save**      | Nunca pierdas trabajo         | Save     |
+| **Historial**      | Undo/redo ilimitado           | History  |
+| **Variables**      | Dev/Staging/Production        | Settings |
+| **IA Integrada**   | OCR, NLP, LLMs                | Brain    |
+| **Desktop Nativo** | Windows, macOS, Linux         | Desktop  |
 
 ---
 
 ## Use Cases
 
 ### 1. Procesamiento de Facturas
+
 **Antes:** 2 horas revisando facturas manualmente
 **Con SkuldBot:** Extracción automática de cualquier formato de factura
 
@@ -106,6 +116,7 @@ Desarrolla localmente con nuestro Studio desktop. Guarda en Git. Sin vendor lock
 **Ahorro:** 90% del tiempo
 
 ### 2. Onboarding de Clientes
+
 **Antes:** 3-5 días de proceso manual
 **Con SkuldBot:** Onboarding automatizado en horas
 
@@ -117,6 +128,7 @@ Desarrolla localmente con nuestro Studio desktop. Guarda en Git. Sin vendor lock
 **Ahorro:** 80% del tiempo
 
 ### 3. Atención al Cliente
+
 **Antes:** Respuestas manuales, inconsistentes
 **Con SkuldBot:** Respuestas inteligentes 24/7
 
@@ -128,6 +140,7 @@ Desarrolla localmente con nuestro Studio desktop. Guarda en Git. Sin vendor lock
 **Ahorro:** 60% de tickets automatizados
 
 ### 4. Reconciliación Bancaria
+
 **Antes:** Días de trabajo manual en Excel
 **Con SkuldBot:** Reconciliación automática diaria
 
@@ -142,33 +155,36 @@ Desarrolla localmente con nuestro Studio desktop. Guarda en Git. Sin vendor lock
 
 ## Comparación con Competencia
 
-| Feature | SkuldBot | UiPath | Automation Anywhere | Power Automate |
-|---------|----------|--------|---------------------|----------------|
-| Editor visual | ✅ | ✅ | ✅ | ✅ |
-| IA integrada | ✅ | Parcial | Parcial | Parcial |
-| Desktop nativo | ✅ | ✅ | ❌ | ❌ |
-| Sin vendor lock-in | ✅ | ❌ | ❌ | ❌ |
-| Archivos editables | ✅ | ❌ | ❌ | ❌ |
-| Git compatible | ✅ | Parcial | ❌ | ❌ |
-| Precio accesible | ✅ | ❌ | ❌ | Parcial |
+| Feature            | SkuldBot | UiPath  | Automation Anywhere | Power Automate |
+| ------------------ | -------- | ------- | ------------------- | -------------- |
+| Editor visual      | ✅       | ✅      | ✅                  | ✅             |
+| IA integrada       | ✅       | Parcial | Parcial             | Parcial        |
+| Desktop nativo     | ✅       | ✅      | ❌                  | ❌             |
+| Sin vendor lock-in | ✅       | ❌      | ❌                  | ❌             |
+| Archivos editables | ✅       | ❌      | ❌                  | ❌             |
+| Git compatible     | ✅       | Parcial | ❌                  | ❌             |
+| Precio accesible   | ✅       | ❌      | ❌                  | Parcial        |
 
 ---
 
 ## Pricing Tiers (Sugerido)
 
 ### Free
+
 - 1 proyecto
 - 3 bots
 - Ejecución local
 - Comunidad
 
 ### Pro ($49/mes)
+
 - Proyectos ilimitados
 - Bots ilimitados
 - Historial extendido
 - Soporte email
 
 ### Team ($199/mes)
+
 - Todo de Pro
 - 5 usuarios
 - Orchestrator
@@ -176,6 +192,7 @@ Desarrolla localmente con nuestro Studio desktop. Guarda en Git. Sin vendor lock
 - Soporte prioritario
 
 ### Enterprise (Contactar)
+
 - Todo de Team
 - Usuarios ilimitados
 - Runners dedicados
@@ -211,6 +228,7 @@ Desarrolla localmente con nuestro Studio desktop. Guarda en Git. Sin vendor lock
 ## SEO Keywords
 
 ### Primarios
+
 - RPA software
 - Automatización empresarial
 - RPA + IA
@@ -219,6 +237,7 @@ Desarrolla localmente con nuestro Studio desktop. Guarda en Git. Sin vendor lock
 - Low-code automation
 
 ### Secundarios
+
 - Robot Process Automation
 - Automatización de procesos
 - IA para empresas
@@ -226,6 +245,7 @@ Desarrolla localmente con nuestro Studio desktop. Guarda en Git. Sin vendor lock
 - Procesamiento de documentos
 
 ### Long-tail
+
 - "Software de automatización para empresas"
 - "Cómo automatizar procesos de negocio"
 - "RPA con inteligencia artificial"
@@ -237,6 +257,7 @@ Desarrolla localmente con nuestro Studio desktop. Guarda en Git. Sin vendor lock
 ## Social Media
 
 ### LinkedIn Post Template
+
 ```
 🤖 ¿Sabías que el 60% de las tareas de oficina pueden automatizarse?
 
@@ -253,6 +274,7 @@ El futuro de la automatización empresarial ya está aquí.
 ```
 
 ### Twitter/X Template
+
 ```
 🚀 RPA + IA = Automatización Inteligente
 
@@ -268,12 +290,14 @@ SkuldBot: El futuro de la automatización empresarial.
 ## Email Marketing
 
 ### Subject Lines
+
 - "Automatiza el 90% de tus tareas repetitivas"
 - "RPA + IA: La combinación que tu negocio necesita"
 - "Deja de perder tiempo en tareas manuales"
 - "Tu competencia ya está automatizando. ¿Y tú?"
 
 ### Email CTA
+
 - "Empieza tu prueba gratuita"
 - "Agenda una demo personalizada"
 - "Descarga la guía de automatización"

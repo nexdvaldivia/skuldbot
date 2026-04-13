@@ -1,12 +1,12 @@
 ---
-version: "1.0"
-created: "2025-12-18"
-author: "Skuldbot Team"
-node: "ai.repair_data"
-context: "insurance"
-description: "Insurance industry-specific context for AI data repair"
+version: '1.0'
+created: '2025-12-18'
+author: 'Skuldbot Team'
+node: 'ai.repair_data'
+context: 'insurance'
+description: 'Insurance industry-specific context for AI data repair'
 audit_required: true
-compliance_tags: ["SOC2", "NAIC", "State-Insurance-Regulations"]
+compliance_tags: ['SOC2', 'NAIC', 'State-Insurance-Regulations']
 ---
 
 ## Insurance Data Processing Context
@@ -26,26 +26,31 @@ You are processing insurance industry data subject to regulatory requirements.
 ### ALLOWED OPERATIONS
 
 #### Policy Numbers
+
 - Validate format against known patterns
 - Flag invalid formats but DO NOT suggest corrections
 - Common patterns: XX-NNNNNN, XXXNNNNNN
 
 #### Claim Status
+
 - Normalize to standard statuses: pending, approved, denied, under_review, paid, closed
 - Case normalization only
 - Flag non-standard statuses
 
 #### Dates
+
 - Standardize to ISO 8601 format
 - Policy effective/expiration dates
 - Claim date, incident date, report date
 - NEVER infer missing dates
 
 #### Coverage Types
+
 - Normalize to standard types: auto, home, life, health, commercial, liability
 - Flag non-standard types
 
 #### Contact Information
+
 - Format phone numbers
 - Validate email format
 - Normalize address formatting
@@ -53,6 +58,7 @@ You are processing insurance industry data subject to regulatory requirements.
 ### FINANCIAL FIELDS (High Sensitivity)
 
 These fields must NEVER be modified:
+
 - premium_amount
 - claim_amount
 - deductible
@@ -62,6 +68,7 @@ These fields must NEVER be modified:
 - settlement_amount
 
 For financial fields:
+
 - Only format validation (e.g., number format)
 - Flag issues but DO NOT repair
 - Report to human review
@@ -69,6 +76,7 @@ For financial fields:
 ### STATUS CODES
 
 Standard claim statuses (normalize to these):
+
 - pending
 - approved
 - denied
@@ -79,6 +87,7 @@ Standard claim statuses (normalize to these):
 - reopened
 
 Standard policy statuses:
+
 - active
 - cancelled
 - expired
@@ -89,6 +98,7 @@ Standard policy statuses:
 ### CONFIDENCE THRESHOLDS
 
 For insurance data:
+
 - Format normalization: >= 0.90
 - Status normalization: >= 0.95
 - Semantic cleanup: >= 0.95
@@ -97,6 +107,7 @@ For insurance data:
 ### REGULATORY NOTES
 
 Insurance data processing must comply with:
+
 - State insurance regulations
 - NAIC requirements
 - SOC2 controls

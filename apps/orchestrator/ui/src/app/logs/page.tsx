@@ -55,9 +55,9 @@ export default function LogsPage() {
         (log) =>
           log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
           (log.userEmail || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-          log.category.toLowerCase().includes(searchQuery.toLowerCase())
+          log.category.toLowerCase().includes(searchQuery.toLowerCase()),
       ),
-    [logs, searchQuery]
+    [logs, searchQuery],
   );
 
   const formatTimestamp = (timestamp: string) => {
@@ -77,9 +77,7 @@ export default function LogsPage() {
       toast({
         title: 'Refresh failed',
         description:
-          result.error instanceof Error
-            ? result.error.message
-            : 'Unable to refresh audit logs.',
+          result.error instanceof Error ? result.error.message : 'Unable to refresh audit logs.',
         variant: 'destructive',
       });
       return;
@@ -122,7 +120,9 @@ export default function LogsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Audit Logs</h1>
-          <p className="text-muted-foreground">Track all actions and changes in your organization</p>
+          <p className="text-muted-foreground">
+            Track all actions and changes in your organization
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleExport}>
@@ -181,8 +181,8 @@ export default function LogsPage() {
               <FileText className="h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No audit logs yet</h3>
               <p className="text-muted-foreground max-w-sm">
-                Audit logs will appear here as actions are performed in your organization.
-                All user activities, bot executions, and configuration changes are tracked.
+                Audit logs will appear here as actions are performed in your organization. All user
+                activities, bot executions, and configuration changes are tracked.
               </p>
             </div>
           </CardContent>
@@ -197,7 +197,8 @@ export default function LogsPage() {
             <div className="space-y-4">
               {filteredLogs.map((log) => {
                 const CategoryIcon = categoryIcons[log.category] || Info;
-                const actionColor = actionColors[log.action.split('_')[0]] || 'bg-zinc-100 text-zinc-700';
+                const actionColor =
+                  actionColors[log.action.split('_')[0]] || 'bg-zinc-100 text-zinc-700';
 
                 return (
                   <div
@@ -213,9 +214,7 @@ export default function LogsPage() {
                         <Badge variant="outline" className={actionColor}>
                           {log.action}
                         </Badge>
-                        <span className="text-sm text-muted-foreground">
-                          {log.category}
-                        </span>
+                        <span className="text-sm text-muted-foreground">{log.category}</span>
                       </div>
                       <p className="text-sm">
                         <span className="font-medium">{log.userEmail || 'System'}</span>

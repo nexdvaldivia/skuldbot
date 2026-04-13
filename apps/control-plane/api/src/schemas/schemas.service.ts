@@ -24,7 +24,7 @@ export class SchemasService {
     if (existing) {
       // Merge schemas - combine fields from both
       const mergedFields = this.mergeSchemaFields(existing.fields, dto.fields as SchemaField[]);
-      
+
       // Update contributor tracking
       const contributors = existing.contributorTenants || [];
       if (dto.tenantId && !contributors.includes(dto.tenantId)) {
@@ -58,9 +58,11 @@ export class SchemasService {
   /**
    * Submit multiple schemas in bulk (from orchestrator sync)
    */
-  async submitBulkSchemas(dto: BulkSubmitSchemasDto): Promise<{ processed: number; nodeTypes: string[] }> {
+  async submitBulkSchemas(
+    dto: BulkSubmitSchemasDto,
+  ): Promise<{ processed: number; nodeTypes: string[] }> {
     const nodeTypes: string[] = [];
-    
+
     for (const schema of dto.schemas) {
       await this.submitSchema({
         ...schema,
@@ -117,7 +119,7 @@ export class SchemasService {
    */
   async exportAsTypeScript(): Promise<string> {
     const schemas = await this.getSchemasForRelease();
-    
+
     let code = '// Auto-generated from Schema Registry\n';
     code += '// Generated at: ' + new Date().toISOString() + '\n\n';
     code += 'export const discoveredOutputSchemas: Record<string, OutputField[]> = {\n';
@@ -176,11 +178,11 @@ export class SchemasService {
 
     for (const field of fields) {
       code += `${spaces}  { name: "${field.name}", type: "${field.type}"`;
-      
+
       if (field.items && field.items.length > 0) {
         code += `, items: { type: "object", fields: ${this.fieldsToTypeScript(field.items, indent + 2)} }`;
       }
-      
+
       code += ' },\n';
     }
 
@@ -188,4 +190,3 @@ export class SchemasService {
     return code;
   }
 }
-

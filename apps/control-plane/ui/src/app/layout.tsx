@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
-
 export const metadata: Metadata = {
-  title: "Skuld Control Plane",
-  description: "Manage clients, orchestrators, and licenses",
+  title: 'Skuld Control Plane',
+  description: 'Manage clients, orchestrators, and licenses',
 };
 
 export default function RootLayout({

@@ -114,9 +114,7 @@ function ProfileSettings({ onSave }: { onSave: () => void }) {
               AU
             </div>
             <div>
-              <Button variant="outline">
-                Change Avatar
-              </Button>
+              <Button variant="outline">Change Avatar</Button>
               <p className="text-xs text-zinc-500 mt-2">JPG, PNG or GIF. Max 2MB.</p>
             </div>
           </div>
@@ -177,7 +175,9 @@ function OrganizationSettings({ onSave }: { onSave: () => void }) {
 
         <div className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Organization Name</label>
+            <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+              Organization Name
+            </label>
             <Input type="text" defaultValue="Skuld, LLC" />
           </div>
 
@@ -198,7 +198,9 @@ function OrganizationSettings({ onSave }: { onSave: () => void }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1.5">Default Timezone</label>
+            <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+              Default Timezone
+            </label>
             <Select defaultValue="America/New_York">
               <SelectTrigger>
                 <SelectValue placeholder="Select timezone" />
@@ -241,11 +243,31 @@ function NotificationSettings({ onSave }: { onSave: () => void }) {
           <h3 className="text-sm font-medium text-zinc-900">Email Notifications</h3>
 
           {[
-            { key: 'newClient', label: 'New Client Onboarding', description: 'Get notified when an admin onboards a new client' },
-            { key: 'licenseExpiring', label: 'License Expiration Alerts', description: 'Receive alerts before licenses expire' },
-            { key: 'billingAlerts', label: 'Billing Alerts', description: 'Get notified about billing issues and payments' },
-            { key: 'systemUpdates', label: 'System Updates', description: 'Receive updates about platform changes' },
-            { key: 'marketplaceSubmissions', label: 'Marketplace Submissions', description: 'Get notified when partners submit new bots' },
+            {
+              key: 'newClient',
+              label: 'New Client Onboarding',
+              description: 'Get notified when an admin onboards a new client',
+            },
+            {
+              key: 'licenseExpiring',
+              label: 'License Expiration Alerts',
+              description: 'Receive alerts before licenses expire',
+            },
+            {
+              key: 'billingAlerts',
+              label: 'Billing Alerts',
+              description: 'Get notified about billing issues and payments',
+            },
+            {
+              key: 'systemUpdates',
+              label: 'System Updates',
+              description: 'Receive updates about platform changes',
+            },
+            {
+              key: 'marketplaceSubmissions',
+              label: 'Marketplace Submissions',
+              description: 'Get notified when partners submit new bots',
+            },
           ].map((item) => (
             <div
               key={item.key}
@@ -295,9 +317,7 @@ function SecuritySettings({ onSave }: { onSave: () => void }) {
               </p>
             </div>
             <Link href="/settings/security">
-              <Button>
-                Manage SSO
-              </Button>
+              <Button>Manage SSO</Button>
             </Link>
           </div>
         </CardContent>
@@ -307,22 +327,27 @@ function SecuritySettings({ onSave }: { onSave: () => void }) {
       <Card>
         <CardContent className="p-6">
           <h2 className="text-lg font-semibold text-zinc-900 mb-1">Change Password</h2>
-          <p className="text-sm text-zinc-500 mb-6">Update your password to keep your account secure</p>
+          <p className="text-sm text-zinc-500 mb-6">
+            Update your password to keep your account secure
+          </p>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-zinc-700 mb-1.5">Current Password</label>
+              <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                Current Password
+              </label>
               <div className="relative">
-                <Input
-                  type={showCurrentPassword ? 'text' : 'password'}
-                  className="pr-10"
-                />
+                <Input type={showCurrentPassword ? 'text' : 'password'} className="pr-10" />
                 <button
                   type="button"
                   onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
                 >
-                  {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showCurrentPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -330,10 +355,7 @@ function SecuritySettings({ onSave }: { onSave: () => void }) {
             <div>
               <label className="block text-sm font-medium text-zinc-700 mb-1.5">New Password</label>
               <div className="relative">
-                <Input
-                  type={showNewPassword ? 'text' : 'password'}
-                  className="pr-10"
-                />
+                <Input type={showNewPassword ? 'text' : 'password'} className="pr-10" />
                 <button
                   type="button"
                   onClick={() => setShowNewPassword(!showNewPassword)}
@@ -345,14 +367,14 @@ function SecuritySettings({ onSave }: { onSave: () => void }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-zinc-700 mb-1.5">Confirm New Password</label>
+              <label className="block text-sm font-medium text-zinc-700 mb-1.5">
+                Confirm New Password
+              </label>
               <Input type="password" />
             </div>
 
             <div className="pt-4 flex justify-end">
-              <Button onClick={onSave}>
-                Update Password
-              </Button>
+              <Button onClick={onSave}>Update Password</Button>
             </div>
           </div>
         </CardContent>
@@ -363,8 +385,12 @@ function SecuritySettings({ onSave }: { onSave: () => void }) {
         <CardContent className="p-6">
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-zinc-900 mb-1">Two-Factor Authentication</h2>
-              <p className="text-sm text-zinc-500">Add an extra layer of security to your account</p>
+              <h2 className="text-lg font-semibold text-zinc-900 mb-1">
+                Two-Factor Authentication
+              </h2>
+              <p className="text-sm text-zinc-500">
+                Add an extra layer of security to your account
+              </p>
             </div>
             <Badge variant="success" className="gap-1">
               <CheckCircle2 className="h-3 w-3" />
@@ -449,11 +475,7 @@ function ApiSettings() {
               <code className="flex-1 text-sm bg-white px-3 py-2 rounded-lg border border-zinc-200 font-mono text-zinc-700 truncate">
                 {showKey ? apiKey : '••••••••••••••••••••••••••••••••'}
               </code>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setShowKey(!showKey)}
-              >
+              <Button variant="outline" size="icon" onClick={() => setShowKey(!showKey)}>
                 {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </Button>
             </div>
@@ -462,7 +484,8 @@ function ApiSettings() {
           <div className="mt-4 flex items-start gap-2 p-3 rounded-lg bg-warning-50 border border-warning-200">
             <AlertCircle className="h-4 w-4 text-warning-600 mt-0.5 shrink-0" />
             <p className="text-sm text-warning-800">
-              Keep your API keys secret. Do not share them in public repositories or client-side code.
+              Keep your API keys secret. Do not share them in public repositories or client-side
+              code.
             </p>
           </div>
 
@@ -482,12 +505,16 @@ function ApiSettings() {
       <Card>
         <CardContent className="p-6">
           <h2 className="text-lg font-semibold text-zinc-900 mb-1">Webhooks</h2>
-          <p className="text-sm text-zinc-500 mb-6">Configure webhook endpoints for real-time events</p>
+          <p className="text-sm text-zinc-500 mb-6">
+            Configure webhook endpoints for real-time events
+          </p>
 
           <div className="text-center py-8">
             <Globe className="h-10 w-10 text-zinc-300 mx-auto mb-3" />
             <p className="text-sm font-medium text-zinc-900">No webhooks configured</p>
-            <p className="text-sm text-zinc-500 mt-1">Add a webhook endpoint to receive event notifications</p>
+            <p className="text-sm text-zinc-500 mt-1">
+              Add a webhook endpoint to receive event notifications
+            </p>
             <Button variant="outline" className="mt-4">
               Add Webhook
             </Button>
@@ -573,7 +600,9 @@ function IntegrationsOverview() {
                   className="flex items-center justify-between p-4 rounded-lg border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 transition-all group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`h-12 w-12 rounded-lg ${integration.color} flex items-center justify-center`}>
+                    <div
+                      className={`h-12 w-12 rounded-lg ${integration.color} flex items-center justify-center`}
+                    >
                       <Icon className="h-6 w-6" />
                     </div>
                     <div>
@@ -602,7 +631,9 @@ function IntegrationsOverview() {
               <Globe className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <h3 className="text-sm font-medium text-zinc-900">Need help setting up integrations?</h3>
+              <h3 className="text-sm font-medium text-zinc-900">
+                Need help setting up integrations?
+              </h3>
               <p className="text-sm text-zinc-500 mt-1">
                 Check our documentation for step-by-step guides on configuring each provider.
               </p>

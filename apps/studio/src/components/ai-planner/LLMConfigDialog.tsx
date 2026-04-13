@@ -4,10 +4,10 @@
  * Using shadcn/ui components
  */
 
-import { useState, useEffect } from "react";
-import { Thermometer, Info, Plus, Plug, Trash2, Edit2, Star } from "lucide-react";
-import { Button } from "../ui/Button";
-import { Label } from "../ui/label";
+import { useState, useEffect } from 'react';
+import { Thermometer, Info, Plus, Plug, Trash2, Edit2, Star } from 'lucide-react';
+import { Button } from '../ui/Button';
+import { Label } from '../ui/label';
 import {
   Dialog,
   DialogContent,
@@ -15,22 +15,16 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
-} from "../ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
-import { Slider } from "../ui/slider";
-import { Input } from "../ui/Input";
-import { Card, CardContent } from "../ui/card";
-import { ConfirmDialog } from "../ui/ConfirmDialog";
-import { useAIPlannerV2Store } from "../../store/aiPlannerV2Store";
-import { useConnectionsStore } from "../../store/connectionsStore";
-import { LLMProvider, LLMConnection } from "../../types/ai-planner";
-import ConnectionDialog from "./ConnectionDialog";
+} from '../ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Slider } from '../ui/slider';
+import { Input } from '../ui/Input';
+import { Card, CardContent } from '../ui/card';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { useAIPlannerV2Store } from '../../store/aiPlannerV2Store';
+import { useConnectionsStore } from '../../store/connectionsStore';
+import { LLMProvider, LLMConnection } from '../../types/ai-planner';
+import ConnectionDialog from './ConnectionDialog';
 
 interface LLMConfigDialogProps {
   isOpen: boolean;
@@ -38,99 +32,97 @@ interface LLMConfigDialogProps {
 }
 
 const MODELS: Record<LLMProvider, { value: string; label: string }[]> = {
-  "azure-foundry": [
-    { value: "gpt-4", label: "GPT-4" },
-    { value: "gpt-4-turbo", label: "GPT-4 Turbo" },
-    { value: "llama-3-70b", label: "Llama 3 70B" },
-    { value: "phi-3", label: "Phi-3" },
+  'azure-foundry': [
+    { value: 'gpt-4', label: 'GPT-4' },
+    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+    { value: 'llama-3-70b', label: 'Llama 3 70B' },
+    { value: 'phi-3', label: 'Phi-3' },
   ],
-  "aws-bedrock": [
-    { value: "claude-3-5-sonnet", label: "Claude 3.5 Sonnet" },
-    { value: "llama3-70b", label: "Llama 3 70B" },
-    { value: "mistral-large", label: "Mistral Large" },
+  'aws-bedrock': [
+    { value: 'claude-3-5-sonnet', label: 'Claude 3.5 Sonnet' },
+    { value: 'llama3-70b', label: 'Llama 3 70B' },
+    { value: 'mistral-large', label: 'Mistral Large' },
   ],
-  "vertex-ai": [
-    { value: "gemini-pro", label: "Gemini Pro" },
-    { value: "gemini-ultra", label: "Gemini Ultra" },
-    { value: "palm-2", label: "PaLM 2" },
+  'vertex-ai': [
+    { value: 'gemini-pro', label: 'Gemini Pro' },
+    { value: 'gemini-ultra', label: 'Gemini Ultra' },
+    { value: 'palm-2', label: 'PaLM 2' },
   ],
   openai: [
-    { value: "gpt-4o", label: "GPT-4o (Recommended)" },
-    { value: "gpt-4o-mini", label: "GPT-4o Mini (Faster)" },
-    { value: "o1", label: "o1 (Reasoning)" },
-    { value: "o1-mini", label: "o1 Mini (Reasoning)" },
-    { value: "o1-preview", label: "o1 Preview" },
-    { value: "gpt-4-turbo", label: "GPT-4 Turbo" },
-    { value: "gpt-4", label: "GPT-4" },
-    { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo (Legacy)" },
+    { value: 'gpt-4o', label: 'GPT-4o (Recommended)' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Faster)' },
+    { value: 'o1', label: 'o1 (Reasoning)' },
+    { value: 'o1-mini', label: 'o1 Mini (Reasoning)' },
+    { value: 'o1-preview', label: 'o1 Preview' },
+    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+    { value: 'gpt-4', label: 'GPT-4' },
+    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (Legacy)' },
   ],
   anthropic: [
-    { value: "claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet (Recommended)" },
-    { value: "claude-3-opus-20240229", label: "Claude 3 Opus" },
-    { value: "claude-3-sonnet-20240229", label: "Claude 3 Sonnet" },
-    { value: "claude-3-haiku-20240307", label: "Claude 3 Haiku (Faster)" },
+    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (Recommended)' },
+    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
+    { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
+    { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku (Faster)' },
   ],
   ollama: [
-    { value: "llama3.1", label: "Llama 3.1 (8B)" },
-    { value: "llama3.1:70b", label: "Llama 3.1 (70B)" },
-    { value: "llama3.2", label: "Llama 3.2" },
-    { value: "mistral", label: "Mistral" },
-    { value: "codellama", label: "CodeLlama" },
-    { value: "custom", label: "Custom Model" },
+    { value: 'llama3.1', label: 'Llama 3.1 (8B)' },
+    { value: 'llama3.1:70b', label: 'Llama 3.1 (70B)' },
+    { value: 'llama3.2', label: 'Llama 3.2' },
+    { value: 'mistral', label: 'Mistral' },
+    { value: 'codellama', label: 'CodeLlama' },
+    { value: 'custom', label: 'Custom Model' },
   ],
   vllm: [
-    { value: "meta-llama/Llama-3.1-70B", label: "Llama 3.1 70B" },
-    { value: "mistralai/Mixtral-8x7B", label: "Mixtral 8x7B" },
+    { value: 'meta-llama/Llama-3.1-70B', label: 'Llama 3.1 70B' },
+    { value: 'mistralai/Mixtral-8x7B', label: 'Mixtral 8x7B' },
   ],
   tgi: [
-    { value: "meta-llama/Llama-3.1-70B", label: "Llama 3.1 70B" },
-    { value: "bigcode/starcoder2", label: "StarCoder 2" },
+    { value: 'meta-llama/Llama-3.1-70B', label: 'Llama 3.1 70B' },
+    { value: 'bigcode/starcoder2', label: 'StarCoder 2' },
   ],
   llamacpp: [
-    { value: "llama-3-8b", label: "Llama 3 8B" },
-    { value: "mistral-7b", label: "Mistral 7B" },
+    { value: 'llama-3-8b', label: 'Llama 3 8B' },
+    { value: 'mistral-7b', label: 'Mistral 7B' },
   ],
   lmstudio: [
-    { value: "llama-3.1-8b", label: "Llama 3.1 8B" },
-    { value: "phi-3", label: "Phi-3" },
+    { value: 'llama-3.1-8b', label: 'Llama 3.1 8B' },
+    { value: 'phi-3', label: 'Phi-3' },
   ],
   localai: [
-    { value: "llama-3", label: "Llama 3" },
-    { value: "mistral", label: "Mistral" },
+    { value: 'llama-3', label: 'Llama 3' },
+    { value: 'mistral', label: 'Mistral' },
   ],
-  custom: [
-    { value: "custom", label: "Enter model name manually" },
-  ],
+  custom: [{ value: 'custom', label: 'Enter model name manually' }],
 };
 
 const PROVIDER_LABELS: Record<LLMProvider, string> = {
-  "azure-foundry": "Azure AI Foundry",
-  "aws-bedrock": "AWS Bedrock",
-  "vertex-ai": "Google Vertex AI",
-  openai: "OpenAI",
-  anthropic: "Anthropic",
-  ollama: "Ollama",
-  vllm: "vLLM",
-  tgi: "Text Gen Inference",
-  llamacpp: "llama.cpp",
-  lmstudio: "LM Studio",
-  localai: "LocalAI",
-  custom: "Custom",
+  'azure-foundry': 'Azure AI Foundry',
+  'aws-bedrock': 'AWS Bedrock',
+  'vertex-ai': 'Google Vertex AI',
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  ollama: 'Ollama',
+  vllm: 'vLLM',
+  tgi: 'Text Gen Inference',
+  llamacpp: 'llama.cpp',
+  lmstudio: 'LM Studio',
+  localai: 'LocalAI',
+  custom: 'Custom',
 };
 
 const PROVIDER_COLORS: Record<LLMProvider, string> = {
-  "azure-foundry": "bg-blue-100 text-blue-700",
-  "aws-bedrock": "bg-orange-100 text-orange-700",
-  "vertex-ai": "bg-indigo-100 text-indigo-700",
-  openai: "bg-green-100 text-green-700",
-  anthropic: "bg-amber-100 text-amber-700",
-  ollama: "bg-purple-100 text-purple-700",
-  vllm: "bg-pink-100 text-pink-700",
-  tgi: "bg-cyan-100 text-cyan-700",
-  llamacpp: "bg-teal-100 text-teal-700",
-  lmstudio: "bg-violet-100 text-violet-700",
-  localai: "bg-lime-100 text-lime-700",
-  custom: "bg-slate-100 text-slate-700",
+  'azure-foundry': 'bg-blue-100 text-blue-700',
+  'aws-bedrock': 'bg-orange-100 text-orange-700',
+  'vertex-ai': 'bg-indigo-100 text-indigo-700',
+  openai: 'bg-green-100 text-green-700',
+  anthropic: 'bg-amber-100 text-amber-700',
+  ollama: 'bg-purple-100 text-purple-700',
+  vllm: 'bg-pink-100 text-pink-700',
+  tgi: 'bg-cyan-100 text-cyan-700',
+  llamacpp: 'bg-teal-100 text-teal-700',
+  lmstudio: 'bg-violet-100 text-violet-700',
+  localai: 'bg-lime-100 text-lime-700',
+  custom: 'bg-slate-100 text-slate-700',
 };
 
 export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
@@ -147,15 +139,18 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
   const [model, setModel] = useState(llmConfig.model);
   const [temperature, setTemperature] = useState(llmConfig.temperature);
   const [localAskPlanTimeoutSec, setLocalAskPlanTimeoutSec] = useState(
-    llmConfig.localAskPlanTimeoutSec ?? 180
+    llmConfig.localAskPlanTimeoutSec ?? 180,
   );
   const [localGenerateTimeoutSec, setLocalGenerateTimeoutSec] = useState(
-    llmConfig.localGenerateTimeoutSec ?? 600
+    llmConfig.localGenerateTimeoutSec ?? 600,
   );
-  const [customModel, setCustomModel] = useState("");
+  const [customModel, setCustomModel] = useState('');
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
   const [editingConnection, setEditingConnection] = useState<LLMConnection | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; connection: LLMConnection | null }>({
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    open: boolean;
+    connection: LLMConnection | null;
+  }>({
     open: false,
     connection: null,
   });
@@ -166,7 +161,8 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
   }, [loadConnections]);
 
   // Get selected connection
-  const selectedConnection = connections.find((c) => c.id === selectedConnectionId) ||
+  const selectedConnection =
+    connections.find((c) => c.id === selectedConnectionId) ||
     connections.find((c) => c.isDefault) ||
     connections[0];
 
@@ -176,7 +172,7 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
       const providerModels = MODELS[selectedConnection.provider];
       const hasCurrentModel = providerModels.some((m) => m.value === model);
       if (!hasCurrentModel) {
-        setModel(providerModels[0]?.value || "");
+        setModel(providerModels[0]?.value || '');
       }
     }
   }, [model, selectedConnection]);
@@ -201,7 +197,7 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
 
     setLLMConfig({
       provider: selectedConnection.provider,
-      model: model === "custom" ? customModel : model,
+      model: model === 'custom' ? customModel : model,
       // apiKey and baseUrl are now in config object
       temperature,
       localAskPlanTimeoutSec,
@@ -262,9 +258,9 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
               </Label>
 
               <Select
-                value={selectedConnection?.id || ""}
+                value={selectedConnection?.id || ''}
                 onValueChange={(value) => {
-                  if (value === "new") {
+                  if (value === 'new') {
                     handleNewConnection();
                   } else {
                     selectConnection(value);
@@ -282,9 +278,7 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
                         >
                           {PROVIDER_LABELS[selectedConnection.provider]}
                         </span>
-                        <span className="font-medium">
-                          {selectedConnection.name}
-                        </span>
+                        <span className="font-medium">{selectedConnection.name}</span>
                         {selectedConnection.isDefault && (
                           <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
                         )}
@@ -297,9 +291,7 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
                     <div className="px-4 py-6 text-center">
                       <Plug className="w-8 h-8 mx-auto text-slate-300 mb-2" />
                       <p className="text-sm text-slate-500">No connections yet</p>
-                      <p className="text-xs text-slate-400">
-                        Create one to get started
-                      </p>
+                      <p className="text-xs text-slate-400">Create one to get started</p>
                     </div>
                   ) : (
                     connections.map((conn) => (
@@ -313,9 +305,7 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
                             >
                               {PROVIDER_LABELS[conn.provider]}
                             </span>
-                            <span className="font-medium text-sm">
-                              {conn.name}
-                            </span>
+                            <span className="font-medium text-sm">{conn.name}</span>
                             {conn.isDefault && (
                               <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
                             )}
@@ -338,9 +328,7 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
               {/* Connection Actions */}
               {selectedConnection && (
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-slate-500">
-                    Connected: {selectedConnection.name}
-                  </p>
+                  <p className="text-xs text-slate-500">Connected: {selectedConnection.name}</p>
                   <div className="flex items-center gap-1">
                     {!selectedConnection.isDefault && (
                       <Button
@@ -393,7 +381,7 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
                   </SelectContent>
                 </Select>
 
-                {model === "custom" && (
+                {model === 'custom' && (
                   <Input
                     type="text"
                     value={customModel}
@@ -457,7 +445,9 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
                       onChange={(e) => {
                         const next = Number(e.target.value);
                         if (Number.isFinite(next)) {
-                          setLocalGenerateTimeoutSec(Math.min(Math.max(Math.round(next), 15), 3600));
+                          setLocalGenerateTimeoutSec(
+                            Math.min(Math.max(Math.round(next), 15), 3600),
+                          );
                         }
                       }}
                     />
@@ -475,8 +465,8 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
                 <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
                 <p className="text-xs text-blue-700">
                   {connections.length === 0
-                    ? "Create a connection to save your API credentials securely. Your keys are stored locally and never sent to our servers."
-                    : "Lower temperature produces more predictable results. Higher values make the AI more creative but less consistent."}
+                    ? 'Create a connection to save your API credentials securely. Your keys are stored locally and never sent to our servers.'
+                    : 'Lower temperature produces more predictable results. Higher values make the AI more creative but less consistent.'}
                 </p>
               </CardContent>
             </Card>
@@ -486,11 +476,7 @@ export function LLMConfigDialog({ isOpen, onClose }: LLMConfigDialogProps) {
             <Button variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <Button
-              variant="default"
-              onClick={handleSave}
-              disabled={!selectedConnection}
-            >
+            <Button variant="default" onClick={handleSave} disabled={!selectedConnection}>
               Save Settings
             </Button>
           </DialogFooter>

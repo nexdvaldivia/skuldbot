@@ -65,12 +65,10 @@ export function AppShell({ children }: AppShellProps) {
       <main
         className={cn(
           'pt-14 min-h-screen transition-all duration-300',
-          sidebarCollapsed ? 'lg:pl-[68px]' : 'lg:pl-60'
+          sidebarCollapsed ? 'lg:pl-[68px]' : 'lg:pl-60',
         )}
       >
-        <div className="pb-8">
-          {children}
-        </div>
+        <div className="pb-8">{children}</div>
       </main>
     </div>
   );

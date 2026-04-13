@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 
 /**
  * Control Plane Client
- * 
+ *
  * HTTP client for Orchestrator to communicate with Control Plane MCP.
  * Used for:
  * - Reporting usage metrics (metering)
@@ -18,10 +18,7 @@ export class ControlPlaneClient {
   private apiKey: string;
 
   constructor(private configService: ConfigService) {
-    this.controlPlaneUrl = configService.get<string>(
-      'CONTROL_PLANE_URL',
-      'http://localhost:3000',
-    );
+    this.controlPlaneUrl = configService.get<string>('CONTROL_PLANE_URL', 'http://localhost:3000');
     this.tenantId = configService.get<string>('TENANT_ID', 'default-tenant');
     this.apiKey = configService.get<string>('CONTROL_PLANE_API_KEY', 'dev-key');
   }
@@ -74,10 +71,7 @@ export class ControlPlaneClient {
   /**
    * Validate license feature
    */
-  async validateLicenseFeature(
-    feature: string,
-    context?: Record<string, any>,
-  ): Promise<any> {
+  async validateLicenseFeature(feature: string, context?: Record<string, any>): Promise<any> {
     const response = await this.callTool('check_feature_access', {
       tenantId: this.tenantId,
       feature,
@@ -86,10 +80,7 @@ export class ControlPlaneClient {
 
     return {
       ...response,
-      allowed:
-        response?.allowed ??
-        response?.hasAccess ??
-        false,
+      allowed: response?.allowed ?? response?.hasAccess ?? false,
     };
   }
 
@@ -111,8 +102,7 @@ export class ControlPlaneClient {
 
     const limit = limitMap[resourceType];
     const unlimited = limit === -1;
-    const allowed =
-      unlimited || typeof limit !== 'number' ? true : requestedCount <= limit;
+    const allowed = unlimited || typeof limit !== 'number' ? true : requestedCount <= limit;
 
     return {
       allowed,
@@ -193,39 +183,29 @@ export class ControlPlaneClient {
   /**
    * Generic tool call to Control Plane MCP
    */
-  private async callTool(
-    toolName: string,
-    args: Record<string, any>,
-  ): Promise<any> {
+  private async callTool(toolName: string, args: Record<string, any>): Promise<any> {
     try {
-      const response = await fetch(
-        `${this.controlPlaneUrl}/api/v1/mcp/tools/call`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': this.apiKey,
-            'x-tenant-id': this.tenantId,
-          },
-          body: JSON.stringify({
-            name: toolName,
-            arguments: args,
-          }),
+      const response = await fetch(`${this.controlPlaneUrl}/api/v1/mcp/tools/call`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey,
+          'x-tenant-id': this.tenantId,
         },
-      );
+        body: JSON.stringify({
+          name: toolName,
+          arguments: args,
+        }),
+      });
 
       if (!response.ok) {
-        throw new Error(
-          `Control Plane API error: ${response.status} ${response.statusText}`,
-        );
+        throw new Error(`Control Plane API error: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();
 
       if (!result.success) {
-        throw new Error(
-          `Control Plane tool call failed: ${result.error || 'Unknown error'}`,
-        );
+        throw new Error(`Control Plane tool call failed: ${result.error || 'Unknown error'}`);
       }
 
       return result.result;
@@ -241,21 +221,16 @@ export class ControlPlaneClient {
   async readResource(uri: string): Promise<any> {
     try {
       const encodedUri = encodeURIComponent(uri);
-      const response = await fetch(
-        `${this.controlPlaneUrl}/api/v1/mcp/resources/${encodedUri}`,
-        {
-          method: 'GET',
-          headers: {
-            'x-api-key': this.apiKey,
-            'x-tenant-id': this.tenantId,
-          },
+      const response = await fetch(`${this.controlPlaneUrl}/api/v1/mcp/resources/${encodedUri}`, {
+        method: 'GET',
+        headers: {
+          'x-api-key': this.apiKey,
+          'x-tenant-id': this.tenantId,
         },
-      );
+      });
 
       if (!response.ok) {
-        throw new Error(
-          `Control Plane API error: ${response.status} ${response.statusText}`,
-        );
+        throw new Error(`Control Plane API error: ${response.status} ${response.statusText}`);
       }
 
       const resource = await response.json();
@@ -271,21 +246,16 @@ export class ControlPlaneClient {
    */
   async getCapabilities(): Promise<any> {
     try {
-      const response = await fetch(
-        `${this.controlPlaneUrl}/api/v1/mcp/capabilities`,
-        {
-          method: 'GET',
-          headers: {
-            'x-api-key': this.apiKey,
-            'x-tenant-id': this.tenantId,
-          },
+      const response = await fetch(`${this.controlPlaneUrl}/api/v1/mcp/capabilities`, {
+        method: 'GET',
+        headers: {
+          'x-api-key': this.apiKey,
+          'x-tenant-id': this.tenantId,
         },
-      );
+      });
 
       if (!response.ok) {
-        throw new Error(
-          `Control Plane API error: ${response.status} ${response.statusText}`,
-        );
+        throw new Error(`Control Plane API error: ${response.status} ${response.statusText}`);
       }
 
       return await response.json();
@@ -295,4 +265,3 @@ export class ControlPlaneClient {
     }
   }
 }
-

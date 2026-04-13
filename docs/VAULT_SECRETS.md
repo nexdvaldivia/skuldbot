@@ -99,15 +99,15 @@ Este documento describe la arquitectura completa de gestión de secretos, creden
 
 ## Proveedores de Vault Soportados
 
-| Provider | Descripción | Dependencias | Configuración | Compliance |
-|----------|-------------|--------------|---------------|------------|
-| `ENV` | Variables de entorno | Ninguna | `os.environ` | - |
-| `DOTENV` | Archivo `.env` | Ninguna | Archivo `.env` en directorio | - |
-| `LOCAL` | **Vault local encriptado** | `cryptography` | `SKULDBOT_VAULT_PASSWORD` | HIPAA, PCI-DSS |
-| `ORCHESTRATOR` | API del Orchestrator | Ninguna | `SKULDBOT_ORCHESTRATOR_URL`, `SKULDBOT_ORCHESTRATOR_TOKEN` | HIPAA, SOX |
-| `AWS` | AWS Secrets Manager | `boto3` | AWS credentials configuradas | HIPAA, SOC2 |
-| `AZURE` | Azure Key Vault | `azure-identity`, `azure-keyvault-secrets` | `AZURE_KEYVAULT_URL` | HIPAA, SOC2 |
-| `HASHICORP` | HashiCorp Vault | `hvac` | `VAULT_ADDR`, `VAULT_TOKEN` | HIPAA, PCI-DSS |
+| Provider       | Descripción                | Dependencias                               | Configuración                                              | Compliance     |
+| -------------- | -------------------------- | ------------------------------------------ | ---------------------------------------------------------- | -------------- |
+| `ENV`          | Variables de entorno       | Ninguna                                    | `os.environ`                                               | -              |
+| `DOTENV`       | Archivo `.env`             | Ninguna                                    | Archivo `.env` en directorio                               | -              |
+| `LOCAL`        | **Vault local encriptado** | `cryptography`                             | `SKULDBOT_VAULT_PASSWORD`                                  | HIPAA, PCI-DSS |
+| `ORCHESTRATOR` | API del Orchestrator       | Ninguna                                    | `SKULDBOT_ORCHESTRATOR_URL`, `SKULDBOT_ORCHESTRATOR_TOKEN` | HIPAA, SOX     |
+| `AWS`          | AWS Secrets Manager        | `boto3`                                    | AWS credentials configuradas                               | HIPAA, SOC2    |
+| `AZURE`        | Azure Key Vault            | `azure-identity`, `azure-keyvault-secrets` | `AZURE_KEYVAULT_URL`                                       | HIPAA, SOC2    |
+| `HASHICORP`    | HashiCorp Vault            | `hvac`                                     | `VAULT_ADDR`, `VAULT_TOKEN`                                | HIPAA, PCI-DSS |
 
 ### Instalación de Dependencias por Proveedor
 
@@ -128,6 +128,7 @@ pip install hvac
 ### Local Vault - Para Industrias Reguladas (HIPAA, PCI-DSS)
 
 El Local Vault es la opción recomendada para:
+
 - **Healthcare** (HIPAA, HITECH)
 - **Finanzas** (PCI-DSS, SOX)
 - **Gobierno** (FedRAMP)
@@ -135,15 +136,15 @@ El Local Vault es la opción recomendada para:
 
 #### Características de Seguridad
 
-| Característica | Especificación | Estándar |
-|----------------|----------------|----------|
-| Encriptación | AES-256-GCM | NIST FIPS 197 |
-| Derivación de clave | PBKDF2-SHA256 | NIST SP 800-132 |
-| Iteraciones | 600,000 | OWASP 2023 |
-| Salt | 32 bytes (256 bits) | NIST |
-| IV | 12 bytes (96 bits) | NIST GCM |
-| Authentication Tag | 16 bytes (128 bits) | GCM |
-| Audit Logging | Todas las operaciones | HIPAA §164.312 |
+| Característica      | Especificación        | Estándar        |
+| ------------------- | --------------------- | --------------- |
+| Encriptación        | AES-256-GCM           | NIST FIPS 197   |
+| Derivación de clave | PBKDF2-SHA256         | NIST SP 800-132 |
+| Iteraciones         | 600,000               | OWASP 2023      |
+| Salt                | 32 bytes (256 bits)   | NIST            |
+| IV                  | 12 bytes (96 bits)    | NIST GCM        |
+| Authentication Tag  | 16 bytes (128 bits)   | GCM             |
+| Audit Logging       | Todas las operaciones | HIPAA §164.312  |
 
 #### Estructura de Archivos
 
@@ -155,6 +156,7 @@ mi-proyecto/.skuldbot/
 ```
 
 **IMPORTANTE**: Agregar a `.gitignore`:
+
 ```gitignore
 .skuldbot/vault.enc
 .skuldbot/vault.meta
@@ -269,6 +271,7 @@ vault.lock()
 #### Fallback Chain
 
 Cuando usas `provider=local`, el sistema intenta:
+
 1. **Local Vault** (si está desbloqueado)
 2. **Variables de entorno** (`os.environ`)
 3. **Archivo `.env`**
@@ -349,14 +352,14 @@ spec:
   template:
     spec:
       containers:
-      - name: bot
-        image: my-bot:latest
-        env:
-        - name: SKULDBOT_VAULT_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: skuldbot-vault
-              key: password
+        - name: bot
+          image: my-bot:latest
+          env:
+            - name: SKULDBOT_VAULT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: skuldbot-vault
+                  key: password
 ```
 
 **Opción 3: Systemd Service (Linux on-premise)**
@@ -504,6 +507,7 @@ actual_value = api_key  # El string real cuando se usa
 #### 5. Fallback Chain
 
 Si Azure falla, el sistema intenta automáticamente:
+
 1. Azure Key Vault (proveedor especificado)
 2. Variables de entorno (`os.environ`)
 3. Archivo `.env`
@@ -517,6 +521,7 @@ ${key}=    Get Secret    API_KEY    provider=azure    default=fallback-key
 ## SkuldVault Library (Python)
 
 ### Ubicación
+
 ```
 engine/skuldbot/libs/vault.py
 ```
@@ -589,6 +594,7 @@ class SecretValue:
 ```
 
 **Beneficios:**
+
 - El valor real nunca se muestra en logs
 - `print(secret)` muestra `***`
 - Acceso al valor real via `secret.value`
@@ -641,20 +647,21 @@ class VariableDefinition(BaseModel):
 ## Nodos de Seguridad (Studio)
 
 ### Ubicación
+
 ```
 studio/src/data/nodeTemplates.ts
 ```
 
 ### Nodos Disponibles
 
-| Nodo | Descripción |
-|------|-------------|
-| `security.get_secret` | Obtener un secreto del vault |
-| `security.encrypt` | Encriptar datos |
-| `security.decrypt` | Desencriptar datos |
-| `security.hash` | Hashear datos (SHA256, SHA512, MD5) |
-| `security.mask_data` | Enmascarar datos sensibles |
-| `security.validate_cert` | Validar certificados SSL |
+| Nodo                     | Descripción                         |
+| ------------------------ | ----------------------------------- |
+| `security.get_secret`    | Obtener un secreto del vault        |
+| `security.encrypt`       | Encriptar datos                     |
+| `security.decrypt`       | Desencriptar datos                  |
+| `security.hash`          | Hashear datos (SHA256, SHA512, MD5) |
+| `security.mask_data`     | Enmascarar datos sensibles          |
+| `security.validate_cert` | Validar certificados SSL            |
 
 ### Ejemplo: Nodo Get Secret
 
@@ -678,11 +685,13 @@ studio/src/data/nodeTemplates.ts
 ## UI: Panel de Variables de Entorno
 
 ### Ubicación
+
 ```
 studio/src/components/EnvPanel.tsx
 ```
 
 ### Características
+
 - **3 ambientes**: Development, Staging, Production
 - **Toggle de secreto**: Marca variables como secretas
 - **Visibilidad**: Show/hide para valores secretos
@@ -694,8 +703,8 @@ studio/src/components/EnvPanel.tsx
 ```typescript
 interface EnvVariable {
   id: string;
-  name: string;      // e.g., "API_KEY"
-  value: string;     // El valor (encriptado si isSecret)
+  name: string; // e.g., "API_KEY"
+  value: string; // El valor (encriptado si isSecret)
   isSecret: boolean; // Si debe ocultarse en UI
 }
 ```
@@ -703,6 +712,7 @@ interface EnvVariable {
 ## Compilador: Manejo de Credenciales
 
 ### Ubicación
+
 ```
 engine/skuldbot/compiler/compiler.py
 ```
@@ -746,11 +756,11 @@ GET  /api/v1/vault/secrets           # Listar secretos
 
 ## Algoritmos de Hashing
 
-| Algoritmo | Uso Recomendado |
-|-----------|-----------------|
-| `SHA256` | General, verificación de integridad |
-| `SHA512` | Mayor seguridad, datos críticos |
-| `MD5` | Legacy, NO recomendado para seguridad |
+| Algoritmo | Uso Recomendado                       |
+| --------- | ------------------------------------- |
+| `SHA256`  | General, verificación de integridad   |
+| `SHA512`  | Mayor seguridad, datos críticos       |
+| `MD5`     | Legacy, NO recomendado para seguridad |
 
 ```python
 # Ejemplo
@@ -762,6 +772,7 @@ hashed = vault.hash_secret("my_password", algorithm="SHA256")
 ### DO (Hacer)
 
 1. **Usar referencias**: Nunca hardcodear secretos en DSL
+
    ```json
    { "type": "credential", "vault": "orchestrator" }
    ```
@@ -784,22 +795,23 @@ hashed = vault.hash_secret("my_password", algorithm="SHA256")
 
 ## Estado de Implementación
 
-| Feature | Estado | Notas |
-|---------|--------|-------|
-| Multi-provider vault | ✅ Completo | ENV, DOTENV, LOCAL, Orchestrator, AWS, Azure, HashiCorp |
-| Local Vault (AES-256-GCM) | ✅ Completo | PBKDF2-SHA256, 600K iteraciones, HIPAA compliant |
-| Audit Logging | ✅ Completo | JSON lines, HIPAA §164.312 |
-| Secret hashing | ✅ Completo | SHA256, SHA512, MD5 |
-| Secret masking | ✅ Completo | SecretValue, mask_secret_in_string |
-| Credential DSL type | ✅ Completo | Modelo y compilador |
-| Security nodes | ✅ Completo | Templates en Studio |
-| EnvPanel UI | ✅ Completo | 3 ambientes, toggle secreto |
-| End-to-end encryption | ✅ Completo | AES-256-GCM en Local Vault |
-| Secret rotation | ❌ Pendiente | - |
+| Feature                   | Estado       | Notas                                                   |
+| ------------------------- | ------------ | ------------------------------------------------------- |
+| Multi-provider vault      | ✅ Completo  | ENV, DOTENV, LOCAL, Orchestrator, AWS, Azure, HashiCorp |
+| Local Vault (AES-256-GCM) | ✅ Completo  | PBKDF2-SHA256, 600K iteraciones, HIPAA compliant        |
+| Audit Logging             | ✅ Completo  | JSON lines, HIPAA §164.312                              |
+| Secret hashing            | ✅ Completo  | SHA256, SHA512, MD5                                     |
+| Secret masking            | ✅ Completo  | SecretValue, mask_secret_in_string                      |
+| Credential DSL type       | ✅ Completo  | Modelo y compilador                                     |
+| Security nodes            | ✅ Completo  | Templates en Studio                                     |
+| EnvPanel UI               | ✅ Completo  | 3 ambientes, toggle secreto                             |
+| End-to-end encryption     | ✅ Completo  | AES-256-GCM en Local Vault                              |
+| Secret rotation           | ❌ Pendiente | -                                                       |
 
 ## Roadmap
 
 ### Fase 1 - Completado
+
 - [x] SkuldVault library
 - [x] Multi-provider support (7 proveedores)
 - [x] DSL credential type
@@ -808,6 +820,7 @@ hashed = vault.hash_secret("my_password", algorithm="SHA256")
 - [x] EnvPanel UI
 
 ### Fase 2 - Completado
+
 - [x] Local Vault con AES-256-GCM encryption
 - [x] PBKDF2-SHA256 key derivation (600K iteraciones)
 - [x] Audit logging (HIPAA §164.312 compliant)
@@ -815,11 +828,13 @@ hashed = vault.hash_secret("my_password", algorithm="SHA256")
 - [x] Integración con BotRunner
 
 ### Fase 3 (Próxima)
+
 - [ ] Client-side encryption en Studio
 - [ ] UI para gestionar Local Vault desde Studio
 - [ ] Secret rotation automática
 
 ### Fase 4 (Futuro)
+
 - [ ] Integración con HSM
 - [ ] mTLS para comunicación con Orchestrator
 - [ ] Políticas de acceso (RBAC) por secreto
@@ -829,59 +844,59 @@ hashed = vault.hash_secret("my_password", algorithm="SHA256")
 
 ### Local Vault
 
-| Archivo | Descripción |
-|---------|-------------|
+| Archivo                                                  | Descripción                                         |
+| -------------------------------------------------------- | --------------------------------------------------- |
 | [local_vault.py](../engine/skuldbot/libs/local_vault.py) | Implementación core del vault local con AES-256-GCM |
-| [vault.py](../engine/skuldbot/libs/vault.py) | SkuldVault library con soporte multi-provider |
-| [requirements.txt](../engine/requirements.txt) | Dependencia `cryptography>=41.0.0` |
+| [vault.py](../engine/skuldbot/libs/vault.py)             | SkuldVault library con soporte multi-provider       |
+| [requirements.txt](../engine/requirements.txt)           | Dependencia `cryptography>=41.0.0`                  |
 
 ### Robot Framework Keywords
 
 **Keywords del Local Vault:**
 
-| Keyword | Descripción |
-|---------|-------------|
-| `Create Local Vault` | Crear un nuevo vault con master password |
-| `Unlock Local Vault` | Desbloquear vault existente |
-| `Lock Local Vault` | Bloquear vault y limpiar keys de memoria |
-| `Change Vault Password` | Cambiar master password |
-| `Get Vault Audit Log` | Obtener log de auditoría |
-| `Local Vault Is Unlocked` | Verificar si el vault está desbloqueado |
+| Keyword                   | Descripción                              |
+| ------------------------- | ---------------------------------------- |
+| `Create Local Vault`      | Crear un nuevo vault con master password |
+| `Unlock Local Vault`      | Desbloquear vault existente              |
+| `Lock Local Vault`        | Bloquear vault y limpiar keys de memoria |
+| `Change Vault Password`   | Cambiar master password                  |
+| `Get Vault Audit Log`     | Obtener log de auditoría                 |
+| `Local Vault Is Unlocked` | Verificar si el vault está desbloqueado  |
 
 **Keywords Generales:**
 
-| Keyword | Descripción |
-|---------|-------------|
-| `Get Secret` | Obtener secreto de cualquier provider |
-| `Set Secret` | Guardar secreto (LOCAL, ORCHESTRATOR) |
-| `Delete Secret` | Eliminar secreto |
-| `List Secrets` | Listar nombres de secretos |
-| `Secret Exists` | Verificar si existe un secreto |
-| `Hash Secret` | Hashear un valor (SHA256, SHA512, MD5) |
+| Keyword                 | Descripción                             |
+| ----------------------- | --------------------------------------- |
+| `Get Secret`            | Obtener secreto de cualquier provider   |
+| `Set Secret`            | Guardar secreto (LOCAL, ORCHESTRATOR)   |
+| `Delete Secret`         | Eliminar secreto                        |
+| `List Secrets`          | Listar nombres de secretos              |
+| `Secret Exists`         | Verificar si existe un secreto          |
+| `Hash Secret`           | Hashear un valor (SHA256, SHA512, MD5)  |
 | `Mask Secret In String` | Reemplazar secreto con `***` en strings |
-| `Clear Secret Cache` | Limpiar cache de secretos |
+| `Clear Secret Cache`    | Limpiar cache de secretos               |
 
 ## Compliance y Certificaciones
 
 El sistema de vault de SkuldBot está diseñado para cumplir con:
 
-| Regulación | Características |
-|------------|-----------------|
-| **HIPAA** | Audit logging, encryption at rest (AES-256), access controls |
-| **PCI-DSS** | Strong cryptography, key management, audit trails |
-| **SOC 2** | Encryption, access logging, data protection |
-| **GDPR** | Data encryption, audit capabilities |
-| **FedRAMP** | FIPS-compliant algorithms (AES-256, SHA-256) |
+| Regulación  | Características                                              |
+| ----------- | ------------------------------------------------------------ |
+| **HIPAA**   | Audit logging, encryption at rest (AES-256), access controls |
+| **PCI-DSS** | Strong cryptography, key management, audit trails            |
+| **SOC 2**   | Encryption, access logging, data protection                  |
+| **GDPR**    | Data encryption, audit capabilities                          |
+| **FedRAMP** | FIPS-compliant algorithms (AES-256, SHA-256)                 |
 
 ### Recomendaciones por Industria
 
-| Industria | Provider Recomendado | Alternativa |
-|-----------|---------------------|-------------|
-| Healthcare (HIPAA) | `LOCAL` o `AZURE` | `AWS` |
-| Finanzas (PCI-DSS) | `LOCAL` o `HASHICORP` | `AWS` |
-| Gobierno (FedRAMP) | `LOCAL` o `AWS` | `AZURE` |
-| Startups | `LOCAL` o `ENV` | `DOTENV` |
-| Enterprise | `ORCHESTRATOR` | `HASHICORP` |
+| Industria          | Provider Recomendado  | Alternativa |
+| ------------------ | --------------------- | ----------- |
+| Healthcare (HIPAA) | `LOCAL` o `AZURE`     | `AWS`       |
+| Finanzas (PCI-DSS) | `LOCAL` o `HASHICORP` | `AWS`       |
+| Gobierno (FedRAMP) | `LOCAL` o `AWS`       | `AZURE`     |
+| Startups           | `LOCAL` o `ENV`       | `DOTENV`    |
+| Enterprise         | `ORCHESTRATOR`        | `HASHICORP` |
 
 ## Troubleshooting
 
@@ -908,6 +923,7 @@ VaultError: Invalid password
 ```
 
 **Solución**: La contraseña proporcionada no coincide con la usada al crear el vault. Verifica:
+
 1. La variable `SKULDBOT_VAULT_PASSWORD` tiene el valor correcto
 2. No hay espacios en blanco adicionales
 3. El encoding es correcto (UTF-8)
@@ -927,6 +943,7 @@ SecretNotFoundError: Secret 'MY_SECRET' not found
 ```
 
 **Solución**:
+
 1. Verifica que el secreto fue agregado: `List Secrets    provider=local`
 2. Verifica que el vault está desbloqueado
 3. Si usas fallback, verifica las variables de entorno
@@ -948,6 +965,7 @@ Library    SkuldVault    enable_audit=True
 **Causa**: El vault carga todos los secretos en memoria al desbloquear.
 
 **Solución**:
+
 1. Usar cache: `Library    SkuldVault    cache_secrets=True`
 2. Dividir secretos en múltiples vaults por proyecto
 3. Para >1000 secretos, considerar HashiCorp Vault o AWS Secrets Manager
@@ -957,6 +975,7 @@ Library    SkuldVault    enable_audit=True
 ### ¿El vault local es seguro para producción?
 
 **Sí**, si se siguen las mejores prácticas:
+
 - AES-256-GCM es el estándar de la industria (usado por AWS, Azure, Google)
 - PBKDF2 con 600K iteraciones protege contra ataques de fuerza bruta
 - El archivo `.skuldbot/` debe estar en `.gitignore`
@@ -1009,6 +1028,7 @@ vault_path = Path.home() / ".skuldbot"
 ### ¿Cómo hago backup del vault?
 
 1. **Backup encriptado** (recomendado):
+
    ```bash
    cp -r /project/.skuldbot /backup/vault-$(date +%Y%m%d)
    ```

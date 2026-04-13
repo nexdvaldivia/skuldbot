@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  UseGuards,
-  Request,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { LicensingServer } from './servers/licensing.server';
 import { MarketplaceServer } from './servers/marketplace.server';
 import { MeteringServer } from './servers/metering.server';
@@ -15,7 +7,7 @@ import { ToolCallDto, MCPCapabilitiesDto } from './dto/tool-call.dto';
 
 /**
  * MCP Controller for Control Plane
- * 
+ *
  * Exposes MCP servers via REST API
  * Endpoints:
  * - GET  /api/v1/mcp/tools
@@ -251,4 +243,3 @@ export class MCPController {
     }
   }
 }
-

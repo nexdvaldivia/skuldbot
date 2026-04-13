@@ -1,60 +1,58 @@
-import { ChevronDown, ChevronUp, Trash2, Copy, Download, Terminal, Filter } from "lucide-react";
-import { useLogsStore, type LogEntry } from "../store/logsStore";
-import { useToastStore } from "../store/toastStore";
-import { useState, useRef, useEffect } from "react";
+import { ChevronDown, ChevronUp, Trash2, Copy, Download, Terminal, Filter } from 'lucide-react';
+import { useLogsStore, type LogEntry } from '../store/logsStore';
+import { useToastStore } from '../store/toastStore';
+import { useState, useRef, useEffect } from 'react';
 
-type LogLevel = "debug" | "info" | "warning" | "error" | "success";
+type LogLevel = 'debug' | 'info' | 'warning' | 'error' | 'success';
 
 const logLevelConfig: Record<LogLevel, { color: string; bg: string; icon: string }> = {
-  debug: { color: "text-neutral-400", bg: "bg-neutral-500/20", icon: "DBG" },
-  info: { color: "text-sky-400", bg: "bg-sky-500/20", icon: "INF" },
-  warning: { color: "text-amber-400", bg: "bg-amber-500/20", icon: "WRN" },
-  error: { color: "text-rose-400", bg: "bg-rose-500/20", icon: "ERR" },
-  success: { color: "text-emerald-400", bg: "bg-emerald-500/20", icon: "OK" },
+  debug: { color: 'text-neutral-400', bg: 'bg-neutral-500/20', icon: 'DBG' },
+  info: { color: 'text-sky-400', bg: 'bg-sky-500/20', icon: 'INF' },
+  warning: { color: 'text-amber-400', bg: 'bg-amber-500/20', icon: 'WRN' },
+  error: { color: 'text-rose-400', bg: 'bg-rose-500/20', icon: 'ERR' },
+  success: { color: 'text-emerald-400', bg: 'bg-emerald-500/20', icon: 'OK' },
 };
 
 export default function LogsPanel() {
   const { logs, isOpen, togglePanel, clearLogs } = useLogsStore();
   const { success } = useToastStore();
-  const [filter, setFilter] = useState<LogLevel | "all">("all");
+  const [filter, setFilter] = useState<LogLevel | 'all'>('all');
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll al final cuando hay nuevos logs
   useEffect(() => {
     if (logsEndRef.current && isOpen) {
-      logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [logs.length, isOpen]);
 
   const handleCopyLogs = () => {
     const text = logs
       .map((log) => `[${log.timestamp}] ${log.level.toUpperCase()}: ${log.message}`)
-      .join("\n");
+      .join('\n');
     navigator.clipboard.writeText(text);
-    success("Logs copied");
+    success('Logs copied');
   };
 
   const handleDownloadLogs = () => {
     const text = logs
       .map((log) => `[${log.timestamp}] ${log.level.toUpperCase()}: ${log.message}`)
-      .join("\n");
-    const blob = new Blob([text], { type: "text/plain" });
+      .join('\n');
+    const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url;
     a.download = `skuldbot-logs-${Date.now()}.txt`;
     a.click();
     URL.revokeObjectURL(url);
-    success("Logs downloaded");
+    success('Logs downloaded');
   };
 
-  const filteredLogs = filter === "all"
-    ? logs
-    : logs.filter(log => log.level === filter);
+  const filteredLogs = filter === 'all' ? logs : logs.filter((log) => log.level === filter);
 
-  const infoCount = logs.filter(l => l.level === "info").length;
-  const warningCount = logs.filter(l => l.level === "warning").length;
-  const errorCount = logs.filter(l => l.level === "error").length;
+  const infoCount = logs.filter((l) => l.level === 'info').length;
+  const warningCount = logs.filter((l) => l.level === 'warning').length;
+  const errorCount = logs.filter((l) => l.level === 'error').length;
 
   if (!isOpen) {
     return (
@@ -108,33 +106,36 @@ export default function LogsPanel() {
 
             {logs.length > 0 && (
               <span className="text-[10px] bg-neutral-800 text-neutral-500 px-1.5 py-0.5 rounded font-mono">
-                {filteredLogs.length}{filter !== "all" && ` / ${logs.length}`}
+                {filteredLogs.length}
+                {filter !== 'all' && ` / ${logs.length}`}
               </span>
             )}
 
             {/* Filtros por categoría */}
             <div className="flex items-center gap-1 ml-2">
               <button
-                onClick={() => setFilter("all")}
+                onClick={() => setFilter('all')}
                 className={`
                   px-2 py-0.5 text-[10px] font-medium rounded transition-colors
-                  ${filter === "all"
-                    ? "bg-neutral-700 text-neutral-200"
-                    : "text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800"
+                  ${
+                    filter === 'all'
+                      ? 'bg-neutral-700 text-neutral-200'
+                      : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800'
                   }
                 `}
               >
                 All
               </button>
               <button
-                onClick={() => setFilter("info")}
+                onClick={() => setFilter('info')}
                 className={`
                   px-2 py-0.5 text-[10px] font-medium rounded transition-colors flex items-center gap-1
-                  ${filter === "info"
-                    ? "bg-sky-500/30 text-sky-300"
-                    : infoCount > 0
-                      ? "text-sky-400/70 hover:text-sky-300 hover:bg-sky-500/20"
-                      : "text-neutral-600 hover:text-neutral-400 hover:bg-neutral-800"
+                  ${
+                    filter === 'info'
+                      ? 'bg-sky-500/30 text-sky-300'
+                      : infoCount > 0
+                        ? 'text-sky-400/70 hover:text-sky-300 hover:bg-sky-500/20'
+                        : 'text-neutral-600 hover:text-neutral-400 hover:bg-neutral-800'
                   }
                 `}
               >
@@ -142,14 +143,15 @@ export default function LogsPanel() {
                 {infoCount > 0 && <span className="font-mono">{infoCount}</span>}
               </button>
               <button
-                onClick={() => setFilter("warning")}
+                onClick={() => setFilter('warning')}
                 className={`
                   px-2 py-0.5 text-[10px] font-medium rounded transition-colors flex items-center gap-1
-                  ${filter === "warning"
-                    ? "bg-amber-500/30 text-amber-300"
-                    : warningCount > 0
-                      ? "text-amber-400/70 hover:text-amber-300 hover:bg-amber-500/20"
-                      : "text-neutral-600 hover:text-neutral-400 hover:bg-neutral-800"
+                  ${
+                    filter === 'warning'
+                      ? 'bg-amber-500/30 text-amber-300'
+                      : warningCount > 0
+                        ? 'text-amber-400/70 hover:text-amber-300 hover:bg-amber-500/20'
+                        : 'text-neutral-600 hover:text-neutral-400 hover:bg-neutral-800'
                   }
                 `}
               >
@@ -157,14 +159,15 @@ export default function LogsPanel() {
                 {warningCount > 0 && <span className="font-mono">{warningCount}</span>}
               </button>
               <button
-                onClick={() => setFilter("error")}
+                onClick={() => setFilter('error')}
                 className={`
                   px-2 py-0.5 text-[10px] font-medium rounded transition-colors flex items-center gap-1
-                  ${filter === "error"
-                    ? "bg-rose-500/30 text-rose-300"
-                    : errorCount > 0
-                      ? "text-rose-400/70 hover:text-rose-300 hover:bg-rose-500/20"
-                      : "text-neutral-600 hover:text-neutral-400 hover:bg-neutral-800"
+                  ${
+                    filter === 'error'
+                      ? 'bg-rose-500/30 text-rose-300'
+                      : errorCount > 0
+                        ? 'text-rose-400/70 hover:text-rose-300 hover:bg-rose-500/20'
+                        : 'text-neutral-600 hover:text-neutral-400 hover:bg-neutral-800'
                   }
                 `}
               >
@@ -216,7 +219,9 @@ export default function LogsPanel() {
             <div className="flex flex-col items-center justify-center h-full text-neutral-600">
               <Terminal size={32} className="mb-2 opacity-50" />
               <p className="text-xs">No logs yet</p>
-              <p className="text-[10px] text-neutral-700 mt-1">Run or compile a bot to see output here</p>
+              <p className="text-[10px] text-neutral-700 mt-1">
+                Run or compile a bot to see output here
+              </p>
             </div>
           ) : filteredLogs.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-neutral-600">
@@ -238,11 +243,11 @@ export default function LogsPanel() {
 }
 
 function LogEntryComponent({ log }: { log: LogEntry }) {
-  const time = new Date(log.timestamp).toLocaleTimeString("en-US", {
+  const time = new Date(log.timestamp).toLocaleTimeString('en-US', {
     hour12: false,
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
   });
 
   const config = logLevelConfig[log.level as LogLevel] || logLevelConfig.info;
@@ -254,10 +259,12 @@ function LogEntryComponent({ log }: { log: LogEntry }) {
         <span className="text-neutral-600 flex-shrink-0 select-none">{time}</span>
 
         {/* Level badge */}
-        <span className={`
+        <span
+          className={`
           flex-shrink-0 px-1 py-0 rounded text-[9px] font-bold tracking-wide
           ${config.bg} ${config.color}
-        `}>
+        `}
+        >
           {config.icon}
         </span>
 
@@ -266,14 +273,14 @@ function LogEntryComponent({ log }: { log: LogEntry }) {
       </div>
 
       {log.details && (
-        <pre className={`
+        <pre
+          className={`
           mt-1.5 ml-[72px] text-[10px] whitespace-pre-wrap
           pl-3 border-l-2 border-neutral-800
           ${config.color} opacity-70
-        `}>
-          {typeof log.details === "string"
-            ? log.details
-            : JSON.stringify(log.details, null, 2)}
+        `}
+        >
+          {typeof log.details === 'string' ? log.details : JSON.stringify(log.details, null, 2)}
         </pre>
       )}
     </div>

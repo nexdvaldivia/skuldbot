@@ -1,17 +1,11 @@
-import { useState, useCallback } from "react";
-import { FormFieldDefinition } from "../types/flow";
-import { Icon } from "./ui/Icon";
-import { Button } from "./ui/Button";
-import { Input } from "./ui/Input";
-import { Label } from "./ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
-import { Switch } from "./ui/switch";
+import { useState, useCallback } from 'react';
+import { FormFieldDefinition } from '../types/flow';
+import { Icon } from './ui/Icon';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Switch } from './ui/switch';
 
 interface FormBuilderProps {
   value: FormFieldDefinition[];
@@ -19,14 +13,14 @@ interface FormBuilderProps {
 }
 
 const FIELD_TYPES = [
-  { value: "text", label: "Text", icon: "Type" },
-  { value: "email", label: "Email", icon: "Mail" },
-  { value: "number", label: "Number", icon: "Hash" },
-  { value: "date", label: "Date", icon: "Calendar" },
-  { value: "dropdown", label: "Dropdown", icon: "ChevronDown" },
-  { value: "checkbox", label: "Checkbox", icon: "CheckSquare" },
-  { value: "file", label: "File Upload", icon: "Upload" },
-  { value: "textarea", label: "Text Area", icon: "AlignLeft" },
+  { value: 'text', label: 'Text', icon: 'Type' },
+  { value: 'email', label: 'Email', icon: 'Mail' },
+  { value: 'number', label: 'Number', icon: 'Hash' },
+  { value: 'date', label: 'Date', icon: 'Calendar' },
+  { value: 'dropdown', label: 'Dropdown', icon: 'ChevronDown' },
+  { value: 'checkbox', label: 'Checkbox', icon: 'CheckSquare' },
+  { value: 'file', label: 'File Upload', icon: 'Upload' },
+  { value: 'textarea', label: 'Text Area', icon: 'AlignLeft' },
 ] as const;
 
 // Generate a slug from a label (for readable field IDs)
@@ -35,9 +29,9 @@ function slugify(text: string): string {
     .toLowerCase()
     .trim()
     .replace(/[^\w\s-]/g, '') // Remove special chars
-    .replace(/\s+/g, '_')     // Replace spaces with underscores
-    .replace(/-+/g, '_')      // Replace dashes with underscores
-    .substring(0, 30);        // Limit length
+    .replace(/\s+/g, '_') // Replace spaces with underscores
+    .replace(/-+/g, '_') // Replace dashes with underscores
+    .substring(0, 30); // Limit length
 }
 
 // Generate unique ID from label
@@ -67,10 +61,10 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
   const addField = useCallback(() => {
     const fieldNumber = value.length + 1;
     const label = `Field ${fieldNumber}`;
-    const existingIds = value.map(f => f.id);
+    const existingIds = value.map((f) => f.id);
     const newField: FormFieldDefinition = {
       id: generateFieldId(label, existingIds),
-      type: "text",
+      type: 'text',
       label,
       required: false,
     };
@@ -86,7 +80,7 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
       });
       onChange(updatedFields);
     },
-    [value, onChange]
+    [value, onChange],
   );
 
   const deleteField = useCallback(
@@ -98,37 +92,32 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
         setExpandedIndex(expandedIndex - 1);
       }
     },
-    [value, onChange, expandedIndex]
+    [value, onChange, expandedIndex],
   );
 
   const moveField = useCallback(
-    (id: string, direction: "up" | "down") => {
+    (id: string, direction: 'up' | 'down') => {
       const index = value.findIndex((f) => f.id === id);
       if (
-        (direction === "up" && index === 0) ||
-        (direction === "down" && index === value.length - 1)
+        (direction === 'up' && index === 0) ||
+        (direction === 'down' && index === value.length - 1)
       ) {
         return;
       }
 
-      const newIndex = direction === "up" ? index - 1 : index + 1;
+      const newIndex = direction === 'up' ? index - 1 : index + 1;
       const newFields = [...value];
-      [newFields[index], newFields[newIndex]] = [
-        newFields[newIndex],
-        newFields[index],
-      ];
+      [newFields[index], newFields[newIndex]] = [newFields[newIndex], newFields[index]];
       onChange(newFields);
     },
-    [value, onChange]
+    [value, onChange],
   );
 
   return (
     <div className="space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <Label className="text-sm font-medium text-slate-700">
-          Form Fields ({value.length})
-        </Label>
+        <Label className="text-sm font-medium text-slate-700">Form Fields ({value.length})</Label>
         <Button
           type="button"
           variant="outline"
@@ -158,9 +147,7 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
               index={index}
               total={value.length}
               isExpanded={expandedIndex === index}
-              onToggle={() =>
-                setExpandedIndex(expandedIndex === index ? null : index)
-              }
+              onToggle={() => setExpandedIndex(expandedIndex === index ? null : index)}
               onUpdate={(updates) => updateField(field.id, updates)}
               onDelete={() => deleteField(index)}
               onMove={(dir) => moveField(field.id, dir)}
@@ -180,7 +167,7 @@ interface FieldItemProps {
   onToggle: () => void;
   onUpdate: (updates: Partial<FormFieldDefinition>) => void;
   onDelete: () => void;
-  onMove: (direction: "up" | "down") => void;
+  onMove: (direction: 'up' | 'down') => void;
 }
 
 function FieldItem({
@@ -210,19 +197,17 @@ function FieldItem({
 
         {/* Field Icon */}
         <div className="w-6 h-6 rounded bg-emerald-50 flex items-center justify-center text-emerald-500">
-          <Icon name={fieldType?.icon || "Type"} size={14} />
+          <Icon name={fieldType?.icon || 'Type'} size={14} />
         </div>
 
         {/* Field Label */}
         <div className="flex-1 min-w-0">
           <span className="text-sm font-medium text-slate-700 truncate block">
-            {field.label || "Untitled Field"}
+            {field.label || 'Untitled Field'}
           </span>
           <span className="text-xs text-slate-400">
             {fieldType?.label || field.type}
-            {field.required && (
-              <span className="text-rose-500 ml-1">*</span>
-            )}
+            {field.required && <span className="text-rose-500 ml-1">*</span>}
           </span>
         </div>
 
@@ -230,7 +215,7 @@ function FieldItem({
         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
-            onClick={() => onMove("up")}
+            onClick={() => onMove('up')}
             disabled={index === 0}
             className="p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
           >
@@ -238,7 +223,7 @@ function FieldItem({
           </button>
           <button
             type="button"
-            onClick={() => onMove("down")}
+            onClick={() => onMove('down')}
             disabled={index === total - 1}
             className="p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
           >
@@ -252,7 +237,7 @@ function FieldItem({
             <Icon name="Trash2" size={14} />
           </button>
           <Icon
-            name={isExpanded ? "ChevronUp" : "ChevronDown"}
+            name={isExpanded ? 'ChevronUp' : 'ChevronDown'}
             size={16}
             className="text-slate-400 ml-1"
           />
@@ -280,7 +265,9 @@ function FieldItem({
               Field ID <span className="text-slate-400">(used in expressions)</span>
             </Label>
             <div className="flex items-center gap-2 mt-1">
-              <code className="text-xs text-slate-400 bg-slate-100 px-1.5 py-1 rounded">formData.</code>
+              <code className="text-xs text-slate-400 bg-slate-100 px-1.5 py-1 rounded">
+                formData.
+              </code>
               <Input
                 value={field.id}
                 onChange={(e) => {
@@ -298,7 +285,10 @@ function FieldItem({
               />
             </div>
             <p className="text-[10px] text-slate-400 mt-1">
-              Expression: <code className="bg-slate-100 px-1 rounded">${`{NodeName.formData.${field.id}}`}</code>
+              Expression:{' '}
+              <code className="bg-slate-100 px-1 rounded">
+                ${`{NodeName.formData.${field.id}}`}
+              </code>
             </p>
           </div>
 
@@ -307,9 +297,7 @@ function FieldItem({
             <Label className="text-xs text-slate-500">Field Type</Label>
             <Select
               value={field.type}
-              onValueChange={(val) =>
-                onUpdate({ type: val as FormFieldDefinition["type"] })
-              }
+              onValueChange={(val) => onUpdate({ type: val as FormFieldDefinition['type'] })}
             >
               <SelectTrigger className="h-8 text-sm mt-1">
                 <SelectValue />
@@ -331,7 +319,7 @@ function FieldItem({
           <div>
             <Label className="text-xs text-slate-500">Placeholder</Label>
             <Input
-              value={field.placeholder || ""}
+              value={field.placeholder || ''}
               onChange={(e) => onUpdate({ placeholder: e.target.value })}
               onKeyDown={stopPropagation}
               placeholder="Enter placeholder text"
@@ -340,16 +328,14 @@ function FieldItem({
           </div>
 
           {/* Dropdown Options */}
-          {field.type === "dropdown" && (
+          {field.type === 'dropdown' && (
             <div>
-              <Label className="text-xs text-slate-500">
-                Options (one per line)
-              </Label>
+              <Label className="text-xs text-slate-500">Options (one per line)</Label>
               <textarea
-                value={field.options?.join("\n") || ""}
+                value={field.options?.join('\n') || ''}
                 onChange={(e) =>
                   onUpdate({
-                    options: e.target.value.split("\n").filter(Boolean),
+                    options: e.target.value.split('\n').filter(Boolean),
                   })
                 }
                 onKeyDown={stopPropagation}

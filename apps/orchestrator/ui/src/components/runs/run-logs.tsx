@@ -2,11 +2,7 @@
 
 import { useRef, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
-import {
-  useRunWebSocket,
-  type RunLogEvent,
-  type RunStepEvent,
-} from '@/hooks/use-websocket';
+import { useRunWebSocket, type RunLogEvent, type RunStepEvent } from '@/hooks/use-websocket';
 import {
   Terminal,
   AlertCircle,
@@ -84,25 +80,19 @@ function LogEntry({
     <div
       className={cn(
         'flex items-start gap-2 px-3 py-1.5 font-mono text-sm hover:bg-zinc-50 transition-colors',
-        log.level === 'error' && 'bg-error-50'
+        log.level === 'error' && 'bg-error-50',
       )}
     >
-      {showTimestamp && (
-        <span className="text-zinc-500 shrink-0 select-all">{timestamp}</span>
-      )}
+      {showTimestamp && <span className="text-zinc-500 shrink-0 select-all">{timestamp}</span>}
       {showLevel && (
         <span className={cn('shrink-0', config.color)}>
           <Icon className="h-4 w-4" />
         </span>
       )}
       {showNodeId && log.nodeId && (
-        <span className="text-brand-700 shrink-0 max-w-[120px] truncate">
-          [{log.nodeId}]
-        </span>
+        <span className="text-brand-700 shrink-0 max-w-[120px] truncate">[{log.nodeId}]</span>
       )}
-      <span className="text-zinc-800 whitespace-pre-wrap break-all flex-1">
-        {log.message}
-      </span>
+      <span className="text-zinc-800 whitespace-pre-wrap break-all flex-1">{log.message}</span>
     </div>
   );
 }
@@ -120,9 +110,7 @@ function StepProgress({ steps }: StepProgressProps) {
 
   return (
     <div className="border-b border-zinc-200 p-3 bg-zinc-50">
-      <div className="text-xs text-zinc-500 mb-2 uppercase tracking-wide">
-        Step Progress
-      </div>
+      <div className="text-xs text-zinc-500 mb-2 uppercase tracking-wide">Step Progress</div>
       <div className="flex flex-wrap gap-2">
         {steps.map((step) => (
           <div
@@ -132,14 +120,11 @@ function StepProgress({ steps }: StepProgressProps) {
               step.status === 'running' && 'bg-info-100 text-info-700',
               step.status === 'success' && 'bg-brand-100 text-brand-700',
               step.status === 'failed' && 'bg-error-100 text-error-700',
-              step.status === 'skipped' && 'bg-zinc-100 text-zinc-600'
+              step.status === 'skipped' && 'bg-zinc-100 text-zinc-600',
             )}
           >
-            <span className="opacity-60">#{step.stepIndex + 1}</span>{' '}
-            {step.nodeType}
-            {step.status === 'running' && (
-              <span className="ml-1 animate-pulse">...</span>
-            )}
+            <span className="opacity-60">#{step.stepIndex + 1}</span> {step.nodeType}
+            {step.status === 'running' && <span className="ml-1 animate-pulse">...</span>}
           </div>
         ))}
       </div>
@@ -175,17 +160,21 @@ export function RunLogs({
   const [autoScroll, setAutoScroll] = useState(initialAutoScroll);
   const [filter, setFilter] = useState<RunLogEvent['level'] | 'all'>('all');
 
-  const { isConnected, logs: wsLogs, steps, currentStatus, clearLogs } =
-    useRunWebSocket(runId, {
-      onComplete: () => {
-        onComplete?.();
-      },
-    });
+  const {
+    isConnected,
+    logs: wsLogs,
+    steps,
+    currentStatus,
+    clearLogs,
+  } = useRunWebSocket(runId, {
+    onComplete: () => {
+      onComplete?.();
+    },
+  });
 
   // Combine initial logs with websocket logs
   const allLogs = [...initialLogs, ...wsLogs];
-  const filteredLogs =
-    filter === 'all' ? allLogs : allLogs.filter((log) => log.level === filter);
+  const filteredLogs = filter === 'all' ? allLogs : allLogs.filter((log) => log.level === filter);
 
   // Auto-scroll to bottom when new logs arrive
   useEffect(() => {
@@ -227,14 +216,14 @@ export function RunLogs({
       acc[log.level] = (acc[log.level] || 0) + 1;
       return acc;
     },
-    {} as Record<string, number>
+    {} as Record<string, number>,
   );
 
   return (
     <div
       className={cn(
         'flex flex-col bg-white rounded-xl border border-zinc-200 overflow-hidden',
-        className
+        className,
       )}
     >
       {/* Header */}
@@ -246,9 +235,7 @@ export function RunLogs({
           <div
             className={cn(
               'flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs',
-              isConnected
-                ? 'bg-brand-100 text-brand-700'
-                : 'bg-error-100 text-error-700'
+              isConnected ? 'bg-brand-100 text-brand-700' : 'bg-error-100 text-error-700',
             )}
           >
             {isConnected ? (
@@ -276,16 +263,9 @@ export function RunLogs({
             variant="ghost"
             size="sm"
             onClick={() => setAutoScroll(!autoScroll)}
-            className={cn(
-              'text-zinc-500 hover:text-zinc-900',
-              autoScroll && 'text-brand-700'
-            )}
+            className={cn('text-zinc-500 hover:text-zinc-900', autoScroll && 'text-brand-700')}
           >
-            {autoScroll ? (
-              <Pause className="h-4 w-4" />
-            ) : (
-              <Play className="h-4 w-4" />
-            )}
+            {autoScroll ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
           </Button>
           <Button
             variant="ghost"
@@ -308,9 +288,7 @@ export function RunLogs({
 
       {/* Filter bar */}
       <div className="flex items-center gap-2 px-4 py-2 border-b border-zinc-200 bg-zinc-50/70">
-        <span className="text-xs text-zinc-500 uppercase tracking-wide mr-2">
-          Filter:
-        </span>
+        <span className="text-xs text-zinc-500 uppercase tracking-wide mr-2">Filter:</span>
         {(['all', 'info', 'warn', 'error', 'debug'] as const).map((level) => {
           const count = level === 'all' ? allLogs.length : levelCounts[level] || 0;
           const isActive = filter === level;
@@ -324,13 +302,11 @@ export function RunLogs({
                   ? level === 'all'
                     ? 'bg-zinc-200 text-zinc-900'
                     : cn(LOG_LEVEL_CONFIG[level].bgColor, LOG_LEVEL_CONFIG[level].color)
-                  : 'bg-white text-zinc-500 hover:bg-zinc-100'
+                  : 'bg-white text-zinc-500 hover:bg-zinc-100',
               )}
             >
               {level.charAt(0).toUpperCase() + level.slice(1)}
-              {count > 0 && (
-                <span className="ml-1 opacity-60">({count})</span>
-              )}
+              {count > 0 && <span className="ml-1 opacity-60">({count})</span>}
             </button>
           );
         })}
@@ -398,45 +374,27 @@ interface RunLogsCompactProps {
   className?: string;
 }
 
-export function RunLogsCompact({
-  runId,
-  maxLines = 10,
-  className,
-}: RunLogsCompactProps) {
+export function RunLogsCompact({ runId, maxLines = 10, className }: RunLogsCompactProps) {
   const { isConnected, logs } = useRunWebSocket(runId);
   const recentLogs = logs.slice(-maxLines);
 
   return (
-    <div
-      className={cn(
-        'bg-white rounded-xl border border-zinc-200 overflow-hidden',
-        className
-      )}
-    >
+    <div className={cn('bg-white rounded-xl border border-zinc-200 overflow-hidden', className)}>
       <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-200">
         <div className="flex items-center gap-2">
           <Terminal className="h-4 w-4 text-zinc-500" />
           <span className="text-sm text-zinc-800">Recent Logs</span>
         </div>
         <div
-          className={cn(
-            'h-2 w-2 rounded-full',
-            isConnected ? 'bg-brand-500' : 'bg-error-500'
-          )}
+          className={cn('h-2 w-2 rounded-full', isConnected ? 'bg-brand-500' : 'bg-error-500')}
         />
       </div>
       <div className="max-h-[200px] overflow-y-auto">
         {recentLogs.length === 0 ? (
-          <div className="px-3 py-4 text-center text-zinc-500 text-sm">
-            No logs yet
-          </div>
+          <div className="px-3 py-4 text-center text-zinc-500 text-sm">No logs yet</div>
         ) : (
           recentLogs.map((log, index) => (
-            <LogEntry
-              key={`${log.timestamp}-${index}`}
-              log={log}
-              showNodeId={false}
-            />
+            <LogEntry key={`${log.timestamp}-${index}`} log={log} showNodeId={false} />
           ))
         )}
       </div>

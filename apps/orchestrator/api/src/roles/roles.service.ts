@@ -8,9 +8,18 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, ILike } from 'typeorm';
 import { Role, RoleType } from './entities/role.entity';
-import { Permission, PermissionCategory, CATEGORY_DISPLAY_NAMES } from './entities/permission.entity';
+import {
+  Permission,
+  PermissionCategory,
+  CATEGORY_DISPLAY_NAMES,
+} from './entities/permission.entity';
 import { User } from '../users/entities/user.entity';
-import { AuditLog, AuditCategory, AuditAction, AuditResult } from '../audit/entities/audit-log.entity';
+import {
+  AuditLog,
+  AuditCategory,
+  AuditAction,
+  AuditResult,
+} from '../audit/entities/audit-log.entity';
 import {
   CreateRoleDto,
   UpdateRoleDto,
@@ -56,10 +65,7 @@ export class RolesService {
   // ROLE CRUD
   // ============================================================================
 
-  async findAll(
-    tenantId: string,
-    query: ListRolesQueryDto,
-  ): Promise<RoleDetailResponseDto[]> {
+  async findAll(tenantId: string, query: ListRolesQueryDto): Promise<RoleDetailResponseDto[]> {
     const {
       search,
       type,
@@ -80,10 +86,9 @@ export class RolesService {
 
     // Search filter
     if (search) {
-      queryBuilder.andWhere(
-        '(role.name ILIKE :search OR role.displayName ILIKE :search)',
-        { search: `%${search}%` },
-      );
+      queryBuilder.andWhere('(role.name ILIKE :search OR role.displayName ILIKE :search)', {
+        search: `%${search}%`,
+      });
     }
 
     // Type filter
@@ -105,9 +110,7 @@ export class RolesService {
 
     // Get user counts if requested
     if (includeUserCount) {
-      const userCounts = await this.getUserCountsForRoles(
-        roles.map((r) => r.id),
-      );
+      const userCounts = await this.getUserCountsForRoles(roles.map((r) => r.id));
       return roles.map((role) => ({
         ...this.toRoleDetailResponse(role),
         userCount: userCounts[role.id] || 0,
@@ -191,10 +194,7 @@ export class RolesService {
 
     // If setting as default, unset other defaults
     if (dto.isDefault) {
-      await this.roleRepository.update(
-        { tenantId, isDefault: true },
-        { isDefault: false },
-      );
+      await this.roleRepository.update({ tenantId, isDefault: true }, { isDefault: false });
     }
 
     await this.roleRepository.save(role);
@@ -276,10 +276,7 @@ export class RolesService {
     // Update default status
     if (dto.isDefault !== undefined) {
       if (dto.isDefault) {
-        await this.roleRepository.update(
-          { tenantId, isDefault: true },
-          { isDefault: false },
-        );
+        await this.roleRepository.update({ tenantId, isDefault: true }, { isDefault: false });
       }
       role.isDefault = dto.isDefault;
     }
@@ -306,11 +303,7 @@ export class RolesService {
     return this.findOne(tenantId, role.id);
   }
 
-  async delete(
-    tenantId: string,
-    roleId: string,
-    deletedBy: User,
-  ): Promise<void> {
+  async delete(tenantId: string, roleId: string, deletedBy: User): Promise<void> {
     const role = await this.roleRepository.findOne({
       where: { id: roleId, tenantId },
       relations: ['users'],
@@ -560,10 +553,7 @@ export class RolesService {
   // ROLE COMPARISON
   // ============================================================================
 
-  async compareRoles(
-    tenantId: string,
-    roleIds: string[],
-  ): Promise<RoleComparisonResponseDto> {
+  async compareRoles(tenantId: string, roleIds: string[]): Promise<RoleComparisonResponseDto> {
     const roles = await this.roleRepository.find({
       where: { id: In(roleIds), tenantId },
       relations: ['permissions'],
@@ -577,10 +567,7 @@ export class RolesService {
     }
 
     // Collect all unique permissions
-    const allPermissions = new Map<
-      string,
-      { permission: Permission; assignedTo: string[] }
-    >();
+    const allPermissions = new Map<string, { permission: Permission; assignedTo: string[] }>();
 
     for (const role of roles) {
       for (const permission of role.permissions) {
@@ -590,20 +577,18 @@ export class RolesService {
             assignedTo: [role.id],
           });
         } else {
-          allPermissions.get(permission.id)!.assignedTo.push(role.id);
+          allPermissions.get(permission.id).assignedTo.push(role.id);
         }
       }
     }
 
     // Sort permissions by category and name
-    const sortedPermissions = Array.from(allPermissions.values()).sort(
-      (a, b) => {
-        if (a.permission.category !== b.permission.category) {
-          return a.permission.category.localeCompare(b.permission.category);
-        }
-        return a.permission.name.localeCompare(b.permission.name);
-      },
-    );
+    const sortedPermissions = Array.from(allPermissions.values()).sort((a, b) => {
+      if (a.permission.category !== b.permission.category) {
+        return a.permission.category.localeCompare(b.permission.category);
+      }
+      return a.permission.name.localeCompare(b.permission.name);
+    });
 
     return {
       roles: roles.map((r) => ({
@@ -625,9 +610,7 @@ export class RolesService {
   // HELPERS
   // ============================================================================
 
-  private async getUserCountsForRoles(
-    roleIds: string[],
-  ): Promise<Record<string, number>> {
+  private async getUserCountsForRoles(roleIds: string[]): Promise<Record<string, number>> {
     const results = await this.userRepository
       .createQueryBuilder('user')
       .innerJoin('user.roles', 'role')

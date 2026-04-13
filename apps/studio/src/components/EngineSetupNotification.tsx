@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/tauri";
-import { Download, CheckCircle2, Loader2 } from "lucide-react";
+import { useEffect, useState } from 'react';
+import { invoke } from '@tauri-apps/api/tauri';
+import { Download, CheckCircle2, Loader2 } from 'lucide-react';
 
 interface SetupStatus {
   stage: string;
@@ -20,13 +20,13 @@ export function EngineSetupNotification() {
 
     const checkStatus = async () => {
       try {
-        const result = await invoke<SetupStatus>("get_engine_setup_status");
+        const result = await invoke<SetupStatus>('get_engine_setup_status');
         setStatus(result);
 
         // Show notification only if installing
         if (!result.is_complete) {
           setVisible(true);
-        } else if (result.message.includes("installed")) {
+        } else if (result.message.includes('installed')) {
           // Show success briefly then auto-hide
           setVisible(true);
           hideTimeout = setTimeout(() => {
@@ -42,7 +42,7 @@ export function EngineSetupNotification() {
           clearInterval(intervalId);
         }
       } catch (error) {
-        console.error("Failed to get engine setup status:", error);
+        console.error('Failed to get engine setup status:', error);
       }
     };
 
@@ -70,11 +70,7 @@ export function EngineSetupNotification() {
           mx-auto max-w-xs mb-3 px-3 py-1.5 rounded-full shadow-md pointer-events-auto
           flex items-center gap-2 text-xs font-medium
           transition-all duration-300 ease-out
-          ${
-            status.is_complete
-              ? "bg-green-500/90 text-white"
-              : "bg-slate-800/90 text-slate-100"
-          }
+          ${status.is_complete ? 'bg-green-500/90 text-white' : 'bg-slate-800/90 text-slate-100'}
         `}
       >
         {status.is_complete ? (

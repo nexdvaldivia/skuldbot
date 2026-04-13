@@ -52,17 +52,22 @@ const typeConfig: Record<string, { bg: string; text: string; label: string }> = 
   enterprise: { bg: 'bg-violet-50', text: 'text-violet-700', label: 'Enterprise' },
 };
 
-const statusConfig: Record<string, { color: string; bgColor: string; icon: React.ElementType; label: string }> = {
-  active: { color: 'text-emerald-700', bgColor: 'bg-emerald-50', icon: CheckCircle2, label: 'Active' },
+const statusConfig: Record<
+  string,
+  { color: string; bgColor: string; icon: React.ElementType; label: string }
+> = {
+  active: {
+    color: 'text-emerald-700',
+    bgColor: 'bg-emerald-50',
+    icon: CheckCircle2,
+    label: 'Active',
+  },
   expired: { color: 'text-red-700', bgColor: 'bg-red-50', icon: XCircle, label: 'Expired' },
   revoked: { color: 'text-red-700', bgColor: 'bg-red-50', icon: XCircle, label: 'Revoked' },
   suspended: { color: 'text-amber-700', bgColor: 'bg-amber-50', icon: Clock, label: 'Suspended' },
 };
 
-const decisionTypeLabels: Record<
-  'entitlement_check' | 'quota_check' | 'quota_consume',
-  string
-> = {
+const decisionTypeLabels: Record<'entitlement_check' | 'quota_check' | 'quota_consume', string> = {
   entitlement_check: 'Entitlement Check',
   quota_check: 'Quota Check',
   quota_consume: 'Quota Consume',
@@ -171,9 +176,7 @@ export default function LicensesPage() {
         variant: 'error',
         title: 'Failed to load runtime decisions',
         description:
-          error instanceof Error
-            ? error.message
-            : 'Could not fetch license runtime traceability.',
+          error instanceof Error ? error.message : 'Could not fetch license runtime traceability.',
       });
     } finally {
       setRuntimeLoading(false);
@@ -185,7 +188,8 @@ export default function LicensesPage() {
   }, [runtimeTenantId, runtimeDecisionType, runtimeResourceType]);
 
   const filteredLicenses = licenses.filter((license) => {
-    const matchesSearch = license.key.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch =
+      license.key.toLowerCase().includes(searchQuery.toLowerCase()) ||
       license.tenantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       license.clientName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || license.status === statusFilter;
@@ -194,7 +198,8 @@ export default function LicensesPage() {
   });
 
   const copyToClipboard = (key: string) => {
-    navigator.clipboard.writeText(key)
+    navigator.clipboard
+      .writeText(key)
       .then(() => {
         setCopiedKey(key);
         setTimeout(() => setCopiedKey(null), 2000);
@@ -229,16 +234,18 @@ export default function LicensesPage() {
         status: 'active',
       });
 
-      setLicenses((current) => current.map((item) => {
-        if (item.id !== license.id) {
-          return item;
-        }
-        return {
-          ...item,
-          validUntil: updated.validUntil,
-          status: updated.status,
-        };
-      }));
+      setLicenses((current) =>
+        current.map((item) => {
+          if (item.id !== license.id) {
+            return item;
+          }
+          return {
+            ...item,
+            validUntil: updated.validUntil,
+            status: updated.status,
+          };
+        }),
+      );
 
       toast({
         variant: 'success',
@@ -261,15 +268,17 @@ export default function LicensesPage() {
       setActionLicenseId(license.id);
       const updated = await licensesApi.update(license.id, { status: 'active' });
 
-      setLicenses((current) => current.map((item) => {
-        if (item.id !== license.id) {
-          return item;
-        }
-        return {
-          ...item,
-          status: updated.status,
-        };
-      }));
+      setLicenses((current) =>
+        current.map((item) => {
+          if (item.id !== license.id) {
+            return item;
+          }
+          return {
+            ...item,
+            status: updated.status,
+          };
+        }),
+      );
 
       toast({
         variant: 'success',
@@ -292,15 +301,17 @@ export default function LicensesPage() {
       setActionLicenseId(license.id);
       const updated = await licensesApi.revoke(license.id);
 
-      setLicenses((current) => current.map((item) => {
-        if (item.id !== license.id) {
-          return item;
-        }
-        return {
-          ...item,
-          status: updated.status,
-        };
-      }));
+      setLicenses((current) =>
+        current.map((item) => {
+          if (item.id !== license.id) {
+            return item;
+          }
+          return {
+            ...item,
+            status: updated.status,
+          };
+        }),
+      );
 
       toast({
         variant: 'warning',
@@ -336,8 +347,7 @@ export default function LicensesPage() {
   const runtimeBlockedCount = runtimeDecisions.filter((item) => !item.allowed).length;
   const runtimeAllowedCount = runtimeDecisions.filter((item) => item.allowed).length;
   const runtimeSelectedTenantName =
-    runtimeTenantOptions.find((item) => item.tenantId === runtimeTenantId)?.tenantName ||
-    'Tenant';
+    runtimeTenantOptions.find((item) => item.tenantId === runtimeTenantId)?.tenantName || 'Tenant';
 
   return (
     <div className="px-4 lg:px-8 py-6 lg:py-8 max-w-7xl mx-auto">
@@ -354,7 +364,13 @@ export default function LicensesPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard label="Active" value={activeCount} icon={Key} color="emerald" />
-        <StatCard label="Expiring Soon" value={expiringCount} icon={AlertCircle} color="amber" highlight={expiringCount > 0} />
+        <StatCard
+          label="Expiring Soon"
+          value={expiringCount}
+          icon={AlertCircle}
+          color="amber"
+          highlight={expiringCount > 0}
+        />
         <StatCard label="Expired" value={expiredCount} icon={XCircle} color="red" />
         <StatCard label="Total" value={totalLicenses} icon={Key} color="blue" />
       </div>
@@ -423,7 +439,9 @@ export default function LicensesPage() {
             </SelectTrigger>
             <SelectContent>
               {runtimeTenantOptions.length === 0 ? (
-                <SelectItem value="tenant-unavailable" disabled>No tenant available</SelectItem>
+                <SelectItem value="tenant-unavailable" disabled>
+                  No tenant available
+                </SelectItem>
               ) : (
                 runtimeTenantOptions.map((option) => (
                   <SelectItem key={option.tenantId} value={option.tenantId}>
@@ -550,7 +568,10 @@ export default function LicensesPage() {
             const isActionPending = actionLicenseId === license.id;
 
             return (
-              <div key={license.id} className="bg-white rounded-xl border border-zinc-200/80 p-5 hover:border-zinc-300 transition-all">
+              <div
+                key={license.id}
+                className="bg-white rounded-xl border border-zinc-200/80 p-5 hover:border-zinc-300 transition-all"
+              >
                 <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                   <div className="flex items-start gap-4 flex-1">
                     <div className="h-12 w-12 rounded-xl bg-zinc-100 flex items-center justify-center flex-shrink-0">
@@ -559,11 +580,15 @@ export default function LicensesPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-3 mb-1 flex-wrap">
                         <h3 className="font-semibold text-zinc-900">{license.tenantName}</h3>
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${status.bgColor} ${status.color}`}>
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${status.bgColor} ${status.color}`}
+                        >
                           <StatusIcon className="h-3 w-3" />
                           {status.label}
                         </span>
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${type.bg} ${type.text}`}>
+                        <span
+                          className={`px-2 py-0.5 rounded text-xs font-medium ${type.bg} ${type.text}`}
+                        >
                           {type.label}
                         </span>
                       </div>
@@ -591,13 +616,19 @@ export default function LicensesPage() {
                         <div className="flex items-center gap-1.5">
                           <Bot className="h-4 w-4 text-zinc-400" />
                           <span>
-                            {license.features.maxBots === -1 ? 'Unlimited' : license.features.maxBots} bots
+                            {license.features.maxBots === -1
+                              ? 'Unlimited'
+                              : license.features.maxBots}{' '}
+                            bots
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <Cpu className="h-4 w-4 text-zinc-400" />
                           <span>
-                            {license.features.maxRunners === -1 ? 'Unlimited' : license.features.maxRunners} runners
+                            {license.features.maxRunners === -1
+                              ? 'Unlimited'
+                              : license.features.maxRunners}{' '}
+                            runners
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5">
@@ -639,14 +670,31 @@ export default function LicensesPage() {
 
                   <div className="flex items-center gap-2 lg:shrink-0">
                     {license.status === 'active' && isExpiringSoon && (
-                      <Button size="sm" onClick={() => void handleRenewLicense(license)} disabled={isActionPending}>
-                        {isActionPending ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
+                      <Button
+                        size="sm"
+                        onClick={() => void handleRenewLicense(license)}
+                        disabled={isActionPending}
+                      >
+                        {isActionPending ? (
+                          <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                        )}
                         Renew
                       </Button>
                     )}
                     {license.status === 'expired' && (
-                      <Button variant="outline" size="sm" onClick={() => void handleReactivateLicense(license)} disabled={isActionPending}>
-                        {isActionPending ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handleReactivateLicense(license)}
+                        disabled={isActionPending}
+                      >
+                        {isActionPending ? (
+                          <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                        )}
                         Reactivate
                       </Button>
                     )}
@@ -658,7 +706,9 @@ export default function LicensesPage() {
                         onClick={() => void handleRevokeLicense(license)}
                         disabled={isActionPending}
                       >
-                        {isActionPending ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : null}
+                        {isActionPending ? (
+                          <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                        ) : null}
                         Revoke
                       </Button>
                     )}
@@ -705,13 +755,19 @@ function StatCard({
   };
 
   return (
-    <div className={`rounded-xl border p-4 ${highlight ? 'border-amber-200 bg-amber-50/30' : 'border-zinc-200/80 bg-white'}`}>
+    <div
+      className={`rounded-xl border p-4 ${highlight ? 'border-amber-200 bg-amber-50/30' : 'border-zinc-200/80 bg-white'}`}
+    >
       <div className="flex items-center gap-3 mb-3">
-        <div className={`h-8 w-8 rounded-lg ${colorClasses[color]} flex items-center justify-center`}>
+        <div
+          className={`h-8 w-8 rounded-lg ${colorClasses[color]} flex items-center justify-center`}
+        >
           <Icon className="h-4 w-4" />
         </div>
       </div>
-      <p className={`text-2xl font-semibold ${highlight ? 'text-amber-700' : 'text-zinc-900'}`}>{value}</p>
+      <p className={`text-2xl font-semibold ${highlight ? 'text-amber-700' : 'text-zinc-900'}`}>
+        {value}
+      </p>
       <p className="text-sm text-zinc-500 mt-0.5">{label}</p>
     </div>
   );

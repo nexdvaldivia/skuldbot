@@ -89,22 +89,19 @@ export default function RevenueSharePage() {
 
       const responses = await Promise.all(
         partnersData.map(async (partner) => {
-          const result = await billingApi.getPartnerRevenueShare(
-            partner.id,
-            period,
-            period,
-          );
+          const result = await billingApi.getPartnerRevenueShare(partner.id, period, period);
           return result;
         }),
       );
 
-      const merged = responses
-        .flat()
-        .map((record) => ({
-          ...record,
-          partnerName: (record as RevenueRow).partnerName || partnerMap.get(record.partnerId)?.name || record.partnerId,
-          tier: partnerMap.get(record.partnerId)?.revenueShareTier,
-        }));
+      const merged = responses.flat().map((record) => ({
+        ...record,
+        partnerName:
+          (record as RevenueRow).partnerName ||
+          partnerMap.get(record.partnerId)?.name ||
+          record.partnerId,
+        tier: partnerMap.get(record.partnerId)?.revenueShareTier,
+      }));
 
       setRecords(merged);
     } catch (error) {
@@ -113,8 +110,7 @@ export default function RevenueSharePage() {
       toast({
         variant: 'error',
         title: 'Failed to load revenue share',
-        description:
-          error instanceof Error ? error.message : 'Could not fetch revenue share data.',
+        description: error instanceof Error ? error.message : 'Could not fetch revenue share data.',
       });
     } finally {
       setLoading(false);
@@ -130,10 +126,21 @@ export default function RevenueSharePage() {
     record.partnerName.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  const totalGross = filteredRecords.reduce((sum, record) => sum + Number(record.grossRevenue || 0), 0);
-  const totalCommission = filteredRecords.reduce((sum, record) => sum + Number(record.skuldCommission || 0), 0);
-  const totalPayout = filteredRecords.reduce((sum, record) => sum + Number(record.partnerPayout || 0), 0);
-  const pendingCount = filteredRecords.filter((record) => ['calculated', 'approved', 'transferred'].includes(record.status)).length;
+  const totalGross = filteredRecords.reduce(
+    (sum, record) => sum + Number(record.grossRevenue || 0),
+    0,
+  );
+  const totalCommission = filteredRecords.reduce(
+    (sum, record) => sum + Number(record.skuldCommission || 0),
+    0,
+  );
+  const totalPayout = filteredRecords.reduce(
+    (sum, record) => sum + Number(record.partnerPayout || 0),
+    0,
+  );
+  const pendingCount = filteredRecords.filter((record) =>
+    ['calculated', 'approved', 'transferred'].includes(record.status),
+  ).length;
 
   const handleCalculatePeriod = async () => {
     if (!selectedPeriod) return;
@@ -159,8 +166,7 @@ export default function RevenueSharePage() {
       toast({
         variant: 'error',
         title: 'Calculation failed',
-        description:
-          error instanceof Error ? error.message : 'Could not calculate revenue share.',
+        description: error instanceof Error ? error.message : 'Could not calculate revenue share.',
       });
     } finally {
       setCalculating(false);
@@ -195,8 +201,7 @@ export default function RevenueSharePage() {
       toast({
         variant: 'success',
         title: 'Payout requested',
-        description:
-          result.message || `Payout initiated for ${record.partnerName}.`,
+        description: result.message || `Payout initiated for ${record.partnerName}.`,
       });
       await loadData(selectedPeriod);
     } catch (error) {
@@ -243,17 +248,42 @@ export default function RevenueSharePage() {
             disabled={calculating || loading}
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-zinc-200 bg-white text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors disabled:opacity-60"
           >
-            {calculating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
+            {calculating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Calculator className="h-4 w-4" />
+            )}
             Calculate
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Gross Revenue" value={`$${(totalGross / 1000).toFixed(0)}k`} icon={DollarSign} color="emerald" />
-        <StatCard label="Skuld Commission" value={`$${(totalCommission / 1000).toFixed(0)}k`} icon={Percent} color="blue" />
-        <StatCard label="Partner Payouts" value={`$${(totalPayout / 1000).toFixed(0)}k`} icon={TrendingUp} color="violet" />
-        <StatCard label="Pending Approval" value={pendingCount} icon={Clock} color="amber" highlight={pendingCount > 0} />
+        <StatCard
+          label="Gross Revenue"
+          value={`$${(totalGross / 1000).toFixed(0)}k`}
+          icon={DollarSign}
+          color="emerald"
+        />
+        <StatCard
+          label="Skuld Commission"
+          value={`$${(totalCommission / 1000).toFixed(0)}k`}
+          icon={Percent}
+          color="blue"
+        />
+        <StatCard
+          label="Partner Payouts"
+          value={`$${(totalPayout / 1000).toFixed(0)}k`}
+          icon={TrendingUp}
+          color="violet"
+        />
+        <StatCard
+          label="Pending Approval"
+          value={pendingCount}
+          icon={Clock}
+          color="amber"
+          highlight={pendingCount > 0}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -274,14 +304,19 @@ export default function RevenueSharePage() {
             </div>
             <div className="divide-y divide-zinc-100">
               {loading ? (
-                <div className="px-5 py-10 text-center text-sm text-zinc-500">Loading records...</div>
+                <div className="px-5 py-10 text-center text-sm text-zinc-500">
+                  Loading records...
+                </div>
               ) : (
                 filteredRecords.map((record) => {
                   const status = statusConfig[record.status];
                   const StatusIcon = status.icon;
 
                   return (
-                    <div key={record.id} className="p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                    <div
+                      key={record.id}
+                      className="p-5 flex flex-col sm:flex-row sm:items-center gap-4"
+                    >
                       <div className="flex items-center gap-4 flex-1">
                         <div className="h-10 w-10 rounded-lg bg-zinc-100 flex items-center justify-center flex-shrink-0">
                           <Building2 className="h-5 w-5 text-zinc-500" />
@@ -289,7 +324,9 @@ export default function RevenueSharePage() {
                         <div className="min-w-0">
                           <p className="font-medium text-zinc-900">{record.partnerName}</p>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${status.bg} ${status.text}`}>
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${status.bg} ${status.text}`}
+                            >
                               <StatusIcon className="h-3 w-3" />
                               {status.label}
                             </span>
@@ -301,8 +338,12 @@ export default function RevenueSharePage() {
                       </div>
                       <div className="flex items-center justify-between sm:justify-end gap-4">
                         <div className="text-right">
-                          <p className="text-xs text-zinc-500">Gross: ${Number(record.grossRevenue || 0).toLocaleString()}</p>
-                          <p className="text-lg font-semibold text-zinc-900">${Number(record.partnerPayout || 0).toLocaleString()}</p>
+                          <p className="text-xs text-zinc-500">
+                            Gross: ${Number(record.grossRevenue || 0).toLocaleString()}
+                          </p>
+                          <p className="text-lg font-semibold text-zinc-900">
+                            ${Number(record.partnerPayout || 0).toLocaleString()}
+                          </p>
                         </div>
                         <div className="flex gap-2">
                           {record.status === 'calculated' && (
@@ -311,7 +352,9 @@ export default function RevenueSharePage() {
                               disabled={activeRecordId === record.id}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors disabled:opacity-60"
                             >
-                              {activeRecordId === record.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                              {activeRecordId === record.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : null}
                               Approve
                             </button>
                           )}
@@ -321,7 +364,11 @@ export default function RevenueSharePage() {
                               disabled={activePartnerId === record.partnerId}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-sm font-medium text-white hover:bg-indigo-700 transition-colors disabled:opacity-60"
                             >
-                              {activePartnerId === record.partnerId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                              {activePartnerId === record.partnerId ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Send className="h-3.5 w-3.5" />
+                              )}
                               Pay Out
                             </button>
                           )}
@@ -357,20 +404,30 @@ export default function RevenueSharePage() {
                   <div key={partner.id} className="p-3 rounded-lg bg-zinc-50">
                     <div className="flex items-center justify-between mb-2">
                       <p className="font-medium text-zinc-900 text-sm">{partner.name}</p>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${tier.bg} ${tier.text}`}>
-                        {partner.revenueShareTier.charAt(0).toUpperCase() + partner.revenueShareTier.slice(1)}
+                      <span
+                        className={`px-2 py-0.5 rounded text-xs font-medium ${tier.bg} ${tier.text}`}
+                      >
+                        {partner.revenueShareTier.charAt(0).toUpperCase() +
+                          partner.revenueShareTier.slice(1)}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div>
                         <p className="text-zinc-500">Commission</p>
                         <p className="font-medium text-zinc-900">
-                          {({ starter: '30%', established: '25%', premier: '20%' } as Record<string, string>)[partner.revenueShareTier] || '30%'}
+                          {(
+                            { starter: '30%', established: '25%', premier: '20%' } as Record<
+                              string,
+                              string
+                            >
+                          )[partner.revenueShareTier] || '30%'}
                         </p>
                       </div>
                       <div>
                         <p className="text-zinc-500">Lifetime</p>
-                        <p className="font-medium text-zinc-900">${(Number(partner.lifetimeRevenue || 0) / 1000).toFixed(0)}k</p>
+                        <p className="font-medium text-zinc-900">
+                          ${(Number(partner.lifetimeRevenue || 0) / 1000).toFixed(0)}k
+                        </p>
                       </div>
                     </div>
                     {pendingPayout > 0 && (
@@ -425,19 +482,35 @@ function StatCard({
   };
 
   return (
-    <div className={`rounded-xl border p-4 ${highlight ? 'border-amber-200 bg-amber-50/30' : 'border-zinc-200/80 bg-white'}`}>
+    <div
+      className={`rounded-xl border p-4 ${highlight ? 'border-amber-200 bg-amber-50/30' : 'border-zinc-200/80 bg-white'}`}
+    >
       <div className="flex items-center gap-3 mb-3">
-        <div className={`h-8 w-8 rounded-lg ${colorClasses[color]} flex items-center justify-center`}>
+        <div
+          className={`h-8 w-8 rounded-lg ${colorClasses[color]} flex items-center justify-center`}
+        >
           <Icon className="h-4 w-4" />
         </div>
       </div>
-      <p className={`text-2xl font-semibold ${highlight ? 'text-amber-700' : 'text-zinc-900'}`}>{value}</p>
+      <p className={`text-2xl font-semibold ${highlight ? 'text-amber-700' : 'text-zinc-900'}`}>
+        {value}
+      </p>
       <p className="text-sm text-zinc-500 mt-0.5">{label}</p>
     </div>
   );
 }
 
-function TierItem({ tier, range, rate, bgColor }: { tier: string; range: string; rate: string; bgColor: string }) {
+function TierItem({
+  tier,
+  range,
+  rate,
+  bgColor,
+}: {
+  tier: string;
+  range: string;
+  rate: string;
+  bgColor: string;
+}) {
   return (
     <div className={`flex items-center justify-between p-3 rounded-lg ${bgColor}`}>
       <div>

@@ -7,6 +7,3 @@ import { ControlPlaneModule } from '../control-plane/control-plane.module';
   controllers: [SchemasController],
 })
 export class SchemasModule {}
-
-
-

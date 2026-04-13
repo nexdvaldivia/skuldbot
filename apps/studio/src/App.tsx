@@ -1,7 +1,7 @@
-import { useEffect } from "react";
-import AppLayout from "./components/AppLayout";
-import { useProjectStore } from "./store/projectStore";
-import { useNavigationStore } from "./store/navigationStore";
+import { useEffect } from 'react';
+import AppLayout from './components/AppLayout';
+import { useProjectStore } from './store/projectStore';
+import { useNavigationStore } from './store/navigationStore';
 
 function App() {
   const { loadRecentProjects } = useProjectStore();
@@ -10,7 +10,7 @@ function App() {
   // Initialize app
   useEffect(() => {
     loadRecentProjects();
-    setView("welcome");
+    setView('welcome');
   }, [loadRecentProjects, setView]);
 
   return <AppLayout />;

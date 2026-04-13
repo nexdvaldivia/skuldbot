@@ -1,11 +1,4 @@
-import {
-  IsBoolean,
-  IsObject,
-  IsOptional,
-  IsString,
-  MaxLength,
-  Min,
-} from 'class-validator';
+import { IsBoolean, IsObject, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class UpsertLookupValueDto {
   @IsString()

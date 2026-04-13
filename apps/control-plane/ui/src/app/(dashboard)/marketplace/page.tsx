@@ -39,16 +39,37 @@ import {
   Loader2,
 } from 'lucide-react';
 
-const statusConfig: Record<string, { color: string; bgColor: string; icon: React.ElementType; label: string }> = {
-  published: { color: 'text-emerald-700', bgColor: 'bg-emerald-50', icon: CheckCircle2, label: 'Published' },
-  approved: { color: 'text-blue-700', bgColor: 'bg-blue-50', icon: CheckCircle2, label: 'Approved' },
-  pending_review: { color: 'text-amber-700', bgColor: 'bg-amber-50', icon: Clock, label: 'Pending' },
+const statusConfig: Record<
+  string,
+  { color: string; bgColor: string; icon: React.ElementType; label: string }
+> = {
+  published: {
+    color: 'text-emerald-700',
+    bgColor: 'bg-emerald-50',
+    icon: CheckCircle2,
+    label: 'Published',
+  },
+  approved: {
+    color: 'text-blue-700',
+    bgColor: 'bg-blue-50',
+    icon: CheckCircle2,
+    label: 'Approved',
+  },
+  pending_review: {
+    color: 'text-amber-700',
+    bgColor: 'bg-amber-50',
+    icon: Clock,
+    label: 'Pending',
+  },
   draft: { color: 'text-zinc-600', bgColor: 'bg-zinc-100', icon: AlertCircle, label: 'Draft' },
   deprecated: { color: 'text-red-700', bgColor: 'bg-red-50', icon: XCircle, label: 'Deprecated' },
   rejected: { color: 'text-red-700', bgColor: 'bg-red-50', icon: XCircle, label: 'Rejected' },
 };
 
-const executionModeConfig: Record<string, { icon: React.ElementType; label: string; color: string }> = {
+const executionModeConfig: Record<
+  string,
+  { icon: React.ElementType; label: string; color: string }
+> = {
   cloud: { icon: Cloud, label: 'Cloud', color: 'text-blue-600' },
   runner: { icon: Server, label: 'Runner', color: 'text-violet-600' },
   hybrid: { icon: Zap, label: 'Hybrid', color: 'text-amber-600' },
@@ -88,7 +109,9 @@ export default function MarketplacePage() {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('insurance');
   const [executionMode, setExecutionMode] = useState<'cloud' | 'runner' | 'hybrid'>('runner');
-  const [pricingModel, setPricingModel] = useState<'free' | 'subscription' | 'usage' | 'hybrid'>('usage');
+  const [pricingModel, setPricingModel] = useState<'free' | 'subscription' | 'usage' | 'hybrid'>(
+    'usage',
+  );
   const [monthlyBase, setMonthlyBase] = useState('');
   const [publisherId, setPublisherId] = useState('');
 
@@ -139,7 +162,10 @@ export default function MarketplacePage() {
 
   const publishedCount = bots.filter((bot) => bot.status === 'published').length;
   const pendingCount = bots.filter((bot) => bot.status === 'pending_review').length;
-  const totalInstalls = bots.reduce((sum, bot) => sum + Number(bot.stats?.installs || bot.installs || 0), 0);
+  const totalInstalls = bots.reduce(
+    (sum, bot) => sum + Number(bot.stats?.installs || bot.installs || 0),
+    0,
+  );
   const avgRating = bots.length
     ? bots.reduce((sum, bot) => sum + Number(bot.stats?.rating || bot.rating || 0), 0) / bots.length
     : 0;
@@ -186,9 +212,7 @@ export default function MarketplacePage() {
           model: pricingModel,
           ...(pricingModel === 'subscription' || pricingModel === 'hybrid'
             ? {
-                monthlyBase: Number.isFinite(monthlyBaseValue)
-                  ? monthlyBaseValue
-                  : undefined,
+                monthlyBase: Number.isFinite(monthlyBaseValue) ? monthlyBaseValue : undefined,
               }
             : {}),
         },
@@ -251,7 +275,13 @@ export default function MarketplacePage() {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatCard label="Published Bots" value={publishedCount} icon={Package} color="emerald" />
-          <StatCard label="Pending Review" value={pendingCount} icon={Clock} color="amber" highlight={pendingCount > 0} />
+          <StatCard
+            label="Pending Review"
+            value={pendingCount}
+            icon={Clock}
+            color="amber"
+            highlight={pendingCount > 0}
+          />
           <StatCard label="Total Installs" value={totalInstalls} icon={Download} color="blue" />
           <StatCard label="Avg Rating" value={avgRating.toFixed(1)} icon={Star} color="amber" />
         </div>
@@ -292,7 +322,8 @@ export default function MarketplacePage() {
               {filteredBots.map((bot) => {
                 const status = statusConfig[bot.status] || statusConfig.draft;
                 const StatusIcon = status.icon;
-                const execMode = executionModeConfig[bot.executionMode] || executionModeConfig.runner;
+                const execMode =
+                  executionModeConfig[bot.executionMode] || executionModeConfig.runner;
                 const ExecIcon = execMode.icon;
                 const categoryStyle = categoryConfig[bot.category] || categoryConfig.custom;
 
@@ -318,11 +349,15 @@ export default function MarketplacePage() {
                     <p className="text-sm text-zinc-600 mb-4 line-clamp-2">{bot.description}</p>
 
                     <div className="flex items-center gap-2 mb-4 flex-wrap">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${status.bgColor} ${status.color}`}>
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${status.bgColor} ${status.color}`}
+                      >
                         <StatusIcon className="h-3 w-3" />
                         {status.label}
                       </span>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${categoryStyle.bg} ${categoryStyle.text}`}>
+                      <span
+                        className={`px-2 py-0.5 rounded text-xs font-medium ${categoryStyle.bg} ${categoryStyle.text}`}
+                      >
                         {bot.category}
                       </span>
                       <span className={`flex items-center gap-1 text-xs ${execMode.color}`}>
@@ -333,7 +368,9 @@ export default function MarketplacePage() {
 
                     <div className="flex items-center justify-between pt-4 border-t border-zinc-100">
                       <div className="flex items-center gap-1">
-                        {bot.publisher.verified && <CheckCircle2 className="h-3 w-3 text-blue-500" />}
+                        {bot.publisher.verified && (
+                          <CheckCircle2 className="h-3 w-3 text-blue-500" />
+                        )}
                         <span className="text-xs text-zinc-500">{bot.publisher.name}</span>
                       </div>
                       <div className="flex items-center gap-3 text-xs text-zinc-500">
@@ -371,9 +408,7 @@ export default function MarketplacePage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create Marketplace Bot</DialogTitle>
-            <DialogDescription>
-              Register a new bot draft for partner publication.
-            </DialogDescription>
+            <DialogDescription>Register a new bot draft for partner publication.</DialogDescription>
           </DialogHeader>
 
           <form className="space-y-4" onSubmit={handleCreateBot}>
@@ -444,7 +479,9 @@ export default function MarketplacePage() {
                 <label className="text-sm font-medium text-zinc-700">Execution Mode</label>
                 <Select
                   value={executionMode}
-                  onValueChange={(value) => setExecutionMode(value as 'cloud' | 'runner' | 'hybrid')}
+                  onValueChange={(value) =>
+                    setExecutionMode(value as 'cloud' | 'runner' | 'hybrid')
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -463,7 +500,9 @@ export default function MarketplacePage() {
                 <label className="text-sm font-medium text-zinc-700">Pricing Model</label>
                 <Select
                   value={pricingModel}
-                  onValueChange={(value) => setPricingModel(value as 'free' | 'subscription' | 'usage' | 'hybrid')}
+                  onValueChange={(value) =>
+                    setPricingModel(value as 'free' | 'subscription' | 'usage' | 'hybrid')
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -552,13 +591,19 @@ function StatCard({
   };
 
   return (
-    <div className={`rounded-xl border p-4 ${highlight ? 'border-amber-200 bg-amber-50/30' : 'border-zinc-200/80 bg-white'}`}>
+    <div
+      className={`rounded-xl border p-4 ${highlight ? 'border-amber-200 bg-amber-50/30' : 'border-zinc-200/80 bg-white'}`}
+    >
       <div className="flex items-center gap-3 mb-3">
-        <div className={`h-8 w-8 rounded-lg ${colorClasses[color]} flex items-center justify-center`}>
+        <div
+          className={`h-8 w-8 rounded-lg ${colorClasses[color]} flex items-center justify-center`}
+        >
           <Icon className="h-4 w-4" />
         </div>
       </div>
-      <p className={`text-2xl font-semibold ${highlight ? 'text-amber-700' : 'text-zinc-900'}`}>{value}</p>
+      <p className={`text-2xl font-semibold ${highlight ? 'text-amber-700' : 'text-zinc-900'}`}>
+        {value}
+      </p>
       <p className="text-sm text-zinc-500 mt-0.5">{label}</p>
     </div>
   );

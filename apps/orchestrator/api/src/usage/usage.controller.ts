@@ -1,13 +1,4 @@
-import {
-  Controller,
-  Post,
-  Get,
-  Body,
-  Query,
-  Param,
-  HttpCode,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, Param, HttpCode, HttpStatus } from '@nestjs/common';
 import { UsageService } from './usage.service';
 import type { TrackUsageDto, UsageSummary } from './usage.service';
 import { UsageEvent } from './entities/usage-event.entity';
@@ -83,9 +74,7 @@ export class UsageController {
    */
   @Post('track-batch')
   @HttpCode(HttpStatus.CREATED)
-  async trackBatch(
-    @Body() body: BatchTrackRequest,
-  ): Promise<{ ids: string[]; count: number }> {
+  async trackBatch(@Body() body: BatchTrackRequest): Promise<{ ids: string[]; count: number }> {
     const dtos: TrackUsageDto[] = body.events.map((e) => ({
       tenantId: e.tenantId,
       botId: e.botId,
@@ -147,20 +136,14 @@ export class UsageController {
     const startDate = new Date(start);
     const endDate = new Date(end);
 
-    return this.usageService.getInstallationUsage(
-      installationId,
-      startDate,
-      endDate,
-    );
+    return this.usageService.getInstallationUsage(installationId, startDate, endDate);
   }
 
   /**
    * Get pending events count
    */
   @Get('pending-count')
-  async getPendingCount(
-    @Query('tenantId') tenantId: string,
-  ): Promise<{ count: number }> {
+  async getPendingCount(@Query('tenantId') tenantId: string): Promise<{ count: number }> {
     const count = await this.usageService.getPendingCount(tenantId);
     return { count };
   }

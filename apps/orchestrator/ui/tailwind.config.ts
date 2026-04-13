@@ -107,13 +107,7 @@ const config: Config = {
           'system-ui',
           'sans-serif',
         ],
-        mono: [
-          'SF Mono',
-          'Menlo',
-          'Monaco',
-          'Consolas',
-          'monospace',
-        ],
+        mono: ['SF Mono', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
       },
       borderRadius: {
         lg: 'var(--radius)',

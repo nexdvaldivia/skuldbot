@@ -3,9 +3,11 @@
 Fecha: 2026-02-22
 
 ## 1) Veredicto ejecutivo
+
 Si, el `evidence package` de Nexion esta bueno y conviene reutilizarlo como base de Skuld.
 
 Conclusion corta:
+
 - `nexion` aporta evidencia tecnica de ejecucion (runs, lineage, artifacts, policy).
 - `nexion-one` aporta evidencia legal/contractual (aceptaciones, firma, PDF firmado, hash y verificacion).
 - La combinacion de ambos patrones encaja con clientes altamente regulados.
@@ -13,6 +15,7 @@ Conclusion corta:
 ## 2) Evidencia concreta encontrada
 
 ### 2.1 Nexion (trazabilidad tecnica de runtime)
+
 - Modelo dedicado de pack por run: `nexion/backend/app/models/transform_spec.py:865`
 - Servicio de evidencia deterministica: `nexion/backend/app/services/transform_evidence_service.py:108`
 - Hash canonico SHA-256 (JSON ordenado): `nexion/backend/app/services/transform_evidence_service.py:476`
@@ -30,6 +33,7 @@ Conclusion corta:
   - `nexion/backend/tests/test_transform_evidence_service.py:601`
 
 ### 2.2 Nexion (pack de compliance/auditoria)
+
 - Modelo de evidence pack con metadata y tracking de acceso:
   - `nexion/backend/app/models/auditor.py:389`
 - Generacion de pack de compliance:
@@ -40,6 +44,7 @@ Conclusion corta:
   - `nexion/backend/app/api/v1/audit.py:1025`
 
 ### 2.3 Nexion-One (evidencia legal y contractual)
+
 - Registro legal fuerte en `ContractAcceptance`:
   - snapshots, hashes y evidencia de aceptacion: `nexion-one/backend/app/models/contract.py:596`
 - Verificacion deterministica de evidencia legal:
@@ -54,28 +59,34 @@ Conclusion corta:
 ## 3) Gaps a corregir antes de copiar 1:1
 
 ## 3.1 Gap de inmutabilidad del payload runtime (importante)
+
 - En transform evidence, por API se genera pack sin `storage_base_path`, por lo que `pack_uri` puede quedar nulo y no persistir snapshot immutable por defecto.
 - Referencias:
   - build con storage opcional: `nexion/backend/app/services/transform_evidence_service.py:127`
   - endpoint sin base path: `nexion/backend/app/api/v1/transforms.py:867`
 
 Impacto:
+
 - Hay hash y verificacion, pero sin almacenamiento inmutable obligatorio el auditor depende de estado actual para recomputar.
 
 ## 3.2 Gap de cadena de custodia de descarga
+
 - El modelo tiene `download_count/last_downloaded_*`, pero el endpoint de descarga del pack no actualiza contadores.
 - Referencias:
   - campos de tracking: `nexion/backend/app/models/auditor.py:485`
   - endpoint download: `nexion/backend/app/api/v1/audit.py:1025`
 
 Impacto:
+
 - Se debilita trazabilidad de acceso al evidence package.
 
 ## 3.3 Gap de verificacion dedicada del pack de compliance
+
 - Se calcula `file_hash` en generacion, pero no se ve endpoint dedicado para re-verificar ese pack con la misma semantica fuerte del flujo transform.
 - Referencia de hash: `nexion/backend/app/services/audit_service.py:1495`
 
 Impacto:
+
 - Integridad existe, pero el proceso formal de verificacion reutilizable/auditable queda incompleto.
 
 ## 4) Recomendacion para Skuld (adopcion enterprise)
@@ -102,6 +113,7 @@ Implementar `Evidence Core` en Skuld fusionando ambos patrones:
 ## 5) Blueprint de implementacion en Skuld
 
 ## 5.1 Orchestrator (por cliente)
+
 - Nuevo modulo `evidence`:
   - generar `run evidence pack` en cierre de ejecucion,
   - exigir persistencia inmutable + `pack_uri` no nulo en modo enterprise,
@@ -111,6 +123,7 @@ Implementar `Evidence Core` en Skuld fusionando ambos patrones:
   - guardar referencia (`promptRef`, version, policy, checksum de template) y metadata de inferencia permitida.
 
 ## 5.2 Control Plane
+
 - Recibir solo telemetria y metadatos de evidencia (no PHI/PII cruda).
 - Inventario global de packs y estado de verificacion por orchestrator.
 - Dashboard de compliance:
@@ -119,6 +132,7 @@ Implementar `Evidence Core` en Skuld fusionando ambos patrones:
   - accesos/descargas y alertas.
 
 ## 5.3 RBAC y compliance
+
 - Roles separados:
   - `EvidenceAdmin`, `AuditorReadOnly`, `SecurityOfficer`.
 - Politicas:
@@ -127,9 +141,11 @@ Implementar `Evidence Core` en Skuld fusionando ambos patrones:
   - retencion legal y hold por tenant.
 
 ## 6) Decisiones
+
 - Reusar: si, fuerte recomendacion.
 - Copia literal: no.
 - Estrategia correcta: adaptar y endurecer.
 
 Resultado esperado:
+
 - Skuld con trazabilidad tecnica + legal de nivel auditoria enterprise, alineado a HIPAA/SOC2 para clientes regulados.

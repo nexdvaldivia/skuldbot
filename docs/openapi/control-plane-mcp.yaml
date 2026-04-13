@@ -4,18 +4,18 @@ info:
   version: 1.0.0
   description: |
     Model Context Protocol (MCP) API for SkuldBot Control Plane.
-    
+
     Provides centralized services:
     - **Licensing**: Feature validation, entitlements, seat management
     - **Marketplace**: Bot catalog, subscriptions, downloads
     - **Metering**: Usage tracking, "whichever is greater" billing
     - **Billing**: Invoice generation, payment methods
-    
+
     ## Authentication
     All endpoints require:
     - `x-api-key`: Control Plane API key
     - `x-tenant-id`: Tenant identifier
-    
+
   contact:
     name: Skuld, LLC
     email: api@skuld.ai
@@ -101,8 +101,8 @@ paths:
                     tenantId: acme-insurance
                     botId: fnol-bot-v1
                     executionId: exec-123
-                    startTime: "2026-01-27T10:00:00Z"
-                    endTime: "2026-01-27T10:05:00Z"
+                    startTime: '2026-01-27T10:00:00Z'
+                    endTime: '2026-01-27T10:05:00Z'
                     status: success
                     metrics:
                       claimsCompleted: 1
@@ -365,7 +365,7 @@ components:
         result:
           allowed: true
           feature: ai_planner_v2
-          expiresAt: "2026-12-31T23:59:59Z"
+          expiresAt: '2026-12-31T23:59:59Z'
 
     ResourceContent:
       type: object
@@ -417,7 +417,7 @@ components:
               message:
                 type: string
                 example: Unauthorized
-    
+
     BadRequest:
       description: Invalid request parameters
       content:
@@ -432,7 +432,7 @@ components:
                 type: string
               error:
                 type: string
-    
+
     NotFound:
       description: Resource not found
       content:
@@ -445,5 +445,3 @@ components:
                 example: 404
               message:
                 type: string
-
-

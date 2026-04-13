@@ -33,15 +33,7 @@ import {
 } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
 import { formatRelativeTime } from '@/lib/utils';
-import {
-  Calendar,
-  Plus,
-  MoreVertical,
-  Play,
-  Pause,
-  Trash2,
-  Clock,
-} from 'lucide-react';
+import { Calendar, Plus, MoreVertical, Play, Pause, Trash2, Clock } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SchedulesPage() {
@@ -67,10 +59,7 @@ export default function SchedulesPage() {
   const [targetType, setTargetType] = useState<'any' | 'pinned'>('any');
   const [targetRunnerId, setTargetRunnerId] = useState('');
 
-  const timezone = useMemo(
-    () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-    [],
-  );
+  const timezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', []);
 
   const resetForm = () => {
     setName('');
@@ -162,9 +151,7 @@ export default function SchedulesPage() {
         variant: 'destructive',
         title: 'Failed to create schedule',
         description:
-          error instanceof Error
-            ? error.message
-            : 'Please verify your data and try again.',
+          error instanceof Error ? error.message : 'Please verify your data and try again.',
       });
     }
   };
@@ -205,18 +192,21 @@ export default function SchedulesPage() {
     }
   };
 
-  const handleToggleSchedule = async (
-    id: string,
-    scheduleName: string,
-    status: string,
-  ) => {
+  const handleToggleSchedule = async (id: string, scheduleName: string, status: string) => {
     try {
       if (status === 'active') {
         await disableMutation.mutateAsync({ id });
       } else {
         await activateMutation.mutateAsync({
           id,
-          status: status as 'paused' | 'draft' | 'disabled' | 'active' | 'expired' | 'error' | 'quota_exceeded',
+          status: status as
+            | 'paused'
+            | 'draft'
+            | 'disabled'
+            | 'active'
+            | 'expired'
+            | 'error'
+            | 'quota_exceeded',
         });
       }
 
@@ -286,11 +276,7 @@ export default function SchedulesPage() {
                         schedule={schedule}
                         onTrigger={() => handleTrigger(schedule.id, schedule.name)}
                         onToggle={() =>
-                          handleToggleSchedule(
-                            schedule.id,
-                            schedule.name,
-                            schedule.status,
-                          )
+                          handleToggleSchedule(schedule.id, schedule.name, schedule.status)
                         }
                         onDelete={() => handleDelete(schedule.id, schedule.name)}
                       />
@@ -442,11 +428,7 @@ export default function SchedulesPage() {
               >
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                loading={createMutation.isPending}
-                disabled={!bots?.length}
-              >
+              <Button type="submit" loading={createMutation.isPending} disabled={!bots?.length}>
                 Create Schedule
               </Button>
             </DialogFooter>
@@ -481,15 +463,16 @@ function ScheduleRow({
   onToggle: () => void;
   onDelete: () => void;
 }) {
-  const targetLabel = {
-    any: 'Any Runner',
-    pool: 'Runner Pool',
-    pinned: 'Pinned Runner',
-    capability: 'By Capability',
-    affinity: 'Affinity',
-    round_robin: 'Round Robin',
-    least_loaded: 'Least Loaded',
-  }[schedule.targetType] || schedule.targetType;
+  const targetLabel =
+    {
+      any: 'Any Runner',
+      pool: 'Runner Pool',
+      pinned: 'Pinned Runner',
+      capability: 'By Capability',
+      affinity: 'Affinity',
+      round_robin: 'Round Robin',
+      least_loaded: 'Least Loaded',
+    }[schedule.targetType] || schedule.targetType;
 
   return (
     <tr>
@@ -510,9 +493,7 @@ function ScheduleRow({
       <td>
         <div className="flex items-center space-x-2">
           <Clock className="h-4 w-4 text-muted-foreground" />
-          <code className="text-sm bg-muted px-2 py-0.5 rounded">
-            {schedule.cron}
-          </code>
+          <code className="text-sm bg-muted px-2 py-0.5 rounded">{schedule.cron}</code>
         </div>
         <div className="flex items-center gap-2 mt-1">
           <span className="text-xs text-muted-foreground">{schedule.timezone}</span>

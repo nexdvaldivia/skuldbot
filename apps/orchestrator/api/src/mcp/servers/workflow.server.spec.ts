@@ -35,12 +35,12 @@ describe('WorkflowServer', () => {
       const tools = server.getTools();
 
       expect(tools.length).toBeGreaterThan(0);
-      expect(tools.every(tool => tool.name && tool.description)).toBe(true);
+      expect(tools.every((tool) => tool.name && tool.description)).toBe(true);
     });
 
     it('should include workflow template CRUD tools', () => {
       const tools = server.getTools();
-      const toolNames = tools.map(t => t.name);
+      const toolNames = tools.map((t) => t.name);
 
       expect(toolNames).toContain('create_workflow_template');
       expect(toolNames).toContain('get_workflow_template');
@@ -51,14 +51,14 @@ describe('WorkflowServer', () => {
 
     it('should include template instantiation tool', () => {
       const tools = server.getTools();
-      const toolNames = tools.map(t => t.name);
+      const toolNames = tools.map((t) => t.name);
 
       expect(toolNames).toContain('instantiate_template');
     });
 
     it('should include marketplace bot cloning tool', () => {
       const tools = server.getTools();
-      const toolNames = tools.map(t => t.name);
+      const toolNames = tools.map((t) => t.name);
 
       expect(toolNames).toContain('clone_marketplace_bot');
     });
@@ -66,7 +66,7 @@ describe('WorkflowServer', () => {
     it('should have proper input schemas', () => {
       const tools = server.getTools();
 
-      tools.forEach(tool => {
+      tools.forEach((tool) => {
         expect(tool.inputSchema).toBeDefined();
         expect(tool.inputSchema.type).toBe('object');
         expect(tool.inputSchema.properties).toBeDefined();
@@ -76,7 +76,7 @@ describe('WorkflowServer', () => {
     it('should have workflow tags', () => {
       const tools = server.getTools();
 
-      tools.forEach(tool => {
+      tools.forEach((tool) => {
         expect(tool.tags).toContain('workflow');
       });
     });
@@ -87,27 +87,27 @@ describe('WorkflowServer', () => {
       const resources = server.getResources();
 
       expect(resources.length).toBeGreaterThan(0);
-      expect(resources.every(r => r.uri && r.name)).toBe(true);
+      expect(resources.every((r) => r.uri && r.name)).toBe(true);
     });
 
     it('should include tenant templates resource', () => {
       const resources = server.getResources();
-      const uris = resources.map(r => r.uri);
+      const uris = resources.map((r) => r.uri);
 
-      expect(uris.some(uri => uri.includes('workflow://tenant/'))).toBe(true);
+      expect(uris.some((uri) => uri.includes('workflow://tenant/'))).toBe(true);
     });
 
     it('should include specific template resource', () => {
       const resources = server.getResources();
-      const uris = resources.map(r => r.uri);
+      const uris = resources.map((r) => r.uri);
 
-      expect(uris.some(uri => uri.includes('workflow://templates/'))).toBe(true);
+      expect(uris.some((uri) => uri.includes('workflow://templates/'))).toBe(true);
     });
 
     it('should use application/json mime type', () => {
       const resources = server.getResources();
 
-      resources.forEach(resource => {
+      resources.forEach((resource) => {
         expect(resource.mimeType).toBe('application/json');
       });
     });
@@ -128,9 +128,7 @@ describe('WorkflowServer', () => {
               { id: 'start', type: 'start' },
               { id: 'end', type: 'end' },
             ],
-            edges: [
-              { source: 'start', target: 'end' },
-            ],
+            edges: [{ source: 'start', target: 'end' }],
           },
           variables: [
             {
@@ -275,7 +273,7 @@ describe('WorkflowServer', () => {
       });
 
       expect(result.success).toBe(true);
-      result.result.templates.forEach(template => {
+      result.result.templates.forEach((template) => {
         expect(template.category).toBe('claims');
       });
     });
@@ -290,7 +288,7 @@ describe('WorkflowServer', () => {
       });
 
       expect(result.success).toBe(true);
-      result.result.templates.forEach(template => {
+      result.result.templates.forEach((template) => {
         expect(template.industry).toBe('insurance');
       });
     });
@@ -356,7 +354,7 @@ describe('WorkflowServer', () => {
       const originalUpdatedAt = createResult.result.template.updatedAt;
 
       // Wait a bit to ensure timestamp difference
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       const updateResult = await server.executeTool({
         name: 'update_workflow_template',
@@ -624,7 +622,7 @@ describe('WorkflowServer', () => {
 
       expect(resource.uri).toBe('workflow://tenant/test-tenant/templates');
       expect(resource.mimeType).toBe('application/json');
-      
+
       const content = JSON.parse(resource.content);
       expect(content.templates).toBeDefined();
       expect(Array.isArray(content.templates)).toBe(true);
@@ -663,9 +661,7 @@ describe('WorkflowServer', () => {
     });
 
     it('should throw error for invalid URI', async () => {
-      await expect(server.readResource('invalid://uri')).rejects.toThrow(
-        'Unknown resource URI',
-      );
+      await expect(server.readResource('invalid://uri')).rejects.toThrow('Unknown resource URI');
     });
   });
 
@@ -767,5 +763,3 @@ describe('WorkflowServer', () => {
     });
   });
 });
-
-

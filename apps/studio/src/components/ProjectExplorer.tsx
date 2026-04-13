@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { useProjectStore } from "../store/projectStore";
-import { useTabsStore } from "../store/tabsStore";
-import { useNavigationStore } from "../store/navigationStore";
-import { ConfirmDialog } from "./ui/ConfirmDialog";
+import { useState } from 'react';
+import { useProjectStore } from '../store/projectStore';
+import { useTabsStore } from '../store/tabsStore';
+import { useNavigationStore } from '../store/navigationStore';
+import { ConfirmDialog } from './ui/ConfirmDialog';
 import {
   ChevronDown,
   ChevronRight,
@@ -17,7 +17,7 @@ import {
   Settings,
   FileJson,
   Home,
-} from "lucide-react";
+} from 'lucide-react';
 
 interface TreeItemProps {
   label: string;
@@ -54,7 +54,7 @@ function TreeItem({
       <div
         className={`
           flex items-center gap-1 px-2 py-1.5 cursor-pointer group
-          ${isSelected ? "bg-primary-100 text-primary-700" : "hover:bg-slate-100"}
+          ${isSelected ? 'bg-primary-100 text-primary-700' : 'hover:bg-slate-100'}
         `}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
         onClick={onClick}
@@ -86,9 +86,7 @@ function TreeItem({
           {isDirty && <span className="text-primary-500 ml-1">●</span>}
         </span>
 
-        {actions && showActions && (
-          <div className="flex items-center gap-1">{actions}</div>
-        )}
+        {actions && showActions && <div className="flex items-center gap-1">{actions}</div>}
       </div>
 
       {hasChildren && isExpanded && <div>{children}</div>}
@@ -102,8 +100,8 @@ interface CreateBotDialogProps {
 }
 
 function CreateBotDialog({ isOpen, onClose }: CreateBotDialogProps) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const { createBot, openBot } = useProjectStore();
   const { openTab } = useTabsStore();
@@ -118,14 +116,14 @@ function CreateBotDialog({ isOpen, onClose }: CreateBotDialogProps) {
         await openBot(botId);
         openTab({
           id: `bot-${botId}`,
-          type: "bot",
+          type: 'bot',
           botId,
           title: name,
           isDirty: false,
         });
       }
-      setName("");
-      setDescription("");
+      setName('');
+      setDescription('');
       onClose();
     } finally {
       setIsCreating(false);
@@ -137,15 +135,11 @@ function CreateBotDialog({ isOpen, onClose }: CreateBotDialogProps) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-        <h2 className="text-lg font-semibold text-slate-800 mb-4">
-          Create New Bot
-        </h2>
+        <h2 className="text-lg font-semibold text-slate-800 mb-4">Create New Bot</h2>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Bot Name
-            </label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Bot Name</label>
             <input
               type="text"
               value={name}
@@ -171,10 +165,7 @@ function CreateBotDialog({ isOpen, onClose }: CreateBotDialogProps) {
         </div>
 
         <div className="flex justify-end gap-3 mt-6">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-slate-600 hover:text-slate-800"
-          >
+          <button onClick={onClose} className="px-4 py-2 text-slate-600 hover:text-slate-800">
             Cancel
           </button>
           <button
@@ -182,7 +173,7 @@ function CreateBotDialog({ isOpen, onClose }: CreateBotDialogProps) {
             disabled={!name.trim() || isCreating}
             className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50"
           >
-            {isCreating ? "Creating..." : "Create Bot"}
+            {isCreating ? 'Creating...' : 'Create Bot'}
           </button>
         </div>
       </div>
@@ -224,7 +215,7 @@ export default function ProjectExplorer() {
     await openBot(botId);
     openTab({
       id: `bot-${botId}`,
-      type: "bot",
+      type: 'bot',
       botId,
       title: bot.name,
       isDirty: bot.isDirty,
@@ -259,14 +250,14 @@ export default function ProjectExplorer() {
       <div className="px-3 py-2 border-b border-slate-200 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setView("welcome")}
+            onClick={() => setView('welcome')}
             className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-700"
             title="Back to Welcome"
           >
             <Home className="w-4 h-4" />
           </button>
           <span className="text-sm font-medium text-slate-700 truncate">
-            {project?.project.name || "Project"}
+            {project?.project.name || 'Project'}
           </span>
         </div>
       </div>
@@ -278,8 +269,8 @@ export default function ProjectExplorer() {
           label={`Bots (${botsArray.length})`}
           icon={<Bot className="w-4 h-4" />}
           isExpanded={expandedSections.bots}
-          onToggle={() => toggleSection("bots")}
-          onClick={() => toggleSection("bots")}
+          onToggle={() => toggleSection('bots')}
+          onClick={() => toggleSection('bots')}
           actions={
             <button
               onClick={(e) => {
@@ -294,9 +285,7 @@ export default function ProjectExplorer() {
           }
         >
           {botsArray.length === 0 ? (
-            <div className="px-8 py-2 text-xs text-slate-400 italic">
-              No bots yet
-            </div>
+            <div className="px-8 py-2 text-xs text-slate-400 italic">No bots yet</div>
           ) : (
             botsArray.map((bot) => (
               <TreeItem
@@ -329,8 +318,8 @@ export default function ProjectExplorer() {
           label="Shared"
           icon={<FolderOpen className="w-4 h-4" />}
           isExpanded={expandedSections.shared}
-          onToggle={() => toggleSection("shared")}
-          onClick={() => toggleSection("shared")}
+          onToggle={() => toggleSection('shared')}
+          onClick={() => toggleSection('shared')}
         >
           <TreeItem
             label="Assets"
@@ -357,8 +346,8 @@ export default function ProjectExplorer() {
           label="Settings"
           icon={<Settings className="w-4 h-4" />}
           isExpanded={expandedSections.settings}
-          onToggle={() => toggleSection("settings")}
-          onClick={() => toggleSection("settings")}
+          onToggle={() => toggleSection('settings')}
+          onClick={() => toggleSection('settings')}
         >
           <TreeItem
             label="Project Settings"
@@ -366,9 +355,9 @@ export default function ProjectExplorer() {
             depth={1}
             onClick={() => {
               openTab({
-                id: "settings",
-                type: "settings",
-                title: "Project Settings",
+                id: 'settings',
+                type: 'settings',
+                title: 'Project Settings',
                 isDirty: false,
               });
             }}
@@ -379,9 +368,9 @@ export default function ProjectExplorer() {
             depth={1}
             onClick={() => {
               openTab({
-                id: "env",
-                type: "env",
-                title: "Environment Variables",
+                id: 'env',
+                type: 'env',
+                title: 'Environment Variables',
                 isDirty: false,
               });
             }}
@@ -392,10 +381,7 @@ export default function ProjectExplorer() {
       {/* Context Menu */}
       {contextMenu && (
         <>
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setContextMenu(null)}
-          />
+          <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
           <div
             className="fixed bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-50 min-w-[160px]"
             style={{ left: contextMenu.x, top: contextMenu.y }}
@@ -437,10 +423,7 @@ export default function ProjectExplorer() {
       )}
 
       {/* Create Bot Dialog */}
-      <CreateBotDialog
-        isOpen={showCreateBot}
-        onClose={() => setShowCreateBot(false)}
-      />
+      <CreateBotDialog isOpen={showCreateBot} onClose={() => setShowCreateBot(false)} />
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog

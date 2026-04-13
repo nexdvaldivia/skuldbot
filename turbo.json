@@ -5,20 +5,11 @@
   ],
   "tasks": {
     "build": {
-      "dependsOn": [
-        "^build"
-      ],
-      "outputs": [
-        "dist/**",
-        "build/**",
-        ".next/**",
-        "out/**"
-      ]
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "build/**", ".next/**", "out/**"]
     },
     "test": {
-      "dependsOn": [
-        "^build"
-      ],
+      "dependsOn": ["^build"],
       "outputs": []
     },
     "lint": {
@@ -33,9 +24,7 @@
       ]
     },
     "typecheck": {
-      "dependsOn": [
-        "^build"
-      ],
+      "dependsOn": ["^build"],
       "outputs": []
     }
   }

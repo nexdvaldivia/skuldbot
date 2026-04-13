@@ -10,11 +10,7 @@ export const metadata: Metadata = {
   description: 'RPA Bot Orchestration Platform',
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body className="min-h-screen bg-zinc-50">

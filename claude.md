@@ -44,6 +44,7 @@ diseñar, ejecutar y operar bots y agentes inteligentes en la infraestructura de
 bajo un modelo SaaS híbrido y auditable.
 
 SkuldBot combina:
+
 - RPA visual (tipo n8n / Electroneek / UiPath)
 - LLM Agents (razonamiento y toma de decisiones)
 - Integración de datos (Singer taps & targets)
@@ -56,6 +57,7 @@ EL MODELO COGNITIVO
 SkuldBot NO es solo RPA.
 
 Cada bot puede tener un Agente Cognitivo que:
+
 - Interpreta lenguaje humano
 - Decide qué acciones ejecutar
 - Usa herramientas (los nodos de SkuldBot)
@@ -69,6 +71,7 @@ EL MODELO DE NEGOCIO
 SkuldBot es: Plataforma + Operación + Bots alquilables
 
 Se cobra:
+
 - Suscripción mensual del Orchestrator
 - Licencia mensual por Runner
 - Facturación por bot en uso
@@ -269,8 +272,8 @@ DATA LINEAGE SCHEMA
     "dataFlowGraph": {
       "nodes": ["node_001", "node_002", "node_003"],
       "edges": [
-        {"from": "node_001", "to": "node_002"},
-        {"from": "node_002", "to": "node_003"}
+        { "from": "node_001", "to": "node_002" },
+        { "from": "node_002", "to": "node_003" }
       ]
     }
   }
@@ -337,6 +340,7 @@ IMPLEMENTACIÓN
 
 1. Engine (Python) - EvidencePackWriter
    Ubicación: engine/skuldbot/evidence/
+
    ```
    evidence/
    ├── __init__.py
@@ -352,6 +356,7 @@ IMPLEMENTACIÓN
 
 2. Orchestrator (NestJS) - EvidencePackService
    Ubicación: orchestrator/api/src/evidence/
+
    ```
    evidence/
    ├── evidence.module.ts
@@ -375,6 +380,7 @@ IMPLEMENTACIÓN
 VERIFICACIÓN DE INTEGRIDAD
 
 Para auditorías, el Evidence Pack puede ser verificado:
+
 1. Descargar .evp del storage
 2. Verificar firma digital del manifest
 3. Recalcular hashes de contenido
@@ -386,16 +392,18 @@ Si cualquier archivo fue modificado, la verificación falla.
 RETENCIÓN Y COMPLIANCE
 
 Por industria:
+
 - HIPAA: 6 años desde última fecha de servicio
 - Finance (SOX): 7 años
 - Insurance: 10 años (varía por estado)
 - GDPR: Mientras sea necesario + política de retención
 
 Configuración por tenant en TenantPolicyPack:
+
 ```json
 {
   "retention": {
-    "evidencePackDays": 2555,  // 7 años
+    "evidencePackDays": 2555, // 7 años
     "auditLogDays": 2555,
     "deletePolicy": "ARCHIVE_THEN_DELETE"
   }
@@ -405,6 +413,7 @@ Configuración por tenant en TenantPolicyPack:
 USO EN AUDITORÍAS
 
 El Evidence Pack responde las preguntas clave de auditores:
+
 - ¿Qué datos se procesaron? → data/lineage.json + classifications.json
 - ¿Quién/qué tomó decisiones? → decisions/agent_decisions.json
 - ¿Qué controles se aplicaron? → compliance/controls_applied.json
@@ -418,7 +427,7 @@ Los Tenant Policy Packs definen reglas de compliance específicas por industria.
 Se evalúan en compile-time y runtime para garantizar cumplimiento.
 
 Ubicación: packages/compiler/src/types/policy.ts (tipos)
-           packages/compiler/src/policy/packs/ (implementaciones)
+packages/compiler/src/policy/packs/ (implementaciones)
 
 POLICY PACKS DISPONIBLES
 
@@ -466,29 +475,29 @@ ESTRUCTURA DE UN POLICY PACK
 
 ```typescript
 interface TenantPolicyPack {
-  id: string;                    // 'hipaa-v1', 'soc2-v1', etc.
-  version: string;               // Semantic versioning
-  industry: string;              // healthcare, finance, etc.
-  baseStandard: string;          // HIPAA, SOC2, PCI-DSS, GDPR
+  id: string; // 'hipaa-v1', 'soc2-v1', etc.
+  version: string; // Semantic versioning
+  industry: string; // healthcare, finance, etc.
+  baseStandard: string; // HIPAA, SOC2, PCI-DSS, GDPR
 
   defaults: {
     logging: {
-      redact: boolean;           // Redactar PII/PHI en logs
-      storeDays: number;         // Retención de logs
-      immutable: boolean;        // WORM storage
+      redact: boolean; // Redactar PII/PHI en logs
+      storeDays: number; // Retención de logs
+      immutable: boolean; // WORM storage
     };
     artifacts: {
-      encryptAtRest: boolean;    // AES-256
+      encryptAtRest: boolean; // AES-256
       encryptInTransit: boolean; // TLS 1.3
     };
     evidencePack: {
-      required: boolean;         // Generar Evidence Pack
-      retentionDays: number;     // Retención
-      signatureRequired: boolean;// Firma digital
+      required: boolean; // Generar Evidence Pack
+      retentionDays: number; // Retención
+      signatureRequired: boolean; // Firma digital
     };
   };
 
-  rules: PolicyRule[];           // Reglas específicas
+  rules: PolicyRule[]; // Reglas específicas
 
   dataClassifications: {
     [Classification]: {
@@ -499,8 +508,8 @@ interface TenantPolicyPack {
   };
 
   approvals: {
-    requiredFor: string[];       // Operaciones que requieren aprobación
-    approverRoles: string[];     // Roles que pueden aprobar
+    requiredFor: string[]; // Operaciones que requieren aprobación
+    approverRoles: string[]; // Roles que pueden aprobar
     escalationAfterMinutes: number;
   };
 }
@@ -561,12 +570,12 @@ const INSURANCE_CLAIMS_PACK: TenantPolicyPack = {
   ],
 
   dataClassifications: {
-    'PHI': {
+    PHI: {
       maxRetentionDays: 3650,
       allowedEgress: ['INTERNAL'],
       requiredControls: ['LOG_REDACTION', 'AUDIT_LOG'],
     },
-    'PII': {
+    PII: {
       maxRetentionDays: 3650,
       allowedEgress: ['INTERNAL', 'EXTERNAL'],
       requiredControls: ['AUDIT_LOG'],
@@ -596,11 +605,12 @@ El PolicyEvaluator (packages/compiler/src/policy/evaluate.ts) evalúa:
    - Genera eventos de auditoría
 
 Resultado de evaluación:
+
 ```typescript
 interface PolicyEvaluationResult {
   passed: boolean;
-  blocks: PolicyViolation[];      // Violaciones que bloquean ejecución
-  warnings: PolicyViolation[];    // Advertencias (no bloquean)
+  blocks: PolicyViolation[]; // Violaciones que bloquean ejecución
+  warnings: PolicyViolation[]; // Advertencias (no bloquean)
   injectedControls: {
     [nodeId: string]: ControlType[];
   };
@@ -622,6 +632,7 @@ Este NO es un MVP. Estamos construyendo una plataforma de RPA COGNITIVO ENTERPRI
 para competir y superar a los líderes del mercado como UiPath, Automation Anywhere y Blue Prism.
 
 Principios fundamentales:
+
 - CALIDAD SOBRE VELOCIDAD: Cada componente debe ser robusto, escalable y production-ready
 - ARQUITECTURA IMPECABLE: Código limpio, patrones de diseño correctos, documentación completa
 - SEGURIDAD FIRST: Encryption, audit trails, RBAC, compliance (SOC2, GDPR, HIPAA-ready)
@@ -632,6 +643,7 @@ Principios fundamentales:
 - OPEN CORE: Motor de ejecución propietario, valor en orquestación, governance y enterprise features
 
 Arquitectura Cloud-Agnostic:
+
 - Storage: Abstracción sobre S3/Azure Blob/GCS/MinIO/Local filesystem
 - Database: PostgreSQL (funciona en cualquier cloud o on-premise)
 - Queue: Redis/BullMQ (deployable anywhere) o abstracción sobre SQS/Azure Queue/etc
@@ -640,6 +652,7 @@ Arquitectura Cloud-Agnostic:
 - Container Runtime: Kubernetes-native, funciona en EKS/AKS/GKE/OpenShift/bare-metal K8s
 
 Filosofía BYO (Bring Your Own) - TODOS los servicios de terceros son configurables por tenant:
+
 - BYO-LLM: OpenAI, Anthropic, Azure OpenAI, AWS Bedrock, Google Vertex, Ollama, LM Studio, custom endpoints
 - BYO-Email: Twilio SendGrid, AWS SES, Azure Communication Services, Mailgun, SMTP propio
 - BYO-SMS: Twilio, AWS SNS, Azure Communication Services, Vonage, MessageBird
@@ -654,6 +667,7 @@ MERCADO OBJETIVO: INDUSTRIAS ALTAMENTE REGULADAS
 Esta plataforma está diseñada específicamente para empresas en industrias con los más altos estándares de compliance:
 
 Industrias target:
+
 - Banca y Servicios Financieros (PCI-DSS, SOX, Basel III)
 - Salud y Farmacéutica (HIPAA, FDA 21 CFR Part 11, GxP)
 - Gobierno y Sector Público (FedRAMP, FISMA, StateRAMP)
@@ -662,6 +676,7 @@ Industrias target:
 - Energía y Utilities (NERC CIP)
 
 Compliance-by-Design:
+
 - Audit trails inmutables (WORM - Write Once Read Many)
 - Encryption at rest y in transit (AES-256, TLS 1.3)
 - Data residency configurable por tenant (para GDPR, soberanía de datos)
@@ -674,6 +689,7 @@ Compliance-by-Design:
 - Penetration testing y vulnerability scanning integrado
 
 NO negociables de seguridad:
+
 - NUNCA almacenar passwords en texto plano (Argon2id obligatorio)
 - NUNCA logs con datos sensibles (PII/PHI redactados automáticamente)
 - NUNCA acceso a producción sin MFA
@@ -701,20 +717,22 @@ Studio (Tauri + React + React Flow)
 → Logs / Resultados
 
 DECISIÓN TECNOLÓGICA CLAVE
+
 - Studio NO debe usar Next.js.
   Motivo: Next.js está orientado a SSR/web y no aporta valor dentro de Tauri.
   El Studio debe usar:
-    - React + Vite
-    - React Flow
-    - TailwindCSS
-    - shadcn/ui
+  - React + Vite
+  - React Flow
+  - TailwindCSS
+  - shadcn/ui
 
 - Orchestrator:
-    - NestJS (backend)
-    - Next.js (frontend admin / dashboards)
+  - NestJS (backend)
+  - Next.js (frontend admin / dashboards)
 
 GESTIÓN DE ERRORES (OBLIGATORIA)
 Todos los nodos RPA deben tener salidas:
+
 - success (línea verde)
 - error (línea naranja)
 
@@ -728,59 +746,60 @@ además de variables globales para el último error.
 
 1. Variables Por Nodo (Locales)
    Cada nodo tiene un diccionario de estado interno:
-   NODE_<node_id> con keys: status, output, error
+   NODE\_<node_id> con keys: status, output, error
 
    En el Studio se accede usando el label del nodo:
-   - ${Node Label.output}  → Salida principal del nodo
-   - ${Node Label.error}   → Mensaje de error si el nodo falló
-   - ${Node Label.status}  → Estado: pending, success, error
+   - ${Node Label.output} → Salida principal del nodo
+   - ${Node Label.error} → Mensaje de error si el nodo falló
+   - ${Node Label.status} → Estado: pending, success, error
 
    El Compiler transforma automáticamente:
    ${Read Excel.output} → ${NODE_node_123}[output]
 
 2. Variables Globales de Error
    Disponibles cuando un nodo está conectado via línea naranja (error):
-   - ${LAST_ERROR}       → Mensaje del último error
-   - ${LAST_ERROR_NODE}  → ID del nodo que falló
-   - ${LAST_ERROR_TYPE}  → Tipo del nodo (ej: excel.read_range)
+   - ${LAST_ERROR} → Mensaje del último error
+   - ${LAST_ERROR_NODE} → ID del nodo que falló
+   - ${LAST_ERROR_TYPE} → Tipo del nodo (ej: excel.read_range)
 
 3. Variables de Sistema
-   - ${BOT_ID}      → ID del bot
-   - ${BOT_NAME}    → Nombre del bot
-   - ${BOT_STATUS}  → Estado: RUNNING, SUCCESS, FAILED
+   - ${BOT_ID} → ID del bot
+   - ${BOT_NAME} → Nombre del bot
+   - ${BOT_STATUS} → Estado: RUNNING, SUCCESS, FAILED
 
 4. Variables de Salida por Tipo de Nodo
    Excel:
-   - ${EXCEL_DATA}       → Datos leídos (lista de diccionarios)
-   - ${EXCEL_ROW_COUNT}  → Cantidad de filas
-   - ${CELL_VALUE}       → Valor de celda individual
+   - ${EXCEL_DATA} → Datos leídos (lista de diccionarios)
+   - ${EXCEL_ROW_COUNT} → Cantidad de filas
+   - ${CELL_VALUE} → Valor de celda individual
 
    Files:
-   - ${FILE_CONTENT}  → Contenido del archivo leído
-   - ${FILE_EXISTS}   → Boolean de existencia
+   - ${FILE_CONTENT} → Contenido del archivo leído
+   - ${FILE_EXISTS} → Boolean de existencia
 
    API/HTTP:
-   - ${HTTP_RESPONSE}  → Cuerpo de respuesta
-   - ${HTTP_STATUS}    → Código de estado HTTP
+   - ${HTTP_RESPONSE} → Cuerpo de respuesta
+   - ${HTTP_STATUS} → Código de estado HTTP
 
    Web:
-   - ${LAST_TEXT}       → Texto extraído de elemento
-   - ${LAST_ATTRIBUTE}  → Atributo extraído
-   - ${JS_RESULT}       → Resultado de JavaScript
+   - ${LAST_TEXT} → Texto extraído de elemento
+   - ${LAST_ATTRIBUTE} → Atributo extraído
+   - ${JS_RESULT} → Resultado de JavaScript
 
 5. Transformación de Sintaxis (Compiler)
    El filtro transform_vars en compiler.py convierte la sintaxis del Studio
    a la sintaxis interna del runtime:
 
-   Studio                          → Runtime
+   Studio → Runtime
    ${Form Trigger.formData.name}   → formData["name"]
-   ${Read Excel.output}            → NODE_node_id["output"]
+   ${Read Excel.output} → NODE_node_id["output"]
    ${Read Excel.data}              → NODE_node_id["data"]
-   ${LAST_ERROR}                   → LAST_ERROR (sin cambios)
+   ${LAST_ERROR} → LAST_ERROR (sin cambios)
 
    El Compiler mantiene un node_id_map (label → id) para la conversión.
 
 6. Flujo de Datos Entre Nodos
+
    ```
    [Form Trigger] ──success──> [Read Excel] ──success──> [Log Data]
         │                           │                        │
@@ -800,7 +819,7 @@ además de variables globales para el último error.
 7. Archivos Relacionados
    - engine/skuldbot/compiler/compiler.py
      - transform_variable_syntax() - Transforma sintaxis de variables
-     - _node_id_map - Mapeo de labels a IDs
+     - \_node_id_map - Mapeo de labels a IDs
 
    - engine/skuldbot/compiler/templates/
      - Templates de generación de código
@@ -862,12 +881,14 @@ El panel de configuración de nodo tiene 3 secciones obligatorias:
 ```
 
 INPUT Panel (Panel Izquierdo - Azul):
+
 - Muestra variables disponibles de nodos predecesores
 - Click en variable = copiar expresión ${NodeLabel.field}
 - SIN ejecución: muestra schema de campos disponibles
 - CON ejecución: muestra datos REALES del nodo predecesor con badge "LIVE"
 
 OUTPUT Panel (Panel Derecho - Verde):
+
 - Muestra la salida del nodo seleccionado
 - SIN ejecución: muestra schema/estructura esperada
 - CON ejecución: muestra datos REALES de la última ejecución con badge "LIVE"
@@ -886,6 +907,7 @@ Cada nodo en el canvas debe mostrar después de ejecutar:
 ```
 
 Estados visuales:
+
 - Pendiente (gris/azul suave)
 - Ejecutando (amarillo, animado)
 - Exito (verde)
@@ -895,6 +917,7 @@ Estados visuales:
 DATA PINNING (Feature Planificado)
 
 Permite "fijar" la salida de un nodo para desarrollo iterativo:
+
 - Pin output → usar esos datos fijados en lugar de re-ejecutar
 - Editar datos fijados para probar casos edge
 - Indicador visual cuando un nodo tiene datos fijados
@@ -917,6 +940,7 @@ Total: 7.5s
 MANEJO DE ERRORES ESTRUCTURADO
 
 Cuando un nodo falla:
+
 - Nodo se marca en ROJO
 - Línea de error (naranja) se activa
 - OUTPUT panel muestra detalles del error:
@@ -954,16 +978,18 @@ IMPLEMENTACIÓN: DETECTAR DATOS REALES
 const nodeExecution = sessionState?.nodeExecutions?.[selectedNode.id];
 const hasRealData = nodeExecution?.output !== undefined;
 
-{hasRealData ? (
-  // Mostrar datos REALES con badge LIVE
-  <div className="bg-green-50 border-green-200">
-    <span className="badge bg-green-100 text-green-600">LIVE</span>
-    <pre>{JSON.stringify(nodeExecution.output, null, 2)}</pre>
-  </div>
-) : (
-  // Mostrar schema/estructura de variables
-  <SchemaTree variables={availableVariables} />
-)}
+{
+  hasRealData ? (
+    // Mostrar datos REALES con badge LIVE
+    <div className="bg-green-50 border-green-200">
+      <span className="badge bg-green-100 text-green-600">LIVE</span>
+      <pre>{JSON.stringify(nodeExecution.output, null, 2)}</pre>
+    </div>
+  ) : (
+    // Mostrar schema/estructura de variables
+    <SchemaTree variables={availableVariables} />
+  );
+}
 ```
 
 REGLAS DE ORO
@@ -981,6 +1007,7 @@ El Studio está conectado al motor real de Python via Tauri IPC.
 NO usa simulaciones - ejecuta código real.
 
 1. Arquitectura de Ejecución
+
    ```
    Studio (React)
        │
@@ -1043,6 +1070,7 @@ NO usa simulaciones - ejecuta código real.
 
 INTEGRACIÓN CON PYTHON (ELECTRONEEK-STYLE)
 Nodo Python Project Executor:
+
 - Ejecuta proyectos Python existentes
 - Se define project path + entrypoint + entorno
 - Retorna JSON estructurado
@@ -1055,6 +1083,7 @@ Los archivos de bot de SkuldBot usan la extensión .skb (similar a como n8n usa 
 Esta extensión es propietaria de SkuldBot y permite identificar fácilmente los archivos de bot.
 
 El archivo .skb es internamente un archivo comprimido (.zip) que incluye:
+
 - main.py (script principal)
 - resources/ (keywords y handlers)
 - variables/ (configuración)
@@ -1073,6 +1102,7 @@ Se recomienda adoptar una arquitectura desacoplada y moderna que evite complejid
 Arquitectura recomendada:
 
 apps/
+
 - studio-desktop/
   - Tauri
   - React + Vite
@@ -1095,11 +1125,13 @@ apps/
   - SkuldBot Runtime + rpaframework
 
 packages/
+
 - dsl/
 - compiler/
 - node-sdk/
 
 Esta separación garantiza:
+
 - Studio ligero y optimizado para desktop
 - Backend robusto y escalable
 - Frontend web moderno para operación
@@ -1111,11 +1143,13 @@ RUNNER – FRAMEWORKS DE EJECUCIÓN
 El BotRunner se basa en una combinación de componentes, donde cada uno cumple una función específica y complementaria.
 
 SkuldBot Runtime:
+
 - Actúa como el motor de ejecución propietario.
 - Gestiona el control de flujo, la ejecución determinista, el manejo de errores y la generación de reportes.
 - Optimizado para automatización cognitiva con soporte nativo para LLM agents.
 
 RPA Framework (rpaframework):
+
 - Proporciona librerías listas para producción para:
   - Automatización web
   - Automatización desktop
@@ -1125,6 +1159,7 @@ RPA Framework (rpaframework):
 - Constituye la capa RPA especializada del Runner.
 
 Arquitectura final del Runner:
+
 - Python
 - SkuldBot Runtime (motor propietario)
 - rpaframework (librerías RPA)
@@ -1139,40 +1174,38 @@ ESTRUCTURA DEL PROYECTO
 La plataforma se organiza en un monorepo con 4 componentes principales:
 
 skuldbot/
-+-- engine/              [LISTO] Motor de ejecucion compartido
-|   - Python + SkuldBot Runtime + rpaframework
-|   - DSL, Compiler, Executor
-|   - Usado por Studio (debug) y Runner (production)
++-- engine/ [LISTO] Motor de ejecucion compartido
+| - Python + SkuldBot Runtime + rpaframework
+| - DSL, Compiler, Executor
+| - Usado por Studio (debug) y Runner (production)
 |
-+-- studio/             [TODO] Editor visual desktop
-|   - Tauri + React + Vite + React Flow
-|   - Editor drag & drop de flujos
-|   - Preview y debug local
-|   - Upload a Orchestrator
++-- studio/ [TODO] Editor visual desktop
+| - Tauri + React + Vite + React Flow
+| - Editor drag & drop de flujos
+| - Preview y debug local
+| - Upload a Orchestrator
 |
-+-- orchestrator/       [TODO] Backend y UI web
-|   +-- api/           - NestJS + PostgreSQL
-|   |   - REST API para gestion
-|   |   - Compilacion de DSL
-|   |   - Storage de artifacts
-|   +-- ui/            - Next.js
-|       - Dashboards
-|       - Gestion de bots y usuarios
++-- orchestrator/ [TODO] Backend y UI web
+| +-- api/ - NestJS + PostgreSQL
+| | - REST API para gestion
+| | - Compilacion de DSL
+| | - Storage de artifacts
+| +-- ui/ - Next.js
+| - Dashboards
+| - Gestion de bots y usuarios
 |
-+-- runner/            [TODO] Agente de ejecucion
-    - Python standalone
-    - Polling/webhook de Orchestrator
-    - Ejecuta Bot Packages
-    - Envia logs en tiempo real
++-- runner/ [TODO] Agente de ejecucion - Python standalone - Polling/webhook de Orchestrator - Ejecuta Bot Packages - Envia logs en tiempo real
 
 COMPONENTES COMPARTIDOS
 
 El Engine actúa como librería compartida:
+
 - Usado por Studio para compilar y ejecutar localmente
 - Usado por Orchestrator para compilar DSL a Bot Packages
 - Usado por Runner para ejecutar bots en producción
 
 Opcionalmente se pueden publicar:
+
 - @skuldbot/dsl (npm) – Definiciones TypeScript del DSL
 - skuldbot-engine (PyPI) – Engine como paquete instalable
 
@@ -1279,21 +1312,25 @@ FLUJO DE EJECUCIÓN
 SEGURIDAD Y AUTENTICACIÓN
 
 Orchestrator API:
+
 - JWT tokens con refresh
 - RBAC (roles: admin, operator, viewer)
 - API Keys para Runners
 
 BotRunner:
+
 - Autenticación con API Key rotativa
 - Ejecución en sandbox (Docker/VM opcional)
 - Secrets manejados por Orchestrator (no en Bot Package)
 
 Studio:
+
 - Autenticación opcional con Orchestrator
 - Modo offline (edición local sin Orchestrator)
 - Encriptación de credenciales en DSL
 
 Variables sensibles:
+
 - Nunca en DSL plano
 - Referencias a vault: ${vault.api_key}
 - Orchestrator resuelve en runtime
@@ -1301,6 +1338,7 @@ Variables sensibles:
 ROADMAP DE IMPLEMENTACIÓN
 
 Fase 1 - Foundation (Enterprise-Grade):
+
 - [ ] Studio básico (nodos web, archivos, variables)
 - [ ] Compiler DSL → Bot Package (.skb)
 - [ ] Orchestrator API (bots, jobs, users)
@@ -1309,6 +1347,7 @@ Fase 1 - Foundation (Enterprise-Grade):
 - [ ] Gestión de errores básica
 
 Fase 2 - Producción (2-3 meses):
+
 - [ ] Studio: más nodos (email, Excel, PDF, APIs)
 - [ ] Studio: debugger visual
 - [ ] Orchestrator: scheduling avanzado
@@ -1318,6 +1357,7 @@ Fase 2 - Producción (2-3 meses):
 - [ ] RBAC completo
 
 Fase 3 - Enterprise (3-4 meses):
+
 - [ ] Python Project Executor
 - [ ] Integración con IA (OpenAI, Claude)
 - [ ] Métricas y analytics avanzados
@@ -1326,6 +1366,7 @@ Fase 3 - Enterprise (3-4 meses):
 - [ ] Auditoria completa
 
 Fase 4 - Escalabilidad (ongoing):
+
 - [ ] Kubernetes deployment
 - [ ] Multi-tenancy
 - [ ] Runner en edge
@@ -1342,12 +1383,14 @@ VERSIONADO DEL DOCUMENTO
 NOTAS TÉCNICAS ADICIONALES
 
 Compiler:
+
 - Input: DSL JSON
 - Output: Bot Package (.skb) con scripts ejecutables + resources/ + variables/ + manifest.json
 - Validación de schema con JSON Schema
 - Optimización de flujo (dead code elimination)
 
 Bot Package (.skb):
+
 ```
 bot-001.skb
 ├── manifest.json           # Metadata del bot
@@ -1365,13 +1408,14 @@ bot-001.skb
 Nota: El archivo .skb es internamente un archivo ZIP con extensión propietaria.
 
 Orchestrator Storage:
+
 - Artifacts: S3-compatible (MinIO, AWS S3)
 - Logs: Time-series DB (opcional: InfluxDB)
 - Metadata: PostgreSQL
 
 Runner Environment:
+
 - Python 3.10+
 - Chromium/Firefox drivers automáticos
 - Java 11+ (para ciertos nodos)
 - Espacio temporal para downloads/uploads
-

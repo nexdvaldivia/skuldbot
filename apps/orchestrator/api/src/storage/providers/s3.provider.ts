@@ -9,11 +9,7 @@ import {
   ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import {
-  StorageService,
-  UploadOptions,
-  StorageObject,
-} from '../storage.interface';
+import { StorageService, UploadOptions, StorageObject } from '../storage.interface';
 
 @Injectable()
 export class S3StorageProvider implements StorageService {
@@ -93,11 +89,7 @@ export class S3StorageProvider implements StorageService {
     }
   }
 
-  async getSignedUrl(
-    bucket: string,
-    key: string,
-    expiresInSeconds: number,
-  ): Promise<string> {
+  async getSignedUrl(bucket: string, key: string, expiresInSeconds: number): Promise<string> {
     const command = new GetObjectCommand({
       Bucket: bucket,
       Key: key,
@@ -117,9 +109,9 @@ export class S3StorageProvider implements StorageService {
     const response = await this.client.send(command);
 
     return (response.Contents || []).map((item) => ({
-      key: item.Key!,
-      size: item.Size!,
-      lastModified: item.LastModified!,
+      key: item.Key,
+      size: item.Size,
+      lastModified: item.LastModified,
       etag: item.ETag,
     }));
   }
