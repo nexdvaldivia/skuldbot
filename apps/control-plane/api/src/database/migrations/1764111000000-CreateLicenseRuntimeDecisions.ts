@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateLicenseRuntimeDecisions1764111000000 implements MigrationInterface {
+export class CreateLicenseRuntimeDecisions1764111000000
+  implements MigrationInterface
+{
   name = 'CreateLicenseRuntimeDecisions1764111000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -44,7 +46,9 @@ export class CreateLicenseRuntimeDecisions1764111000000 implements MigrationInte
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query('DROP INDEX IF EXISTS "IDX_license_runtime_decisions_lookup"');
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_license_runtime_decisions_lookup"',
+    );
     await queryRunner.query(
       'DROP INDEX IF EXISTS "IDX_license_runtime_decisions_tenant_created_at"',
     );

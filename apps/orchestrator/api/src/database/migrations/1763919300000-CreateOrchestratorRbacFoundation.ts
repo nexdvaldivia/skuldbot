@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateOrchestratorRbacFoundation1763919300000 implements MigrationInterface {
+export class CreateOrchestratorRbacFoundation1763919300000
+  implements MigrationInterface
+{
   name = 'CreateOrchestratorRbacFoundation1763919300000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

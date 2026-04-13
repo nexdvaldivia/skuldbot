@@ -35,7 +35,9 @@ export class CreateRunnerHeartbeats1764105600000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query('DROP INDEX IF EXISTS "IDX_runner_heartbeats_tenant_heartbeat"');
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_runner_heartbeats_tenant_heartbeat"',
+    );
     await queryRunner.query('DROP TABLE IF EXISTS "runner_heartbeats"');
   }
 }
