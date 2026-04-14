@@ -132,7 +132,7 @@ export class Runner {
   @JoinColumn({ name: 'poolId' })
   pool: any; // Using 'any' to avoid circular reference at initialization
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   tags: string[]; // For matching with job requirements
 
   @Column({ type: 'jsonb', nullable: true })
@@ -142,13 +142,13 @@ export class Runner {
   // CAPABILITIES
   // ============================================================================
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   capabilities: string[]; // e.g., ['web.browser', 'desktop.automation', 'ai.llm']
 
   @Column({ type: 'jsonb', nullable: true })
   capabilityVersions: Record<string, string>; // e.g., { 'robotframework': '6.0', 'python': '3.10' }
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   supportedNodeTypes: string[]; // Node types this runner can execute
 
   // ============================================================================
@@ -171,7 +171,7 @@ export class Runner {
   // HEALTH & HEARTBEAT
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastHeartbeatAt: Date;
 
   @Column({ default: 30 }) // seconds
@@ -189,7 +189,7 @@ export class Runner {
   @Column({ type: 'float', default: 100 })
   healthScore: number; // 0-100, based on success rate and uptime
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastHealthCheckAt: Date;
 
   @Column({ type: 'jsonb', nullable: true })
@@ -209,16 +209,16 @@ export class Runner {
   // SYSTEM INFO
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   hostname: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   ipAddress: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   publicIpAddress: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   agentVersion: string;
 
   @Column({ type: 'jsonb', nullable: true })
@@ -251,13 +251,13 @@ export class Runner {
   // LOCATION & ENVIRONMENT
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   region: string; // Cloud region or data center
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   zone: string; // Availability zone
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   environment: string; // production, staging, development
 
   @Column({ type: 'jsonb', nullable: true })
@@ -288,19 +288,19 @@ export class Runner {
   @Column({ nullable: true, unique: true })
   apiKeyHash: string; // SHA256 hash of API key
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   apiKeyPrefix: string; // First 8 chars for identification
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   apiKeyCreatedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   apiKeyExpiresAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastAuthenticatedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastAuthenticatedIp: string;
 
   // ============================================================================
@@ -325,13 +325,13 @@ export class Runner {
   @Column({ type: 'bigint', default: 0 })
   totalUptimeSeconds: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastJobCompletedAt: Date;
 
   @Column({ type: 'uuid', nullable: true })
   currentJobId: string; // Currently executing run ID
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   currentJobStartedAt: Date;
 
   // ============================================================================
@@ -388,14 +388,14 @@ export class Runner {
   // OWNERSHIP
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   createdBy: string;
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'createdBy' })
   creator: User;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   updatedBy: string;
 
   // ============================================================================
@@ -408,16 +408,16 @@ export class Runner {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   registeredAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastOnlineAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   disabledAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   disabledBy: string;
 
   @Column({ nullable: true, length: 500 })
@@ -532,10 +532,10 @@ export class RunnerPool {
     maxScaleDownPerInterval?: number;
   };
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastScaleUpAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastScaleDownAt: Date;
 
   // ============================================================================
@@ -568,14 +568,14 @@ export class RunnerPool {
   @Column({ default: 0 })
   dailyJobsExecuted: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   quotaResetAt: Date;
 
   // ============================================================================
   // METADATA
   // ============================================================================
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   tags: string[];
 
   @Column({ type: 'jsonb', nullable: true })
@@ -735,16 +735,16 @@ export class RunnerEvent {
   @Column({ type: 'jsonb', nullable: true })
   details: Record<string, any>;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   previousStatus: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   newStatus: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   triggeredBy: string; // User ID or 'system'
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   ipAddress: string;
 
   @Column()

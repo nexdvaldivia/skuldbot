@@ -57,7 +57,7 @@ export class BotInstallation {
   @Column({ length: 20 })
   installedVersion: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   latestAvailableVersion?: string; // For update notifications
 
   // ============================================================================
@@ -71,16 +71,16 @@ export class BotInstallation {
   })
   status: InstallationStatus;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   configuredAt?: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   suspendedAt?: Date;
 
   @Column({ nullable: true, type: 'text' })
   suspensionReason?: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   cancelledAt?: Date;
 
   @Column({ nullable: true, type: 'text' })
@@ -94,36 +94,36 @@ export class BotInstallation {
    * Maps required secrets from the bot to tenant's vault entries
    * Example: { 'ms365_tenant': 'vault://my-ms365-creds', 'openai_key': 'vault://gpt-key' }
    */
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   vaultMappings: Record<string, string>;
 
   /**
    * Connection configurations for integrations
    * Example: { 'ms365': { tenantId: '...', clientId: '...' } }
    */
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   connectionConfigs: Record<string, Record<string, unknown>>;
 
   // ============================================================================
   // BILLING
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   stripeSubscriptionId?: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   stripeCustomerId?: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   billingStartDate?: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   currentPeriodStart?: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   currentPeriodEnd?: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   trialEndDate?: Date;
 
   @Column({ default: false })
@@ -137,16 +137,16 @@ export class BotInstallation {
    * Usage counters for current billing period
    * Reset at the start of each billing period
    */
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   usageThisPeriod: Record<string, number>;
 
   /**
    * Lifetime usage counters
    */
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   usageLifetime: Record<string, number>;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastUsageReportedAt?: Date;
 
   // ============================================================================
@@ -162,7 +162,7 @@ export class BotInstallation {
   @Column({ default: 0 })
   failedRuns: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastRunAt?: Date;
 
   @Column({ type: 'float', default: 0 })

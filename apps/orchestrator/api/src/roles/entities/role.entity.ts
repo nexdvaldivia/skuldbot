@@ -46,7 +46,7 @@ export class Role {
   @Column()
   displayName: string; // e.g., 'Administrator', 'Operator', 'Viewer'
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   description: string;
 
   @Column({ type: 'enum', enum: RoleType, default: RoleType.CUSTOM })

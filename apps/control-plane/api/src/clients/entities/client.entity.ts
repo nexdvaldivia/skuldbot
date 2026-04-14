@@ -34,10 +34,10 @@ export class Client {
   @Column({ name: 'stripe_subscription_id', type: 'varchar', nullable: true })
   stripeSubscriptionId: string | null;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   settings: Record<string, unknown>;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   metadata: Record<string, unknown>;
 
   @OneToMany(() => Tenant, (tenant) => tenant.client)

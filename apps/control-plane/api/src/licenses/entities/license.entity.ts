@@ -47,7 +47,7 @@ export class License {
   @Column({ type: 'varchar', length: 80, default: 'active' })
   status: string;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   features: LicenseFeatures;
 
   @Column({ name: 'valid_from', type: 'timestamp with time zone' })
@@ -59,7 +59,7 @@ export class License {
   @Column({ name: 'last_validated_at', type: 'timestamp with time zone', nullable: true })
   lastValidatedAt: Date | null;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   metadata: Record<string, unknown>;
 
   @CreateDateColumn({ name: 'created_at' })

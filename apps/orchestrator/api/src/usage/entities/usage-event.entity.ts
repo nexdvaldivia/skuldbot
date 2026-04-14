@@ -50,7 +50,7 @@ export class UsageEvent {
   @Index()
   status: 'pending' | 'queued' | 'sent' | 'acked' | 'failed';
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   batchId?: string; // ID of the batch this event was sent in
 
   @Column({ default: 0 })
@@ -59,7 +59,7 @@ export class UsageEvent {
   @Column({ type: 'timestamptz', nullable: true })
   lastAttempt?: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   error?: string;
 
   @CreateDateColumn()

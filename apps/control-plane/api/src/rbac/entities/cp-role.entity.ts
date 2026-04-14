@@ -55,7 +55,7 @@ export class CpRole {
   @Column({ name: 'is_default', type: 'boolean', default: false })
   isDefault: boolean;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   metadata: Record<string, unknown>;
 
   @ManyToMany(() => CpPermission, (permission) => permission.roles, {

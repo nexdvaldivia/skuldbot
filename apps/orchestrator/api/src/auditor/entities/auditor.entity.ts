@@ -94,7 +94,7 @@ export class Auditor {
   role: AuditorRole;
 
   /** Access code hash (sent via email for authentication) */
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   accessCodeHash: string;
 
   /** When the access code was last generated */
@@ -126,7 +126,7 @@ export class Auditor {
   lastAccessAt: Date | null;
 
   /** IP address of last access */
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastAccessIp: string | null;
 
   /** Total number of logins */
@@ -239,10 +239,10 @@ export class AuditorAccessLog {
   action: string; // 'login', 'view_evidence', 'verify_signature', 'generate_attestation', etc.
 
   /** Resource accessed (evidence pack ID, bot ID, etc.) */
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   resourceType: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   resourceId: string | null;
 
   /** Additional details as JSON */
@@ -250,11 +250,11 @@ export class AuditorAccessLog {
   details: Record<string, any> | null;
 
   /** IP address */
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   ipAddress: string | null;
 
   /** User agent */
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   userAgent: string | null;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })

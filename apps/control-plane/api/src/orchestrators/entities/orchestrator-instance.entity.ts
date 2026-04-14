@@ -53,13 +53,13 @@ export class OrchestratorInstance {
   @Column({ name: 'last_seen_ip', type: 'varchar', nullable: true })
   lastSeenIp: string | null;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   capabilities: Record<string, unknown>;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   metadata: Record<string, unknown>;
 
-  @Column({ name: 'last_metrics', type: 'jsonb', default: {} })
+  @Column({ name: 'last_metrics', type: 'jsonb', default: '{}' })
   lastMetrics: Record<string, unknown>;
 
   @Column({ name: 'last_health_report', type: 'jsonb', nullable: true })

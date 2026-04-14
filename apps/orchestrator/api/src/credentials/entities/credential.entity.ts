@@ -197,7 +197,7 @@ export class Credential {
   /**
    * Data encryption key ID (for key rotation support)
    */
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   encryptionKeyId: string | null;
 
   /**
@@ -209,13 +209,13 @@ export class Credential {
   /**
    * Labels for categorization and filtering
    */
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   labels: Record<string, string>;
 
   /**
    * Metadata (non-sensitive additional info)
    */
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   metadata: {
     url?: string;
     host?: string;
@@ -230,13 +230,13 @@ export class Credential {
   /**
    * Allowed bot IDs (for BOT_SPECIFIC scope)
    */
-  @Column({ type: 'uuid', array: true, default: [] })
+  @Column({ type: 'uuid', array: true, default: '[]' })
   allowedBotIds: string[];
 
   /**
    * Allowed environment names (for ENVIRONMENT scope)
    */
-  @Column({ type: 'text', array: true, default: [] })
+  @Column({ type: 'text', array: true, default: '[]' })
   allowedEnvironments: string[];
 
   /**
@@ -270,7 +270,7 @@ export class Credential {
   /**
    * Audit configuration
    */
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   auditConfig: {
     logAccess: boolean;
     logDecryption: boolean;
@@ -290,7 +290,7 @@ export class Credential {
   @Column({ type: 'uuid', nullable: true })
   lastAccessedBy: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastAccessedFrom: string | null;
 
   /**
@@ -393,7 +393,7 @@ export class CredentialAccessLog {
   /**
    * IP address of the accessor
    */
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   ipAddress: string | null;
 
   /**
@@ -405,7 +405,7 @@ export class CredentialAccessLog {
   /**
    * Access context (why was it accessed)
    */
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   context: {
     purpose?: string;
     nodeName?: string;
@@ -483,13 +483,13 @@ export class CredentialRotationHistory {
   /**
    * Rotation duration in milliseconds
    */
-  @Column({ nullable: true })
+  @Column({ type: 'integer', nullable: true })
   durationMs: number | null;
 
   /**
    * Rotation metadata
    */
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   metadata: {
     strategy?: string;
     rollbackAvailable?: boolean;
@@ -556,7 +556,7 @@ export class CredentialFolder {
   /**
    * Access permissions (inheritable)
    */
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   permissions: {
     inheritFromParent: boolean;
     allowedRoles?: string[];
@@ -633,7 +633,7 @@ export class VaultConnection {
   /**
    * Health check configuration
    */
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   healthCheck: {
     enabled: boolean;
     intervalMinutes?: number;

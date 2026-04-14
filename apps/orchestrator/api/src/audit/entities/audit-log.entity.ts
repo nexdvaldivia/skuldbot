@@ -117,7 +117,7 @@ export class AuditLog {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   userEmail: string; // Denormalized for when user is deleted
 
   @Column({ type: 'uuid', nullable: true })
@@ -140,13 +140,13 @@ export class AuditLog {
   result: AuditResult;
 
   // Resource details (what was affected)
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   resourceType: string; // e.g., 'bot', 'user', 'run'
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   resourceId: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   resourceName: string; // Denormalized name for display
 
   // Change tracking
@@ -160,22 +160,22 @@ export class AuditLog {
   changes: Record<string, { from: any; to: any }>; // Diff of changes
 
   // Context
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   ipAddress: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   userAgent: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   requestId: string; // Correlation ID for distributed tracing
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   sessionId: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   errorMessage: string; // For failed actions
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   errorCode: string;
 
   // Additional metadata

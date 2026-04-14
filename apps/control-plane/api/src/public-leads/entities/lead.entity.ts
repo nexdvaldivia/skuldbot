@@ -78,7 +78,7 @@ export class Lead {
   })
   status: LeadStatus;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   metadata: Record<string, unknown>;
 
   @CreateDateColumn({ name: 'created_at' })
@@ -132,7 +132,7 @@ export class LeadIntakeEvent {
   @Column({ name: 'deduplicated', default: false })
   deduplicated: boolean;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   metadata: Record<string, unknown>;
 
   @CreateDateColumn({ name: 'created_at' })

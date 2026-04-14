@@ -18,13 +18,13 @@ export class TenantSettings {
   @Column({ type: 'uuid' })
   tenantId: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   organizationName: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   organizationSlug: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   logoUrl: string | null;
 
   @Column({ type: 'jsonb', default: () => "'{}'" })

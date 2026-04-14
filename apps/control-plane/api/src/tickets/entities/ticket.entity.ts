@@ -72,7 +72,7 @@ export class Ticket {
   })
   priority: TicketPriority;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   metadata: Record<string, unknown>;
 
   @CreateDateColumn({ name: 'created_at' })

@@ -32,7 +32,7 @@ export class QuotaPolicy {
   @Column({ name: 'block_when_exceeded', type: 'boolean', default: true })
   blockWhenExceeded: boolean;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   metadata: Record<string, unknown>;
 
   @CreateDateColumn({ name: 'created_at' })

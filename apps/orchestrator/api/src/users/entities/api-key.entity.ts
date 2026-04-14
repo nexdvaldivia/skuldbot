@@ -77,7 +77,7 @@ export class ApiKey {
   @Column()
   name: string; // Human-readable name for the key
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   description: string;
 
   @Column()
@@ -105,14 +105,14 @@ export class ApiKey {
   @Column({ type: 'simple-array', nullable: true })
   allowedIps: string[]; // IP whitelist (null = all IPs allowed)
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   rateLimit: number; // Requests per minute (null = default limit)
 
   // Usage tracking
   @Column({ type: 'timestamp', nullable: true })
   lastUsedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastUsedIp: string;
 
   @Column({ default: 0 })
@@ -131,10 +131,10 @@ export class ApiKey {
   @Column({ type: 'timestamp', nullable: true })
   revokedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   revokedBy: string; // User ID who revoked
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   revokeReason: string;
 
   // Helper methods
@@ -204,13 +204,13 @@ export class RefreshToken {
   @Column({ type: 'timestamp' })
   expiresAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   userAgent: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   ipAddress: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   deviceId: string; // For device tracking
 
   @CreateDateColumn()
@@ -258,19 +258,19 @@ export class Session {
   @Column({ unique: true })
   sessionId: string; // Random session identifier
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   deviceId: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   deviceName: string; // e.g., "Chrome on MacOS"
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   ipAddress: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   location: string; // Geo-location (optional)
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   userAgent: string;
 
   @Column({ default: false })
@@ -312,7 +312,7 @@ export class Session {
   @Column({ type: 'timestamp', nullable: true })
   terminatedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   terminationReason: string;
 
   get isActive(): boolean {

@@ -76,10 +76,10 @@ export class User {
   @Column({ name: 'mfa_secret', type: 'varchar', nullable: true })
   mfaSecret: string | null;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   settings: Record<string, unknown>;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   metadata: Record<string, unknown>;
 
   @CreateDateColumn({ name: 'created_at' })

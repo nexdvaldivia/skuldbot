@@ -5,8 +5,6 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
-  ManyToOne,
-  JoinColumn,
 } from 'typeorm';
 
 export enum SubscriptionStatusEnum {
@@ -103,7 +101,7 @@ export class SubscriptionEntity {
   @Column({ type: 'boolean', default: false })
   cancelAtPeriodEnd: boolean;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   metadata: Record<string, string>;
 
   @CreateDateColumn()

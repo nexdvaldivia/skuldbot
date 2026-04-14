@@ -98,7 +98,7 @@ export class MarketplaceBot {
   })
   category: BotCategory;
 
-  @Column({ type: 'jsonb', default: [] })
+  @Column({ type: 'jsonb', default: '[]' })
   tags: string[];
 
   // ============================================================================
@@ -187,7 +187,7 @@ export class MarketplaceBot {
   @Column({ type: 'varchar', nullable: true })
   iconUrl?: string;
 
-  @Column({ type: 'jsonb', default: [] })
+  @Column({ type: 'jsonb', default: '[]' })
   screenshots: string[];
 
   @Column({ type: 'varchar', nullable: true })
