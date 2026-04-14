@@ -4,6 +4,10 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  skuldbot-studio>@types/react: ^18.2.43
+  skuldbot-studio>@types/react-dom: ^18.2.17
+
 importers:
 
   .:
