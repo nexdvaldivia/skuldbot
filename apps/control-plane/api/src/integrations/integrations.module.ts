@@ -4,9 +4,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { PaymentModule } from './payment/payment.module';
 import { StorageModule } from './storage/storage.module';
 import { EmailModule } from './email/email.module';
+import { SmsModule } from './sms/sms.module';
 import { GraphModule } from './graph/graph.module';
 
 import { ProviderRegistry } from './provider-registry.service';
+import { ProviderFactoryService } from './provider-factory.service';
 import { ProviderConfig } from './entities/provider-config.entity';
 import { IntegrationsService } from './integrations.service';
 import { IntegrationsController } from './integrations.controller';
@@ -15,7 +17,9 @@ import { StripeProvider } from './payment/stripe.provider';
 import { SendGridProvider } from './email/sendgrid.provider';
 import { SmtpProvider } from './email/smtp.provider';
 import { S3Provider } from './storage/s3.provider';
+import { AzureBlobProvider } from './storage/azure-blob.provider';
 import { MicrosoftGraphProvider } from './graph/graph.provider';
+import { NoopSmsProvider } from './sms/noop-sms.provider';
 
 /**
  * IntegrationsModule - Central module for all external service integrations.
@@ -41,17 +45,20 @@ import { MicrosoftGraphProvider } from './graph/graph.provider';
     PaymentModule,
     StorageModule,
     EmailModule,
+    SmsModule,
     GraphModule,
   ],
   controllers: [IntegrationsController],
-  providers: [ProviderRegistry, IntegrationsService],
+  providers: [ProviderRegistry, ProviderFactoryService, IntegrationsService],
   exports: [
     ProviderRegistry,
+    ProviderFactoryService,
     IntegrationsService,
     TypeOrmModule,
     PaymentModule,
     StorageModule,
     EmailModule,
+    SmsModule,
     GraphModule,
   ],
 })
@@ -61,7 +68,9 @@ export class IntegrationsModule implements OnModuleInit {
     private readonly stripeProvider: StripeProvider,
     private readonly sendGridProvider: SendGridProvider,
     private readonly smtpProvider: SmtpProvider,
+    private readonly noopSmsProvider: NoopSmsProvider,
     private readonly s3Provider: S3Provider,
+    private readonly azureBlobProvider: AzureBlobProvider,
     private readonly microsoftGraphProvider: MicrosoftGraphProvider,
   ) {}
 
@@ -76,8 +85,12 @@ export class IntegrationsModule implements OnModuleInit {
     this.providerRegistry.register(this.sendGridProvider, true);
     this.providerRegistry.register(this.smtpProvider);
 
+    // Register sms providers
+    this.providerRegistry.register(this.noopSmsProvider, true);
+
     // Register storage providers
     this.providerRegistry.register(this.s3Provider, true);
+    this.providerRegistry.register(this.azureBlobProvider);
 
     // Register graph providers
     this.providerRegistry.register(this.microsoftGraphProvider, true);
