@@ -1,14 +1,18 @@
-import { Module, Global, Logger } from '@nestjs/common';
+import { Global, Module, OnModuleInit } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { EmailProvider, IntegrationType } from '../../common/interfaces/integration.interface';
+import { resolveProviderChain } from '../provider-chain.util';
+import { ProviderFactoryService } from '../provider-factory.service';
+import { ProviderRegistry } from '../provider-registry.service';
+import { ProviderRuntimeModule } from '../provider-runtime.module';
 import { SendGridProvider } from './sendgrid.provider';
 import { SmtpProvider } from './smtp.provider';
-import { EmailProvider, IntegrationType } from '../../common/interfaces/integration.interface';
 
 export const EMAIL_PROVIDER = 'EMAIL_PROVIDER';
 
 @Global()
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule, ProviderRuntimeModule],
   providers: [
     SendGridProvider,
     SmtpProvider,
@@ -16,95 +20,67 @@ export const EMAIL_PROVIDER = 'EMAIL_PROVIDER';
       provide: EMAIL_PROVIDER,
       useFactory: (
         configService: ConfigService,
+        providerFactory: ProviderFactoryService,
         sendgrid: SendGridProvider,
         smtp: SmtpProvider,
       ): EmailProvider => {
-        const logger = new Logger('EmailProviderFactory');
-        const byName = new Map<string, EmailProvider>([
-          [sendgrid.name, sendgrid],
-          [smtp.name, smtp],
-        ]);
-
-        const configuredChain = resolveProviderChain(
+        const providerChain = resolveProviderChain(
           configService.get<string>('EMAIL_PROVIDER_CHAIN'),
           configService.get<string>('EMAIL_PROVIDER'),
           ['sendgrid', 'smtp'],
-        )
-          .map((name) => byName.get(name))
-          .filter((provider): provider is EmailProvider => Boolean(provider));
+        );
 
-        const fallbackChain = configuredChain.length > 0 ? configuredChain : [sendgrid];
-        const chainLabel = fallbackChain.map((provider) => provider.name).join(' -> ');
-        logger.log(`Email provider chain initialized: ${chainLabel}`);
-
-        const executeWithFallback = async <T>(
-          operation: string,
-          executor: (provider: EmailProvider) => Promise<T>,
-        ): Promise<T> => {
-          const attempted: string[] = [];
-          const errors: string[] = [];
-
-          for (const provider of fallbackChain) {
-            if (!provider.isConfigured()) {
-              continue;
-            }
-
-            attempted.push(provider.name);
-            try {
-              return await executor(provider);
-            } catch (error) {
-              const message = error instanceof Error ? error.message : 'unknown_error';
-              errors.push(`${provider.name}: ${message}`);
-              logger.warn(
-                `Email provider "${provider.name}" failed for "${operation}", trying fallback...`,
-              );
-            }
-          }
-
-          throw new Error(
-            `All email providers failed for "${operation}". Attempted: ${attempted.join(', ') || 'none'}. Errors: ${errors.join(' | ')}`,
-          );
-        };
+        const localProviders = [sendgrid, smtp];
 
         return {
           name: 'email-fallback',
           type: IntegrationType.EMAIL,
-          isConfigured: () => fallbackChain.some((provider) => provider.isConfigured()),
+          isConfigured: () => localProviders.some((provider) => provider.isConfigured()),
           healthCheck: async () => {
-            for (const provider of fallbackChain) {
-              if (!provider.isConfigured()) {
-                continue;
-              }
+            const chain = await providerFactory.resolveChain<EmailProvider>(IntegrationType.EMAIL, {
+              providerChain,
+            });
+            for (const provider of chain) {
               if (await provider.healthCheck()) {
                 return true;
               }
             }
             return false;
           },
-          send: async (data) =>
-            executeWithFallback('send', async (provider) => provider.send(data)),
-          sendTemplate: async (data) =>
-            executeWithFallback('sendTemplate', async (provider) => provider.sendTemplate(data)),
+          send: async (data) => {
+            const { result } = await providerFactory.executeWithFallback(
+              IntegrationType.EMAIL,
+              'send',
+              async (provider: EmailProvider) => provider.send(data),
+              { providerChain },
+            );
+            return result;
+          },
+          sendTemplate: async (data) => {
+            const { result } = await providerFactory.executeWithFallback(
+              IntegrationType.EMAIL,
+              'sendTemplate',
+              async (provider: EmailProvider) => provider.sendTemplate(data),
+              { providerChain },
+            );
+            return result;
+          },
         };
       },
-      inject: [ConfigService, SendGridProvider, SmtpProvider],
+      inject: [ConfigService, ProviderFactoryService, SendGridProvider, SmtpProvider],
     },
   ],
-  exports: [EMAIL_PROVIDER, SendGridProvider, SmtpProvider],
+  exports: [EMAIL_PROVIDER],
 })
-export class EmailModule {}
+export class EmailModule implements OnModuleInit {
+  constructor(
+    private readonly providerRegistry: ProviderRegistry,
+    private readonly sendGridProvider: SendGridProvider,
+    private readonly smtpProvider: SmtpProvider,
+  ) {}
 
-function resolveProviderChain(
-  chainFromEnv?: string,
-  preferredProvider?: string,
-  defaultChain: string[] = [],
-): string[] {
-  const chain = (chainFromEnv || '')
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean);
-
-  const ordered = [...(preferredProvider ? [preferredProvider] : []), ...chain, ...defaultChain];
-
-  return [...new Set(ordered)];
+  onModuleInit() {
+    this.providerRegistry.register(this.sendGridProvider, true);
+    this.providerRegistry.register(this.smtpProvider);
+  }
 }

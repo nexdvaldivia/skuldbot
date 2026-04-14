@@ -8,6 +8,7 @@ import { ProviderRegistry } from './provider-registry.service';
 export interface ProviderResolutionOptions {
   tenantId?: string | null;
   preferredProvider?: string;
+  providerChain?: string[];
   includeUnconfigured?: boolean;
 }
 
@@ -149,6 +150,9 @@ export class ProviderFactoryService {
     const orderedNames: string[] = [];
     if (options.preferredProvider) {
       orderedNames.push(options.preferredProvider);
+    }
+    if (options.providerChain && options.providerChain.length > 0) {
+      orderedNames.push(...options.providerChain);
     }
 
     for (const config of [...tenantConfigs, ...globalConfigs]) {

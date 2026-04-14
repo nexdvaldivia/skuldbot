@@ -16,7 +16,7 @@ export class NoopSmsProvider implements SmsProvider {
   private readonly enabled: boolean;
 
   constructor(private readonly configService: ConfigService) {
-    this.enabled = this.configService.get<string>('SMS_NOOP_ENABLED', 'true') === 'true';
+    this.enabled = this.configService.get<string>('SMS_NOOP_ENABLED', 'false') === 'true';
     if (this.enabled) {
       this.logger.log('Noop SMS provider initialized (development mode)');
     } else {
