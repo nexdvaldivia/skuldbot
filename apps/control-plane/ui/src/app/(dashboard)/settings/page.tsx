@@ -75,7 +75,7 @@ export default function SettingsPage() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                     isActive
-                      ? 'bg-[#35d399] text-white'
+                      ? 'bg-brand-500 text-white'
                       : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
                   }`}
                 >
@@ -110,7 +110,7 @@ function ProfileSettings({ onSave }: { onSave: () => void }) {
 
         <div className="space-y-6">
           <div className="flex items-center gap-6">
-            <div className="h-20 w-20 rounded-full bg-linear-to-br from-[#35d399] to-[#059669] flex items-center justify-center text-white font-semibold text-2xl">
+            <div className="h-20 w-20 rounded-full bg-linear-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-semibold text-2xl">
               AU
             </div>
             <div>
