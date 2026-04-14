@@ -16,7 +16,7 @@ import { ToolCallDto, MCPCapabilitiesDto } from './dto/tool-call.dto';
  * - GET  /api/v1/mcp/resources/:uri
  * - GET  /api/v1/mcp/capabilities
  */
-@Controller('api/v1/mcp')
+@Controller('v1/mcp')
 export class MCPController {
   constructor(
     private readonly licensingServer: LicensingServer,
