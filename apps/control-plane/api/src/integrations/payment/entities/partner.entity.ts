@@ -105,7 +105,7 @@ export class PartnerEntity {
   @Column({ type: 'integer', default: 0 })
   totalInstalls: number;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   metadata: Record<string, string>;
 
   @CreateDateColumn()

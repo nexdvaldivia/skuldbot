@@ -64,7 +64,7 @@ export class Permission {
   @Column()
   displayName: string; // e.g., 'Read Bots', 'Execute Runs'
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   description: string;
 
   @Column({ type: 'enum', enum: PermissionCategory })

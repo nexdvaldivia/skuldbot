@@ -96,13 +96,13 @@ export class Bot {
   })
   category: BotCategory;
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   tags: string[];
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   iconUrl: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   color: string; // Hex color for UI
 
   // ============================================================================
@@ -123,10 +123,10 @@ export class Bot {
   @JoinColumn({ name: 'updatedBy' })
   updater: User;
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   sharedWithUserIds: string[]; // Users with explicit access
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   sharedWithRoleIds: string[]; // Roles with access
 
   @Column({ default: false })
@@ -170,7 +170,7 @@ export class Bot {
   @Column({ type: 'jsonb', nullable: true })
   environmentVariables: Record<string, string>;
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   credentialIds: string[]; // Referenced credentials from vault
 
   // ============================================================================
@@ -186,7 +186,7 @@ export class Bot {
   @Column({ default: false })
   allowWebhookTrigger: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   webhookSecret: string; // For webhook authentication
 
   // ============================================================================
@@ -202,13 +202,13 @@ export class Bot {
   @Column({ type: 'bigint', default: 0 })
   failedRuns: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastRunAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastSuccessAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastFailureAt: Date;
 
   @Column({ type: 'float', default: 0 })
@@ -221,7 +221,7 @@ export class Bot {
   @Column({ type: 'uuid', nullable: true })
   folderId: string; // For folder organization
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   favoritedBy: string[]; // User IDs who favorited
 
   @Column({ default: 0 })
@@ -270,7 +270,7 @@ export class Bot {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   archivedAt: Date;
 
   @Column({ type: 'uuid', nullable: true })
@@ -355,10 +355,10 @@ export class BotVersion {
   @Column({ type: 'jsonb', nullable: true })
   compiledPlan: Record<string, any> | null; // ExecutionPlan (cached)
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   planHash: string | null; // SHA256 of compiled plan
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   compiledAt: Date;
 
   @Column({ type: 'jsonb', nullable: true })
@@ -396,7 +396,7 @@ export class BotVersion {
   @Column({ default: false })
   isPublished: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   publishedAt: Date;
 
   @Column({ type: 'uuid', nullable: true })
@@ -437,7 +437,7 @@ export class BotVersion {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   deprecatedAt: Date;
 
   @Column({ type: 'uuid', nullable: true })

@@ -86,7 +86,7 @@ export class UsageRecordEntity {
   @Column({ type: 'varchar', length: 255, unique: true })
   idempotencyKey: string;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   metadata: Record<string, unknown>;
 
   @Column({ type: 'text', nullable: true })

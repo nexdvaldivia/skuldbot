@@ -43,7 +43,7 @@ export class User {
   @Column()
   email: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   passwordHash: string;
 
   @Column()
@@ -52,16 +52,16 @@ export class User {
   @Column()
   lastName: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   avatarUrl: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   title: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   department: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   phone: string;
 
   @Column({ default: 'UTC' })
@@ -76,7 +76,7 @@ export class User {
   @Column({ type: 'enum', enum: AuthProvider, default: AuthProvider.LOCAL })
   authProvider: AuthProvider;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   externalId: string; // ID from SSO provider (SAML/OIDC)
 
   @ManyToMany(() => Role, (role) => role.users, { eager: true })
@@ -91,7 +91,7 @@ export class User {
   @Column({ default: false })
   mfaEnabled: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   mfaSecret: string; // Encrypted TOTP secret
 
   @Column({ type: 'simple-array', nullable: true })
@@ -100,7 +100,7 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   mfaEnabledAt: Date; // When MFA was enabled
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   webAuthnCredentials: string; // JSON array of WebAuthn credentials (encrypted)
 
   // Security tracking
@@ -113,7 +113,7 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   lastLoginAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastLoginIp: string;
 
   @Column({ type: 'timestamp', nullable: true })
@@ -123,7 +123,7 @@ export class User {
   forcePasswordChange: boolean;
 
   // Email verification
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   emailVerificationToken: string;
 
   @Column({ type: 'timestamp', nullable: true })
@@ -136,7 +136,7 @@ export class User {
   emailVerifiedAt: Date;
 
   // Password reset
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   passwordResetToken: string;
 
   @Column({ type: 'timestamp', nullable: true })

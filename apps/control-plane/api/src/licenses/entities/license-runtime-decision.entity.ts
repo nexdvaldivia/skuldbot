@@ -27,10 +27,10 @@ export class LicenseRuntimeDecision {
   @Column({ type: 'decimal', precision: 18, scale: 6, nullable: true, default: null })
   limit: number | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   period: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   state: string | null;
 
   @Column({ type: 'boolean' })
@@ -39,16 +39,16 @@ export class LicenseRuntimeDecision {
   @Column({ type: 'boolean', nullable: true, default: null })
   consumed: boolean | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   reason: string | null;
 
-  @Column({ name: 'orchestrator_id', nullable: true })
+  @Column({ type: 'varchar', name: 'orchestrator_id', nullable: true })
   orchestratorId: string | null;
 
-  @Column({ name: 'trace_id', nullable: true })
+  @Column({ type: 'varchar', name: 'trace_id', nullable: true })
   traceId: string | null;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   metadata: Record<string, unknown>;
 
   @CreateDateColumn({ name: 'created_at' })

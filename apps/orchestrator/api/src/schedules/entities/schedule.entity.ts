@@ -180,7 +180,7 @@ export class Schedule {
   })
   status: ScheduleStatus;
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   tags: string[];
 
   // ============================================================================
@@ -227,10 +227,10 @@ export class Schedule {
   timezone: string; // IANA timezone
 
   // Interval trigger
-  @Column({ nullable: true })
+  @Column({ type: 'integer', nullable: true })
   intervalMinutes: number | null; // For interval trigger
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   intervalStartTime: Date | null; // When to start interval counting
 
   // Calendar trigger
@@ -292,13 +292,13 @@ export class Schedule {
   @Column({ type: 'jsonb', nullable: true })
   environmentOverrides: Record<string, string> | null; // Env var overrides
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   credentialIds: string[] | null; // Additional credentials
 
-  @Column({ nullable: true })
+  @Column({ type: 'integer', nullable: true })
   timeoutSeconds: number | null; // Override bot timeout
 
-  @Column({ nullable: true })
+  @Column({ type: 'integer', nullable: true })
   maxRetries: number | null; // Override bot retries
 
   // ============================================================================
@@ -318,7 +318,7 @@ export class Schedule {
   @Column({ default: 0 })
   currentRunningCount: number; // Current active runs
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   activeRunIds: string[] | null; // IDs of currently running
 
   // ============================================================================
@@ -360,19 +360,19 @@ export class Schedule {
   // EXECUTION LIMITS & QUOTAS
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'integer', nullable: true })
   maxExecutionsPerHour: number | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'integer', nullable: true })
   maxExecutionsPerDay: number | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'integer', nullable: true })
   maxExecutionsPerWeek: number | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'integer', nullable: true })
   maxExecutionsPerMonth: number | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'integer', nullable: true })
   maxTotalExecutions: number | null; // Lifetime limit
 
   @Column({ type: 'bigint', default: 0 })
@@ -390,26 +390,26 @@ export class Schedule {
   @Column({ type: 'bigint', default: 0 })
   totalExecutions: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   quotaResetHour: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   quotaResetDay: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   quotaResetWeek: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   quotaResetMonth: Date | null;
 
   // ============================================================================
   // VALIDITY PERIOD
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   effectiveFrom: Date | null; // Start date
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   effectiveUntil: Date | null; // End date
 
   @Column({ default: false })
@@ -419,23 +419,23 @@ export class Schedule {
   // EXECUTION STATE
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   @Index()
   nextRunAt: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   lastRunAt: Date | null;
 
   @Column({ type: 'uuid', nullable: true })
   lastRunId: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   lastSuccessAt: Date | null;
 
   @Column({ type: 'uuid', nullable: true })
   lastSuccessRunId: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   lastFailureAt: Date | null;
 
   @Column({ type: 'uuid', nullable: true })
@@ -453,7 +453,7 @@ export class Schedule {
   @Column({ type: 'float', default: 0 })
   avgDurationSeconds: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastError: string | null;
 
   @Column({ default: 0 })
@@ -466,10 +466,10 @@ export class Schedule {
   // SLA & ALERTING
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'integer', nullable: true })
   slaMaxDurationSeconds: number | null; // SLA threshold
 
-  @Column({ nullable: true })
+  @Column({ type: 'integer', nullable: true })
   slaMaxFailureRate: number | null; // Max failure % (0-100)
 
   @Column({ default: false })
@@ -495,7 +495,7 @@ export class Schedule {
     cooldownMinutes?: number; // Min time between alerts
   } | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   lastAlertAt: Date | null;
 
   // ============================================================================
@@ -514,10 +514,10 @@ export class Schedule {
   @Column({ default: 3600 }) // 1 hour
   autoResumeAfterSeconds: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   autoPausedAt: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   autoResumeAt: Date | null;
 
   // ============================================================================
@@ -545,10 +545,10 @@ export class Schedule {
   @JoinColumn({ name: 'ownerId' })
   owner: User | null;
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   sharedWithUserIds: string[] | null;
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   sharedWithRoleIds: string[] | null;
 
   // ============================================================================
@@ -571,16 +571,16 @@ export class Schedule {
   // DISTRIBUTED LOCKING
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lockId: string | null; // For distributed scheduling
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   lockAcquiredAt: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   lockExpiresAt: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lockOwner: string | null; // Node ID that holds lock
 
   // ============================================================================
@@ -593,19 +593,19 @@ export class Schedule {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   activatedAt: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   pausedAt: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   disabledAt: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   archivedAt: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   deletedAt: Date | null;
 
   // ============================================================================
@@ -665,13 +665,13 @@ export class ScheduleExecution {
   @Column()
   triggeredAt: Date; // When trigger was processed
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   runStartedAt: Date | null; // When run actually started
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   runCompletedAt: Date | null; // When run completed
 
-  @Column({ nullable: true })
+  @Column({ type: 'integer', nullable: true })
   durationMs: number | null;
 
   @Column({ nullable: true, length: 1000 })
@@ -791,7 +791,7 @@ export class EventTrigger {
   @Column({ default: 0 })
   debounceSeconds: number; // Min time between triggers
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   lastTriggeredAt: Date | null;
 
   // Transformation
@@ -801,7 +801,7 @@ export class EventTrigger {
   @Column({ default: true })
   enabled: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   disabledReason: string | null;
 
   @CreateDateColumn()
@@ -852,7 +852,7 @@ export class WebhookTrigger {
   @Column({ length: 64, unique: true })
   token: string; // URL token for webhook
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   secret: string | null; // HMAC signing secret
 
   @Column({ default: false })
@@ -872,10 +872,10 @@ export class WebhookTrigger {
   status: WebhookTriggerStatus;
 
   // Rate limiting
-  @Column({ nullable: true })
+  @Column({ type: 'integer', nullable: true })
   maxCallsPerMinute: number | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'integer', nullable: true })
   maxCallsPerHour: number | null;
 
   @Column({ default: 0 })
@@ -884,10 +884,10 @@ export class WebhookTrigger {
   @Column({ default: 0 })
   callsThisHour: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   rateLimitResetMinute: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   rateLimitResetHour: Date | null;
 
   // Payload handling
@@ -901,20 +901,20 @@ export class WebhookTrigger {
   validatePayload: boolean;
 
   // Validity
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   expiresAt: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'integer', nullable: true })
   maxCalls: number | null; // Max total calls
 
   @Column({ type: 'bigint', default: 0 })
   totalCalls: number;
 
   // Stats
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   lastCalledAt: Date | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   lastCallerIp: string | null;
 
   @Column({ type: 'bigint', default: 0 })
@@ -935,7 +935,7 @@ export class WebhookTrigger {
   @Column({ type: 'uuid', nullable: true })
   revokedBy: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   revokedAt: Date | null;
 
   @Column({ nullable: true, length: 500 })
@@ -1017,13 +1017,13 @@ export class ScheduleGroup {
   @Column({ nullable: true, length: 500 })
   description: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   color: string | null; // Hex color
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   iconUrl: string | null;
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   scheduleIds: string[];
 
   // Bulk operations

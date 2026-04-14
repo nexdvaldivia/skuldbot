@@ -47,7 +47,7 @@ export class ProviderConfig {
   @Column({ type: 'text', nullable: true })
   private encryptedCredentials: string | null;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   settings: Record<string, unknown>;
 
   @Column({ type: 'varchar', length: 255, nullable: true })

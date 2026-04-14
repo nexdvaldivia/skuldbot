@@ -141,10 +141,10 @@ export class Run {
   botVersion: BotVersion;
 
   // Denormalized for query performance
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   botName: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   botVersionLabel: string;
 
   // ============================================================================
@@ -161,10 +161,10 @@ export class Run {
   @Column({ type: 'uuid', nullable: true })
   runnerPoolId: string; // Preferred pool
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   runnerTags: string[]; // Required runner tags
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   runnerName: string; // Denormalized for display
 
   // ============================================================================
@@ -192,7 +192,7 @@ export class Run {
   })
   triggerType: RunTriggerType;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   triggeredBy: string; // userId or system identifier
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
@@ -246,10 +246,10 @@ export class Run {
   // EXECUTION PLAN
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   planHash: string | null; // SHA256 of execution plan
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   policyPackVersion: string | null; // Policy pack used
 
   @Column({ default: 0 })
@@ -261,10 +261,10 @@ export class Run {
   @Column({ default: 0 })
   failedSteps: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   currentStepId: string; // For real-time tracking
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   currentNodeId: string;
 
   // ============================================================================
@@ -289,10 +289,10 @@ export class Run {
   @Column({ default: 3600 }) // Max 1 hour between retries
   retryMaxDelaySeconds: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   nextRetryAt: Date;
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   retryHistory: {
     attempt: number;
     status: string;
@@ -306,44 +306,44 @@ export class Run {
   // TIMESTAMPS
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   queuedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   leasedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   startedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   completedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   pausedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   resumedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   cancelledAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   cancelledBy: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   timeoutAt: Date; // When run will timeout
 
   // ============================================================================
   // DURATION & PERFORMANCE
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   queueDurationMs: number; // Time in queue
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   executionDurationMs: number; // Actual execution time
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   totalDurationMs: number; // Total time from creation to completion
 
   // ============================================================================
@@ -375,13 +375,13 @@ export class Run {
   @Column({ nullable: true, length: 2000 })
   errorMessage: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   errorCode: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   errorNodeId: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   errorStepId: string;
 
   @Column({ type: 'jsonb', nullable: true })
@@ -394,7 +394,7 @@ export class Run {
     resolution?: string;
   } | null;
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   warnings: string[];
 
   // ============================================================================
@@ -404,10 +404,10 @@ export class Run {
   @Column({ default: false })
   requiresApproval: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   approvalRequestedAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   approvalDeadline: Date;
 
   @Column({ type: 'jsonb', nullable: true })
@@ -468,7 +468,7 @@ export class Run {
     };
   };
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   notificationsSent: {
     type: string;
     channel: string;
@@ -482,7 +482,7 @@ export class Run {
   // METADATA
   // ============================================================================
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   tags: string[];
 
   @Column({ type: 'jsonb', nullable: true })
@@ -504,7 +504,7 @@ export class Run {
   @Column({ type: 'float', default: 0 })
   computeUnits: number; // Billing units consumed
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   billingCategory: string; // For cost allocation
 
   // ============================================================================
@@ -655,26 +655,26 @@ export class RunEvent {
   })
   severity: EventSeverity;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   stepId: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   nodeId: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   nodeType: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   nodeLabel: string;
 
   // ============================================================================
   // STATUS & RESULT
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   status: string; // success, error, skipped, etc.
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   durationMs: number;
 
   @Column({ nullable: true, length: 2000 })
@@ -699,14 +699,14 @@ export class RunEvent {
     out: string; // Data classification of outputs
   };
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   controlsApplied: string[]; // Security controls applied
 
   // ============================================================================
   // ERROR INFO
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   errorCode: string;
 
   @Column({ nullable: true, length: 2000 })
@@ -732,10 +732,10 @@ export class RunEvent {
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any>;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   correlationId: string; // For distributed tracing
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   spanId: string; // OpenTelemetry span ID
 
   // ============================================================================
@@ -745,7 +745,7 @@ export class RunEvent {
   @CreateDateColumn()
   createdAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   timestamp: Date; // Actual event time (may differ from createdAt)
 }
 
@@ -797,13 +797,13 @@ export class RunLog {
   })
   level: LogLevel;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   stepId: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   nodeId: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   source: string; // Component that generated the log
 
   @Column({ type: 'text' })
@@ -812,7 +812,7 @@ export class RunLog {
   @Column({ type: 'jsonb', nullable: true })
   data: Record<string, any>; // Structured log data
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   timestamp: Date;
 
   @CreateDateColumn()
@@ -879,7 +879,7 @@ export class RunArtifact {
   @Column()
   name: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   originalName: string; // Original filename if different
 
   @Column({
@@ -902,48 +902,48 @@ export class RunArtifact {
   @Column()
   storageKey: string; // Path in storage (S3, Azure, etc.)
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   storageBucket: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   storageRegion: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   storageProvider: string; // s3, azure, gcs, local
 
   // ============================================================================
   // SECURITY
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   checksum: string; // SHA256
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   checksumAlgorithm: string;
 
   @Column({ default: false })
   encrypted: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   encryptionKeyId: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   classification: string; // Data classification level
 
   // ============================================================================
   // CONTEXT
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   stepId: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   nodeId: string;
 
   @Column({ nullable: true, length: 500 })
   description: string;
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   tags: string[];
 
   @Column({ type: 'jsonb', nullable: true })
@@ -953,13 +953,13 @@ export class RunArtifact {
   // RETENTION
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   expiresAt: Date;
 
   @Column({ default: false })
   permanent: boolean; // Exempt from retention policy
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   deletedAt: Date; // Soft delete
 
   // ============================================================================
@@ -1041,10 +1041,10 @@ export class HitlRequest {
   @Column()
   nodeId: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   nodeType: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   nodeLabel: string;
 
   @Column({ length: 500 })
@@ -1070,7 +1070,7 @@ export class HitlRequest {
   @Column({ type: 'jsonb', nullable: true })
   contextData: Record<string, any>; // Additional context
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   allowedActions: HitlActionType[];
 
   @Column({ default: false })
@@ -1087,23 +1087,23 @@ export class HitlRequest {
   @JoinColumn({ name: 'assignedTo' })
   assignee: User;
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   approverIds: string[]; // Allowed approvers
 
   @Column({ type: 'uuid', nullable: true })
   escalatedTo: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   escalatedAt: Date;
 
   // ============================================================================
   // DEADLINE
   // ============================================================================
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   deadline: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   escalationDeadline: Date;
 
   @Column({ default: false })
@@ -1127,7 +1127,7 @@ export class HitlRequest {
   @JoinColumn({ name: 'resolvedBy' })
   resolver: User;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   resolvedAt: Date;
 
   @Column({ type: 'text', nullable: true })
@@ -1140,7 +1140,7 @@ export class HitlRequest {
   // AUDIT TRAIL
   // ============================================================================
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   auditTrail: {
     action: string;
     userId?: string;
@@ -1153,7 +1153,7 @@ export class HitlRequest {
   // NOTIFICATIONS
   // ============================================================================
 
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Column({ type: 'jsonb', nullable: true, default: '[]' })
   notificationsSent: {
     type: string;
     channel: string;

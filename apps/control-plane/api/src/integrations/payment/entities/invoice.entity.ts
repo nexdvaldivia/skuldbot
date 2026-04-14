@@ -102,10 +102,10 @@ export class InvoiceEntity {
   @Column({ type: 'text', nullable: true })
   invoicePdfUrl: string | null;
 
-  @Column({ type: 'jsonb', default: [] })
+  @Column({ type: 'jsonb', default: '[]' })
   lineItems: InvoiceLineItemData[];
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: '{}' })
   metadata: Record<string, string>;
 
   @CreateDateColumn()
