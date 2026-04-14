@@ -114,6 +114,7 @@ const mainSections: NavSection[] = [
         children: [
           { name: 'Dashboard', href: '/support' },
           { name: 'Tickets', href: '/support/tickets' },
+          { name: 'Settings', href: '/support/settings' },
         ],
       },
     ],
