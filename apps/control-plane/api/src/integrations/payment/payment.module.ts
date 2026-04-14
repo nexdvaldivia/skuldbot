@@ -1,7 +1,16 @@
-import { Module, Global, MiddlewareConsumer, NestModule, RequestMethod } from '@nestjs/common';
+import {
+  Module,
+  Global,
+  MiddlewareConsumer,
+  NestModule,
+  RequestMethod,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import * as bodyParser from 'body-parser';
+import { ProviderRegistry } from '../provider-registry.service';
+import { ProviderRuntimeModule } from '../provider-runtime.module';
 
 import { StripeProvider } from './stripe.provider';
 import { WebhooksController } from './webhooks.controller';
@@ -30,6 +39,7 @@ export const PAYMENT_PROVIDER = 'PAYMENT_PROVIDER';
 @Module({
   imports: [
     ConfigModule,
+    ProviderRuntimeModule,
     TypeOrmModule.forFeature([SubscriptionEntity, InvoiceEntity, UsageRecordEntity, PartnerEntity]),
   ],
   controllers: [WebhooksController],
@@ -40,9 +50,18 @@ export const PAYMENT_PROVIDER = 'PAYMENT_PROVIDER';
       useExisting: StripeProvider,
     },
   ],
-  exports: [PAYMENT_PROVIDER, StripeProvider, TypeOrmModule],
+  exports: [PAYMENT_PROVIDER, TypeOrmModule],
 })
-export class PaymentModule implements NestModule {
+export class PaymentModule implements NestModule, OnModuleInit {
+  constructor(
+    private readonly providerRegistry: ProviderRegistry,
+    private readonly stripeProvider: StripeProvider,
+  ) {}
+
+  onModuleInit() {
+    this.providerRegistry.register(this.stripeProvider, true);
+  }
+
   /**
    * Configure raw body parsing for webhook endpoints.
    * Stripe requires raw body for signature verification.
