@@ -26,6 +26,9 @@ import { Ticket } from '../tickets/entities/ticket.entity';
 import { LookupDomain } from '../lookups/entities/lookup-domain.entity';
 import { LookupValue } from '../lookups/entities/lookup-value.entity';
 import { RunnerHeartbeatEntity } from '../mcp/entities/runner-heartbeat.entity';
+import { Contract } from '../contracts/entities/contract.entity';
+import { ContractSigner } from '../contracts/entities/contract-signer.entity';
+import { ContractEvent } from '../contracts/entities/contract-event.entity';
 
 export const databaseEntities = [
   Client,
@@ -59,4 +62,7 @@ export const databaseEntities = [
   LookupDomain,
   LookupValue,
   RunnerHeartbeatEntity,
+  Contract,
+  ContractSigner,
+  ContractEvent,
 ];

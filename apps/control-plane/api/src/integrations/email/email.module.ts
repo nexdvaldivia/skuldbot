@@ -1,14 +1,18 @@
-import { Module, Global } from '@nestjs/common';
+import { Global, Module, OnModuleInit } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { EmailProvider, IntegrationType } from '../../common/interfaces/integration.interface';
+import { resolveProviderChain } from '../provider-chain.util';
+import { ProviderFactoryService } from '../provider-factory.service';
+import { ProviderRegistry } from '../provider-registry.service';
+import { ProviderRuntimeModule } from '../provider-runtime.module';
 import { SendGridProvider } from './sendgrid.provider';
 import { SmtpProvider } from './smtp.provider';
-import { EmailProvider } from '../../common/interfaces/integration.interface';
 
 export const EMAIL_PROVIDER = 'EMAIL_PROVIDER';
 
 @Global()
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule, ProviderRuntimeModule],
   providers: [
     SendGridProvider,
     SmtpProvider,
@@ -16,22 +20,67 @@ export const EMAIL_PROVIDER = 'EMAIL_PROVIDER';
       provide: EMAIL_PROVIDER,
       useFactory: (
         configService: ConfigService,
+        providerFactory: ProviderFactoryService,
         sendgrid: SendGridProvider,
         smtp: SmtpProvider,
       ): EmailProvider => {
-        const provider = configService.get<string>('EMAIL_PROVIDER', 'sendgrid');
+        const providerChain = resolveProviderChain(
+          configService.get<string>('EMAIL_PROVIDER_CHAIN'),
+          configService.get<string>('EMAIL_PROVIDER'),
+          ['sendgrid', 'smtp'],
+        );
 
-        switch (provider) {
-          case 'smtp':
-            return smtp;
-          case 'sendgrid':
-          default:
-            return sendgrid;
-        }
+        const localProviders = [sendgrid, smtp];
+
+        return {
+          name: 'email-fallback',
+          type: IntegrationType.EMAIL,
+          isConfigured: () => localProviders.some((provider) => provider.isConfigured()),
+          healthCheck: async () => {
+            const chain = await providerFactory.resolveChain<EmailProvider>(IntegrationType.EMAIL, {
+              providerChain,
+            });
+            for (const provider of chain) {
+              if (await provider.healthCheck()) {
+                return true;
+              }
+            }
+            return false;
+          },
+          send: async (data) => {
+            const { result } = await providerFactory.executeWithFallback(
+              IntegrationType.EMAIL,
+              'send',
+              async (provider: EmailProvider) => provider.send(data),
+              { providerChain },
+            );
+            return result;
+          },
+          sendTemplate: async (data) => {
+            const { result } = await providerFactory.executeWithFallback(
+              IntegrationType.EMAIL,
+              'sendTemplate',
+              async (provider: EmailProvider) => provider.sendTemplate(data),
+              { providerChain },
+            );
+            return result;
+          },
+        };
       },
-      inject: [ConfigService, SendGridProvider, SmtpProvider],
+      inject: [ConfigService, ProviderFactoryService, SendGridProvider, SmtpProvider],
     },
   ],
-  exports: [EMAIL_PROVIDER, SendGridProvider, SmtpProvider],
+  exports: [EMAIL_PROVIDER],
 })
-export class EmailModule {}
+export class EmailModule implements OnModuleInit {
+  constructor(
+    private readonly providerRegistry: ProviderRegistry,
+    private readonly sendGridProvider: SendGridProvider,
+    private readonly smtpProvider: SmtpProvider,
+  ) {}
+
+  onModuleInit() {
+    this.providerRegistry.register(this.sendGridProvider, true);
+    this.providerRegistry.register(this.smtpProvider);
+  }
+}
