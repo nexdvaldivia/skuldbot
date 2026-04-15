@@ -17,6 +17,7 @@ import {
 import { ContractEvent } from './entities/contract-event.entity';
 import { ContractSigner, ContractSignerStatus } from './entities/contract-signer.entity';
 import { Contract, ContractStatus } from './entities/contract.entity';
+import { PdfService } from './pdf.service';
 
 @Injectable()
 export class ContractsService {
@@ -31,6 +32,7 @@ export class ContractsService {
     private readonly clientRepository: Repository<Client>,
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
+    private readonly pdfService: PdfService,
   ) {}
 
   async listContracts(
@@ -321,6 +323,46 @@ export class ContractsService {
     return this.getById(contractId, currentUser);
   }
 
+  async generatePdf(contractId: string, currentUser: User): Promise<ContractResponseDto> {
+    const contract = await this.findContractForUpdate(contractId);
+    this.assertClientBoundary(contract.clientId, currentUser);
+
+    const { renderedHtml, pdfPath } = await this.pdfService.generateAndStoreContractPdf(contract);
+
+    contract.renderedHtml = renderedHtml;
+    contract.pdfPath = pdfPath;
+    contract.updatedByUserId = currentUser.id;
+    await this.contractRepository.save(contract);
+
+    await this.recordEvent(contractId, 'contract.pdf.generated', 'control-plane-api', {
+      actorUserId: currentUser.id,
+      pdfPath,
+    });
+
+    return this.getById(contractId, currentUser);
+  }
+
+  async downloadPdf(
+    contractId: string,
+    currentUser: User,
+  ): Promise<{ fileName: string; buffer: Buffer }> {
+    const contract = await this.findContractForUpdate(contractId);
+    this.assertClientBoundary(contract.clientId, currentUser);
+
+    if (!contract.pdfPath) {
+      throw new BadRequestException({
+        code: 'CONTRACT_PDF_NOT_GENERATED',
+        message: `Contract ${contractId} does not have a generated PDF yet.`,
+      });
+    }
+
+    const buffer = await this.pdfService.downloadContractPdf(contract);
+    return {
+      fileName: this.buildPdfFileName(contract),
+      buffer,
+    };
+  }
+
   private async findContractForUpdate(contractId: string): Promise<Contract> {
     const contract = await this.contractRepository.findOne({
       where: { id: contractId },
@@ -457,5 +499,14 @@ export class ContractsService {
       createdAt: contract.createdAt,
       updatedAt: contract.updatedAt,
     };
+  }
+
+  private buildPdfFileName(contract: Contract): string {
+    const baseTitle = contract.title?.trim() || `contract-${contract.id}`;
+    const slug = baseTitle
+      .toLowerCase()
+      .replaceAll(/[^a-z0-9]+/g, '-')
+      .replaceAll(/^-+|-+$/g, '');
+    return `${slug || `contract-${contract.id}`}.pdf`;
   }
 }

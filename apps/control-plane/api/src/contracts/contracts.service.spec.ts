@@ -50,6 +50,10 @@ describe('ContractsService', () => {
     const eventRepository = createRepoMock();
     const clientRepository = createRepoMock();
     const tenantRepository = createRepoMock();
+    const pdfService = {
+      generateAndStoreContractPdf: jest.fn(),
+      downloadContractPdf: jest.fn(),
+    };
 
     const baseContract = {
       id: 'ctr-1',
@@ -108,6 +112,7 @@ describe('ContractsService', () => {
       eventRepository as any,
       clientRepository as any,
       tenantRepository as any,
+      pdfService as any,
     );
 
     const result = await service.submitForSignature(
@@ -134,6 +139,10 @@ describe('ContractsService', () => {
     const eventRepository = createRepoMock();
     const clientRepository = createRepoMock();
     const tenantRepository = createRepoMock();
+    const pdfService = {
+      generateAndStoreContractPdf: jest.fn(),
+      downloadContractPdf: jest.fn(),
+    };
 
     contractRepository.findOne.mockResolvedValue({
       id: 'ctr-signed',
@@ -147,6 +156,7 @@ describe('ContractsService', () => {
       eventRepository as any,
       clientRepository as any,
       tenantRepository as any,
+      pdfService as any,
     );
 
     await expect(
@@ -167,6 +177,10 @@ describe('ContractsService', () => {
     const eventRepository = createRepoMock();
     const clientRepository = createRepoMock();
     const tenantRepository = createRepoMock();
+    const pdfService = {
+      generateAndStoreContractPdf: jest.fn(),
+      downloadContractPdf: jest.fn(),
+    };
 
     contractRepository.findOne.mockResolvedValue({
       id: 'ctr-client-b',
@@ -181,6 +195,7 @@ describe('ContractsService', () => {
       eventRepository as any,
       clientRepository as any,
       tenantRepository as any,
+      pdfService as any,
     );
 
     await expect(
@@ -198,6 +213,10 @@ describe('ContractsService', () => {
     const eventRepository = createRepoMock();
     const clientRepository = createRepoMock();
     const tenantRepository = createRepoMock();
+    const pdfService = {
+      generateAndStoreContractPdf: jest.fn(),
+      downloadContractPdf: jest.fn(),
+    };
 
     const pendingContract = {
       id: 'ctr-2',
@@ -256,6 +275,7 @@ describe('ContractsService', () => {
       eventRepository as any,
       clientRepository as any,
       tenantRepository as any,
+      pdfService as any,
     );
 
     const result = await service.updateSignerStatus(
@@ -281,6 +301,10 @@ describe('ContractsService', () => {
     const eventRepository = createRepoMock();
     const clientRepository = createRepoMock();
     const tenantRepository = createRepoMock();
+    const pdfService = {
+      generateAndStoreContractPdf: jest.fn(),
+      downloadContractPdf: jest.fn(),
+    };
 
     const draftContract = {
       id: 'ctr-3',
@@ -330,6 +354,7 @@ describe('ContractsService', () => {
       eventRepository as any,
       clientRepository as any,
       tenantRepository as any,
+      pdfService as any,
     );
 
     const result = await service.updateContractDraft(
@@ -359,5 +384,98 @@ describe('ContractsService', () => {
     );
     expect(signerRepository.delete).toHaveBeenCalledWith({ contractId: 'ctr-3' });
     expect(signerRepository.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('generates PDF, stores path and emits event', async () => {
+    const contractRepository = createRepoMock();
+    const signerRepository = createRepoMock();
+    const eventRepository = createRepoMock();
+    const clientRepository = createRepoMock();
+    const tenantRepository = createRepoMock();
+    const pdfService = {
+      generateAndStoreContractPdf: jest.fn(),
+      downloadContractPdf: jest.fn(),
+    };
+
+    const draftContract = {
+      id: 'ctr-pdf',
+      clientId: 'client-1',
+      tenantId: null,
+      title: 'MSA',
+      templateKey: 'msa.v1',
+      version: 1,
+      status: ContractStatus.DRAFT,
+      variables: {},
+      documentJson: {},
+      renderedHtml: null,
+      pdfPath: null,
+      envelopeProvider: null,
+      envelopeId: null,
+      signedAt: null,
+      metadata: {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    contractRepository.findOne.mockResolvedValueOnce({ ...draftContract }).mockResolvedValueOnce({
+      ...draftContract,
+      renderedHtml: '<html><body>MSA</body></html>',
+      pdfPath: 'contracts/client-1/ctr-pdf/contract-v1.pdf',
+      signers: [],
+    });
+
+    pdfService.generateAndStoreContractPdf.mockResolvedValue({
+      renderedHtml: '<html><body>MSA</body></html>',
+      pdfPath: 'contracts/client-1/ctr-pdf/contract-v1.pdf',
+    });
+
+    const service = new ContractsService(
+      contractRepository as any,
+      signerRepository as any,
+      eventRepository as any,
+      clientRepository as any,
+      tenantRepository as any,
+      pdfService as any,
+    );
+
+    const result = await service.generatePdf('ctr-pdf', makeClientAdmin('client-1'));
+    expect(result.pdfPath).toBe('contracts/client-1/ctr-pdf/contract-v1.pdf');
+    expect(pdfService.generateAndStoreContractPdf).toHaveBeenCalledTimes(1);
+    expect(eventRepository.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('downloads generated PDF through PdfService', async () => {
+    const contractRepository = createRepoMock();
+    const signerRepository = createRepoMock();
+    const eventRepository = createRepoMock();
+    const clientRepository = createRepoMock();
+    const tenantRepository = createRepoMock();
+    const pdfService = {
+      generateAndStoreContractPdf: jest.fn(),
+      downloadContractPdf: jest.fn(),
+    };
+
+    contractRepository.findOne.mockResolvedValue({
+      id: 'ctr-download',
+      clientId: 'client-1',
+      tenantId: null,
+      title: 'MSA Contract',
+      status: ContractStatus.SIGNED,
+      pdfPath: 'contracts/client-1/ctr-download/contract-v1.pdf',
+    });
+    pdfService.downloadContractPdf.mockResolvedValue(Buffer.from('pdf'));
+
+    const service = new ContractsService(
+      contractRepository as any,
+      signerRepository as any,
+      eventRepository as any,
+      clientRepository as any,
+      tenantRepository as any,
+      pdfService as any,
+    );
+
+    const result = await service.downloadPdf('ctr-download', makeClientAdmin('client-1'));
+    expect(result.fileName).toBe('msa-contract.pdf');
+    expect(result.buffer.toString()).toBe('pdf');
   });
 });
