@@ -46,7 +46,7 @@ type StripeWebhookEvent = {
  * Webhook Endpoints:
  * - POST /webhooks/stripe - Receive Stripe events
  */
-@Controller()
+@Controller('subscriptions')
 export class SubscriptionController {
   private readonly logger = new Logger(SubscriptionController.name);
 
@@ -62,7 +62,7 @@ export class SubscriptionController {
   /**
    * Create a new subscription for a tenant
    */
-  @Post('subscriptions')
+  @Post()
   @HttpCode(HttpStatus.CREATED)
   async createSubscription(
     @Body() body: { tenantId: string; tenantName: string; trialDays?: number },
@@ -77,7 +77,7 @@ export class SubscriptionController {
   /**
    * List subscriptions (Control Plane admin)
    */
-  @Get('subscriptions')
+  @Get()
   async listSubscriptions(
     @Query('status') status?: SubscriptionStatus,
     @Query('search') search?: string,
@@ -91,7 +91,7 @@ export class SubscriptionController {
   /**
    * Get subscription status for a tenant
    */
-  @Get('subscriptions/:tenantId')
+  @Get(':tenantId')
   async getSubscription(@Param('tenantId') tenantId: string) {
     const subscription = await this.subscriptionService.getSubscription(tenantId);
     if (!subscription) {
@@ -103,7 +103,7 @@ export class SubscriptionController {
   /**
    * Setup ACH Direct Debit payment method
    */
-  @Post('subscriptions/:tenantId/setup-ach')
+  @Post(':tenantId/setup-ach')
   @HttpCode(HttpStatus.OK)
   async setupACH(
     @Param('tenantId') tenantId: string,
@@ -128,7 +128,7 @@ export class SubscriptionController {
    *
    * Called by Orchestrator before executing bots
    */
-  @Get('subscriptions/:tenantId/can-run')
+  @Get(':tenantId/can-run')
   async canBotsRun(@Param('tenantId') tenantId: string): Promise<{
     canRun: boolean;
     reason?: string;
@@ -141,7 +141,7 @@ export class SubscriptionController {
   /**
    * Get payment history for a tenant
    */
-  @Get('subscriptions/:tenantId/payments')
+  @Get(':tenantId/payments')
   async getPaymentHistory(@Param('tenantId') tenantId: string, @Query('limit') limit?: string) {
     return this.subscriptionService.getPaymentHistory(tenantId, limit ? parseInt(limit, 10) : 20);
   }
@@ -149,7 +149,7 @@ export class SubscriptionController {
   /**
    * Manually reactivate a suspended subscription (admin only)
    */
-  @Post('subscriptions/:tenantId/reactivate')
+  @Post(':tenantId/reactivate')
   @HttpCode(HttpStatus.OK)
   async reactivateSubscription(
     @Param('tenantId') tenantId: string,
@@ -251,7 +251,6 @@ export class SubscriptionController {
    */
   private async handleInvoicePaymentSucceeded(invoice: Record<string, unknown>): Promise<void> {
     const customerId = invoice.customer as string;
-    const subscriptionId = invoice.subscription as string;
     const paymentIntentId = invoice.payment_intent as string;
     const amountPaid = (invoice.amount_paid as number) / 100; // Stripe uses cents
     const periodStart = invoice.period_start as number;
