@@ -224,6 +224,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'trigger.storage_event',
+    needsStorageConnection: true,
     category: 'trigger',
     label: 'Storage Event',
     description: 'Trigger on S3/MinIO storage events',
@@ -607,6 +608,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'web.screenshot',
+    needsStorageConnection: true,
     category: 'web',
     label: 'Screenshot',
     description: 'Take a screenshot',
@@ -762,6 +764,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'web.download_file',
+    needsStorageConnection: true,
     category: 'web',
     label: 'Download File',
     description: 'Download a file',
@@ -871,6 +874,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'desktop.screenshot',
+    needsStorageConnection: true,
     category: 'desktop',
     label: 'Desktop Screenshot',
     description: 'Capture screen region',
@@ -883,6 +887,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'desktop.image_click',
+    needsStorageConnection: true,
     category: 'desktop',
     label: 'Click Image',
     description: 'Find and click image on screen',
@@ -895,6 +900,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'desktop.wait_image',
+    needsStorageConnection: true,
     category: 'desktop',
     label: 'Wait for Image',
     description: 'Wait for image to appear',
@@ -1830,6 +1836,7 @@ export const nodeTemplates: NodeTemplate[] = [
   // ============================================
   {
     type: 'excel.open',
+    needsStorageConnection: true,
     category: 'excel',
     label: 'Open Excel',
     description: 'Open Excel workbook',
@@ -1929,6 +1936,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'excel.save',
+    needsStorageConnection: true,
     category: 'excel',
     label: 'Save Excel',
     description: 'Save workbook',
@@ -1947,6 +1955,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'excel.csv_read',
+    needsStorageConnection: true,
     category: 'excel',
     label: 'Read CSV',
     description: 'Read CSV file',
@@ -1960,6 +1969,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'excel.csv_write',
+    needsStorageConnection: true,
     category: 'excel',
     label: 'Write CSV',
     description: 'Write to CSV file',
@@ -1986,6 +1996,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'excel.create',
+    needsStorageConnection: true,
     category: 'excel',
     label: 'Create Excel',
     description: 'Create new workbook',
@@ -2164,6 +2175,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'excel.export_pdf',
+    needsStorageConnection: true,
     category: 'excel',
     label: 'Export to PDF',
     description: 'Export workbook to PDF',
@@ -2246,6 +2258,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'email.download_attachment',
+    needsStorageConnection: true,
     category: 'email',
     label: 'Download Attachment',
     description: 'Save email attachment',
@@ -2321,6 +2334,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'email.send_outlook',
+    needsStorageConnection: true,
     category: 'email',
     label: 'Send via Outlook',
     description: 'Send email via Outlook',
@@ -2795,6 +2809,7 @@ export const nodeTemplates: NodeTemplate[] = [
   // ============================================
   {
     type: 'document.pdf_read',
+    needsStorageConnection: true,
     category: 'document',
     label: 'Read PDF',
     description: 'Extract text from PDF',
@@ -2807,6 +2822,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'document.pdf_merge',
+    needsStorageConnection: true,
     category: 'document',
     label: 'Merge PDFs',
     description: 'Combine multiple PDFs',
@@ -2819,6 +2835,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'document.pdf_split',
+    needsStorageConnection: true,
     category: 'document',
     label: 'Split PDF',
     description: 'Split PDF into pages',
@@ -2832,6 +2849,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'document.pdf_to_image',
+    needsStorageConnection: true,
     category: 'document',
     label: 'PDF to Image',
     description: 'Convert PDF to images',
@@ -2854,6 +2872,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'document.ocr',
+    needsStorageConnection: true,
     category: 'document',
     label: 'OCR Extract',
     description: 'Extract text with OCR',
@@ -2877,6 +2896,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'document.word_read',
+    needsStorageConnection: true,
     category: 'document',
     label: 'Read Word',
     description: 'Read Word document',
@@ -2886,6 +2906,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'document.word_write',
+    needsStorageConnection: true,
     category: 'document',
     label: 'Write Word',
     description: 'Create Word document',
@@ -2910,6 +2931,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'document.pdf_fill_form',
+    needsStorageConnection: true,
     category: 'document',
     label: 'Fill PDF Form',
     description: 'Fill PDF form fields',
@@ -3130,6 +3152,7 @@ export const nodeTemplates: NodeTemplate[] = [
   },
   {
     type: 'ai.vision',
+    needsStorageConnection: true,
     category: 'ai',
     label: 'AI Vision',
     description: 'Analyze images with AI. Connect AI Model node (must support vision).',
@@ -4708,6 +4731,7 @@ export const nodeTemplates: NodeTemplate[] = [
   // ──────────────────────────────────────────────────
   {
     type: 'vectordb.load_documents',
+    needsStorageConnection: true,
     category: 'vectordb',
     label: 'Load Documents',
     description: 'Load and chunk documents for vector storage',
@@ -6580,6 +6604,7 @@ result = [{
   },
   {
     type: 'logging.export',
+    needsStorageConnection: true,
     category: 'logging',
     label: 'Export Logs',
     description: 'Export run logs',
@@ -8527,6 +8552,7 @@ result = [{
   },
   {
     type: 'voice.speak',
+    needsStorageConnection: true,
     category: 'voice',
     label: 'Text to Speech',
     description: 'Convert text to speech audio (Azure TTS)',
@@ -8597,6 +8623,7 @@ result = [{
   },
   {
     type: 'voice.listen',
+    needsStorageConnection: true,
     category: 'voice',
     label: 'Speech to Text',
     description: 'Transcribe audio to text (Azure STT)',
@@ -9431,6 +9458,7 @@ result = [{
   },
   {
     type: 'ms365.email_download_attachment',
+    needsStorageConnection: true,
     category: 'ms365',
     label: 'Download Attachment',
     description: 'Download an email attachment to file',
@@ -9470,6 +9498,7 @@ result = [{
   // --- MS365 Email Send Operations ---
   {
     type: 'ms365.email_send',
+    needsStorageConnection: true,
     category: 'ms365',
     label: 'Send Email',
     description: 'Send a new email via Microsoft 365',
@@ -9545,6 +9574,7 @@ result = [{
   },
   {
     type: 'ms365.email_reply',
+    needsStorageConnection: true,
     category: 'ms365',
     label: 'Reply to Email',
     description: 'Reply to an existing email',
