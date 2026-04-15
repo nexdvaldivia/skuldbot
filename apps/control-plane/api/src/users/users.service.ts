@@ -10,8 +10,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import * as argon2 from 'argon2';
 import { User, UserRole, UserStatus } from './entities/user.entity';
+import { UserLoginHistory } from './entities/user-login-history.entity';
 import { Client } from '../clients/entities/client.entity';
-import { CreateUserDto, UpdateUserDto, UserResponseDto } from './dto/user.dto';
+import {
+  CreateUserDto,
+  UpdateUserDto,
+  UserLoginHistoryResponseDto,
+  UserResponseDto,
+} from './dto/user.dto';
 import { CpRole, CpRoleScopeType } from '../rbac/entities/cp-role.entity';
 
 @Injectable()
@@ -25,6 +31,8 @@ export class UsersService {
     private readonly clientRepository: Repository<Client>,
     @InjectRepository(CpRole)
     private readonly roleRepository: Repository<CpRole>,
+    @InjectRepository(UserLoginHistory)
+    private readonly loginHistoryRepository: Repository<UserLoginHistory>,
   ) {}
 
   async findAll(clientId?: string): Promise<UserResponseDto[]> {
@@ -84,6 +92,7 @@ export class UsersService {
     // Hash password if provided
     let passwordHash: string | null = null;
     if (dto.password) {
+      this.assertPasswordPolicy(dto.password);
       passwordHash = await argon2.hash(dto.password);
     }
 
@@ -97,6 +106,7 @@ export class UsersService {
       role: dto.role,
       clientId: dto.clientId || null,
       status: dto.password ? UserStatus.ACTIVE : UserStatus.PENDING,
+      passwordChangedAt: dto.password ? new Date() : null,
       roles,
     });
 
@@ -196,6 +206,42 @@ export class UsersService {
     return this.toResponseDto(saved);
   }
 
+  async getLoginHistory(
+    userId: string,
+    currentUser: User,
+    limit = 100,
+  ): Promise<UserLoginHistoryResponseDto[]> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    if (!currentUser.isSkuld()) {
+      if (!currentUser.clientId || !user.clientId || currentUser.clientId !== user.clientId) {
+        throw new ForbiddenException('Cannot access login history across client boundaries');
+      }
+    }
+
+    const sanitizedLimit = Math.max(1, Math.min(limit, 500));
+    const history = await this.loginHistoryRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: sanitizedLimit,
+    });
+
+    return history.map((entry) => ({
+      id: entry.id,
+      ip: entry.ip,
+      userAgent: entry.userAgent,
+      success: entry.success,
+      failureReason: entry.failureReason,
+      createdAt: entry.createdAt,
+    }));
+  }
+
   private toResponseDto(user: User): UserResponseDto {
     return {
       id: user.id,
@@ -271,5 +317,21 @@ export class UsersService {
     }
 
     return roles;
+  }
+
+  private assertPasswordPolicy(password: string): void {
+    const hasMinLength = password.length >= 12;
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasLowercase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[^A-Za-z0-9]/.test(password);
+
+    if (!(hasMinLength && hasUppercase && hasLowercase && hasNumber && hasSpecial)) {
+      throw new BadRequestException({
+        code: 'WEAK_PASSWORD',
+        message:
+          'Password must include at least 12 characters, uppercase, lowercase, number, and special character.',
+      });
+    }
   }
 }

@@ -8,6 +8,7 @@ type RepoMock = {
   find: jest.Mock;
   create: jest.Mock;
   save: jest.Mock;
+  delete: jest.Mock;
   exist: jest.Mock;
   createQueryBuilder: jest.Mock;
 };
@@ -18,6 +19,7 @@ function createRepoMock(): RepoMock {
     find: jest.fn(),
     create: jest.fn((payload) => payload),
     save: jest.fn(async (payload) => payload),
+    delete: jest.fn(),
     exist: jest.fn(),
     createQueryBuilder: jest.fn(),
   };
@@ -271,5 +273,91 @@ describe('ContractsService', () => {
         signedAt: expect.any(Date),
       }),
     );
+  });
+
+  it('updates draft contracts and replaces signers when requested', async () => {
+    const contractRepository = createRepoMock();
+    const signerRepository = createRepoMock();
+    const eventRepository = createRepoMock();
+    const clientRepository = createRepoMock();
+    const tenantRepository = createRepoMock();
+
+    const draftContract = {
+      id: 'ctr-3',
+      clientId: 'client-1',
+      tenantId: null,
+      title: 'Old title',
+      templateKey: 'msa.v1',
+      version: 1,
+      status: ContractStatus.DRAFT,
+      variables: { old: true },
+      documentJson: { legacy: true },
+      renderedHtml: null,
+      pdfPath: null,
+      envelopeProvider: null,
+      envelopeId: null,
+      signedAt: null,
+      metadata: {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    contractRepository.findOne.mockResolvedValueOnce({ ...draftContract }).mockResolvedValueOnce({
+      ...draftContract,
+      title: 'Updated contract',
+      version: 2,
+      variables: { total: 10 },
+      documentJson: { doc: 'json' },
+      signers: [
+        {
+          id: 'signer-new',
+          email: 'signer@client.com',
+          fullName: 'New Signer',
+          roleLabel: 'Legal',
+          sortOrder: 0,
+          status: ContractSignerStatus.PENDING,
+          sentAt: null,
+          viewedAt: null,
+          signedAt: null,
+          declinedAt: null,
+        },
+      ],
+    });
+
+    const service = new ContractsService(
+      contractRepository as any,
+      signerRepository as any,
+      eventRepository as any,
+      clientRepository as any,
+      tenantRepository as any,
+    );
+
+    const result = await service.updateContractDraft(
+      'ctr-3',
+      {
+        title: 'Updated contract',
+        variables: { total: 10 },
+        documentJson: { doc: 'json' },
+        signers: [
+          {
+            email: 'signer@client.com',
+            fullName: 'New Signer',
+            roleLabel: 'Legal',
+          },
+        ],
+      },
+      makeClientAdmin('client-1'),
+    );
+
+    expect(result.title).toBe('Updated contract');
+    expect(contractRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'ctr-3',
+        title: 'Updated contract',
+        version: 2,
+      }),
+    );
+    expect(signerRepository.delete).toHaveBeenCalledWith({ contractId: 'ctr-3' });
+    expect(signerRepository.save).toHaveBeenCalledTimes(1);
   });
 });

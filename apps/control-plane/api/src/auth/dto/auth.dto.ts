@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, IsOptional } from 'class-validator';
+import { IsEmail, IsString, MinLength, MaxLength } from 'class-validator';
 
 export class LoginDto {
   @IsEmail()
@@ -57,4 +57,40 @@ export class AuthResponseDto {
     clientId: string | null;
     permissions: string[];
   };
+}
+
+export class MfaCodeDto {
+  @IsString()
+  @MinLength(6)
+  @MaxLength(20)
+  code: string;
+}
+
+export class EnableMfaResponseDto {
+  secret: string;
+  otpauthUri: string;
+  backupCodes: string[];
+}
+
+export class VerifyMfaResponseDto {
+  verified: true;
+  method: 'totp' | 'backup_code';
+}
+
+export class DisableMfaResponseDto {
+  disabled: true;
+}
+
+export class RegenerateBackupCodesResponseDto {
+  backupCodes: string[];
+}
+
+export class ChangePasswordDto {
+  @IsString()
+  @MinLength(8)
+  currentPassword: string;
+
+  @IsString()
+  @MinLength(12)
+  newPassword: string;
 }

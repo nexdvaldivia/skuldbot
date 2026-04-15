@@ -11,6 +11,7 @@ import {
   CreateContractDto,
   ListContractsQueryDto,
   SubmitContractDto,
+  UpdateContractDraftDto,
   UpdateSignerStatusDto,
 } from './dto/contract.dto';
 import { ContractEvent } from './entities/contract-event.entity';
@@ -172,6 +173,60 @@ export class ContractsService {
     await this.recordEvent(contractId, 'contract.submitted', dto.envelopeProvider, {
       actorUserId: currentUser.id,
       envelopeId: dto.envelopeId ?? null,
+    });
+
+    return this.getById(contractId, currentUser);
+  }
+
+  async updateContractDraft(
+    contractId: string,
+    dto: UpdateContractDraftDto,
+    currentUser: User,
+  ): Promise<ContractResponseDto> {
+    const contract = await this.findContractForUpdate(contractId);
+    this.assertClientBoundary(contract.clientId, currentUser);
+
+    if (contract.status !== ContractStatus.DRAFT) {
+      throw new BadRequestException({
+        code: 'CONTRACT_STATUS_INVALID',
+        message: 'Only draft contracts can be edited.',
+      });
+    }
+
+    if (dto.title !== undefined) {
+      contract.title = dto.title.trim();
+    }
+    if (dto.variables !== undefined) {
+      contract.variables = dto.variables;
+    }
+    if (dto.documentJson !== undefined) {
+      contract.documentJson = dto.documentJson;
+    }
+
+    contract.updatedByUserId = currentUser.id;
+    contract.version += 1;
+    await this.contractRepository.save(contract);
+
+    if (dto.signers) {
+      await this.signerRepository.delete({ contractId });
+      const replacementSigners = dto.signers.map((signer, index) =>
+        this.signerRepository.create({
+          contractId,
+          email: signer.email.trim().toLowerCase(),
+          fullName: signer.fullName.trim(),
+          roleLabel: signer.roleLabel.trim(),
+          sortOrder: index,
+          status: ContractSignerStatus.PENDING,
+          signatureAudit: {},
+          metadata: {},
+        }),
+      );
+      await this.signerRepository.save(replacementSigners);
+    }
+
+    await this.recordEvent(contractId, 'contract.updated', 'control-plane-api', {
+      actorUserId: currentUser.id,
+      fields: Object.keys(dto),
     });
 
     return this.getById(contractId, currentUser);

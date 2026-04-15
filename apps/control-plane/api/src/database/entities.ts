@@ -5,6 +5,8 @@ import { LicenseTypeFeature } from '../licenses/entities/license-type-feature.en
 import { QuotaPolicy, UsageCounter } from '../licenses/entities/quota.entity';
 import { LicenseRuntimeDecision } from '../licenses/entities/license-runtime-decision.entity';
 import { User } from '../users/entities/user.entity';
+import { UserLoginHistory } from '../users/entities/user-login-history.entity';
+import { UserPasswordHistory } from '../users/entities/user-password-history.entity';
 import { CpRole } from '../rbac/entities/cp-role.entity';
 import { CpPermission } from '../rbac/entities/cp-permission.entity';
 import {
@@ -39,6 +41,8 @@ export const databaseEntities = [
   UsageCounter,
   LicenseRuntimeDecision,
   User,
+  UserLoginHistory,
+  UserPasswordHistory,
   CpRole,
   CpPermission,
   MarketplaceBot,

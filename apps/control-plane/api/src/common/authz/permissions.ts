@@ -78,7 +78,7 @@ const ROLE_PERMISSION_MAP: Record<UserRole, string[]> = {
     CP_PERMISSIONS.CONTRACTS_WRITE,
     CP_PERMISSIONS.CONTRACTS_SIGN,
   ],
-  [UserRole.CLIENT_USER]: [],
+  [UserRole.CLIENT_USER]: [CP_PERMISSIONS.CONTRACTS_READ],
 };
 
 export function getRolePermissions(role: UserRole | null | undefined): string[] {
