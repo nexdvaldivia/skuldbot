@@ -32,12 +32,33 @@ export class MfaService {
   private readonly mfaAttemptWindowMs = 60_000;
   private readonly mfaMaxAttemptsPerWindow = 5;
   private readonly attemptRegistry = new Map<string, number[]>();
+  private readonly encryptionKeySeed: string;
 
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly configService: ConfigService,
-  ) {}
+  ) {
+    const configuredKey =
+      this.configService.get<string>('MFA_SECRET_ENCRYPTION_KEY')?.trim() ||
+      this.configService.get<string>('JWT_SECRET')?.trim() ||
+      '';
+
+    const insecureDefaults = new Set([
+      'change-this-secret',
+      'change-this-secret-in-production',
+      'change-this-refresh-secret',
+      'change-this-refresh-secret-in-production',
+    ]);
+
+    if (!configuredKey || insecureDefaults.has(configuredKey)) {
+      throw new Error(
+        'MFA_SECRET_ENCRYPTION_KEY or JWT_SECRET must be configured with a secure non-default value.',
+      );
+    }
+
+    this.encryptionKeySeed = configuredKey;
+  }
 
   async enableMfa(userId: string): Promise<MfaEnableResult> {
     const user = await this.findUser(userId);
@@ -281,10 +302,7 @@ export class MfaService {
   }
 
   private encryptSecret(secret: string): string {
-    const keySeed =
-      this.configService.get<string>('MFA_SECRET_ENCRYPTION_KEY') ??
-      this.configService.get<string>('JWT_SECRET', 'change-this-secret');
-    const key = crypto.createHash('sha256').update(keySeed).digest();
+    const key = crypto.createHash('sha256').update(this.encryptionKeySeed).digest();
     const iv = crypto.randomBytes(12);
 
     const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
@@ -305,10 +323,7 @@ export class MfaService {
       });
     }
 
-    const keySeed =
-      this.configService.get<string>('MFA_SECRET_ENCRYPTION_KEY') ??
-      this.configService.get<string>('JWT_SECRET', 'change-this-secret');
-    const key = crypto.createHash('sha256').update(keySeed).digest();
+    const key = crypto.createHash('sha256').update(this.encryptionKeySeed).digest();
 
     const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivB64, 'base64url'));
     decipher.setAuthTag(Buffer.from(authTagB64, 'base64url'));
