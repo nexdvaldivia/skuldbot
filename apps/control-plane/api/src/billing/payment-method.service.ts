@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -6,7 +6,8 @@ import {
   ProductType,
   DEFAULT_PAYMENT_CONFIGS,
 } from './entities/payment-config.entity';
-import { StripeProvider } from '../integrations/payment/stripe.provider';
+import { PaymentProvider } from '../common/interfaces/integration.interface';
+import { PAYMENT_PROVIDER } from '../integrations/payment/payment.module';
 
 /**
  * Payment Method Selection Result
@@ -36,7 +37,8 @@ export class PaymentMethodService {
   constructor(
     @InjectRepository(PaymentConfig)
     private readonly paymentConfigRepository: Repository<PaymentConfig>,
-    private readonly stripeProvider: StripeProvider,
+    @Inject(PAYMENT_PROVIDER)
+    private readonly paymentProvider: PaymentProvider,
   ) {}
 
   /**
@@ -144,7 +146,12 @@ export class PaymentMethodService {
     metadata?: Record<string, string>,
   ): Promise<{ clientSecret: string; setupIntentId: string }> {
     if (methodType === 'ach') {
-      return this.stripeProvider.createACHSetupIntent(customerId, metadata);
+      if (!this.paymentProvider.createACHSetupIntent) {
+        throw new BadRequestException(
+          'Current payment provider does not support ACH setup intents',
+        );
+      }
+      return this.paymentProvider.createACHSetupIntent(customerId, metadata);
     }
 
     // For card, create a regular SetupIntent

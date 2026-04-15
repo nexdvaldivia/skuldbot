@@ -33,7 +33,7 @@ import type { UsageBatchDto } from './billing.service';
  * - POST /payouts/partner/:partnerId - Create payout for partner
  * - GET /payouts/partner/:partnerId - Get partner payouts
  */
-@Controller()
+@Controller('billing')
 export class BillingController {
   constructor(private readonly billingService: BillingService) {}
 
