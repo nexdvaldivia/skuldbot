@@ -89,3 +89,12 @@ export class UserResponseDto {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export class UserLoginHistoryResponseDto {
+  id: string;
+  ip: string;
+  userAgent: string | null;
+  success: boolean;
+  failureReason: string | null;
+  createdAt: Date;
+}

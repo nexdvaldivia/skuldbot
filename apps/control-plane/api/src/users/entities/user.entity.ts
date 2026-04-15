@@ -67,6 +67,21 @@ export class User {
   @Column({ name: 'last_login_at', type: 'timestamp with time zone', nullable: true })
   lastLoginAt: Date | null;
 
+  @Column({ name: 'last_login_ip', type: 'varchar', length: 64, nullable: true })
+  lastLoginIp: string | null;
+
+  @Column({ name: 'login_count', type: 'integer', default: 0 })
+  loginCount: number;
+
+  @Column({ name: 'password_changed_at', type: 'timestamp with time zone', nullable: true })
+  passwordChangedAt: Date | null;
+
+  @Column({ name: 'failed_login_attempts', type: 'integer', default: 0 })
+  failedLoginAttempts: number;
+
+  @Column({ name: 'locked_until', type: 'timestamp with time zone', nullable: true })
+  lockedUntil: Date | null;
+
   @Column({ name: 'email_verified', default: false })
   emailVerified: boolean;
 
@@ -75,6 +90,9 @@ export class User {
 
   @Column({ name: 'mfa_secret', type: 'varchar', nullable: true })
   mfaSecret: string | null;
+
+  @Column({ name: 'mfa_backup_codes', type: 'jsonb', nullable: true })
+  mfaBackupCodes: string[] | null;
 
   @Column({ type: 'jsonb', default: '{}' })
   settings: Record<string, unknown>;

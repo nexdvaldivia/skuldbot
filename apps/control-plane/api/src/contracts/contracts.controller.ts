@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Patch,
   Param,
   Post,
   Query,
@@ -21,6 +22,7 @@ import {
   CreateContractDto,
   ListContractsQueryDto,
   SubmitContractDto,
+  UpdateContractDraftDto,
   UpdateSignerStatusDto,
 } from './dto/contract.dto';
 import { ContractsService } from './contracts.service';
@@ -60,6 +62,16 @@ export class ContractsController {
     @CurrentUser() currentUser: User,
   ): Promise<ContractResponseDto> {
     return this.contractsService.createContract(dto, currentUser);
+  }
+
+  @Patch(':contractId')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_WRITE)
+  async updateDraft(
+    @Param('contractId') contractId: string,
+    @Body() dto: UpdateContractDraftDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractResponseDto> {
+    return this.contractsService.updateContractDraft(contractId, dto, currentUser);
   }
 
   @Post(':contractId/submit')

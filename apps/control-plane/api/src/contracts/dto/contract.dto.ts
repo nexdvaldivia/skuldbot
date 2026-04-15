@@ -62,6 +62,28 @@ export class CreateContractDto {
   signers: ContractSignerInputDto[];
 }
 
+export class UpdateContractDraftDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(180)
+  title?: string;
+
+  @IsOptional()
+  @IsObject()
+  variables?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsObject()
+  documentJson?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ContractSignerInputDto)
+  signers?: ContractSignerInputDto[];
+}
+
 export class ListContractsQueryDto {
   @IsOptional()
   @IsUUID()

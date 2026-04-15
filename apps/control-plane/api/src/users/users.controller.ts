@@ -12,7 +12,12 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateUserDto, UpdateUserDto, UserResponseDto } from './dto/user.dto';
+import {
+  CreateUserDto,
+  UpdateUserDto,
+  UserLoginHistoryResponseDto,
+  UserResponseDto,
+} from './dto/user.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
@@ -39,6 +44,18 @@ export class UsersController {
   @RequirePermissions(CP_PERMISSIONS.USERS_READ)
   async findOne(@Param('id') id: string): Promise<UserResponseDto> {
     return this.usersService.findOne(id);
+  }
+
+  @Get(':id/login-history')
+  @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT, UserRole.CLIENT_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.USERS_READ)
+  async getLoginHistory(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: User,
+    @Query('limit') limit?: string,
+  ): Promise<UserLoginHistoryResponseDto[]> {
+    const parsedLimit = limit ? Number.parseInt(limit, 10) : 100;
+    return this.usersService.getLoginHistory(id, currentUser, parsedLimit);
   }
 
   @Post()
