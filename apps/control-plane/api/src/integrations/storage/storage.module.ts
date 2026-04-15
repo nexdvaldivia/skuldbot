@@ -55,7 +55,11 @@ export const STORAGE_PROVIDER = 'STORAGE_PROVIDER';
               IntegrationType.STORAGE,
               'upload',
               async (provider: StorageProvider) => provider.upload(data),
-              { providerChain },
+              {
+                tenantId: data.tenantId,
+                preferredProvider: data.preferredProvider,
+                providerChain,
+              },
             );
             return result;
           },

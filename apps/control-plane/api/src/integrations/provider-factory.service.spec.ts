@@ -91,4 +91,21 @@ describe('ProviderFactoryService', () => {
     expect(result.result).toBe('ok');
     expect(result.attemptedProviders).toEqual(['sendgrid', 'smtp']);
   });
+
+  it('respects preferred provider before tenant/global config chain', async () => {
+    providerConfigRepository.find
+      .mockResolvedValueOnce([{ name: 'twilio', isPrimary: true }])
+      .mockResolvedValueOnce([{ name: 'noop-sms', isPrimary: true }]);
+
+    const twilio = buildProvider('twilio', IntegrationType.SMS, true);
+    const noop = buildProvider('noop-sms', IntegrationType.SMS, true);
+    providerRegistry.getAllByType.mockReturnValue([twilio, noop]);
+
+    const chain = await service.resolveChain(IntegrationType.SMS, {
+      tenantId: 'tenant-123',
+      preferredProvider: 'noop-sms',
+    });
+
+    expect(chain.map((provider) => provider.name)).toEqual(['noop-sms', 'twilio']);
+  });
 });

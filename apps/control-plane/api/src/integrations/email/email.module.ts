@@ -52,7 +52,11 @@ export const EMAIL_PROVIDER = 'EMAIL_PROVIDER';
               IntegrationType.EMAIL,
               'send',
               async (provider: EmailProvider) => provider.send(data),
-              { providerChain },
+              {
+                tenantId: data.tenantId,
+                preferredProvider: data.preferredProvider,
+                providerChain,
+              },
             );
             return result;
           },
@@ -61,7 +65,11 @@ export const EMAIL_PROVIDER = 'EMAIL_PROVIDER';
               IntegrationType.EMAIL,
               'sendTemplate',
               async (provider: EmailProvider) => provider.sendTemplate(data),
-              { providerChain },
+              {
+                tenantId: data.tenantId,
+                preferredProvider: data.preferredProvider,
+                providerChain,
+              },
             );
             return result;
           },

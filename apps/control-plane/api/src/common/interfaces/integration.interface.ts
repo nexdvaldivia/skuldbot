@@ -160,6 +160,8 @@ export interface UploadData {
   body: Buffer | string;
   contentType?: string;
   metadata?: Record<string, string>;
+  tenantId?: string;
+  preferredProvider?: string;
 }
 
 export interface UploadResult {
@@ -193,6 +195,8 @@ export interface SendEmailData {
   bcc?: string[];
   replyTo?: string;
   attachments?: EmailAttachment[];
+  tenantId?: string;
+  preferredProvider?: string;
 }
 
 export interface SendTemplateEmailData {
@@ -202,6 +206,8 @@ export interface SendTemplateEmailData {
   templateData: Record<string, unknown>;
   cc?: string[];
   bcc?: string[];
+  tenantId?: string;
+  preferredProvider?: string;
 }
 
 export interface EmailAttachment {
@@ -228,6 +234,8 @@ export interface SendSmsData {
   body: string;
   from?: string;
   metadata?: Record<string, string>;
+  tenantId?: string;
+  preferredProvider?: string;
 }
 
 export interface SendSmsResult {
