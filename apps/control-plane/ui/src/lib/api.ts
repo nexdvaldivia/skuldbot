@@ -962,23 +962,27 @@ export const marketplaceApi = {
 
   // Partners
   async listPartners(status?: string) {
-    const query = status ? `?status=${status}` : '';
-    return fetchApi<Partner[]>(`/api/marketplace/partners${query}`);
+    void status;
+    // TODO(S4): re-enable marketplace partners API calls when partner workflows are shipped.
+    return [] as Partner[];
   },
 
   async getPartner(id: string) {
-    return fetchApi<Partner>(`/api/marketplace/partners/${id}`);
+    void id;
+    // TODO(S4): re-enable marketplace partners API calls when partner workflows are shipped.
+    throw new Error('Partners API is disabled until Sprint 4');
   },
 
   async createPartner(data: CreatePartnerRequest) {
-    return fetchApi<Partner>('/api/marketplace/partners', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    void data;
+    // TODO(S4): re-enable marketplace partners API calls when partner workflows are shipped.
+    throw new Error('Partners API is disabled until Sprint 4');
   },
 
   async approvePartner(id: string) {
-    return fetchApi<Partner>(`/api/marketplace/partners/${id}/approve`, { method: 'POST' });
+    void id;
+    // TODO(S4): re-enable marketplace partners API calls when partner workflows are shipped.
+    throw new Error('Partners API is disabled until Sprint 4');
   },
 
   // Submissions (pending review)
@@ -987,14 +991,21 @@ export const marketplaceApi = {
   },
 
   // Analytics
-  async getAnalytics() {
-    return fetchApi<{
-      totalBots: number;
-      totalPartners: number;
-      totalInstalls: number;
-      monthlyRevenue: number;
-      topBots: Array<{ id: string; name: string; installs: number; revenue: number }>;
-    }>('/api/marketplace/analytics');
+  async getAnalytics(): Promise<{
+    totalBots: number;
+    totalPartners: number;
+    totalInstalls: number;
+    monthlyRevenue: number;
+    topBots: Array<{ id: string; name: string; installs: number; revenue: number }>;
+  }> {
+    // TODO(S4): re-enable marketplace analytics API when partner analytics backend ships.
+    return {
+      totalBots: 0,
+      totalPartners: 0,
+      totalInstalls: 0,
+      monthlyRevenue: 0,
+      topBots: [],
+    };
   },
 };
 
