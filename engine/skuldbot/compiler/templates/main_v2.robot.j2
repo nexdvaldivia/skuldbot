@@ -1,4 +1,25 @@
 {# ============================================ #}
+{# Macro: Storage Provider file resolution     #}
+{# Wraps nodes that read/write files via the   #}
+{# connected Storage Provider.                 #}
+{# ============================================ #}
+{% macro storage_resolve(node, path_field, mode='read') -%}
+{% if node.storage_config -%}
+            # Resolve file via Storage Provider ({{ mode }})
+            ${_storage_local_{{ node.id | node_id_safe }}}=    Storage Resolve To Local    {{ node.config.get(path_field, '') | transform_vars }}    mode={{ mode }}
+{%- else -%}
+            ${_storage_local_{{ node.id | node_id_safe }}}=    Set Variable    {{ node.config.get(path_field, '') | transform_vars }}
+{%- endif %}
+{%- endmacro %}
+
+{% macro storage_sync_back(node, path_field) -%}
+{% if node.storage_config -%}
+            # Sync file back to Storage Provider
+            ${_sync_result}=    Storage Sync Back    ${_storage_local_{{ node.id | node_id_safe }}}    {{ node.config.get(path_field, '') | transform_vars }}
+{%- endif %}
+{%- endmacro %}
+
+{# ============================================ #}
 {# Macro to build locator based on selectorType #}
 {# ============================================ #}
 {% macro build_locator(node) -%}
@@ -554,11 +575,9 @@ Execute Node By ID
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Got attribute: ${value}    console=yes
 {% elif node.type == 'web.screenshot' %}
-            {% if node.config.get('full_page', False) %}
-            Capture Page Screenshot    {{ node.config.get('path', 'screenshot.png') | transform_vars }}
-            {% else %}
-            Capture Page Screenshot    {{ node.config.get('path', 'screenshot.png') | transform_vars }}
-            {% endif %}
+            {{ storage_resolve(node, 'path', 'write') }}
+            Capture Page Screenshot    ${_storage_local_{{ node.id | node_id_safe }}}
+            {{ storage_sync_back(node, 'path') }}
 {% elif node.type == 'web.wait_element' %}
             Wait Until Element Is Visible    {{ build_locator(node) }}    timeout={{ node.config.get('timeout', 30000) // 1000 }}s
 {% elif node.type == 'web.execute_js' %}
@@ -808,13 +827,8 @@ Execute Node By ID
 
 {# ===== EXCEL (SkuldBot ExcelLibrary) ===== #}
 {% elif node.type == 'excel.open' %}
-            {% if node.storage_config %}
-            # Resolve file via Storage Provider
-            ${_storage_local_path}=    Storage Resolve To Local    {{ node.config.get('path', '') | transform_vars }}    mode=read
-            Open Excel    ${_storage_local_path}
-            {% else %}
-            Open Excel    {{ node.config.get('path', '') | transform_vars }}
-            {% endif %}
+            {{ storage_resolve(node, 'path', 'read') }}
+            Open Excel    ${_storage_local_{{ node.id | node_id_safe }}}
 {% elif node.type == 'excel.read_range' or node.type == 'excel.read' %}
             {% if node.config.get('column_names') and not node.config.get('header', True) %}
             ${result}=    Read Excel Range    sheet_name={{ node.config.get('sheet', 'None') | transform_vars }}    header=${FALSE}    column_names={{ node.config.get('column_names', '') | escape_newlines }}
@@ -844,7 +858,9 @@ Execute Node By ID
             Set Cell Value    {{ node.config.get('cell', 'A1') | transform_vars }}    {{ node.config.get('value', '') | transform_vars }}
 {% elif node.type == 'excel.save' %}
             {% if node.config.get('path') %}
-            Save Excel    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve(node, 'path', 'write') }}
+            Save Excel    ${_storage_local_{{ node.id | node_id_safe }}}
+            {{ storage_sync_back(node, 'path') }}
             {% else %}
             Save And Close Excel
             {% endif %}
@@ -862,13 +878,13 @@ Execute Node By ID
 
 {% elif node.type == 'excel.create' %}
             # Create new Excel workbook
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve(node, 'path', 'write') }}
             ${sheet_name}=    Set Variable    {{ node.config.get('sheet_name', 'Sheet1') | transform_vars }}
-            Create Workbook    ${path}
-            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${path}    path=${path}    sheet=${sheet_name}
-            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $path}, default=str)
+            Create Workbook    ${_storage_local_{{ node.id | node_id_safe }}}
+            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${_storage_local_{{ node.id | node_id_safe }}}    path=${_storage_local_{{ node.id | node_id_safe }}}    sheet=${sheet_name}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': '${_storage_local_{{ node.id | node_id_safe }}}'}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
-            Log    Created new Excel: ${path}    console=yes
+            Log    Created new Excel: ${_storage_local_{{ node.id | node_id_safe }}}    console=yes
 
 {% elif node.type == 'excel.add_row' %}
             # Append row to sheet
@@ -1670,14 +1686,14 @@ Execute Node By ID
 {# ===== DOCUMENT ===== #}
 {% elif node.type == 'document.pdf_read' %}
             # Extract text from PDF
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve(node, 'path', 'read') }}
             ${pages}=    Set Variable    {{ node.config.get('pages', '') | transform_vars }}
-            ${text}=    Get Text From PDF    ${path}
-            ${page_count}=    Get Number Of Pages    ${path}
-            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${text}    text=${text}    pageCount=${page_count}    path=${path}
+            ${text}=    Get Text From PDF    ${_storage_local_{{ node.id | node_id_safe }}}
+            ${page_count}=    Get Number Of Pages    ${_storage_local_{{ node.id | node_id_safe }}}
+            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${text}    text=${text}    pageCount=${page_count}    path=${_storage_local_{{ node.id | node_id_safe }}}
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $text}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
-            Log    Read PDF: ${path} (${page_count} pages)    console=yes
+            Log    Read PDF: ${_storage_local_{{ node.id | node_id_safe }}} (${page_count} pages)    console=yes
 
 {% elif node.type == 'document.pdf_merge' %}
             # Merge multiple PDFs
