@@ -109,9 +109,12 @@ export class PdfService {
   }
 
   private async renderPdf(html: string): Promise<Buffer> {
+    const disableSandbox =
+      this.configService.get<string>('PUPPETEER_NO_SANDBOX')?.toLowerCase() === 'true';
+
     const browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: disableSandbox ? ['--no-sandbox', '--disable-setuid-sandbox'] : [],
     });
 
     try {
