@@ -13,9 +13,19 @@ const withMDX = nextMDX({
   },
 })
 
+const allowedDevOrigins = (
+  process.env.DOCS_ALLOWED_DEV_ORIGINS ||
+  process.env.NEXT_ALLOWED_DEV_ORIGINS ||
+  'http://localhost:3000,http://localhost:3001,http://localhost:3004,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:3004,http://localhost:1420,tauri://localhost'
+)
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   basePath: '/docs',
+  allowedDevOrigins,
   pageExtensions: ['js', 'jsx', 'ts', 'tsx', 'mdx'],
   outputFileTracingIncludes: {
     '/**/*': ['./src/app/**/*.mdx'],
