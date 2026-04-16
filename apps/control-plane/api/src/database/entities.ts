@@ -31,6 +31,15 @@ import { RunnerHeartbeatEntity } from '../mcp/entities/runner-heartbeat.entity';
 import { Contract } from '../contracts/entities/contract.entity';
 import { ContractSigner } from '../contracts/entities/contract-signer.entity';
 import { ContractEvent } from '../contracts/entities/contract-event.entity';
+import { ContractTemplate } from '../contracts/entities/contract-template.entity';
+import { ContractTemplateVersion } from '../contracts/entities/contract-template-version.entity';
+import { ContractEnvelope } from '../contracts/entities/contract-envelope.entity';
+import { ContractEnvelopeRecipient } from '../contracts/entities/contract-envelope-recipient.entity';
+import { ContractEnvelopeEvent } from '../contracts/entities/contract-envelope-event.entity';
+import { ContractAcceptance } from '../contracts/entities/contract-acceptance.entity';
+import { ContractRequirement } from '../contracts/entities/contract-requirement.entity';
+import { ContractSignatory } from '../contracts/entities/contract-signatory.entity';
+import { ContractLegalInfo } from '../contracts/entities/contract-legal-info.entity';
 
 export const databaseEntities = [
   Client,
@@ -69,4 +78,13 @@ export const databaseEntities = [
   Contract,
   ContractSigner,
   ContractEvent,
+  ContractTemplate,
+  ContractTemplateVersion,
+  ContractEnvelope,
+  ContractEnvelopeRecipient,
+  ContractEnvelopeEvent,
+  ContractAcceptance,
+  ContractRequirement,
+  ContractSignatory,
+  ContractLegalInfo,
 ];

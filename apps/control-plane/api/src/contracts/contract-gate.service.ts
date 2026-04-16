@@ -2,15 +2,19 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Client } from '../clients/entities/client.entity';
 import { CreateLicenseDto } from '../licenses/dto/license.dto';
 import { Tenant } from '../tenants/entities/tenant.entity';
+import { normalizeCodes } from './contracts-access.util';
+import { ContractRequirementService } from './contract-requirement.service';
+import { ContractRequirementAction } from './entities/contract-domain.enums';
 import { Contract, ContractStatus } from './entities/contract.entity';
 
 export enum ContractGateAction {
-  DEPLOY_ORCHESTRATOR = 'deploy_orchestrator',
-  LICENSE_CREATE = 'license_create',
-  PROCESS_PHI = 'process_phi',
-  PROCESS_EU_PII = 'process_eu_pii',
+  DEPLOY_ORCHESTRATOR = ContractRequirementAction.DEPLOY_ORCHESTRATOR,
+  LICENSE_CREATE = ContractRequirementAction.LICENSE_CREATE,
+  PROCESS_PHI = ContractRequirementAction.PROCESS_PHI,
+  PROCESS_EU_PII = ContractRequirementAction.PROCESS_EU_PII,
 }
 
 type ContractRequirementType = 'MSA' | 'BAA' | 'DPA';
@@ -36,6 +40,9 @@ export class ContractGateService {
     private readonly contractRepository: Repository<Contract>,
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
+    @InjectRepository(Client)
+    private readonly clientRepository: Repository<Client>,
+    private readonly requirementService: ContractRequirementService,
     private readonly configService: ConfigService,
   ) {
     this.gateRequirements = this.loadGateRequirements();
@@ -53,7 +60,23 @@ export class ContractGateService {
       });
     }
 
-    const required = this.gateRequirements[action] ?? [];
+    const client = await this.clientRepository.findOne({ where: { id: clientId } });
+    if (!client) {
+      throw new NotFoundException({
+        code: 'CLIENT_NOT_FOUND',
+        message: `Client ${clientId} was not found for contract gate validation.`,
+      });
+    }
+
+    const tenant = tenantId
+      ? await this.tenantRepository.findOne({
+          where: { id: tenantId },
+        })
+      : null;
+
+    const addonCodes = this.resolveAddonCodes(client, tenant);
+    const required = await this.resolveRequiredContractTypes(action, client.plan, addonCodes);
+
     if (required.length === 0) {
       return { allowed: true, missing: [] };
     }
@@ -65,11 +88,8 @@ export class ContractGateService {
       },
     });
 
-    const presentTypes = new Set<ContractRequirementType>();
+    const presentTypes = new Set<string>();
     for (const contract of signedContracts) {
-      if (contract.status !== ContractStatus.SIGNED) {
-        continue;
-      }
       if (tenantId && contract.tenantId && contract.tenantId !== tenantId) {
         continue;
       }
@@ -109,10 +129,25 @@ export class ContractGateService {
       });
     }
 
+    const client = await this.clientRepository.findOne({ where: { id: tenant.clientId } });
+    if (!client) {
+      throw new NotFoundException({
+        code: 'CLIENT_NOT_FOUND',
+        message: `Client ${tenant.clientId} was not found for contract gate validation.`,
+      });
+    }
+
     const actions = this.resolveLicenseActions(dto, tenant);
-    const requiredTypes = new Set<ContractRequirementType>();
+    const addonCodes = this.resolveAddonCodes(client, tenant);
+
+    const requiredTypes = new Set<string>();
     for (const action of actions) {
-      for (const requirement of this.gateRequirements[action] ?? []) {
+      const requiredForAction = await this.resolveRequiredContractTypes(
+        action,
+        client.plan,
+        addonCodes,
+      );
+      for (const requirement of requiredForAction) {
         requiredTypes.add(requirement);
       }
     }
@@ -128,11 +163,8 @@ export class ContractGateService {
       },
     });
 
-    const presentTypes = new Set<ContractRequirementType>();
+    const presentTypes = new Set<string>();
     for (const contract of signedContracts) {
-      if (contract.status !== ContractStatus.SIGNED) {
-        continue;
-      }
       if (contract.tenantId && contract.tenantId !== tenant.id) {
         continue;
       }
@@ -146,6 +178,24 @@ export class ContractGateService {
       allowed: missing.length === 0,
       missing,
     };
+  }
+
+  private async resolveRequiredContractTypes(
+    action: ContractGateAction,
+    planCode: string,
+    addonCodes: string[],
+  ): Promise<string[]> {
+    const dynamic = await this.requirementService.resolveRequiredContractTypes({
+      action: action as unknown as ContractRequirementAction,
+      planCode,
+      addonCodes,
+    });
+
+    if (dynamic.length > 0) {
+      return dynamic.map((type) => type.toUpperCase());
+    }
+
+    return this.gateRequirements[action] ?? [];
   }
 
   private resolveLicenseActions(dto: CreateLicenseDto, tenant: Tenant): ContractGateAction[] {
@@ -222,12 +272,43 @@ export class ContractGateService {
     return signals;
   }
 
+  private resolveAddonCodes(client: Client, tenant: Tenant | null): string[] {
+    const codes: string[] = [];
+
+    const extract = (source: Record<string, unknown> | null | undefined): void => {
+      if (!source) {
+        return;
+      }
+
+      const addonKeys = ['addons', 'addOns', 'enabledAddons', 'features', 'products'];
+      for (const key of addonKeys) {
+        const value = source[key];
+        if (Array.isArray(value)) {
+          for (const entry of value) {
+            if (typeof entry === 'string') {
+              codes.push(entry);
+            }
+          }
+        }
+      }
+    };
+
+    extract(client.settings as Record<string, unknown>);
+    extract(client.metadata as Record<string, unknown>);
+    if (tenant) {
+      extract(tenant.settings as Record<string, unknown>);
+      extract(tenant.metadata as Record<string, unknown>);
+    }
+
+    return normalizeCodes(codes);
+  }
+
   private hasTruthyFlag(source: Record<string, unknown>, keys: string[]): boolean {
     return keys.some((key) => source[key] === true);
   }
 
-  private inferContractTypes(contract: Contract): Set<ContractRequirementType> {
-    const hints = new Set<ContractRequirementType>();
+  private inferContractTypes(contract: Contract): Set<string> {
+    const hints = new Set<string>();
     const metadata = (contract.metadata ?? {}) as Record<string, unknown>;
     const metadataType = this.readMetadataType(metadata);
     const source = `${contract.templateKey} ${contract.title} ${metadataType}`.toLowerCase();

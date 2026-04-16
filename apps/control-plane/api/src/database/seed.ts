@@ -31,6 +31,9 @@ import { LookupValue } from '../lookups/entities/lookup-value.entity';
 import {
   LOOKUP_DOMAIN_CLIENT_PLAN,
   LOOKUP_DOMAIN_CLIENT_STATUS,
+  LOOKUP_DOMAIN_CONTRACT_COMPLIANCE_FRAMEWORK,
+  LOOKUP_DOMAIN_CONTRACT_JURISDICTION,
+  LOOKUP_DOMAIN_CONTRACT_TYPE,
   LOOKUP_DOMAIN_LICENSE_STATUS,
   LOOKUP_DOMAIN_LICENSE_TYPE,
 } from '../lookups/lookups.constants';
@@ -293,6 +296,24 @@ async function seed() {
         description: 'Runtime status values for licenses.',
         managedByPortal: 'control_plane',
       },
+      {
+        code: LOOKUP_DOMAIN_CONTRACT_TYPE,
+        label: 'Contract Types',
+        description: 'Supported legal contract categories.',
+        managedByPortal: 'control_plane',
+      },
+      {
+        code: LOOKUP_DOMAIN_CONTRACT_JURISDICTION,
+        label: 'Contract Jurisdictions',
+        description: 'Allowed legal jurisdictions for contracts.',
+        managedByPortal: 'control_plane',
+      },
+      {
+        code: LOOKUP_DOMAIN_CONTRACT_COMPLIANCE_FRAMEWORK,
+        label: 'Contract Compliance Frameworks',
+        description: 'Compliance frameworks referenced by contracts.',
+        managedByPortal: 'control_plane',
+      },
     ];
 
     for (const domain of lookupDomains) {
@@ -411,6 +432,92 @@ async function seed() {
         label: 'Suspended',
         sortOrder: 40,
         metadata: { blocksUsage: true },
+      },
+      {
+        domainCode: LOOKUP_DOMAIN_CONTRACT_TYPE,
+        code: 'msa',
+        label: 'Master Service Agreement',
+        sortOrder: 10,
+        metadata: { isDefault: true },
+      },
+      {
+        domainCode: LOOKUP_DOMAIN_CONTRACT_TYPE,
+        code: 'tos',
+        label: 'Terms of Service',
+        sortOrder: 20,
+      },
+      {
+        domainCode: LOOKUP_DOMAIN_CONTRACT_TYPE,
+        code: 'dpa',
+        label: 'Data Processing Agreement',
+        sortOrder: 30,
+      },
+      {
+        domainCode: LOOKUP_DOMAIN_CONTRACT_TYPE,
+        code: 'sla',
+        label: 'Service Level Agreement',
+        sortOrder: 40,
+      },
+      {
+        domainCode: LOOKUP_DOMAIN_CONTRACT_TYPE,
+        code: 'baa',
+        label: 'Business Associate Agreement',
+        sortOrder: 50,
+      },
+      {
+        domainCode: LOOKUP_DOMAIN_CONTRACT_TYPE,
+        code: 'nda',
+        label: 'Non-Disclosure Agreement',
+        sortOrder: 60,
+      },
+      {
+        domainCode: LOOKUP_DOMAIN_CONTRACT_JURISDICTION,
+        code: 'us_delaware',
+        label: 'Delaware, USA',
+        sortOrder: 10,
+        metadata: { isDefault: true },
+      },
+      {
+        domainCode: LOOKUP_DOMAIN_CONTRACT_JURISDICTION,
+        code: 'us_california',
+        label: 'California, USA',
+        sortOrder: 20,
+      },
+      {
+        domainCode: LOOKUP_DOMAIN_CONTRACT_JURISDICTION,
+        code: 'us_texas',
+        label: 'Texas, USA',
+        sortOrder: 30,
+      },
+      {
+        domainCode: LOOKUP_DOMAIN_CONTRACT_JURISDICTION,
+        code: 'eu_ireland',
+        label: 'Ireland (EU)',
+        sortOrder: 40,
+      },
+      {
+        domainCode: LOOKUP_DOMAIN_CONTRACT_COMPLIANCE_FRAMEWORK,
+        code: 'hipaa',
+        label: 'HIPAA',
+        sortOrder: 10,
+      },
+      {
+        domainCode: LOOKUP_DOMAIN_CONTRACT_COMPLIANCE_FRAMEWORK,
+        code: 'soc2',
+        label: 'SOC 2',
+        sortOrder: 20,
+      },
+      {
+        domainCode: LOOKUP_DOMAIN_CONTRACT_COMPLIANCE_FRAMEWORK,
+        code: 'gdpr',
+        label: 'GDPR',
+        sortOrder: 30,
+      },
+      {
+        domainCode: LOOKUP_DOMAIN_CONTRACT_COMPLIANCE_FRAMEWORK,
+        code: 'pci_dss',
+        label: 'PCI DSS',
+        sortOrder: 40,
       },
     ];
 

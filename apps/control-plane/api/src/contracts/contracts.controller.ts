@@ -8,6 +8,7 @@ import {
   Patch,
   Param,
   Post,
+  Put,
   Query,
   Res,
   StreamableFile,
@@ -20,6 +21,40 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { User } from '../users/entities/user.entity';
+import { ContractLookupsService } from './contract-lookups.service';
+import { ContractRequirementService } from './contract-requirement.service';
+import { ContractSigningService } from './contract-signing.service';
+import { ContractTemplateService } from './contract-template.service';
+import { ContractsService } from './contracts.service';
+import {
+  ContractLegalInfoResponseDto,
+  ContractLookupsResponseDto,
+  ContractSignatoryResponseDto,
+  ListContractSignatoriesQueryDto,
+  UpdateContractLegalInfoDto,
+} from './dto/legal.dto';
+import {
+  ConfigureContractRequirementsDto,
+  ContractRequirementResponseDto,
+  ListContractRequirementsQueryDto,
+} from './dto/requirements.dto';
+import {
+  ContractAcceptanceResponseDto,
+  ContractEnvelopeResponseDto,
+  DeclineEnvelopeRecipientDto,
+  ListContractAcceptancesQueryDto,
+  ListSentContractsQueryDto,
+  SignEnvelopeRecipientDto,
+  VerifyEnvelopeOtpDto,
+} from './dto/signing.dto';
+import {
+  ContractTemplateResponseDto,
+  CreateContractTemplateDto,
+  DeprecateContractTemplateDto,
+  PublishContractTemplateDto,
+  SendTemplateForSignatureDto,
+  UpdateContractTemplateDraftDto,
+} from './dto/template.dto';
 import {
   CancelContractDto,
   ContractResponseDto,
@@ -29,12 +64,213 @@ import {
   UpdateContractDraftDto,
   UpdateSignerStatusDto,
 } from './dto/contract.dto';
-import { ContractsService } from './contracts.service';
+import { ContractLegalService } from './contract-legal.service';
 
 @Controller('contracts')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class ContractsController {
-  constructor(private readonly contractsService: ContractsService) {}
+  constructor(
+    private readonly contractsService: ContractsService,
+    private readonly contractTemplateService: ContractTemplateService,
+    private readonly contractSigningService: ContractSigningService,
+    private readonly contractLookupsService: ContractLookupsService,
+    private readonly contractRequirementService: ContractRequirementService,
+    private readonly contractLegalService: ContractLegalService,
+  ) {}
+
+  @Get('templates')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async listTemplates(): Promise<ContractTemplateResponseDto[]> {
+    return this.contractTemplateService.listTemplates();
+  }
+
+  @Post('templates')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_WRITE)
+  @HttpCode(HttpStatus.CREATED)
+  async createTemplate(
+    @Body() dto: CreateContractTemplateDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractTemplateResponseDto> {
+    return this.contractTemplateService.createTemplate(dto, currentUser);
+  }
+
+  @Get('templates/:templateId')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async getTemplateById(
+    @Param('templateId') templateId: string,
+  ): Promise<ContractTemplateResponseDto> {
+    return this.contractTemplateService.getTemplateById(templateId);
+  }
+
+  @Patch('templates/:templateId')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_WRITE)
+  async updateTemplateDraft(
+    @Param('templateId') templateId: string,
+    @Body() dto: UpdateContractTemplateDraftDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractTemplateResponseDto> {
+    return this.contractTemplateService.updateTemplateDraft(templateId, dto, currentUser);
+  }
+
+  @Post('templates/:templateId/publish')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  async publishTemplate(
+    @Param('templateId') templateId: string,
+    @Body() dto: PublishContractTemplateDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractTemplateResponseDto> {
+    return this.contractTemplateService.publishTemplate(templateId, dto, currentUser);
+  }
+
+  @Post('templates/:templateId/deprecate')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  async deprecateTemplate(
+    @Param('templateId') templateId: string,
+    @Body() dto: DeprecateContractTemplateDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractTemplateResponseDto> {
+    return this.contractTemplateService.deprecateTemplate(templateId, dto, currentUser);
+  }
+
+  @Post('templates/:templateId/send')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_SIGN)
+  async sendTemplateForSignature(
+    @Param('templateId') templateId: string,
+    @Body() dto: SendTemplateForSignatureDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractEnvelopeResponseDto> {
+    return this.contractSigningService.sendTemplateForSignature(templateId, dto, currentUser);
+  }
+
+  @Get('sent')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async listSent(
+    @Query() query: ListSentContractsQueryDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractEnvelopeResponseDto[]> {
+    return this.contractSigningService.listSentEnvelopes(query, currentUser);
+  }
+
+  @Get('sent/:envelopeId')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async getSentById(
+    @Param('envelopeId') envelopeId: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractEnvelopeResponseDto> {
+    return this.contractSigningService.getEnvelopeById(envelopeId, currentUser);
+  }
+
+  @Post('sent/:envelopeId/recipients/:recipientId/otp/verify')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_SIGN)
+  async verifyRecipientOtp(
+    @Param('envelopeId') envelopeId: string,
+    @Param('recipientId') recipientId: string,
+    @Body() dto: VerifyEnvelopeOtpDto,
+    @CurrentUser() currentUser: User,
+  ) {
+    return this.contractSigningService.verifyEnvelopeRecipientOtp(
+      envelopeId,
+      recipientId,
+      dto,
+      currentUser,
+    );
+  }
+
+  @Post('sent/:envelopeId/recipients/:recipientId/sign')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_SIGN)
+  async signRecipient(
+    @Param('envelopeId') envelopeId: string,
+    @Param('recipientId') recipientId: string,
+    @Body() dto: SignEnvelopeRecipientDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractEnvelopeResponseDto> {
+    return this.contractSigningService.signEnvelopeRecipient(
+      envelopeId,
+      recipientId,
+      dto,
+      currentUser,
+    );
+  }
+
+  @Post('sent/:envelopeId/recipients/:recipientId/decline')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_SIGN)
+  async declineRecipient(
+    @Param('envelopeId') envelopeId: string,
+    @Param('recipientId') recipientId: string,
+    @Body() dto: DeclineEnvelopeRecipientDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractEnvelopeResponseDto> {
+    return this.contractSigningService.declineEnvelopeRecipient(
+      envelopeId,
+      recipientId,
+      dto,
+      currentUser,
+    );
+  }
+
+  @Get('acceptances')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async listAcceptances(
+    @Query() query: ListContractAcceptancesQueryDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractAcceptanceResponseDto[]> {
+    return this.contractSigningService.listAcceptances(query, currentUser);
+  }
+
+  @Get('acceptances/:acceptanceId')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async getAcceptanceById(
+    @Param('acceptanceId') acceptanceId: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractAcceptanceResponseDto> {
+    return this.contractSigningService.getAcceptanceById(acceptanceId, currentUser);
+  }
+
+  @Get('lookups')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async getLookups(): Promise<ContractLookupsResponseDto> {
+    return this.contractLookupsService.getContractLookups();
+  }
+
+  @Get('requirements')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async listRequirements(
+    @Query() query: ListContractRequirementsQueryDto,
+  ): Promise<ContractRequirementResponseDto[]> {
+    return this.contractRequirementService.listRequirements(query);
+  }
+
+  @Post('requirements')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  async configureRequirements(
+    @Body() dto: ConfigureContractRequirementsDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractRequirementResponseDto[]> {
+    return this.contractRequirementService.configureRequirements(dto, currentUser);
+  }
+
+  @Get('legal-info')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async getLegalInfo(): Promise<ContractLegalInfoResponseDto> {
+    return this.contractLegalService.getLegalInfo();
+  }
+
+  @Put('legal-info')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  async updateLegalInfo(
+    @Body() dto: UpdateContractLegalInfoDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractLegalInfoResponseDto> {
+    return this.contractLegalService.updateLegalInfo(dto, currentUser);
+  }
+
+  @Get('signatories')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async listSignatories(
+    @Query() query: ListContractSignatoriesQueryDto,
+  ): Promise<ContractSignatoryResponseDto[]> {
+    return this.contractLegalService.listSignatories(query.onlyActive ?? false);
+  }
 
   @Get()
   @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
