@@ -1,4 +1,9 @@
 import { StreamableFile } from '@nestjs/common';
+import { ContractLegalService } from './contract-legal.service';
+import { ContractLookupsService } from './contract-lookups.service';
+import { ContractRequirementService } from './contract-requirement.service';
+import { ContractSigningService } from './contract-signing.service';
+import { ContractTemplateService } from './contract-template.service';
 import { ContractsController } from './contracts.controller';
 import { ContractsService } from './contracts.service';
 
@@ -8,7 +13,14 @@ describe('ContractsController', () => {
       generatePdf: jest.fn().mockResolvedValue({ id: 'ctr-1', pdfPath: 'contracts/x.pdf' }),
     } as unknown as ContractsService;
 
-    const controller = new ContractsController(contractsService);
+    const controller = new ContractsController(
+      contractsService,
+      {} as ContractTemplateService,
+      {} as ContractSigningService,
+      {} as ContractLookupsService,
+      {} as ContractRequirementService,
+      {} as ContractLegalService,
+    );
     const currentUser = { id: 'user-1' } as any;
 
     const result = await controller.generatePdf('ctr-1', currentUser);
@@ -24,7 +36,14 @@ describe('ContractsController', () => {
       }),
     } as unknown as ContractsService;
 
-    const controller = new ContractsController(contractsService);
+    const controller = new ContractsController(
+      contractsService,
+      {} as ContractTemplateService,
+      {} as ContractSigningService,
+      {} as ContractLookupsService,
+      {} as ContractRequirementService,
+      {} as ContractLegalService,
+    );
     const response = {
       setHeader: jest.fn(),
     } as any;
