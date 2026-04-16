@@ -50,6 +50,7 @@ En `VERIFICATION` se reportan comandos ejecutados y resultado (`pass/fail`) con 
 ## 5. Quality Gates obligatorios (QG1-QG9)
 
 Un PR solo se puede mergear si cumple todos los gates aplicables.
+No se permite marcar gates como `n/a` en PR: todos QG1..QG9 deben declararse en `pass` con evidencia.
 
 - `QG1 Build`: `turbo run build` (o build del modulo) sin errores.
 - `QG2 Tests`: unit/integration del modulo pasan; cobertura no decrece.
@@ -80,6 +81,7 @@ Toda PR debe declarar explicitamente:
 - Scope (in/out)
 - Riesgo
 - Gates QG1..QG9
+- Evidencia por gate (QG1..QG9), sin placeholders (`TBD`, `pending`, `n/a`)
 - Evidencia de pruebas
 - Excepciones (si existen)
 

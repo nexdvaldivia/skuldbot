@@ -23,6 +23,7 @@ jobs:
             const requiredSections = [
               "## Work Protocol ACK (required)",
               "## Quality Gates (QG1-QG9)",
+              "## Quality Gate Justification (required)",
               "## Regulatory Profile (choose exactly one)",
               "## Mandatory Regulatory Checklist",
               "## Mandatory Architecture/Platform Checklist",
@@ -69,10 +70,37 @@ jobs:
 
             for (const gate of qualityGates) {
               const escaped = gate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-              const gatePattern = new RegExp(`${escaped}[^\\n]*:\\s*` + "`?(pass|n\\/a)`?", "i");
+              const gatePattern = new RegExp(`${escaped}[^\\n]*:\\s*` + "`?pass`?", "i");
               const match = body.match(gatePattern);
               if (!match) {
-                failures.push(`Quality gate must be explicitly declared as pass or n/a: "${gate}"`);
+                failures.push(`Quality gate must be explicitly declared as pass: "${gate}"`);
+              }
+            }
+
+            const disallowedNa = body.match(/QG[1-9][^\n]*:\s*`?n\/a`?/gi) || [];
+            if (disallowedNa.length > 0) {
+              failures.push("Quality gates cannot be marked as n/a. All QG1..QG9 must be pass with evidence.");
+            }
+
+            const qualityEvidenceFields = [
+              "QG1 evidence:",
+              "QG2 evidence:",
+              "QG3 evidence:",
+              "QG4 evidence:",
+              "QG5 evidence:",
+              "QG6 evidence:",
+              "QG7 evidence:",
+              "QG8 evidence:",
+              "QG9 evidence:",
+            ];
+
+            for (const field of qualityEvidenceFields) {
+              const escaped = field.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              const fieldPattern = new RegExp(`${escaped}\\s*([^\\n]+)`, "i");
+              const match = body.match(fieldPattern);
+              const value = match?.[1]?.trim() ?? "";
+              if (!value || /^(tbd|pending|n\/a|\.\.\.)$/i.test(value)) {
+                failures.push(`Quality gate evidence is missing or incomplete: "${field}"`);
               }
             }
 
