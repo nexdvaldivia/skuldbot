@@ -10,15 +10,26 @@
 - Riesgos y mitigacion:
 
 ## Quality Gates (QG1-QG9)
-- QG1 Build: `pass|n/a`
-- QG2 Tests: `pass|n/a`
-- QG3 Contracts/E2E: `pass|n/a`
-- QG4 Lint + Typecheck: `pass|n/a`
-- QG5 Security Baseline: `pass|n/a`
-- QG6 CI Smoke: `pass|n/a`
-- QG7 Review + DoD: `pass|n/a`
-- QG8 Compliance Check: `pass|n/a`
-- QG9 Nexion Parity (migrations): `pass|n/a`
+- QG1 Build: `pass`
+- QG2 Tests: `pass`
+- QG3 Contracts/E2E: `pass`
+- QG4 Lint + Typecheck: `pass`
+- QG5 Security Baseline: `pass`
+- QG6 CI Smoke: `pass`
+- QG7 Review + DoD: `pass`
+- QG8 Compliance Check: `pass`
+- QG9 Nexion Parity (migrations): `pass`
+
+## Quality Gate Justification (required)
+- QG1 evidence:
+- QG2 evidence:
+- QG3 evidence:
+- QG4 evidence:
+- QG5 evidence:
+- QG6 evidence:
+- QG7 evidence:
+- QG8 evidence:
+- QG9 evidence:
 
 ## Regulatory Profile (choose exactly one)
 - [ ] `standard`
