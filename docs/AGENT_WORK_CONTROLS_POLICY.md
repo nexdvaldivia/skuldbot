@@ -15,6 +15,12 @@ Evitar regresiones de confianza y cumplimiento aplicando controles verificables 
 - `.env` solo para local/test y controlado por política (`ALLOW_DOTENV`).
 - Identidades y claves primarias con `uuid`.
 - CP y Orchestrator con RBAC/SSO y principio de mínimo privilegio.
+- Protocolo operativo obligatorio (`docs/WORK_PROTOCOL.md`) con Instruction ACK y declaración explícita de QG1..QG9 en cada PR.
+- Reuso Nexion-first: copiar/adaptar implementaciones Nexion siempre que encajen en el modelo Skuld.
+- Integraciones enterprise cloud-agnostic: servicios de negocio solo por interfaces/providers.
+- Sitio marketing <-> Control Plane exclusivamente por gateway (no URLs directas de CP expuestas en frontend).
+- UI obligatoria con `shadcn/ui`, tipografía Montserrat, colores corporativos Skuld y mensajería por toast (sin `alert/confirm/prompt`).
+- Secretos en vault/key vault/provider; `.env` mínimo local y nunca secretos por defecto.
 
 ## 3) Controles obligatorios de implementación
 

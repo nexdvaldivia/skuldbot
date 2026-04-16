@@ -47,6 +47,7 @@ Regla:
 Regla explícita:
 
 - el Control Plane no almacena evidencia de ejecución ni auditoría operativa del cliente.
+- la integración entre sitio de marketing y Control Plane debe pasar por gateway/API facade; nunca exponer URLs directas de Control Plane en frontend público.
 
 Nunca permitido:
 
@@ -58,12 +59,14 @@ Nunca permitido:
 - despliegue soportado en `AWS`, `Azure`, `GCP` y `on-prem`.
 - empaquetado oficial: `Docker images` firmadas + `docker-compose` (POC) + `Helm` (prod).
 - adapters por proveedor para storage/queue/secrets/identity (sin lock-in funcional).
+- servicios de negocio deben depender de interfaces/providers, no de SDKs cloud concretos acoplados en capa de aplicación.
 
 ## 4.3 Vault y secretos
 
 - BYO Vault obligatorio (`Hashicorp`, `AWS Secrets Manager`, `Azure Key Vault`, `GCP Secret Manager`).
 - nunca persistir secreto resuelto fuera del tiempo de ejecución necesario.
 - rotación y prueba de conectividad auditables.
+- `.env` se limita a desarrollo local con mínimo no sensible; producción consume secretos desde vault/provider y nunca usa defaults inseguros.
 
 ## 4.4 Evidence package
 
@@ -113,16 +116,21 @@ Control obligatorio:
 - ADR corto por feature (decisión, riesgos, impacto compliance).
 - threat model mínimo para cambios en auth/secrets/data/AI.
 - clasificación de datos y perfil de control objetivo (`standard|regulated|strict`).
+- revisión Nexion-first: documentar qué módulos de Nexion se reutilizan/adaptan y por qué.
 
-## 6.2 Requisitos para merge
+## 6.2 Estándar UI enterprise (cuando aplique)
+- aplicar principios de Refactoring UI en diseño y composición.
+- respetar tokens/colores corporativos Skuld y tipografía `Montserrat`.
+- usar componentes `shadcn/ui` para UI de producto (evitar componentes nativos/sistema en flujos core).
+- usar toasts para feedback de usuario; prohibido `alert/confirm/prompt` nativos.
 
+## 6.3 Requisitos para merge
 - tests unitarios/integración de controles críticos.
 - pruebas de autorización negativa (denegar cuando corresponde).
 - pruebas de no filtrado de secretos/PHI/PII en logs.
 - evidencia de migraciones seguras (backward compatible o plan de migración).
 
-## 6.3 Requisitos para release
-
+## 6.4 Requisitos para release
 - checklist de seguridad/compliance aprobado.
 - evidencia de observabilidad activa (logs, métricas, trazas, alertas).
 - runbook de rollback/incidente actualizado.

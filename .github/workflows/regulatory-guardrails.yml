@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   validate-pr-guardrails:
-    name: Validate PR Regulatory Checklist
+    name: Validate PR Regulatory + Work Protocol Checklist
     runs-on: ubuntu-latest
     steps:
       - name: Validate PR body structure and required checks
@@ -21,8 +21,11 @@ jobs:
             const failures = [];
 
             const requiredSections = [
+              "## Work Protocol ACK (required)",
+              "## Quality Gates (QG1-QG9)",
               "## Regulatory Profile (choose exactly one)",
               "## Mandatory Regulatory Checklist",
+              "## Mandatory Architecture/Platform Checklist",
               "## Documentation Sync (choose exactly one)",
               "## Evidence and Validation",
               "## Risk and Exceptions",
@@ -31,6 +34,45 @@ jobs:
             for (const section of requiredSections) {
               if (!body.includes(section)) {
                 failures.push(`Missing required section: ${section}`);
+              }
+            }
+
+            const ackFields = [
+              "Task ID / Branch:",
+              "In scope (files/modules):",
+              "Out of scope (explicitly excluded):",
+              "Gates aplicables (QG1..QG9):",
+              "Riesgos y mitigacion:",
+            ];
+
+            for (const field of ackFields) {
+              const escaped = field.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              const fieldPattern = new RegExp(`${escaped}\\s*([^\\n]+)`, "i");
+              const match = body.match(fieldPattern);
+              const value = match?.[1]?.trim() ?? "";
+              if (!value || value === "`" || /^(tbd|pending|n\/a|\.\.\.)$/i.test(value)) {
+                failures.push(`Work Protocol ACK field is missing or incomplete: "${field}"`);
+              }
+            }
+
+            const qualityGates = [
+              "QG1 Build",
+              "QG2 Tests",
+              "QG3 Contracts/E2E",
+              "QG4 Lint + Typecheck",
+              "QG5 Security Baseline",
+              "QG6 CI Smoke",
+              "QG7 Review + DoD",
+              "QG8 Compliance Check",
+              "QG9 Nexion Parity",
+            ];
+
+            for (const gate of qualityGates) {
+              const escaped = gate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              const gatePattern = new RegExp(`${escaped}[^\\n]*:\\s*` + "`?(pass|n\\/a)`?", "i");
+              const match = body.match(gatePattern);
+              if (!match) {
+                failures.push(`Quality gate must be explicitly declared as pass or n/a: "${gate}"`);
               }
             }
 
@@ -48,12 +90,57 @@ jobs:
               "I confirm this change follows `docs/REGULATORY_DESIGN_GUARDRAILS.md`.",
             ];
 
-            for (const line of requiredChecks) {
+            const architectureChecks = [
+              "I confirm Nexion-first reuse was applied: existing Nexion implementation was reused/adapted whenever compatible with Skuld.",
+              "I confirm business services use abstraction/providers (no direct cloud coupling).",
+              "I confirm multi-cloud compatibility is preserved (AWS/Azure/GCP/on-prem via providers).",
+              "I confirm secrets are sourced via vault/key vault/provider and `.env` is local-only minimal non-sensitive.",
+              "I confirm marketing/web does not expose direct Control Plane URLs and uses gateway-only integration.",
+            ];
+
+            function isChecked(line) {
               const escaped = line.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
               const checkedPattern = new RegExp(`- \\[(x|X)\\] ${escaped}`);
-              if (!checkedPattern.test(body)) {
+              return checkedPattern.test(body);
+            }
+
+            for (const line of requiredChecks) {
+              if (!isChecked(line)) {
                 failures.push(`Required checklist item not checked: "${line}"`);
               }
+            }
+
+            for (const line of architectureChecks) {
+              if (!isChecked(line)) {
+                failures.push(`Required architecture checklist item not checked: "${line}"`);
+              }
+            }
+
+            const uiNotImpactedLine = "UI not impacted in this PR.";
+            const uiImpactedLines = [
+              "If UI is impacted: I confirm the implementation uses `shadcn/ui` + `Tailwind CSS`.",
+              "If UI is impacted: I confirm Refactoring UI principles were followed end-to-end.",
+              "If UI is impacted: I confirm Skuld brand rules were respected (corporate colors/tokens + official SkuldBot logo only).",
+              "If UI is impacted: I confirm `Montserrat` is used as the UI typography standard.",
+              "If UI is impacted: I confirm reusable patterns were componentized and existing components were reused (no duplicated UI implementation).",
+              "If UI is impacted: I confirm enterprise go-to-market quality (responsive, accessibility basics, complete states, no placeholders in critical flows).",
+              "If UI is impacted: I confirm user feedback/messaging uses toast components (no browser native `alert`, `confirm`, `prompt`).",
+              "I confirm this change follows `docs/ENTERPRISE_UI_BRANDING_NON_NEGOTIABLES.md`.",
+            ];
+
+            const uiNotImpactedChecked = isChecked(uiNotImpactedLine);
+            const uiImpactedCheckedCount = uiImpactedLines.filter((line) => isChecked(line)).length;
+            const uiAllImpactedChecked = uiImpactedCheckedCount === uiImpactedLines.length;
+
+            if (!(uiNotImpactedChecked || uiAllImpactedChecked)) {
+              failures.push(
+                "UI gate invalid: either mark 'UI not impacted' OR check all UI impacted checklist items."
+              );
+            }
+            if (uiNotImpactedChecked && uiImpactedCheckedCount > 0) {
+              failures.push(
+                "UI gate invalid: 'UI not impacted' cannot be selected together with UI impacted checklist items."
+              );
             }
 
             const docsDecisionChecks = [
@@ -62,9 +149,7 @@ jobs:
             ];
             let docsSelected = 0;
             for (const line of docsDecisionChecks) {
-              const escaped = line.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-              const checkedPattern = new RegExp(`- \\[(x|X)\\] ${escaped}`);
-              if (checkedPattern.test(body)) {
+              if (isChecked(line)) {
                 docsSelected += 1;
               }
             }
