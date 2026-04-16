@@ -12,10 +12,29 @@
 {%- endif %}
 {%- endmacro %}
 
+{# Convenience macro: resolves storage path into ${path} variable directly #}
+{# Use this for nodes that reference ${path} throughout their code block   #}
+{% macro storage_resolve_path(node, path_field, mode='read') -%}
+{% if node.storage_config -%}
+            # Resolve file via Storage Provider ({{ mode }})
+            ${path}=    Storage Resolve To Local    {{ node.config.get(path_field, '') | transform_vars }}    mode={{ mode }}
+{%- else -%}
+            ${path}=    Set Variable    {{ node.config.get(path_field, '') | transform_vars }}
+{%- endif %}
+{%- endmacro %}
+
 {% macro storage_sync_back(node, path_field) -%}
 {% if node.storage_config -%}
             # Sync file back to Storage Provider
             ${_sync_result}=    Storage Sync Back    ${_storage_local_{{ node.id | node_id_safe }}}    {{ node.config.get(path_field, '') | transform_vars }}
+{%- endif %}
+{%- endmacro %}
+
+{# Convenience: sync back using ${path} variable #}
+{% macro storage_sync_back_path(node, path_field) -%}
+{% if node.storage_config -%}
+            # Sync file back to Storage Provider
+            ${_sync_result}=    Storage Sync Back    ${path}    {{ node.config.get(path_field, '') | transform_vars }}
 {%- endif %}
 {%- endmacro %}
 
@@ -761,7 +780,7 @@ Execute Node By ID
 
 {% elif node.type == 'desktop.screenshot' %}
             # Capture Desktop Screenshot
-            ${path}=    Set Variable    {{ node.config.get('path', 'screenshot.png') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'write') }}
             {% if node.config.get('region') %}
             ${region}=    Set Variable    {{ node.config.get('region', '') | transform_vars }}
             ${parts}=    Split String    ${region}    ,
@@ -780,6 +799,7 @@ Execute Node By ID
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             {% endif %}
             Log    Screenshot saved to: ${path}    console=yes
+            {{ storage_sync_back_path(node, 'path') }}
 
 {% elif node.type == 'desktop.image_click' %}
             # Find and Click Image on Screen
@@ -914,7 +934,7 @@ Execute Node By ID
 
 {% elif node.type == 'excel.csv_read' %}
             # Read CSV file
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'read') }}
             ${delimiter}=    Set Variable    {{ node.config.get('delimiter', ',') }}
             ${has_header}=    Set Variable    ${{ '{TRUE}' if node.config.get('header', True) else '{FALSE}' }}
             ${data}=    Evaluate    list(__import__('csv').DictReader(open('${path}', 'r', encoding='utf-8'), delimiter='${delimiter}')) if ${has_header} else list(__import__('csv').reader(open('${path}', 'r', encoding='utf-8'), delimiter='${delimiter}'))
@@ -926,7 +946,7 @@ Execute Node By ID
 
 {% elif node.type == 'excel.csv_write' %}
             # Write CSV file
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'write') }}
             ${data_json}=    Set Variable    {{ node.config.get('data', '[]') | transform_vars }}
             ${delimiter}=    Set Variable    {{ node.config.get('delimiter', ',') }}
             ${data}=    Evaluate    __import__('json').loads('''${data_json}''')
@@ -938,6 +958,7 @@ Execute Node By ID
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $path}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Wrote CSV: ${count} rows    console=yes
+            {{ storage_sync_back_path(node, 'path') }}
 
 {% elif node.type == 'excel.pivot' %}
             # Create pivot table (using Python pandas)
@@ -1122,6 +1143,7 @@ Execute Node By ID
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $output_path}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Exported to PDF: ${output_path}    console=yes
+            {{ storage_sync_back_path(node, 'path') }}
 
 {% elif node.type == 'excel.vlookup' %}
             # Perform VLOOKUP
@@ -1318,8 +1340,8 @@ Execute Node By ID
 {% elif node.type == 'email.download_attachment' %}
             # Download email attachment
             ${message_id}=    Set Variable    {{ node.config.get('message_id', '') | transform_vars }}
-            ${save_path}=    Set Variable    {{ node.config.get('save_path', '') | transform_vars }}
-            @{attachments}=    Save Attachment    ${message_id}    target_folder=${save_path}
+            {{ storage_resolve_path(node, 'save_path', 'write') }}
+            @{attachments}=    Save Attachment    ${message_id}    target_folder=${path}
             ${count}=    Get Length    ${attachments}
             Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${attachments}    attachments=${attachments}    count=${count}    savePath=${save_path}
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $attachments}, default=str)
@@ -1714,7 +1736,7 @@ Execute Node By ID
 
 {% elif node.type == 'document.pdf_split' %}
             # Split PDF into pages
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'read') }}
             ${pages}=    Set Variable    {{ node.config.get('pages', '') | transform_vars }}
             ${output}=    Set Variable    {{ node.config.get('output', '') | transform_vars }}
             ${reader}=    Evaluate    __import__('PyPDF2').PdfReader('${path}')
@@ -1733,7 +1755,7 @@ Execute Node By ID
 
 {% elif node.type == 'document.pdf_to_image' %}
             # Convert PDF to images
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'read') }}
             ${output_dir}=    Set Variable    {{ node.config.get('output_dir', '') | transform_vars }}
             ${format}=    Set Variable    {{ node.config.get('format', 'png') }}
             ${images}=    Evaluate    __import__('pdf2image').convert_from_path('${path}')
@@ -1753,7 +1775,7 @@ Execute Node By ID
 
 {% elif node.type == 'document.ocr' %}
             # Extract text with OCR
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'read') }}
             ${language}=    Set Variable    {{ node.config.get('language', 'eng') }}
             ${image}=    Evaluate    __import__('PIL.Image').open('${path}')
             ${text}=    Evaluate    __import__('pytesseract').image_to_string($image, lang='${language}')
@@ -1764,7 +1786,7 @@ Execute Node By ID
 
 {% elif node.type == 'document.word_read' %}
             # Read Word document
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'read') }}
             ${doc}=    Evaluate    __import__('docx').Document('${path}')
             ${paragraphs}=    Evaluate    [p.text for p in $doc.paragraphs]
             ${text}=    Evaluate    '\\n'.join($paragraphs)
@@ -1776,7 +1798,7 @@ Execute Node By ID
 
 {% elif node.type == 'document.word_write' %}
             # Create Word document
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'write') }}
             ${content}=    Set Variable    {{ node.config.get('content', '') | transform_vars }}
             ${doc}=    Evaluate    __import__('docx').Document()
             # Split content by newlines and add as paragraphs
@@ -1790,6 +1812,7 @@ Execute Node By ID
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $path}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Created Word document: ${path}    console=yes
+            {{ storage_sync_back_path(node, 'path') }}
 
 {% elif node.type == 'document.html_to_pdf' %}
             # Convert HTML to PDF
@@ -1809,7 +1832,7 @@ Execute Node By ID
 
 {% elif node.type == 'document.pdf_fill_form' %}
             # Fill PDF form fields
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'read') }}
             ${fields_json}=    Set Variable    {{ node.config.get('fields', '{}') | transform_vars }}
             ${output}=    Set Variable    {{ node.config.get('output', '') | transform_vars }}
             ${fields}=    Evaluate    __import__('json').loads('''${fields_json}''')
@@ -2007,13 +2030,14 @@ Execute Node By ID
 
 {% elif node.type == 'logging.export' %}
             # Export run logs
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'write') }}
             ${format}=    Set Variable    {{ node.config.get('format', 'json') }}
             # Collect logs and export
             Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${path}    path=${path}    format=${format}
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $path}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Logs exported to: ${path}    console=yes
+            {{ storage_sync_back_path(node, 'path') }}
 
 {# ===== SECURITY ===== #}
 {% elif node.type == 'security.get_secret' %}
