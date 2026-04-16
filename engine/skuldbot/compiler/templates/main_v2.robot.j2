@@ -808,7 +808,13 @@ Execute Node By ID
 
 {# ===== EXCEL (SkuldBot ExcelLibrary) ===== #}
 {% elif node.type == 'excel.open' %}
+            {% if node.storage_config %}
+            # Resolve file via Storage Provider
+            ${_storage_local_path}=    Storage Resolve To Local    {{ node.config.get('path', '') | transform_vars }}    mode=read
+            Open Excel    ${_storage_local_path}
+            {% else %}
             Open Excel    {{ node.config.get('path', '') | transform_vars }}
+            {% endif %}
 {% elif node.type == 'excel.read_range' or node.type == 'excel.read' %}
             {% if node.config.get('column_names') and not node.config.get('header', True) %}
             ${result}=    Read Excel Range    sheet_name={{ node.config.get('sheet', 'None') | transform_vars }}    header=${FALSE}    column_names={{ node.config.get('column_names', '') | escape_newlines }}

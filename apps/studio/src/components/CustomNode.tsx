@@ -250,6 +250,10 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
     'vectordb.load_documents',
     // Trigger
     'trigger.storage_event',
+    // Python
+    'python.project',
+    'python.notebook',
+    'python.pip_install',
   ];
   const needsStorageConnection =
     STORAGE_CONSUMER_NODES.includes(data.nodeType) ||

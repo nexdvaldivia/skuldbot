@@ -5502,6 +5502,7 @@ result = [{
   },
   {
     type: 'python.project',
+    needsStorageConnection: true,
     category: 'python',
     label: 'Run Python Project',
     description:
@@ -5582,6 +5583,7 @@ result = [{
   },
   {
     type: 'python.pip_install',
+    needsStorageConnection: true,
     category: 'python',
     label: 'Pip Install',
     description: 'Install Python packages',
@@ -5698,6 +5700,7 @@ result = [{
   },
   {
     type: 'python.notebook',
+    needsStorageConnection: true,
     category: 'python',
     label: 'Run Notebook',
     description:

@@ -92,6 +92,8 @@ class NodeDefinition(BaseModel):
     embeddings: Optional[EmbeddingsConnection] = Field(None, description="Configuración de embeddings conectada visualmente")
     # Service connection (MS365, etc.) - visual connection from config nodes
     connection_config: Optional[Dict[str, Any]] = Field(None, description="Configuración de conexión de servicio (MS365, etc.)")
+    # Storage provider connection - visual connection from storage.provider node
+    storage_config: Optional[Dict[str, Any]] = Field(None, description="Configuración del Storage Provider conectado (S3, Azure, local, etc.)")
 
     class Config:
         populate_by_name = True
