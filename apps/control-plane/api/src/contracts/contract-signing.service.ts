@@ -331,7 +331,19 @@ export class ContractSigningService {
     dto: VerifyEnvelopeOtpDto,
     currentUser: User,
   ): Promise<ContractEnvelopeRecipientResponseDto> {
-    const recipient = await this.requireEnvelopeRecipient(envelopeId, recipientId, currentUser);
+    const { recipient } = await this.requireEnvelopeRecipientContext(
+      envelopeId,
+      recipientId,
+      currentUser,
+    );
+
+    const maxOtpAttempts = this.resolveOtpMaxAttempts();
+    if (recipient.otpAttempts >= maxOtpAttempts) {
+      throw new BadRequestException({
+        code: 'CONTRACT_OTP_LOCKED',
+        message: `OTP verification is locked after ${maxOtpAttempts} failed attempts.`,
+      });
+    }
 
     if (!recipient.otpCodeHash || !recipient.otpExpiresAt) {
       throw new BadRequestException({
@@ -356,15 +368,40 @@ export class ContractSigningService {
       !timingSafeEqual(expectedBuffer, providedBuffer)
     ) {
       recipient.otpAttempts += 1;
+      const now = new Date();
+      const locked = recipient.otpAttempts >= maxOtpAttempts;
+      if (locked) {
+        recipient.otpExpiresAt = now;
+        recipient.metadata = {
+          ...(recipient.metadata ?? {}),
+          otpLockedAt: now.toISOString(),
+          otpLockReason: 'max_attempts_exceeded',
+        };
+      }
       await this.envelopeRecipientRepository.save(recipient);
+      await this.recordEnvelopeEvent(
+        envelopeId,
+        recipient.id,
+        'recipient.otp_failed',
+        'control-plane-api',
+        {
+          recipientId: recipient.id,
+          otpAttempts: recipient.otpAttempts,
+          maxOtpAttempts,
+          locked,
+        },
+      );
       throw new BadRequestException({
-        code: 'CONTRACT_OTP_INVALID',
-        message: 'OTP code is invalid.',
+        code: locked ? 'CONTRACT_OTP_LOCKED' : 'CONTRACT_OTP_INVALID',
+        message: locked
+          ? `OTP verification is locked after ${maxOtpAttempts} failed attempts.`
+          : 'OTP code is invalid.',
       });
     }
 
     recipient.status = ContractEnvelopeRecipientStatus.OTP_VERIFIED;
     recipient.otpVerifiedAt = new Date();
+    recipient.otpAttempts = 0;
     recipient.otpCodeHash = null;
     await this.envelopeRecipientRepository.save(recipient);
 
@@ -387,7 +424,11 @@ export class ContractSigningService {
     dto: SignEnvelopeRecipientDto,
     currentUser: User,
   ): Promise<ContractEnvelopeResponseDto> {
-    const recipient = await this.requireEnvelopeRecipient(envelopeId, recipientId, currentUser);
+    const { envelope, recipient } = await this.requireEnvelopeRecipientContext(
+      envelopeId,
+      recipientId,
+      currentUser,
+    );
     if (recipient.status === ContractEnvelopeRecipientStatus.SIGNED) {
       throw new BadRequestException({
         code: 'CONTRACT_RECIPIENT_ALREADY_SIGNED',
@@ -402,6 +443,13 @@ export class ContractSigningService {
       });
     }
 
+    const contract = envelope.contractId
+      ? await this.contractRepository.findOne({
+          where: { id: envelope.contractId },
+        })
+      : null;
+    const contentHash = this.computeSigningContentHash(contract, envelope);
+
     const now = new Date();
     recipient.status = ContractEnvelopeRecipientStatus.SIGNED;
     recipient.signatureType = dto.signatureType;
@@ -412,6 +460,12 @@ export class ContractSigningService {
     recipient.metadata = {
       ...(recipient.metadata ?? {}),
       ...(dto.evidence ?? {}),
+      signedContentHash: contentHash,
+      signedEnvelopeId: envelope.id,
+      signedContractId: envelope.contractId,
+      signedTemplateId: envelope.templateId,
+      signedTemplateVersionId: envelope.templateVersionId,
+      signedAt: now.toISOString(),
     };
     await this.envelopeRecipientRepository.save(recipient);
 
@@ -428,6 +482,11 @@ export class ContractSigningService {
           signedAt: now.toISOString(),
           ipAddress: recipient.ipAddress,
           userAgent: recipient.userAgent,
+          contentHash,
+          envelopeId: envelope.id,
+          contractId: envelope.contractId,
+          templateId: envelope.templateId,
+          templateVersionId: envelope.templateVersionId,
         };
         await this.signerRepository.save(signer);
       }
@@ -441,6 +500,9 @@ export class ContractSigningService {
       {
         recipientId: recipient.id,
         signatureType: dto.signatureType,
+        contentHash,
+        ipAddress: recipient.ipAddress,
+        userAgent: recipient.userAgent,
       },
     );
 
@@ -453,16 +515,44 @@ export class ContractSigningService {
     dto: DeclineEnvelopeRecipientDto,
     currentUser: User,
   ): Promise<ContractEnvelopeResponseDto> {
-    const recipient = await this.requireEnvelopeRecipient(envelopeId, recipientId, currentUser);
+    const { recipient } = await this.requireEnvelopeRecipientContext(
+      envelopeId,
+      recipientId,
+      currentUser,
+    );
 
     const now = new Date();
     recipient.status = ContractEnvelopeRecipientStatus.DECLINED;
     recipient.declinedAt = now;
+    recipient.ipAddress = dto.ipAddress?.trim() || recipient.ipAddress;
+    recipient.userAgent = dto.userAgent?.trim() || recipient.userAgent;
     recipient.metadata = {
       ...(recipient.metadata ?? {}),
       declineReason: dto.reason?.trim() || null,
+      ...(dto.evidence ?? {}),
+      declinedAt: now.toISOString(),
+      declineIpAddress: recipient.ipAddress,
+      declineUserAgent: recipient.userAgent,
     };
     await this.envelopeRecipientRepository.save(recipient);
+
+    if (recipient.signerId) {
+      const signer = await this.signerRepository.findOne({
+        where: { id: recipient.signerId },
+      });
+      if (signer) {
+        signer.status = ContractSignerStatus.DECLINED;
+        signer.declinedAt = now;
+        signer.signatureAudit = {
+          ...(signer.signatureAudit ?? {}),
+          declinedAt: now.toISOString(),
+          declineReason: dto.reason?.trim() || null,
+          ipAddress: recipient.ipAddress,
+          userAgent: recipient.userAgent,
+        };
+        await this.signerRepository.save(signer);
+      }
+    }
 
     await this.recordEnvelopeEvent(
       envelopeId,
@@ -472,17 +562,19 @@ export class ContractSigningService {
       {
         recipientId: recipient.id,
         reason: dto.reason?.trim() || null,
+        ipAddress: recipient.ipAddress,
+        userAgent: recipient.userAgent,
       },
     );
 
     return this.recalculateEnvelopeAndContractStatus(envelopeId, currentUser.id);
   }
 
-  private async requireEnvelopeRecipient(
+  private async requireEnvelopeRecipientContext(
     envelopeId: string,
     recipientId: string,
     currentUser: User,
-  ): Promise<ContractEnvelopeRecipient> {
+  ): Promise<{ envelope: ContractEnvelope; recipient: ContractEnvelopeRecipient }> {
     const envelope = await this.envelopeRepository.findOne({ where: { id: envelopeId } });
     if (!envelope) {
       throw new NotFoundException({
@@ -507,7 +599,10 @@ export class ContractSigningService {
       });
     }
 
-    return recipient;
+    return {
+      envelope,
+      recipient,
+    };
   }
 
   private async recalculateEnvelopeAndContractStatus(
@@ -557,6 +652,7 @@ export class ContractSigningService {
 
           const primaryRecipient = recipients.slice().sort((a, b) => a.sortOrder - b.sortOrder)[0];
           if (primaryRecipient) {
+            const contentHash = this.computeSigningContentHash(contract, envelope);
             await this.acceptanceRepository.save(
               this.acceptanceRepository.create({
                 contractId: contract.id,
@@ -574,6 +670,9 @@ export class ContractSigningService {
                 evidence: {
                   recipientCount: recipients.length,
                   envelopeId: envelope.id,
+                  contentHash,
+                  templateId: envelope.templateId,
+                  templateVersionId: envelope.templateVersionId,
                 },
                 metadata: {},
               }),
@@ -736,6 +835,13 @@ export class ContractSigningService {
     return new Date(from.getTime() + minutes * 60 * 1000);
   }
 
+  private resolveOtpMaxAttempts(): number {
+    const rawAttempts = Number(
+      this.configService.get<string>('CONTRACT_SIGNING_OTP_MAX_ATTEMPTS') ?? '5',
+    );
+    return Number.isFinite(rawAttempts) && rawAttempts > 0 ? Math.floor(rawAttempts) : 5;
+  }
+
   private generateOtpCode(): string {
     return String(randomInt(100000, 1_000_000));
   }
@@ -744,6 +850,38 @@ export class ContractSigningService {
     return createHash('sha256')
       .update(`${recipientEmail.toLowerCase()}::${code}::${this.otpSecretPepper}`)
       .digest('hex');
+  }
+
+  private computeSigningContentHash(contract: Contract | null, envelope: ContractEnvelope): string {
+    const payload: Record<string, unknown> = {
+      envelopeId: envelope.id,
+      contractId: envelope.contractId,
+      templateId: envelope.templateId,
+      templateVersionId: envelope.templateVersionId,
+      contractVersion: contract?.version ?? null,
+      contractTemplateKey: contract?.templateKey ?? null,
+      renderedHtml: contract?.renderedHtml ?? null,
+      documentJson: contract?.documentJson ?? {},
+      variables: contract?.variables ?? {},
+    };
+
+    return createHash('sha256').update(this.stableStringify(payload)).digest('hex');
+  }
+
+  private stableStringify(value: unknown): string {
+    if (value === null || typeof value !== 'object') {
+      return JSON.stringify(value);
+    }
+    if (Array.isArray(value)) {
+      return `[${value.map((item) => this.stableStringify(item)).join(',')}]`;
+    }
+
+    const objectValue = value as Record<string, unknown>;
+    const keys = Object.keys(objectValue).sort();
+    const entries = keys.map(
+      (key) => `${JSON.stringify(key)}:${this.stableStringify(objectValue[key])}`,
+    );
+    return `{${entries.join(',')}}`;
   }
 
   private toEnvelopeResponse(envelope: ContractEnvelope): ContractEnvelopeResponseDto {

@@ -138,6 +138,20 @@ export class DeclineEnvelopeRecipientDto {
   @IsString()
   @MaxLength(500)
   reason?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(45)
+  ipAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  userAgent?: string;
+
+  @IsOptional()
+  @IsObject()
+  evidence?: Record<string, unknown>;
 }
 
 export class ContractsLookupResponseDto {
