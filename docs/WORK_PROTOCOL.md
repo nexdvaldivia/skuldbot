@@ -12,7 +12,7 @@ No se confia en memoria o buena voluntad; se confia en gates y evidencia.
 Si hay conflicto, el orden de prioridad es:
 
 1. Seguridad y compliance (`docs/REGULATORY_DESIGN_GUARDRAILS.md`)
-2. Quality Gate (`docs/ENGINEERING_STANDARDS.md`)
+2. Quality Gate (`docs/AGENT_WORK_CONTROLS_POLICY.md`)
 3. Scope de la tarea acordada (in-scope / out-of-scope)
 4. Estilo y preferencia de implementacion
 
