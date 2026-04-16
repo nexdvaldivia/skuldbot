@@ -803,7 +803,11 @@ Execute Node By ID
 
 {% elif node.type == 'desktop.image_click' %}
             # Find and Click Image on Screen
+            {% if node.storage_config %}
+            ${image_path}=    Storage Resolve To Local    {{ node.config.get('image_path', '') | transform_vars }}    mode=read
+            {% else %}
             ${image_path}=    Set Variable    {{ node.config.get('image_path', '') | transform_vars }}
+            {% endif %}
             ${confidence}=    Set Variable    {{ node.config.get('confidence', 0.9) }}
             ${location}=    Find Element    image:${image_path}    confidence=${confidence}
             Click    ${location}
@@ -814,7 +818,11 @@ Execute Node By ID
 
 {% elif node.type == 'desktop.wait_image' %}
             # Wait for Image to Appear on Screen
+            {% if node.storage_config %}
+            ${image_path}=    Storage Resolve To Local    {{ node.config.get('image_path', '') | transform_vars }}    mode=read
+            {% else %}
             ${image_path}=    Set Variable    {{ node.config.get('image_path', '') | transform_vars }}
+            {% endif %}
             ${timeout_ms}=    Set Variable    {{ node.config.get('timeout', 30000) }}
             ${timeout_sec}=    Evaluate    ${timeout_ms} / 1000
             ${start_time}=    Evaluate    __import__('time').time()
@@ -1414,7 +1422,18 @@ Execute Node By ID
             ${subject}=    Set Variable    {{ node.config.get('subject', '') | transform_vars }}
             ${body}=    Set Variable    {{ node.config.get('body', '') | transform_vars }}
             ${html}=    Set Variable    ${{ '{TRUE}' if node.config.get('html', False) else '{FALSE}' }}
+            {% if node.storage_config and node.config.get('attachments') %}
+            ${_raw_att}=    Set Variable    {{ node.config.get('attachments', '') | transform_vars }}
+            @{_att_list}=    Evaluate    [a.strip() for a in '${_raw_att}'.split(',') if a.strip()]
+            @{_resolved}=    Create List
+            FOR    ${_att}    IN    @{_att_list}
+                ${_local}=    Storage Resolve To Local    ${_att}    mode=read
+                Append To List    ${_resolved}    ${_local}
+            END
+            ${attachments}=    Evaluate    ','.join(${{ '{_resolved}' }})
+            {% else %}
             ${attachments}=    Set Variable    {{ node.config.get('attachments', '') | transform_vars }}
+            {% endif %}
             Outlook.Open Application
             Outlook.Send Message    recipients=${to}    cc=${cc}    bcc=${bcc}    subject=${subject}    body=${body}    html_body=${html}
             Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=sent    to=${to}    subject=${subject}    status=success
@@ -1720,13 +1739,23 @@ Execute Node By ID
 {% elif node.type == 'document.pdf_merge' %}
             # Merge multiple PDFs
             ${files_json}=    Set Variable    {{ node.config.get('files', '[]') | transform_vars }}
-            ${output}=    Set Variable    {{ node.config.get('output', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'output', 'write') }}
             @{files}=    Evaluate    __import__('json').loads('''${files_json}''')
-            ${merger}=    Evaluate    __import__('PyPDF2').PdfMerger()
+            {% if node.storage_config %}
+            # Resolve each input file via Storage Provider
+            @{resolved_files}=    Create List
             FOR    ${file}    IN    @{files}
+                ${local_file}=    Storage Resolve To Local    ${file}    mode=read
+                Append To List    ${resolved_files}    ${local_file}
+            END
+            {% else %}
+            @{resolved_files}=    Set Variable    @{files}
+            {% endif %}
+            ${merger}=    Evaluate    __import__('PyPDF2').PdfMerger()
+            FOR    ${file}    IN    @{resolved_files}
                 Evaluate    $merger.append('${file}')
             END
-            Evaluate    $merger.write('${output}')
+            Evaluate    $merger.write('${path}')
             Evaluate    $merger.close()
             ${count}=    Get Length    ${files}
             Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${output}    path=${output}    mergedCount=${count}
@@ -1862,7 +1891,11 @@ Execute Node By ID
 
 {% elif node.type == 'python.project' %}
             # Run Python project
+            {% if node.storage_config %}
+            ${project_path}=    Storage Resolve To Local    {{ node.config.get('project_path', '') | transform_vars }}    mode=read
+            {% else %}
             ${project_path}=    Set Variable    {{ node.config.get('project_path', '') | transform_vars }}
+            {% endif %}
             ${entrypoint}=    Set Variable    {{ node.config.get('entrypoint', 'main.py') | transform_vars }}
             ${args}=    Set Variable    {{ node.config.get('args', '') | transform_vars }}
             ${full_path}=    Set Variable    ${project_path}/${entrypoint}
@@ -1881,7 +1914,11 @@ Execute Node By ID
 {% elif node.type == 'python.pip_install' %}
             # Install Python packages
             ${packages}=    Set Variable    {{ node.config.get('packages', '') | transform_vars }}
+            {% if node.storage_config and node.config.get('requirements') %}
+            ${requirements}=    Storage Resolve To Local    {{ node.config.get('requirements', '') | transform_vars }}    mode=read
+            {% else %}
             ${requirements}=    Set Variable    {{ node.config.get('requirements', '') | transform_vars }}
+            {% endif %}
             IF    '${requirements}'
                 ${proc}=    Evaluate    __import__('subprocess').run(['pip', 'install', '-r', '${requirements}'], capture_output=True, text=True)
             ELSE
@@ -1935,7 +1972,7 @@ Execute Node By ID
 
 {% elif node.type == 'python.notebook' %}
             # Execute Jupyter notebook
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'read') }}
             ${output_path}=    Set Variable    {{ node.config.get('output_path', '') | transform_vars }}
             # Use papermill to execute notebook
             ${output}=    Evaluate    '${output_path}' if '${output_path}' else '${path}'.replace('.ipynb', '_output.ipynb')
@@ -2855,7 +2892,11 @@ Execute Node By ID
             ...    model={{ node.model_config_.model | default('gpt-4o') | transform_vars }}
             {% if node.model_config_.api_key %}...    api_key={{ node.model_config_.api_key | transform_vars }}{% endif %}
             {% endif %}
+            {% if node.storage_config %}
+            ${image_path}=    Storage Resolve To Local    {{ node.config.get('image_path', '') | transform_vars }}    mode=read
+            {% else %}
             ${image_path}=    Set Variable    {{ node.config.get('image_path', '') | transform_vars }}
+            {% endif %}
             ${prompt}=    Set Variable    {{ node.config.get('prompt', 'Describe this image') | transform_vars }}
             ${detail}=    Set Variable    {{ node.config.get('detail', 'auto') | escape_newlines }}
             ${description}=    SkuldAI.Analyze Image    ${image_path}    ${prompt}    detail=${detail}
@@ -3189,7 +3230,11 @@ Execute Node By ID
 {% elif node.type == 'vectordb.load_documents' %}
             # Load and chunk documents for vector storage
             ${source_type}=    Set Variable    {{ node.config.get('source_type', 'text') }}
+            {% if node.storage_config and node.config.get('source_type', 'text') == 'file' %}
+            ${source}=    Storage Resolve To Local    {{ node.config.get('source', '') | transform_vars }}    mode=read
+            {% else %}
             ${source}=    Set Variable    {{ node.config.get('source', '') | transform_vars }}
+            {% endif %}
             ${result}=    SkuldVectorDB.Load And Chunk Documents
             ...    source_type=${source_type}
             ...    source=${source}
@@ -3419,10 +3464,11 @@ Execute Node By ID
 
 {% elif node.type == 'ms365.email_download_attachment' %}
             # Download attachment
+            {{ storage_resolve_path(node, 'save_path', 'write') }}
             ${file}=    MS365.Download Attachment
             ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
             ...    attachment_id={{ node.config.get('attachment_id', '') | transform_vars }}
-            {% if node.config.get('save_path') %}...    save_path={{ node.config.get('save_path', '') | transform_vars }}{% endif %}
+            ...    save_path=${path}
             Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${file}    &{file}
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $file}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
@@ -3430,6 +3476,17 @@ Execute Node By ID
 
 {% elif node.type == 'ms365.email_send' %}
             # Send email via Microsoft 365
+            {% if node.storage_config and node.config.get('attachments') %}
+            # Resolve attachment paths via Storage Provider
+            ${_raw_attachments}=    Set Variable    {{ node.config.get('attachments', '') | transform_vars }}
+            @{_att_list}=    Evaluate    [a.strip() for a in '${_raw_attachments}'.split(',') if a.strip()]
+            @{_resolved_atts}=    Create List
+            FOR    ${_att}    IN    @{_att_list}
+                ${_local_att}=    Storage Resolve To Local    ${_att}    mode=read
+                Append To List    ${_resolved_atts}    ${_local_att}
+            END
+            ${_resolved_str}=    Evaluate    ','.join(${{ '{_resolved_atts}' }})
+            {% endif %}
             ${result}=    MS365.Send Email
             ...    to={{ node.config.get('to', '') | transform_vars }}
             ...    subject={{ node.config.get('subject', '') | transform_vars }}
@@ -3438,7 +3495,9 @@ Execute Node By ID
             {% if node.config.get('bcc') %}...    bcc={{ node.config.get('bcc', '') | transform_vars }}{% endif %}
             ...    body_type={{ node.config.get('body_type', 'html') }}
             ...    importance={{ node.config.get('importance', 'normal') }}
-            {% if node.config.get('attachments') %}...    attachments={{ node.config.get('attachments', '') | transform_vars }}{% endif %}
+            {% if node.config.get('attachments') %}
+            {% if node.storage_config %}...    attachments=${_resolved_str}{% else %}...    attachments={{ node.config.get('attachments', '') | transform_vars }}{% endif %}
+            {% endif %}
             ...    save_to_sent={{ '${TRUE}' if node.config.get('save_to_sent', True) else '${FALSE}' }}
             Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${result}    &{result}
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
@@ -3447,12 +3506,24 @@ Execute Node By ID
 
 {% elif node.type == 'ms365.email_reply' %}
             # Reply to email
+            {% if node.storage_config and node.config.get('attachments') %}
+            ${_raw_attachments}=    Set Variable    {{ node.config.get('attachments', '') | transform_vars }}
+            @{_att_list}=    Evaluate    [a.strip() for a in '${_raw_attachments}'.split(',') if a.strip()]
+            @{_resolved_atts}=    Create List
+            FOR    ${_att}    IN    @{_att_list}
+                ${_local_att}=    Storage Resolve To Local    ${_att}    mode=read
+                Append To List    ${_resolved_atts}    ${_local_att}
+            END
+            ${_resolved_str}=    Evaluate    ','.join(${{ '{_resolved_atts}' }})
+            {% endif %}
             ${result}=    MS365.Reply To Email
             ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
             ...    body={{ node.config.get('body', '') | transform_vars }}
             ...    reply_all={{ '${TRUE}' if node.config.get('reply_all', False) else '${FALSE}' }}
             ...    body_type={{ node.config.get('body_type', 'html') }}
-            {% if node.config.get('attachments') %}...    attachments={{ node.config.get('attachments', '') | transform_vars }}{% endif %}
+            {% if node.config.get('attachments') %}
+            {% if node.storage_config %}...    attachments=${_resolved_str}{% else %}...    attachments={{ node.config.get('attachments', '') | transform_vars }}{% endif %}
+            {% endif %}
             Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${result}    &{result}
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
