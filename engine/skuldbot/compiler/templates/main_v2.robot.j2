@@ -1781,7 +1781,7 @@ Execute Node By ID
             Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${path}    path=${path}    mergedCount=${count}
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $path}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
-            Log    Merged ${count} PDFs to ${output}    console=yes
+            Log    Merged ${count} PDFs to ${path}    console=yes
 
 {% elif node.type == 'document.pdf_split' %}
             # Split PDF into pages
@@ -1898,7 +1898,11 @@ Execute Node By ID
             # Fill PDF form fields
             {{ storage_resolve_path(node, 'path', 'read') }}
             ${fields_json}=    Set Variable    {{ node.config.get('fields', '{}') | transform_vars }}
+            {% if node.storage_config %}
+            ${output}=    Storage Resolve To Local    {{ node.config.get('output', '') | transform_vars }}    mode=write
+            {% else %}
             ${output}=    Set Variable    {{ node.config.get('output', '') | transform_vars }}
+            {% endif %}
             ${fields}=    Evaluate    __import__('json').loads('''${fields_json}''')
             # Use PyPDF2 for basic form filling
             ${reader}=    Evaluate    __import__('PyPDF2').PdfReader('${path}')
@@ -1906,6 +1910,9 @@ Execute Node By ID
             Evaluate    $writer.append($reader)
             Evaluate    $writer.update_page_form_field_values($writer.pages[0], $fields)
             Evaluate    $writer.write(open('${output}', 'wb'))
+            {% if node.storage_config %}
+            ${_sync}=    Storage Sync Back    ${output}    {{ node.config.get('output', '') | transform_vars }}
+            {% endif %}
             ${field_count}=    Evaluate    len($fields)
             Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${output}    path=${output}    fieldsFilled=${field_count}
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $output}, default=str)
