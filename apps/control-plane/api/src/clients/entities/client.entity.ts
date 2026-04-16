@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
+import { ClientContact } from './client-contact.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 
 @Entity('clients')
@@ -42,6 +43,9 @@ export class Client {
 
   @OneToMany(() => Tenant, (tenant) => tenant.client)
   tenants: Tenant[];
+
+  @OneToMany(() => ClientContact, (contact) => contact.client)
+  contacts: ClientContact[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

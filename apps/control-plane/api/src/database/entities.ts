@@ -1,4 +1,5 @@
 import { Client } from '../clients/entities/client.entity';
+import { ClientContact } from '../clients/entities/client-contact.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { License } from '../licenses/entities/license.entity';
 import { LicenseTypeFeature } from '../licenses/entities/license-type-feature.entity';
@@ -43,6 +44,7 @@ import { ContractLegalInfo } from '../contracts/entities/contract-legal-info.ent
 
 export const databaseEntities = [
   Client,
+  ClientContact,
   Tenant,
   License,
   LicenseTypeFeature,
