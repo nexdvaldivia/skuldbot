@@ -21,6 +21,7 @@
 | [SKULD_P0_IMPLEMENTATION_CHECKLIST.md](./SKULD_P0_IMPLEMENTATION_CHECKLIST.md) | Checklist P0 de implementacion por rutas reales del repo, orden de PRs y gates de pruebas |
 | [ENTERPRISE_UI_BRANDING_NON_NEGOTIABLES.md](./ENTERPRISE_UI_BRANDING_NON_NEGOTIABLES.md) | Estandar obligatorio de UI/branding (shadcn + Tailwind + Refactoring UI + emerald/logo oficial Skuld) |
 | [REGULATORY_DESIGN_GUARDRAILS.md](./REGULATORY_DESIGN_GUARDRAILS.md) | Guardrails obligatorios regulated-first |
+| [WORK_PROTOCOL.md](./WORK_PROTOCOL.md) | Protocolo operativo obligatorio Luis+Albert con handshake, scope y gates QG1-QG9 |
 | [DOCS_GOVERNANCE_NODES_AND_PLATFORM.md](./DOCS_GOVERNANCE_NODES_AND_PLATFORM.md) | Regla docs-as-code para nodos y plataforma |
 | [TECHNICAL_ARCHITECTURE.md](./TECHNICAL_ARCHITECTURE.md) | Arquitectura del sistema |
 | [ENGINE_REFERENCE.md](./ENGINE_REFERENCE.md) | Referencia del Engine Python |
