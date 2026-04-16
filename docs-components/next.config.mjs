@@ -24,7 +24,7 @@ const allowedDevOrigins = (
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  basePath: '/docs',
+  basePath: process.env.DOCS_BASE_PATH || '',
   allowedDevOrigins,
   pageExtensions: ['js', 'jsx', 'ts', 'tsx', 'mdx'],
   outputFileTracingIncludes: {
