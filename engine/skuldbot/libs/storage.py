@@ -32,6 +32,7 @@ import hashlib
 import mimetypes
 import tempfile
 import shutil
+import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -4200,3 +4201,358 @@ class SkuldStorage:
         
         return result
 
+
+    # =========================================================================
+    # FILE RESOLUTION — Bridge between storage providers and local-only nodes
+    # =========================================================================
+
+    @keyword("Storage Resolve To Local")
+    def resolve_to_local(
+        self,
+        remote_path: str,
+        mode: str = "read",
+        provider: str = None,
+    ) -> str:
+        """
+        Resolve a storage path to a local temporary file.
+
+        For local provider: returns the full local path directly (no copy).
+        For cloud providers: downloads the file to a temp directory first.
+
+        Use this before calling nodes that only accept local paths
+        (Excel, PDF, OCR, etc.).
+
+        Args:
+            remote_path: Path relative to the storage provider root
+            mode: "read" (download if cloud), "write" (prepare temp path only)
+            provider: Storage provider name (uses current if not specified)
+
+        Returns:
+            Absolute local file path ready for use
+
+        Example:
+            | ${local}= | Storage Resolve To Local | reports/q1.xlsx | mode=read |
+            | Open Workbook | ${local} |
+            | # ... work with the workbook locally ... |
+            | Storage Sync Back | ${local} | reports/q1.xlsx |
+        """
+        backend = self._providers.get(provider) if provider else self._get_provider()
+
+        # Local provider: resolve directly, no temp files needed
+        if hasattr(backend, 'root_path'):
+            full_path = os.path.join(backend.root_path, remote_path)
+            robot_logger.info(f"Resolved to local path: {full_path}")
+            return full_path
+
+        # Cloud provider: use temp directory
+        temp_dir = os.path.join(tempfile.gettempdir(), "skuld_storage", str(uuid.uuid4()))
+        os.makedirs(temp_dir, exist_ok=True)
+        local_path = os.path.join(temp_dir, os.path.basename(remote_path))
+
+        if mode == "read":
+            content = backend.read(remote_path)
+            if isinstance(content, str):
+                content = content.encode("utf-8")
+            with open(local_path, "wb") as f:
+                f.write(content)
+            robot_logger.info(
+                f"Downloaded {remote_path} to {local_path} ({len(content)} bytes)"
+            )
+        else:
+            robot_logger.info(f"Prepared local write path: {local_path}")
+
+        return local_path
+
+    @keyword("Storage Sync Back")
+    def sync_back(
+        self,
+        local_path: str,
+        remote_path: str,
+        content_type: str = None,
+        provider: str = None,
+        cleanup: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Upload a local file back to the storage provider.
+
+        For local provider: no-op if the file is already in place.
+        For cloud providers: uploads and optionally cleans up the temp file.
+
+        Args:
+            local_path: Absolute local file path
+            remote_path: Destination path in the storage provider
+            content_type: MIME type (auto-detected if not specified)
+            provider: Storage provider name (uses current if not specified)
+            cleanup: Remove the local temp file after upload (default: True)
+
+        Returns:
+            Dictionary with path, size, and provider info
+
+        Example:
+            | Storage Sync Back | /tmp/skuld_storage/.../q1.xlsx | reports/q1.xlsx |
+        """
+        backend = self._providers.get(provider) if provider else self._get_provider()
+
+        # Local provider: if the file is already at the right place, nothing to do
+        if hasattr(backend, 'root_path'):
+            expected = os.path.join(backend.root_path, remote_path)
+            if os.path.abspath(local_path) == os.path.abspath(expected):
+                size = os.path.getsize(local_path)
+                robot_logger.info(f"Local provider, file already in place: {expected}")
+                return {"path": remote_path, "size": size, "provider": "local", "synced": False}
+
+            # Local provider but file is in a temp location — copy it
+            os.makedirs(os.path.dirname(expected), exist_ok=True)
+            shutil.copy2(local_path, expected)
+            size = os.path.getsize(expected)
+            robot_logger.info(f"Copied {local_path} to {expected}")
+
+            if cleanup and local_path.startswith(os.path.join(tempfile.gettempdir(), "skuld_storage")):
+                self._cleanup_temp(local_path)
+
+            return {"path": remote_path, "size": size, "provider": "local", "synced": True}
+
+        # Cloud provider: upload
+        with open(local_path, "rb") as f:
+            content = f.read()
+
+        if not content_type:
+            import mimetypes
+            content_type = mimetypes.guess_type(local_path)[0] or "application/octet-stream"
+
+        backend.write(remote_path, content, content_type=content_type)
+        size = len(content)
+        provider_name = getattr(backend, 'provider_type', 'cloud')
+
+        robot_logger.info(
+            f"Uploaded {local_path} to {remote_path} ({size} bytes, {provider_name})"
+        )
+
+        if cleanup and local_path.startswith(os.path.join(tempfile.gettempdir(), "skuld_storage")):
+            self._cleanup_temp(local_path)
+
+        return {"path": remote_path, "size": size, "provider": str(provider_name), "synced": True}
+
+    @keyword("Storage Has Provider")
+    def has_provider(self, name: str = None) -> bool:
+        """
+        Check if a storage provider is configured.
+
+        Args:
+            name: Provider name (checks current provider if not specified)
+
+        Returns:
+            True if provider is configured and connected
+
+        Example:
+            | ${has}= | Storage Has Provider |
+            | Run Keyword If | not ${has} | Log | No storage provider, using local | WARN |
+        """
+        if name:
+            return name in self._providers
+        return self._current_provider is not None and self._current_provider in self._providers
+
+    def _cleanup_temp(self, local_path: str) -> None:
+        """Remove temp file and its parent directory if empty."""
+        try:
+            os.remove(local_path)
+            parent = os.path.dirname(local_path)
+            if parent.startswith(os.path.join(tempfile.gettempdir(), "skuld_storage")):
+                if not os.listdir(parent):
+                    os.rmdir(parent)
+        except OSError:
+            pass
+
+    @keyword("Wait For Storage Event")
+    def wait_for_storage_event(
+        self,
+        event_type: str = "ObjectCreated",
+        prefix: str = "",
+        suffix: str = "",
+        timeout: int = 300,
+        poll_interval: int = 5,
+        provider: str = None,
+    ) -> Dict[str, Any]:
+        """
+        Wait for a file event on the current storage provider.
+        
+        Mechanism depends on provider:
+        - local: filesystem watcher (instant)
+        - s3/minio: S3 event notification or polling
+        - azure_blob: Event Grid or polling
+        - gcs: Pub/Sub or polling
+        - sharepoint/onedrive: Graph change notifications or polling
+        - sftp/ftp: polling (list + compare)
+        
+        For providers without native events, falls back to polling:
+        lists files, waits, lists again, detects changes.
+        
+        Args:
+            event_type: Event to wait for: ObjectCreated, ObjectRemoved, ObjectModified
+            prefix: Path prefix filter (e.g., "uploads/invoices/")
+            suffix: File suffix filter (e.g., ".pdf")
+            timeout: Maximum wait time in seconds
+            poll_interval: Polling interval in seconds (for providers without native events)
+            provider: Storage provider name
+            
+        Returns:
+            Dictionary with event details: provider, event, key, size, timestamp
+            
+        Example:
+            | Configure Storage Provider | s3 | bucket=my-bucket | region=us-east-1 |
+            | ${event}= | Wait For Storage Event | event_type=ObjectCreated | prefix=uploads/ | suffix=.pdf | timeout=300 |
+            | Log | New file: ${event}[key] (${event}[size] bytes) |
+        """
+        import time as _time
+        
+        backend = self._providers.get(provider) if provider else self._get_provider()
+        provider_type = getattr(backend, 'provider_type', 'unknown')
+        
+        robot_logger.info(
+            f"Waiting for storage event: {event_type} on {provider_type} "
+            f"(prefix={prefix}, suffix={suffix}, timeout={timeout}s)"
+        )
+        
+        # For local filesystem, use watchdog if available
+        if hasattr(backend, 'root_path'):
+            return self._watch_local(backend.root_path, prefix, suffix, event_type, timeout)
+        
+        # For all other providers: polling-based detection
+        start_time = _time.time()
+        
+        # Get initial file list
+        initial_files = self._list_files_for_event(backend, prefix, suffix)
+        initial_set = {f['key']: f for f in initial_files}
+        
+        while _time.time() - start_time < timeout:
+            _time.sleep(poll_interval)
+            
+            current_files = self._list_files_for_event(backend, prefix, suffix)
+            current_set = {f['key']: f for f in current_files}
+            
+            # Detect changes based on event type
+            if event_type == 'ObjectCreated':
+                new_keys = set(current_set.keys()) - set(initial_set.keys())
+                if new_keys:
+                    key = sorted(new_keys)[0]  # Return first new file
+                    return self._build_event(provider_type, 'ObjectCreated', key, current_set[key])
+                    
+            elif event_type == 'ObjectRemoved':
+                removed_keys = set(initial_set.keys()) - set(current_set.keys())
+                if removed_keys:
+                    key = sorted(removed_keys)[0]
+                    return self._build_event(provider_type, 'ObjectRemoved', key, initial_set[key])
+                    
+            elif event_type == 'ObjectModified':
+                for key in current_set:
+                    if key in initial_set:
+                        if current_set[key].get('modified') != initial_set[key].get('modified'):
+                            return self._build_event(provider_type, 'ObjectModified', key, current_set[key])
+            
+            initial_set = current_set
+        
+        # Timeout
+        robot_logger.warn(f"Storage event timeout after {timeout}s")
+        return {
+            "provider": provider_type,
+            "event": "timeout",
+            "key": "",
+            "size": 0,
+            "timestamp": datetime.now().isoformat(),
+            "timeout_reached": True,
+        }
+    
+    def _list_files_for_event(self, backend, prefix: str, suffix: str) -> list:
+        """List files matching prefix/suffix for event detection."""
+        try:
+            result = backend.list(prefix or "/")
+            files = []
+            for item in result.items:
+                if item.is_directory:
+                    continue
+                if suffix and not item.name.endswith(suffix):
+                    continue
+                files.append({
+                    "key": item.path,
+                    "size": item.size,
+                    "modified": item.modified.isoformat() if item.modified else None,
+                })
+            return files
+        except Exception as e:
+            robot_logger.warn(f"Error listing files for event detection: {e}")
+            return []
+    
+    def _build_event(self, provider_type: str, event_type: str, key: str, file_info: dict) -> dict:
+        """Build a storage event result dictionary."""
+        return {
+            "provider": provider_type,
+            "event": event_type,
+            "key": key,
+            "bucket": "",  # Provider-specific, filled by backend if available
+            "size": file_info.get("size", 0),
+            "timestamp": datetime.now().isoformat(),
+            "timeout_reached": False,
+        }
+    
+    def _watch_local(self, root_path: str, prefix: str, suffix: str, event_type: str, timeout: int) -> dict:
+        """Watch local filesystem for changes using polling."""
+        import time as _time
+        
+        watch_dir = os.path.join(root_path, prefix) if prefix else root_path
+        if not os.path.isdir(watch_dir):
+            os.makedirs(watch_dir, exist_ok=True)
+        
+        initial = set()
+        for f in os.listdir(watch_dir):
+            if suffix and not f.endswith(suffix):
+                continue
+            initial.add(f)
+        
+        start = _time.time()
+        while _time.time() - start < timeout:
+            _time.sleep(1)
+            current = set()
+            for f in os.listdir(watch_dir):
+                if suffix and not f.endswith(suffix):
+                    continue
+                current.add(f)
+            
+            if event_type == 'ObjectCreated':
+                new = current - initial
+                if new:
+                    name = sorted(new)[0]
+                    full = os.path.join(watch_dir, name)
+                    return {
+                        "provider": "local",
+                        "event": "ObjectCreated",
+                        "key": os.path.join(prefix, name) if prefix else name,
+                        "bucket": root_path,
+                        "size": os.path.getsize(full) if os.path.exists(full) else 0,
+                        "timestamp": datetime.now().isoformat(),
+                        "timeout_reached": False,
+                    }
+            elif event_type == 'ObjectRemoved':
+                removed = initial - current
+                if removed:
+                    name = sorted(removed)[0]
+                    return {
+                        "provider": "local",
+                        "event": "ObjectRemoved",
+                        "key": os.path.join(prefix, name) if prefix else name,
+                        "bucket": root_path,
+                        "size": 0,
+                        "timestamp": datetime.now().isoformat(),
+                        "timeout_reached": False,
+                    }
+            
+            initial = current
+        
+        return {
+            "provider": "local",
+            "event": "timeout",
+            "key": "",
+            "bucket": root_path,
+            "size": 0,
+            "timestamp": datetime.now().isoformat(),
+            "timeout_reached": True,
+        }

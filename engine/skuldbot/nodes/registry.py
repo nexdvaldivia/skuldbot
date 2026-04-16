@@ -279,14 +279,16 @@ register_node(NodeMapping(
 register_node(NodeMapping(
     node_type="trigger.storage_event",
     category=NodeCategory.TRIGGER,
-    keyword="Log",
-    library=LIB_BUILTIN,
-    description="Storage event trigger - S3/MinIO events",
+    keyword="Wait For Storage Event",
+    library=LIB_STORAGE,
+    description="Storage event trigger - listens for file events on any connected storage provider (S3, Azure Blob, GCS, SharePoint, local, etc.)",
     config_mapping={
-        "bucket": "bucket",
-        "event": "event",
+        "event": "event_type",
+        "prefix": "prefix",
+        "suffix": "suffix",
+        "timeout": "timeout",
     },
-    pre_keywords=["Log    Storage event received    level=INFO"],
+    return_variable="storage_event",
 ))
 
 register_node(NodeMapping(

@@ -207,14 +207,61 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
   // MS365 consumer nodes require the connection input handle.
   const isMS365Trigger =
     (data.nodeType === 'trigger.ms365_email' || data.category === 'ms365') && !isMS365Connection;
-  const needsMS365Connection = isMS365Trigger;
 
-  // Storage Provider connection nodes
-  const isStorageProvider = data.nodeType === 'storage.provider';
-  const needsStorageProvider =
+  // Storage Provider connection — nodes that read/write files need a storage handle
+  const STORAGE_CONSUMER_NODES = [
+    // Excel
+    'excel.open',
+    'excel.save',
+    'excel.create',
+    'excel.csv_read',
+    'excel.csv_write',
+    'excel.export_pdf',
+    // Document
+    'document.pdf_read',
+    'document.pdf_merge',
+    'document.pdf_split',
+    'document.pdf_to_image',
+    'document.pdf_fill_form',
+    'document.ocr',
+    'document.word_read',
+    'document.word_write',
+    // Email attachments
+    'email.download_attachment',
+    'email.send_outlook',
+    'ms365.email_download_attachment',
+    'ms365.email_send',
+    'ms365.email_reply',
+    // Web
+    'web.screenshot',
+    'web.download_file',
+    // Desktop
+    'desktop.screenshot',
+    'desktop.image_click',
+    'desktop.wait_image',
+    // Voice
+    'voice.speak',
+    'voice.listen',
+    // AI
+    'ai.vision',
+    // Logging
+    'logging.export',
+    // VectorDB
+    'vectordb.load_documents',
+    // Trigger
+    'trigger.storage_event',
+    // Python
+    'python.project',
+    'python.notebook',
+    'python.pip_install',
+  ];
+  const needsStorageConnection =
+    STORAGE_CONSUMER_NODES.includes(data.nodeType) ||
     data.nodeType.startsWith('files.') ||
     data.nodeType === 'storage.transfer' ||
     data.nodeType === 'storage.sync';
+  const isStorageProvider = data.nodeType === 'storage.provider';
+  const needsMS365Connection = isMS365Trigger;
 
   // Config nodes that only have connection output (no success/error)
   const isConnectionConfigNode = isMS365Connection || isStorageProvider;
@@ -511,6 +558,24 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
         </div>
       )}
 
+      {/* Storage Provider Output Handle - Only shown for storage.provider node (on TOP) */}
+      {isStorageProvider && (
+        <div className="absolute top-0 left-0 right-0 flex justify-center">
+          <div className="relative">
+            <Handle
+              type="source"
+              position={Position.Top}
+              id="storage-out"
+              className="!w-4 !h-4 !-top-[8px] !bg-orange-400 !border-[3px] !border-white !shadow-sm hover:!bg-orange-500 !transition-all !rounded-full"
+              title="Connect to nodes that use files"
+            />
+            <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[8px] font-medium text-orange-500 whitespace-nowrap">
+              Storage
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* MS365 Connection Output Handle - Only shown for ms365.connection node (on TOP) */}
       {isMS365Connection && (
         <div className="absolute top-0 left-0 right-0 flex justify-center">
@@ -566,7 +631,7 @@ function CustomNode({ data, selected, id }: NodeProps<FlowNodeData>) {
       )}
 
       {/* Storage Provider Connection Input Handle - Shown for Files nodes (on BOTTOM border) */}
-      {needsStorageProvider && (
+      {needsStorageConnection && (
         <div className="absolute bottom-0 left-0 right-0 flex justify-center">
           <div className="relative">
             <Handle

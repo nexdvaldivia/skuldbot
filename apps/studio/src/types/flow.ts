@@ -146,6 +146,7 @@ export interface NodeTemplate {
   defaultConfig: Record<string, any>;
   configSchema: ConfigField[];
   outputSchema?: OutputField[]; // Fields this node outputs to the flow
+  needsStorageConnection?: boolean; // Node reads/writes files via Storage Provider
 }
 
 export interface ConfigField {

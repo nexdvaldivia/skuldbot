@@ -1,4 +1,44 @@
 {# ============================================ #}
+{# Macro: Storage Provider file resolution     #}
+{# Wraps nodes that read/write files via the   #}
+{# connected Storage Provider.                 #}
+{# ============================================ #}
+{% macro storage_resolve(node, path_field, mode='read') -%}
+{% if node.storage_config -%}
+            # Resolve file via Storage Provider ({{ mode }})
+            ${_storage_local_{{ node.id | node_id_safe }}}=    Storage Resolve To Local    {{ node.config.get(path_field, '') | transform_vars }}    mode={{ mode }}
+{%- else -%}
+            ${_storage_local_{{ node.id | node_id_safe }}}=    Set Variable    {{ node.config.get(path_field, '') | transform_vars }}
+{%- endif %}
+{%- endmacro %}
+
+{# Convenience macro: resolves storage path into ${path} variable directly #}
+{# Use this for nodes that reference ${path} throughout their code block   #}
+{% macro storage_resolve_path(node, path_field, mode='read') -%}
+{% if node.storage_config -%}
+            # Resolve file via Storage Provider ({{ mode }})
+            ${path}=    Storage Resolve To Local    {{ node.config.get(path_field, '') | transform_vars }}    mode={{ mode }}
+{%- else -%}
+            ${path}=    Set Variable    {{ node.config.get(path_field, '') | transform_vars }}
+{%- endif %}
+{%- endmacro %}
+
+{% macro storage_sync_back(node, path_field) -%}
+{% if node.storage_config -%}
+            # Sync file back to Storage Provider
+            ${_sync_result}=    Storage Sync Back    ${_storage_local_{{ node.id | node_id_safe }}}    {{ node.config.get(path_field, '') | transform_vars }}
+{%- endif %}
+{%- endmacro %}
+
+{# Convenience: sync back using ${path} variable #}
+{% macro storage_sync_back_path(node, path_field) -%}
+{% if node.storage_config -%}
+            # Sync file back to Storage Provider
+            ${_sync_result}=    Storage Sync Back    ${path}    {{ node.config.get(path_field, '') | transform_vars }}
+{%- endif %}
+{%- endmacro %}
+
+{# ============================================ #}
 {# Macro to build locator based on selectorType #}
 {# ============================================ #}
 {% macro build_locator(node) -%}
@@ -262,16 +302,33 @@ Execute Node By ID
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
 
 {% elif node.type == 'trigger.storage_event' %}
-            # Storage Event Trigger - bot started on S3/MinIO event
-            Log    Storage event trigger: bucket={{ node.config.get('bucket', '') | transform_vars }}, event={{ node.config.get('event', 'ObjectCreated') | escape_newlines }}    console=yes
-            # Storage event data is passed via ${STORAGE_EVENT} variable from the executor
+            # Storage Event Trigger - triggered by file events on any storage provider
+            {% if node.storage_config %}
+            # Configure the connected Storage Provider for event listening
+            Configure Storage Provider
+            ...    {{ node.storage_config.get('provider', 'local') }}
+            ...    name=trigger_storage
+            {% for key, value in node.storage_config.items() if key not in ('provider',) %}
+            ...    {{ key }}={{ value | transform_vars }}
+            {% endfor %}
+            # Wait for file event using the storage provider
+            ${storage_event}=    Wait For Storage Event
+            ...    event_type={{ node.config.get('event', 'ObjectCreated') | escape_newlines }}
+            ...    prefix={{ node.config.get('prefix', '') | transform_vars }}
+            ...    suffix={{ node.config.get('suffix', '') | transform_vars }}
+            ...    timeout={{ node.config.get('timeout', 300) }}
+            ...    provider=trigger_storage
+            {% else %}
+            # Legacy: direct S3/MinIO config or executor-injected event
             ${storage_event}=    Get Variable Value    ${STORAGE_EVENT}    &{EMPTY}
+            {% endif %}
+            ${provider}=    Evaluate    $storage_event.get('provider', '{{ node.storage_config.get('provider', 's3') if node.storage_config else 's3' }}')
             ${bucket}=    Evaluate    $storage_event.get('bucket', '{{ node.config.get('bucket', '') | transform_vars }}')
             ${key}=    Evaluate    $storage_event.get('key', '')
             ${event_type}=    Evaluate    $storage_event.get('event', '{{ node.config.get('event', 'ObjectCreated') }}')
             ${size}=    Evaluate    $storage_event.get('size', 0)
             ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
-            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${storage_event}    bucket=${bucket}    key=${key}    event=${event_type}    size=${size}    timestamp=${timestamp}
+            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${storage_event}    provider=${provider}    bucket=${bucket}    key=${key}    event=${event_type}    size=${size}    timestamp=${timestamp}
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $storage_event}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
 
@@ -554,11 +611,9 @@ Execute Node By ID
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Got attribute: ${value}    console=yes
 {% elif node.type == 'web.screenshot' %}
-            {% if node.config.get('full_page', False) %}
-            Capture Page Screenshot    {{ node.config.get('path', 'screenshot.png') | transform_vars }}
-            {% else %}
-            Capture Page Screenshot    {{ node.config.get('path', 'screenshot.png') | transform_vars }}
-            {% endif %}
+            {{ storage_resolve(node, 'path', 'write') }}
+            Capture Page Screenshot    ${_storage_local_{{ node.id | node_id_safe }}}
+            {{ storage_sync_back(node, 'path') }}
 {% elif node.type == 'web.wait_element' %}
             Wait Until Element Is Visible    {{ build_locator(node) }}    timeout={{ node.config.get('timeout', 30000) // 1000 }}s
 {% elif node.type == 'web.execute_js' %}
@@ -609,18 +664,19 @@ Execute Node By ID
 {% elif node.type == 'web.download_file' %}
             # Download file from URL to specified path
             ${url}=    Set Variable    {{ node.config.get('url', '') | transform_vars }}
-            ${save_path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'write') }}
             ${response}=    Evaluate    __import__('requests').get('${url}', stream=True, timeout=60)
             ${status}=    Set Variable    ${response.status_code}
             IF    ${status} == 200
-                Evaluate    open('${save_path}', 'wb').write($response.content)
+                Evaluate    open('${path}', 'wb').write($response.content)
+                {{ storage_sync_back_path(node, 'path') }}
                 ${file_size}=    Evaluate    len($response.content)
-                Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${save_path}    path=${save_path}    url=${url}    size=${file_size}    status=success
-                ${_output_json}=    Evaluate    __import__('json').dumps({'result': $save_path}, default=str)
+                Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${path}    path=${path}    url=${url}    size=${file_size}    status=success
+                ${_output_json}=    Evaluate    __import__('json').dumps({'result': $path}, default=str)
                 Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
-                Log    Downloaded ${file_size} bytes to ${save_path}    console=yes
+                Log    Downloaded ${file_size} bytes to ${path}    console=yes
             ELSE
-                Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${EMPTY}    path=${save_path}    url=${url}    status=failed    statusCode=${status}
+                Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${EMPTY}    path=${path}    url=${url}    status=failed    statusCode=${status}
                 ${_output_json}=    Evaluate    __import__('json').dumps({'result': $EMPTY}, default=str)
                 Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
                 Fail    Download failed with status code: ${status}
@@ -742,7 +798,7 @@ Execute Node By ID
 
 {% elif node.type == 'desktop.screenshot' %}
             # Capture Desktop Screenshot
-            ${path}=    Set Variable    {{ node.config.get('path', 'screenshot.png') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'write') }}
             {% if node.config.get('region') %}
             ${region}=    Set Variable    {{ node.config.get('region', '') | transform_vars }}
             ${parts}=    Split String    ${region}    ,
@@ -761,10 +817,15 @@ Execute Node By ID
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             {% endif %}
             Log    Screenshot saved to: ${path}    console=yes
+            {{ storage_sync_back_path(node, 'path') }}
 
 {% elif node.type == 'desktop.image_click' %}
             # Find and Click Image on Screen
+            {% if node.storage_config %}
+            ${image_path}=    Storage Resolve To Local    {{ node.config.get('image_path', '') | transform_vars }}    mode=read
+            {% else %}
             ${image_path}=    Set Variable    {{ node.config.get('image_path', '') | transform_vars }}
+            {% endif %}
             ${confidence}=    Set Variable    {{ node.config.get('confidence', 0.9) }}
             ${location}=    Find Element    image:${image_path}    confidence=${confidence}
             Click    ${location}
@@ -775,7 +836,11 @@ Execute Node By ID
 
 {% elif node.type == 'desktop.wait_image' %}
             # Wait for Image to Appear on Screen
+            {% if node.storage_config %}
+            ${image_path}=    Storage Resolve To Local    {{ node.config.get('image_path', '') | transform_vars }}    mode=read
+            {% else %}
             ${image_path}=    Set Variable    {{ node.config.get('image_path', '') | transform_vars }}
+            {% endif %}
             ${timeout_ms}=    Set Variable    {{ node.config.get('timeout', 30000) }}
             ${timeout_sec}=    Evaluate    ${timeout_ms} / 1000
             ${start_time}=    Evaluate    __import__('time').time()
@@ -808,7 +873,8 @@ Execute Node By ID
 
 {# ===== EXCEL (SkuldBot ExcelLibrary) ===== #}
 {% elif node.type == 'excel.open' %}
-            Open Excel    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve(node, 'path', 'read') }}
+            Open Excel    ${_storage_local_{{ node.id | node_id_safe }}}
 {% elif node.type == 'excel.read_range' or node.type == 'excel.read' %}
             {% if node.config.get('column_names') and not node.config.get('header', True) %}
             ${result}=    Read Excel Range    sheet_name={{ node.config.get('sheet', 'None') | transform_vars }}    header=${FALSE}    column_names={{ node.config.get('column_names', '') | escape_newlines }}
@@ -838,7 +904,9 @@ Execute Node By ID
             Set Cell Value    {{ node.config.get('cell', 'A1') | transform_vars }}    {{ node.config.get('value', '') | transform_vars }}
 {% elif node.type == 'excel.save' %}
             {% if node.config.get('path') %}
-            Save Excel    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve(node, 'path', 'write') }}
+            Save Excel    ${_storage_local_{{ node.id | node_id_safe }}}
+            {{ storage_sync_back(node, 'path') }}
             {% else %}
             Save And Close Excel
             {% endif %}
@@ -856,13 +924,13 @@ Execute Node By ID
 
 {% elif node.type == 'excel.create' %}
             # Create new Excel workbook
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve(node, 'path', 'write') }}
             ${sheet_name}=    Set Variable    {{ node.config.get('sheet_name', 'Sheet1') | transform_vars }}
-            Create Workbook    ${path}
-            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${path}    path=${path}    sheet=${sheet_name}
-            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $path}, default=str)
+            Create Workbook    ${_storage_local_{{ node.id | node_id_safe }}}
+            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${_storage_local_{{ node.id | node_id_safe }}}    path=${_storage_local_{{ node.id | node_id_safe }}}    sheet=${sheet_name}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': '${_storage_local_{{ node.id | node_id_safe }}}'}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
-            Log    Created new Excel: ${path}    console=yes
+            Log    Created new Excel: ${_storage_local_{{ node.id | node_id_safe }}}    console=yes
 
 {% elif node.type == 'excel.add_row' %}
             # Append row to sheet
@@ -892,7 +960,7 @@ Execute Node By ID
 
 {% elif node.type == 'excel.csv_read' %}
             # Read CSV file
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'read') }}
             ${delimiter}=    Set Variable    {{ node.config.get('delimiter', ',') }}
             ${has_header}=    Set Variable    ${{ '{TRUE}' if node.config.get('header', True) else '{FALSE}' }}
             ${data}=    Evaluate    list(__import__('csv').DictReader(open('${path}', 'r', encoding='utf-8'), delimiter='${delimiter}')) if ${has_header} else list(__import__('csv').reader(open('${path}', 'r', encoding='utf-8'), delimiter='${delimiter}'))
@@ -904,7 +972,7 @@ Execute Node By ID
 
 {% elif node.type == 'excel.csv_write' %}
             # Write CSV file
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'write') }}
             ${data_json}=    Set Variable    {{ node.config.get('data', '[]') | transform_vars }}
             ${delimiter}=    Set Variable    {{ node.config.get('delimiter', ',') }}
             ${data}=    Evaluate    __import__('json').loads('''${data_json}''')
@@ -916,6 +984,7 @@ Execute Node By ID
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $path}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Wrote CSV: ${count} rows    console=yes
+            {{ storage_sync_back_path(node, 'path') }}
 
 {% elif node.type == 'excel.pivot' %}
             # Create pivot table (using Python pandas)
@@ -1100,6 +1169,7 @@ Execute Node By ID
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $output_path}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Exported to PDF: ${output_path}    console=yes
+            {{ storage_sync_back_path(node, 'path') }}
 
 {% elif node.type == 'excel.vlookup' %}
             # Perform VLOOKUP
@@ -1296,13 +1366,14 @@ Execute Node By ID
 {% elif node.type == 'email.download_attachment' %}
             # Download email attachment
             ${message_id}=    Set Variable    {{ node.config.get('message_id', '') | transform_vars }}
-            ${save_path}=    Set Variable    {{ node.config.get('save_path', '') | transform_vars }}
-            @{attachments}=    Save Attachment    ${message_id}    target_folder=${save_path}
+            {{ storage_resolve_path(node, 'save_path', 'write') }}
+            @{attachments}=    Save Attachment    ${message_id}    target_folder=${path}
             ${count}=    Get Length    ${attachments}
-            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${attachments}    attachments=${attachments}    count=${count}    savePath=${save_path}
+            {{ storage_sync_back_path(node, 'save_path') }}
+            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${attachments}    attachments=${attachments}    count=${count}    savePath=${path}
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $attachments}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
-            Log    Downloaded ${count} attachments to ${save_path}    console=yes
+            Log    Downloaded ${count} attachments to ${path}    console=yes
 
 {% elif node.type == 'email.move' %}
             # Move email to folder
@@ -1370,7 +1441,18 @@ Execute Node By ID
             ${subject}=    Set Variable    {{ node.config.get('subject', '') | transform_vars }}
             ${body}=    Set Variable    {{ node.config.get('body', '') | transform_vars }}
             ${html}=    Set Variable    ${{ '{TRUE}' if node.config.get('html', False) else '{FALSE}' }}
+            {% if node.storage_config and node.config.get('attachments') %}
+            ${_raw_att}=    Set Variable    {{ node.config.get('attachments', '') | transform_vars }}
+            @{_att_list}=    Evaluate    [a.strip() for a in '${_raw_att}'.split(',') if a.strip()]
+            @{_resolved}=    Create List
+            FOR    ${_att}    IN    @{_att_list}
+                ${_local}=    Storage Resolve To Local    ${_att}    mode=read
+                Append To List    ${_resolved}    ${_local}
+            END
+            ${attachments}=    Evaluate    ','.join(${{ '{_resolved}' }})
+            {% else %}
             ${attachments}=    Set Variable    {{ node.config.get('attachments', '') | transform_vars }}
+            {% endif %}
             Outlook.Open Application
             Outlook.Send Message    recipients=${to}    cc=${cc}    bcc=${bcc}    subject=${subject}    body=${body}    html_body=${html}
             Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=sent    to=${to}    subject=${subject}    status=success
@@ -1664,45 +1746,62 @@ Execute Node By ID
 {# ===== DOCUMENT ===== #}
 {% elif node.type == 'document.pdf_read' %}
             # Extract text from PDF
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve(node, 'path', 'read') }}
             ${pages}=    Set Variable    {{ node.config.get('pages', '') | transform_vars }}
-            ${text}=    Get Text From PDF    ${path}
-            ${page_count}=    Get Number Of Pages    ${path}
-            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${text}    text=${text}    pageCount=${page_count}    path=${path}
+            ${text}=    Get Text From PDF    ${_storage_local_{{ node.id | node_id_safe }}}
+            ${page_count}=    Get Number Of Pages    ${_storage_local_{{ node.id | node_id_safe }}}
+            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${text}    text=${text}    pageCount=${page_count}    path=${_storage_local_{{ node.id | node_id_safe }}}
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $text}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
-            Log    Read PDF: ${path} (${page_count} pages)    console=yes
+            Log    Read PDF: ${_storage_local_{{ node.id | node_id_safe }}} (${page_count} pages)    console=yes
 
 {% elif node.type == 'document.pdf_merge' %}
             # Merge multiple PDFs
             ${files_json}=    Set Variable    {{ node.config.get('files', '[]') | transform_vars }}
-            ${output}=    Set Variable    {{ node.config.get('output', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'output', 'write') }}
             @{files}=    Evaluate    __import__('json').loads('''${files_json}''')
-            ${merger}=    Evaluate    __import__('PyPDF2').PdfMerger()
+            {% if node.storage_config %}
+            # Resolve each input file via Storage Provider
+            @{resolved_files}=    Create List
             FOR    ${file}    IN    @{files}
+                ${local_file}=    Storage Resolve To Local    ${file}    mode=read
+                Append To List    ${resolved_files}    ${local_file}
+            END
+            {% else %}
+            @{resolved_files}=    Set Variable    @{files}
+            {% endif %}
+            ${merger}=    Evaluate    __import__('PyPDF2').PdfMerger()
+            FOR    ${file}    IN    @{resolved_files}
                 Evaluate    $merger.append('${file}')
             END
-            Evaluate    $merger.write('${output}')
+            Evaluate    $merger.write('${path}')
             Evaluate    $merger.close()
+            {{ storage_sync_back_path(node, 'output') }}
             ${count}=    Get Length    ${files}
-            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${output}    path=${output}    mergedCount=${count}
-            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $output}, default=str)
+            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${path}    path=${path}    mergedCount=${count}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $path}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
-            Log    Merged ${count} PDFs to ${output}    console=yes
+            Log    Merged ${count} PDFs to ${path}    console=yes
 
 {% elif node.type == 'document.pdf_split' %}
             # Split PDF into pages
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'read') }}
             ${pages}=    Set Variable    {{ node.config.get('pages', '') | transform_vars }}
+            {% if node.storage_config %}
+            ${output}=    Storage Resolve To Local    {{ node.config.get('output', '') | transform_vars }}    mode=write
+            {% else %}
             ${output}=    Set Variable    {{ node.config.get('output', '') | transform_vars }}
+            {% endif %}
             ${reader}=    Evaluate    __import__('PyPDF2').PdfReader('${path}')
             ${writer}=    Evaluate    __import__('PyPDF2').PdfWriter()
-            # Parse page range (e.g., "1-5" or "1,3,5")
             ${page_list}=    Evaluate    [int(p)-1 for p in '${pages}'.replace('-', ',').split(',') if p.strip()]
             FOR    ${page_num}    IN    @{page_list}
                 Evaluate    $writer.add_page($reader.pages[${page_num}])
             END
             Evaluate    $writer.write(open('${output}', 'wb'))
+            {% if node.storage_config %}
+            ${_sync}=    Storage Sync Back    ${output}    {{ node.config.get('output', '') | transform_vars }}
+            {% endif %}
             ${count}=    Get Length    ${page_list}
             Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${output}    path=${output}    pagesExtracted=${count}
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $output}, default=str)
@@ -1711,8 +1810,12 @@ Execute Node By ID
 
 {% elif node.type == 'document.pdf_to_image' %}
             # Convert PDF to images
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'read') }}
+            {% if node.storage_config %}
+            ${output_dir}=    Storage Resolve To Local    {{ node.config.get('output_dir', '') | transform_vars }}    mode=write
+            {% else %}
             ${output_dir}=    Set Variable    {{ node.config.get('output_dir', '') | transform_vars }}
+            {% endif %}
             ${format}=    Set Variable    {{ node.config.get('format', 'png') }}
             ${images}=    Evaluate    __import__('pdf2image').convert_from_path('${path}')
             @{output_files}=    Create List
@@ -1723,6 +1826,11 @@ Execute Node By ID
                 Append To List    ${output_files}    ${output_path}
                 ${index}=    Evaluate    ${index} + 1
             END
+            {% if node.storage_config %}
+            FOR    ${_out_file}    IN    @{output_files}
+                ${_sync}=    Storage Sync Back    ${_out_file}    {{ node.config.get('output_dir', '') | transform_vars }}/${_out_file.split('/')[-1]}
+            END
+            {% endif %}
             ${count}=    Get Length    ${output_files}
             Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${output_files}    files=${output_files}    imageCount=${count}
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $output_files}, default=str)
@@ -1731,7 +1839,7 @@ Execute Node By ID
 
 {% elif node.type == 'document.ocr' %}
             # Extract text with OCR
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'read') }}
             ${language}=    Set Variable    {{ node.config.get('language', 'eng') }}
             ${image}=    Evaluate    __import__('PIL.Image').open('${path}')
             ${text}=    Evaluate    __import__('pytesseract').image_to_string($image, lang='${language}')
@@ -1742,7 +1850,7 @@ Execute Node By ID
 
 {% elif node.type == 'document.word_read' %}
             # Read Word document
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'read') }}
             ${doc}=    Evaluate    __import__('docx').Document('${path}')
             ${paragraphs}=    Evaluate    [p.text for p in $doc.paragraphs]
             ${text}=    Evaluate    '\\n'.join($paragraphs)
@@ -1754,7 +1862,7 @@ Execute Node By ID
 
 {% elif node.type == 'document.word_write' %}
             # Create Word document
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'write') }}
             ${content}=    Set Variable    {{ node.config.get('content', '') | transform_vars }}
             ${doc}=    Evaluate    __import__('docx').Document()
             # Split content by newlines and add as paragraphs
@@ -1768,6 +1876,7 @@ Execute Node By ID
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $path}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Created Word document: ${path}    console=yes
+            {{ storage_sync_back_path(node, 'path') }}
 
 {% elif node.type == 'document.html_to_pdf' %}
             # Convert HTML to PDF
@@ -1787,9 +1896,13 @@ Execute Node By ID
 
 {% elif node.type == 'document.pdf_fill_form' %}
             # Fill PDF form fields
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'read') }}
             ${fields_json}=    Set Variable    {{ node.config.get('fields', '{}') | transform_vars }}
+            {% if node.storage_config %}
+            ${output}=    Storage Resolve To Local    {{ node.config.get('output', '') | transform_vars }}    mode=write
+            {% else %}
             ${output}=    Set Variable    {{ node.config.get('output', '') | transform_vars }}
+            {% endif %}
             ${fields}=    Evaluate    __import__('json').loads('''${fields_json}''')
             # Use PyPDF2 for basic form filling
             ${reader}=    Evaluate    __import__('PyPDF2').PdfReader('${path}')
@@ -1797,6 +1910,9 @@ Execute Node By ID
             Evaluate    $writer.append($reader)
             Evaluate    $writer.update_page_form_field_values($writer.pages[0], $fields)
             Evaluate    $writer.write(open('${output}', 'wb'))
+            {% if node.storage_config %}
+            ${_sync}=    Storage Sync Back    ${output}    {{ node.config.get('output', '') | transform_vars }}
+            {% endif %}
             ${field_count}=    Evaluate    len($fields)
             Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${output}    path=${output}    fieldsFilled=${field_count}
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $output}, default=str)
@@ -1817,7 +1933,11 @@ Execute Node By ID
 
 {% elif node.type == 'python.project' %}
             # Run Python project
+            {% if node.storage_config %}
+            ${project_path}=    Storage Resolve To Local    {{ node.config.get('project_path', '') | transform_vars }}    mode=read
+            {% else %}
             ${project_path}=    Set Variable    {{ node.config.get('project_path', '') | transform_vars }}
+            {% endif %}
             ${entrypoint}=    Set Variable    {{ node.config.get('entrypoint', 'main.py') | transform_vars }}
             ${args}=    Set Variable    {{ node.config.get('args', '') | transform_vars }}
             ${full_path}=    Set Variable    ${project_path}/${entrypoint}
@@ -1836,7 +1956,11 @@ Execute Node By ID
 {% elif node.type == 'python.pip_install' %}
             # Install Python packages
             ${packages}=    Set Variable    {{ node.config.get('packages', '') | transform_vars }}
+            {% if node.storage_config and node.config.get('requirements') %}
+            ${requirements}=    Storage Resolve To Local    {{ node.config.get('requirements', '') | transform_vars }}    mode=read
+            {% else %}
             ${requirements}=    Set Variable    {{ node.config.get('requirements', '') | transform_vars }}
+            {% endif %}
             IF    '${requirements}'
                 ${proc}=    Evaluate    __import__('subprocess').run(['pip', 'install', '-r', '${requirements}'], capture_output=True, text=True)
             ELSE
@@ -1890,7 +2014,7 @@ Execute Node By ID
 
 {% elif node.type == 'python.notebook' %}
             # Execute Jupyter notebook
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'read') }}
             ${output_path}=    Set Variable    {{ node.config.get('output_path', '') | transform_vars }}
             # Use papermill to execute notebook
             ${output}=    Evaluate    '${output_path}' if '${output_path}' else '${path}'.replace('.ipynb', '_output.ipynb')
@@ -1985,13 +2109,14 @@ Execute Node By ID
 
 {% elif node.type == 'logging.export' %}
             # Export run logs
-            ${path}=    Set Variable    {{ node.config.get('path', '') | transform_vars }}
+            {{ storage_resolve_path(node, 'path', 'write') }}
             ${format}=    Set Variable    {{ node.config.get('format', 'json') }}
             # Collect logs and export
             Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${path}    path=${path}    format=${format}
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $path}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Logs exported to: ${path}    console=yes
+            {{ storage_sync_back_path(node, 'path') }}
 
 {# ===== SECURITY ===== #}
 {% elif node.type == 'security.get_secret' %}
@@ -2498,22 +2623,31 @@ Execute Node By ID
 {% elif node.type == 'voice.speak' %}
             # Text to Speech (Azure)
             Log    Synthesizing speech    console=yes
+            {% if node.config.get('output_path') %}
+            {{ storage_resolve_path(node, 'output_path', 'write') }}
+            {% endif %}
             ${result}=    SkuldVoice.Synthesize Speech
             ...    text={{ node.config.get('text', '') | transform_vars }}
-            {% if node.config.get('output_path') %}...    output_path={{ node.config.get('output_path', '') | transform_vars }}{% endif %}
+            {% if node.config.get('output_path') %}...    output_path=${path}{% endif %}
             ...    voice={{ node.config.get('voice', 'en-US-JennyNeural') | escape_newlines }}
             {% if node.config.get('style') %}...    style={{ node.config.get('style', '') | escape_newlines }}{% endif %}
+            {% if node.config.get('output_path') %}{{ storage_sync_back_path(node, 'output_path') }}{% endif %}
             Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${result}    status=${result}[status]
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
-            {% if node.config.get('output_path') %}Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output_path=${result}[output_path]{% endif %}
+            {% if node.config.get('output_path') %}Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output_path=${path}{% endif %}
             Log    Speech synthesized: ${result}[status]    console=yes
 
 {% elif node.type == 'voice.listen' %}
             # Speech to Text (Azure)
             Log    Transcribing audio    console=yes
+            {% if node.storage_config %}
+            ${_audio_local}=    Storage Resolve To Local    {{ node.config.get('audio_path', '') | transform_vars }}    mode=read
+            {% else %}
+            ${_audio_local}=    Set Variable    {{ node.config.get('audio_path', '') | transform_vars }}
+            {% endif %}
             ${result}=    SkuldVoice.Transcribe Audio File
-            ...    audio_path={{ node.config.get('audio_path', '') | transform_vars }}
+            ...    audio_path=${_audio_local}
             ...    language={{ node.config.get('language', 'en-US') | escape_newlines }}
             Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${result}    text=${result}[text]    confidence=${result}[confidence]    status=${result}[status]
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
@@ -2809,7 +2943,11 @@ Execute Node By ID
             ...    model={{ node.model_config_.model | default('gpt-4o') | transform_vars }}
             {% if node.model_config_.api_key %}...    api_key={{ node.model_config_.api_key | transform_vars }}{% endif %}
             {% endif %}
+            {% if node.storage_config %}
+            ${image_path}=    Storage Resolve To Local    {{ node.config.get('image_path', '') | transform_vars }}    mode=read
+            {% else %}
             ${image_path}=    Set Variable    {{ node.config.get('image_path', '') | transform_vars }}
+            {% endif %}
             ${prompt}=    Set Variable    {{ node.config.get('prompt', 'Describe this image') | transform_vars }}
             ${detail}=    Set Variable    {{ node.config.get('detail', 'auto') | escape_newlines }}
             ${description}=    SkuldAI.Analyze Image    ${image_path}    ${prompt}    detail=${detail}
@@ -3143,7 +3281,11 @@ Execute Node By ID
 {% elif node.type == 'vectordb.load_documents' %}
             # Load and chunk documents for vector storage
             ${source_type}=    Set Variable    {{ node.config.get('source_type', 'text') }}
+            {% if node.storage_config and node.config.get('source_type', 'text') == 'file' %}
+            ${source}=    Storage Resolve To Local    {{ node.config.get('source', '') | transform_vars }}    mode=read
+            {% else %}
             ${source}=    Set Variable    {{ node.config.get('source', '') | transform_vars }}
+            {% endif %}
             ${result}=    SkuldVectorDB.Load And Chunk Documents
             ...    source_type=${source_type}
             ...    source=${source}
@@ -3373,10 +3515,12 @@ Execute Node By ID
 
 {% elif node.type == 'ms365.email_download_attachment' %}
             # Download attachment
+            {{ storage_resolve_path(node, 'save_path', 'write') }}
             ${file}=    MS365.Download Attachment
             ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
             ...    attachment_id={{ node.config.get('attachment_id', '') | transform_vars }}
-            {% if node.config.get('save_path') %}...    save_path={{ node.config.get('save_path', '') | transform_vars }}{% endif %}
+            ...    save_path=${path}
+            {{ storage_sync_back_path(node, 'save_path') }}
             Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${file}    &{file}
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $file}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
@@ -3384,6 +3528,17 @@ Execute Node By ID
 
 {% elif node.type == 'ms365.email_send' %}
             # Send email via Microsoft 365
+            {% if node.storage_config and node.config.get('attachments') %}
+            # Resolve attachment paths via Storage Provider
+            ${_raw_attachments}=    Set Variable    {{ node.config.get('attachments', '') | transform_vars }}
+            @{_att_list}=    Evaluate    [a.strip() for a in '${_raw_attachments}'.split(',') if a.strip()]
+            @{_resolved_atts}=    Create List
+            FOR    ${_att}    IN    @{_att_list}
+                ${_local_att}=    Storage Resolve To Local    ${_att}    mode=read
+                Append To List    ${_resolved_atts}    ${_local_att}
+            END
+            ${_resolved_str}=    Evaluate    ','.join(${{ '{_resolved_atts}' }})
+            {% endif %}
             ${result}=    MS365.Send Email
             ...    to={{ node.config.get('to', '') | transform_vars }}
             ...    subject={{ node.config.get('subject', '') | transform_vars }}
@@ -3392,7 +3547,9 @@ Execute Node By ID
             {% if node.config.get('bcc') %}...    bcc={{ node.config.get('bcc', '') | transform_vars }}{% endif %}
             ...    body_type={{ node.config.get('body_type', 'html') }}
             ...    importance={{ node.config.get('importance', 'normal') }}
-            {% if node.config.get('attachments') %}...    attachments={{ node.config.get('attachments', '') | transform_vars }}{% endif %}
+            {% if node.config.get('attachments') %}
+            {% if node.storage_config %}...    attachments=${_resolved_str}{% else %}...    attachments={{ node.config.get('attachments', '') | transform_vars }}{% endif %}
+            {% endif %}
             ...    save_to_sent={{ '${TRUE}' if node.config.get('save_to_sent', True) else '${FALSE}' }}
             Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${result}    &{result}
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
@@ -3401,12 +3558,24 @@ Execute Node By ID
 
 {% elif node.type == 'ms365.email_reply' %}
             # Reply to email
+            {% if node.storage_config and node.config.get('attachments') %}
+            ${_raw_attachments}=    Set Variable    {{ node.config.get('attachments', '') | transform_vars }}
+            @{_att_list}=    Evaluate    [a.strip() for a in '${_raw_attachments}'.split(',') if a.strip()]
+            @{_resolved_atts}=    Create List
+            FOR    ${_att}    IN    @{_att_list}
+                ${_local_att}=    Storage Resolve To Local    ${_att}    mode=read
+                Append To List    ${_resolved_atts}    ${_local_att}
+            END
+            ${_resolved_str}=    Evaluate    ','.join(${{ '{_resolved_atts}' }})
+            {% endif %}
             ${result}=    MS365.Reply To Email
             ...    message_id={{ node.config.get('message_id', '') | transform_vars }}
             ...    body={{ node.config.get('body', '') | transform_vars }}
             ...    reply_all={{ '${TRUE}' if node.config.get('reply_all', False) else '${FALSE}' }}
             ...    body_type={{ node.config.get('body_type', 'html') }}
-            {% if node.config.get('attachments') %}...    attachments={{ node.config.get('attachments', '') | transform_vars }}{% endif %}
+            {% if node.config.get('attachments') %}
+            {% if node.storage_config %}...    attachments=${_resolved_str}{% else %}...    attachments={{ node.config.get('attachments', '') | transform_vars }}{% endif %}
+            {% endif %}
             Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${result}    &{result}
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
