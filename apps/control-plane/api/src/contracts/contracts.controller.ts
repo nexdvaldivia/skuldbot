@@ -2,14 +2,18 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Patch,
   Param,
   Post,
   Query,
+  Res,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { CP_PERMISSIONS } from '../common/authz/permissions';
 import { RequirePermission, RequirePermissions } from '../common/decorators/permissions.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -103,5 +107,30 @@ export class ContractsController {
     @CurrentUser() currentUser: User,
   ): Promise<ContractResponseDto> {
     return this.contractsService.cancelContract(contractId, dto, currentUser);
+  }
+
+  @Post(':contractId/generate-pdf')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_WRITE)
+  async generatePdf(
+    @Param('contractId') contractId: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractResponseDto> {
+    return this.contractsService.generatePdf(contractId, currentUser);
+  }
+
+  @Get(':contractId/pdf')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  @Header('Cache-Control', 'no-store')
+  async downloadPdf(
+    @Param('contractId') contractId: string,
+    @CurrentUser() currentUser: User,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    const { buffer, fileName } = await this.contractsService.downloadPdf(contractId, currentUser);
+
+    response.setHeader('Content-Type', 'application/pdf');
+    response.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+    return new StreamableFile(buffer);
   }
 }

@@ -10,6 +10,7 @@ import { LicensesController } from './licenses.controller';
 import { LicensingRuntimeController } from './licensing-runtime.controller';
 import { OrchestratorFleetAuthGuard } from '../orchestrators/guards/orchestrator-fleet-auth.guard';
 import { LookupsModule } from '../lookups/lookups.module';
+import { ContractsModule } from '../contracts/contracts.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { LookupsModule } from '../lookups/lookups.module';
       LicenseRuntimeDecision,
     ]),
     LookupsModule,
+    ContractsModule,
   ],
   controllers: [LicensesController, LicensingRuntimeController],
   providers: [LicensesService, OrchestratorFleetAuthGuard],

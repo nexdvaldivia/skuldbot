@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Headers,
   Param,
@@ -18,6 +19,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { CP_PERMISSIONS } from '../common/authz/permissions';
 import { UserRole } from '../users/entities/user.entity';
+import { ContractGateAction, ContractGateService } from '../contracts/contract-gate.service';
 import { OrchestratorFleetAuthGuard } from './guards/orchestrator-fleet-auth.guard';
 import { OrchestratorsService } from './orchestrators.service';
 import {
@@ -31,7 +33,10 @@ import {
 
 @Controller('orchestrators')
 export class OrchestratorsController {
-  constructor(private readonly orchestratorsService: OrchestratorsService) {}
+  constructor(
+    private readonly orchestratorsService: OrchestratorsService,
+    private readonly contractGateService: ContractGateService,
+  ) {}
 
   @Post('register')
   @UseGuards(OrchestratorFleetAuthGuard)
@@ -48,6 +53,25 @@ export class OrchestratorsController {
 
     if (tenantIdHeader?.trim() && !dto.tenantId) {
       dto.tenantId = tenantIdHeader;
+    }
+
+    if (!dto.tenantId) {
+      throw new BadRequestException({
+        code: 'CONTRACT_GATE_TENANT_REQUIRED',
+        message: 'Tenant ID is required to validate contract gate for orchestrator deployment.',
+      });
+    }
+
+    const gate = await this.contractGateService.validateForTenant(
+      dto.tenantId,
+      ContractGateAction.DEPLOY_ORCHESTRATOR,
+    );
+    if (!gate.allowed) {
+      throw new ForbiddenException({
+        code: 'CONTRACT_GATE_BLOCKED',
+        message: 'Orchestrator deployment is blocked until required contracts are signed.',
+        missingContracts: gate.missing,
+      });
     }
 
     return this.orchestratorsService.register(dto, this.getSourceIp(request), traceId);
