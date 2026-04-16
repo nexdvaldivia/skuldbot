@@ -14,6 +14,7 @@ import {
   Store,
   Settings,
   Activity,
+  FileText,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -52,6 +53,7 @@ const mainSections: NavSection[] = [
       },
       { name: 'Orchestrator Fleet', href: '/tenants', icon: Server },
       { name: 'Licenses', href: '/licenses', icon: Key },
+      { name: 'Contracts', href: '/contracts', icon: FileText },
     ],
   },
   {

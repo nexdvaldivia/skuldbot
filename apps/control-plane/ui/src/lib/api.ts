@@ -1114,3 +1114,200 @@ export const mcpApi = {
     return result.subscriptions;
   },
 };
+
+// ============================================================================
+// Contracts
+// ============================================================================
+
+export type ContractStatus =
+  | 'draft'
+  | 'pending_signature'
+  | 'signed'
+  | 'declined'
+  | 'cancelled'
+  | 'expired';
+
+export type ContractSignerStatus = 'pending' | 'sent' | 'viewed' | 'signed' | 'declined';
+
+export interface ContractSigner {
+  id: string;
+  email: string;
+  fullName: string;
+  roleLabel: string;
+  sortOrder: number;
+  status: ContractSignerStatus;
+  sentAt: string | null;
+  viewedAt: string | null;
+  signedAt: string | null;
+  declinedAt: string | null;
+}
+
+export interface Contract {
+  id: string;
+  clientId: string;
+  tenantId: string | null;
+  title: string;
+  templateKey: string;
+  version: number;
+  status: ContractStatus;
+  variables: Record<string, unknown>;
+  documentJson: Record<string, unknown>;
+  renderedHtml: string | null;
+  pdfPath: string | null;
+  envelopeProvider: string | null;
+  envelopeId: string | null;
+  signedAt: string | null;
+  metadata: Record<string, unknown>;
+  signers: ContractSigner[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateContractInput {
+  clientId: string;
+  tenantId?: string;
+  title: string;
+  templateKey: string;
+  variables?: Record<string, unknown>;
+  documentJson?: Record<string, unknown>;
+  signers: { email: string; fullName: string; roleLabel: string }[];
+}
+
+export interface UpdateContractInput {
+  title?: string;
+  variables?: Record<string, unknown>;
+  documentJson?: Record<string, unknown>;
+  signers?: { email: string; fullName: string; roleLabel: string }[];
+}
+
+export const contractsApi = {
+  list(params?: { clientId?: string; tenantId?: string; status?: ContractStatus }) {
+    const query = new URLSearchParams();
+    if (params?.clientId) query.set('clientId', params.clientId);
+    if (params?.tenantId) query.set('tenantId', params.tenantId);
+    if (params?.status) query.set('status', params.status);
+    const qs = query.toString();
+    return fetchApi<Contract[]>(`/api/contracts${qs ? `?${qs}` : ''}`);
+  },
+
+  get(contractId: string) {
+    return fetchApi<Contract>(`/api/contracts/${contractId}`);
+  },
+
+  create(data: CreateContractInput) {
+    return fetchApi<Contract>('/api/contracts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  update(contractId: string, data: UpdateContractInput) {
+    return fetchApi<Contract>(`/api/contracts/${contractId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  submit(contractId: string, envelopeProvider: string, envelopeId?: string) {
+    return fetchApi<Contract>(`/api/contracts/${contractId}/submit`, {
+      method: 'POST',
+      body: JSON.stringify({ envelopeProvider, envelopeId }),
+    });
+  },
+
+  updateSignerStatus(
+    contractId: string,
+    signerId: string,
+    status: ContractSignerStatus,
+    audit?: Record<string, unknown>,
+  ) {
+    return fetchApi<Contract>(`/api/contracts/${contractId}/signers/${signerId}/status`, {
+      method: 'POST',
+      body: JSON.stringify({ status, audit }),
+    });
+  },
+
+  cancel(contractId: string, reason: string) {
+    return fetchApi<Contract>(`/api/contracts/${contractId}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  },
+
+  generatePdf(contractId: string) {
+    return fetchApi<{ renderedHtml: string; pdfPath: string }>(
+      `/api/contracts/${contractId}/generate-pdf`,
+      { method: 'POST' },
+    );
+  },
+
+  async downloadPdf(contractId: string): Promise<Blob> {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const res = await fetch(`${API_BASE}/api/contracts/${contractId}/pdf`, {
+      headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+    });
+    if (!res.ok) throw new Error(`Failed to download PDF: ${res.status}`);
+    return res.blob();
+  },
+};
+
+// ============================================================================
+// Auth MFA
+// ============================================================================
+
+export interface MfaEnableResult {
+  secret: string;
+  otpauthUri: string;
+  backupCodes: string[];
+}
+
+export const mfaApi = {
+  enable() {
+    return fetchApi<MfaEnableResult>('/api/auth/mfa/enable', { method: 'POST' });
+  },
+
+  verify(code: string) {
+    return fetchApi<{ verified: boolean }>('/api/auth/mfa/verify', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+  },
+
+  disable(code: string) {
+    return fetchApi<{ disabled: boolean }>('/api/auth/mfa/disable', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+  },
+
+  regenerateBackupCodes() {
+    return fetchApi<{ backupCodes: string[] }>('/api/auth/mfa/backup-codes', { method: 'POST' });
+  },
+
+  changePassword(currentPassword: string, newPassword: string) {
+    return fetchApi<{ changed: boolean }>('/api/auth/password/change', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  },
+};
+
+// ============================================================================
+// User Login History
+// ============================================================================
+
+export interface LoginHistoryEntry {
+  id: string;
+  userId: string;
+  ip: string;
+  userAgent: string;
+  success: boolean;
+  failureReason: string | null;
+  createdAt: string;
+}
+
+export const loginHistoryApi = {
+  get(userId: string) {
+    return fetchApi<LoginHistoryEntry[]>(`/api/users/${userId}/login-history`);
+  },
+};
