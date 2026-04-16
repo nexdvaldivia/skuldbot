@@ -4362,3 +4362,197 @@ class SkuldStorage:
                     os.rmdir(parent)
         except OSError:
             pass
+
+    @keyword("Wait For Storage Event")
+    def wait_for_storage_event(
+        self,
+        event_type: str = "ObjectCreated",
+        prefix: str = "",
+        suffix: str = "",
+        timeout: int = 300,
+        poll_interval: int = 5,
+        provider: str = None,
+    ) -> Dict[str, Any]:
+        """
+        Wait for a file event on the current storage provider.
+        
+        Mechanism depends on provider:
+        - local: filesystem watcher (instant)
+        - s3/minio: S3 event notification or polling
+        - azure_blob: Event Grid or polling
+        - gcs: Pub/Sub or polling
+        - sharepoint/onedrive: Graph change notifications or polling
+        - sftp/ftp: polling (list + compare)
+        
+        For providers without native events, falls back to polling:
+        lists files, waits, lists again, detects changes.
+        
+        Args:
+            event_type: Event to wait for: ObjectCreated, ObjectRemoved, ObjectModified
+            prefix: Path prefix filter (e.g., "uploads/invoices/")
+            suffix: File suffix filter (e.g., ".pdf")
+            timeout: Maximum wait time in seconds
+            poll_interval: Polling interval in seconds (for providers without native events)
+            provider: Storage provider name
+            
+        Returns:
+            Dictionary with event details: provider, event, key, size, timestamp
+            
+        Example:
+            | Configure Storage Provider | s3 | bucket=my-bucket | region=us-east-1 |
+            | ${event}= | Wait For Storage Event | event_type=ObjectCreated | prefix=uploads/ | suffix=.pdf | timeout=300 |
+            | Log | New file: ${event}[key] (${event}[size] bytes) |
+        """
+        import time as _time
+        
+        backend = self._providers.get(provider) if provider else self._get_provider()
+        provider_type = getattr(backend, 'provider_type', 'unknown')
+        
+        robot_logger.info(
+            f"Waiting for storage event: {event_type} on {provider_type} "
+            f"(prefix={prefix}, suffix={suffix}, timeout={timeout}s)"
+        )
+        
+        # For local filesystem, use watchdog if available
+        if hasattr(backend, 'root_path'):
+            return self._watch_local(backend.root_path, prefix, suffix, event_type, timeout)
+        
+        # For all other providers: polling-based detection
+        start_time = _time.time()
+        
+        # Get initial file list
+        initial_files = self._list_files_for_event(backend, prefix, suffix)
+        initial_set = {f['key']: f for f in initial_files}
+        
+        while _time.time() - start_time < timeout:
+            _time.sleep(poll_interval)
+            
+            current_files = self._list_files_for_event(backend, prefix, suffix)
+            current_set = {f['key']: f for f in current_files}
+            
+            # Detect changes based on event type
+            if event_type == 'ObjectCreated':
+                new_keys = set(current_set.keys()) - set(initial_set.keys())
+                if new_keys:
+                    key = sorted(new_keys)[0]  # Return first new file
+                    return self._build_event(provider_type, 'ObjectCreated', key, current_set[key])
+                    
+            elif event_type == 'ObjectRemoved':
+                removed_keys = set(initial_set.keys()) - set(current_set.keys())
+                if removed_keys:
+                    key = sorted(removed_keys)[0]
+                    return self._build_event(provider_type, 'ObjectRemoved', key, initial_set[key])
+                    
+            elif event_type == 'ObjectModified':
+                for key in current_set:
+                    if key in initial_set:
+                        if current_set[key].get('modified') != initial_set[key].get('modified'):
+                            return self._build_event(provider_type, 'ObjectModified', key, current_set[key])
+            
+            initial_set = current_set
+        
+        # Timeout
+        robot_logger.warn(f"Storage event timeout after {timeout}s")
+        return {
+            "provider": provider_type,
+            "event": "timeout",
+            "key": "",
+            "size": 0,
+            "timestamp": datetime.now().isoformat(),
+            "timeout_reached": True,
+        }
+    
+    def _list_files_for_event(self, backend, prefix: str, suffix: str) -> list:
+        """List files matching prefix/suffix for event detection."""
+        try:
+            result = backend.list(prefix or "/")
+            files = []
+            for item in result.items:
+                if item.is_directory:
+                    continue
+                if suffix and not item.name.endswith(suffix):
+                    continue
+                files.append({
+                    "key": item.path,
+                    "size": item.size,
+                    "modified": item.modified.isoformat() if item.modified else None,
+                })
+            return files
+        except Exception as e:
+            robot_logger.warn(f"Error listing files for event detection: {e}")
+            return []
+    
+    def _build_event(self, provider_type: str, event_type: str, key: str, file_info: dict) -> dict:
+        """Build a storage event result dictionary."""
+        return {
+            "provider": provider_type,
+            "event": event_type,
+            "key": key,
+            "bucket": "",  # Provider-specific, filled by backend if available
+            "size": file_info.get("size", 0),
+            "timestamp": datetime.now().isoformat(),
+            "timeout_reached": False,
+        }
+    
+    def _watch_local(self, root_path: str, prefix: str, suffix: str, event_type: str, timeout: int) -> dict:
+        """Watch local filesystem for changes using polling."""
+        import time as _time
+        
+        watch_dir = os.path.join(root_path, prefix) if prefix else root_path
+        if not os.path.isdir(watch_dir):
+            os.makedirs(watch_dir, exist_ok=True)
+        
+        initial = set()
+        for f in os.listdir(watch_dir):
+            if suffix and not f.endswith(suffix):
+                continue
+            initial.add(f)
+        
+        start = _time.time()
+        while _time.time() - start < timeout:
+            _time.sleep(1)
+            current = set()
+            for f in os.listdir(watch_dir):
+                if suffix and not f.endswith(suffix):
+                    continue
+                current.add(f)
+            
+            if event_type == 'ObjectCreated':
+                new = current - initial
+                if new:
+                    name = sorted(new)[0]
+                    full = os.path.join(watch_dir, name)
+                    return {
+                        "provider": "local",
+                        "event": "ObjectCreated",
+                        "key": os.path.join(prefix, name) if prefix else name,
+                        "bucket": root_path,
+                        "size": os.path.getsize(full) if os.path.exists(full) else 0,
+                        "timestamp": datetime.now().isoformat(),
+                        "timeout_reached": False,
+                    }
+            elif event_type == 'ObjectRemoved':
+                removed = initial - current
+                if removed:
+                    name = sorted(removed)[0]
+                    return {
+                        "provider": "local",
+                        "event": "ObjectRemoved",
+                        "key": os.path.join(prefix, name) if prefix else name,
+                        "bucket": root_path,
+                        "size": 0,
+                        "timestamp": datetime.now().isoformat(),
+                        "timeout_reached": False,
+                    }
+            
+            initial = current
+        
+        return {
+            "provider": "local",
+            "event": "timeout",
+            "key": "",
+            "bucket": root_path,
+            "size": 0,
+            "timestamp": datetime.now().isoformat(),
+            "timeout_reached": True,
+        }

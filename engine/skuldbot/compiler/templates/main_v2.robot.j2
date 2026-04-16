@@ -302,16 +302,29 @@ Execute Node By ID
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
 
 {% elif node.type == 'trigger.storage_event' %}
-            # Storage Event Trigger - bot started on S3/MinIO event
+            # Storage Event Trigger - triggered by file events on any storage provider
+            {% if node.storage_config %}
+            # Configure the connected Storage Provider for event listening
+            Configure Storage Provider
+            ...    {{ node.storage_config.get('provider', 'local') }}
+            ...    name=trigger_storage
+            {% for key, value in node.storage_config.items() if key not in ('provider',) %}
+            ...    {{ key }}={{ value | transform_vars }}
+            {% endfor %}
+            Log    Storage event trigger: provider={{ node.storage_config.get('provider', 'local') }}, event={{ node.config.get('event', 'ObjectCreated') | escape_newlines }}    console=yes
+            {% else %}
+            # Legacy: direct S3/MinIO config (no Storage Provider connected)
             Log    Storage event trigger: bucket={{ node.config.get('bucket', '') | transform_vars }}, event={{ node.config.get('event', 'ObjectCreated') | escape_newlines }}    console=yes
+            {% endif %}
             # Storage event data is passed via ${STORAGE_EVENT} variable from the executor
             ${storage_event}=    Get Variable Value    ${STORAGE_EVENT}    &{EMPTY}
+            ${provider}=    Evaluate    $storage_event.get('provider', '{{ node.storage_config.get('provider', 's3') if node.storage_config else 's3' }}')
             ${bucket}=    Evaluate    $storage_event.get('bucket', '{{ node.config.get('bucket', '') | transform_vars }}')
             ${key}=    Evaluate    $storage_event.get('key', '')
             ${event_type}=    Evaluate    $storage_event.get('event', '{{ node.config.get('event', 'ObjectCreated') }}')
             ${size}=    Evaluate    $storage_event.get('size', 0)
             ${timestamp}=    Evaluate    __import__('datetime').datetime.now().isoformat()
-            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${storage_event}    bucket=${bucket}    key=${key}    event=${event_type}    size=${size}    timestamp=${timestamp}
+            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${storage_event}    provider=${provider}    bucket=${bucket}    key=${key}    event=${event_type}    size=${size}    timestamp=${timestamp}
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $storage_event}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
 

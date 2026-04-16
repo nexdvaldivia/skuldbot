@@ -227,7 +227,8 @@ export const nodeTemplates: NodeTemplate[] = [
     needsStorageConnection: true,
     category: 'trigger',
     label: 'Storage Event',
-    description: 'Trigger on S3/MinIO storage events',
+    description:
+      'Trigger on file events from any connected Storage Provider (S3, Azure Blob, GCS, SharePoint, OneDrive, local, etc.)',
     icon: 'HardDrive',
     defaultConfig: { event: 'ObjectCreated' },
     configSchema: [
