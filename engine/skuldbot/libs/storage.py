@@ -4307,7 +4307,7 @@ class SkuldStorage:
             size = os.path.getsize(expected)
             robot_logger.info(f"Copied {local_path} to {expected}")
 
-            if cleanup and local_path.startswith(tempfile.gettempdir()):
+            if cleanup and local_path.startswith(os.path.join(tempfile.gettempdir(), "skuld_storage")):
                 self._cleanup_temp(local_path)
 
             return {"path": remote_path, "size": size, "provider": "local", "synced": True}
@@ -4328,7 +4328,7 @@ class SkuldStorage:
             f"Uploaded {local_path} to {remote_path} ({size} bytes, {provider_name})"
         )
 
-        if cleanup and local_path.startswith(tempfile.gettempdir()):
+        if cleanup and local_path.startswith(os.path.join(tempfile.gettempdir(), "skuld_storage")):
             self._cleanup_temp(local_path)
 
         return {"path": remote_path, "size": size, "provider": str(provider_name), "synced": True}
