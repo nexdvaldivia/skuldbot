@@ -9,7 +9,12 @@ import { ProviderFactoryService } from '../integrations/provider-factory.service
 import { resolveProviderChain } from '../integrations/provider-chain.util';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { User } from '../users/entities/user.entity';
-import { assertClientBoundary, resolveEffectiveClientScope } from './contracts-access.util';
+import {
+  assertClientBoundary,
+  ensureClientExists,
+  ensureTenantBelongsToClient,
+  resolveEffectiveClientScope,
+} from './contracts-access.util';
 import {
   ContractAcceptanceResponseDto,
   ContractEnvelopeResponseDto,
@@ -99,9 +104,9 @@ export class ContractSigningService {
     dto: SendTemplateForSignatureDto,
     currentUser: User,
   ): Promise<ContractEnvelopeResponseDto> {
-    await this.ensureClientExists(dto.clientId);
+    await ensureClientExists(this.clientRepository, dto.clientId);
     assertClientBoundary(dto.clientId, currentUser);
-    await this.ensureTenantBelongsToClient(dto.tenantId, dto.clientId);
+    await ensureTenantBelongsToClient(this.tenantRepository, dto.tenantId, dto.clientId);
 
     const templateVersion = await this.templateService.getPublishedTemplateVersion(templateId);
 
@@ -157,7 +162,52 @@ export class ContractSigningService {
       ),
     );
 
-    const envelope = await this.envelopeRepository.save(
+    const envelope = await this.createSigningEnvelope(
+      templateId,
+      dto,
+      templateVersion,
+      contract,
+      currentUser.id,
+      now,
+    );
+
+    contract.envelopeId = envelope.id;
+    await this.contractRepository.save(contract);
+
+    const recipientsWithOtp = await this.createEnvelopeRecipients(envelope.id, signers, now);
+    await this.sendSigningNotifications(envelope, recipientsWithOtp);
+    const recipients = recipientsWithOtp.map((entry) => entry.recipient);
+
+    await this.recordEnvelopeEvent(envelope.id, null, 'envelope.sent', 'control-plane-api', {
+      actorUserId: currentUser.id,
+      recipientCount: recipients.length,
+    });
+
+    await this.recordContractEvent(contract.id, 'contract.submitted', 'control-plane-api', {
+      actorUserId: currentUser.id,
+      envelopeId: envelope.id,
+      templateId,
+      templateVersionId: templateVersion.id,
+    });
+
+    return this.toEnvelopeResponse({
+      ...envelope,
+      recipients,
+    });
+  }
+
+  private async createSigningEnvelope(
+    templateId: string,
+    dto: SendTemplateForSignatureDto,
+    templateVersion: {
+      id: string;
+      template: { title: string; templateKey: string };
+    },
+    contract: Contract,
+    actorUserId: string,
+    now: Date,
+  ): Promise<ContractEnvelope> {
+    return this.envelopeRepository.save(
       this.envelopeRepository.create({
         contractId: contract.id,
         templateId,
@@ -173,23 +223,26 @@ export class ContractSigningService {
         completedAt: null,
         declinedAt: null,
         cancelledAt: null,
-        createdByUserId: currentUser.id,
-        updatedByUserId: currentUser.id,
+        createdByUserId: actorUserId,
+        updatedByUserId: actorUserId,
         metadata: {
           source: 'contracts.template.send',
           templateKey: templateVersion.template.templateKey,
         },
       }),
     );
+  }
 
-    contract.envelopeId = envelope.id;
-    await this.contractRepository.save(contract);
-
-    const recipients: ContractEnvelopeRecipient[] = [];
+  private async createEnvelopeRecipients(
+    envelopeId: string,
+    signers: ContractSigner[],
+    now: Date,
+  ): Promise<Array<{ recipient: ContractEnvelopeRecipient; otpCode: string }>> {
+    const recipientsWithOtp: Array<{ recipient: ContractEnvelopeRecipient; otpCode: string }> = [];
     for (const signer of signers) {
       const otpCode = this.generateOtpCode();
       const recipient = this.envelopeRecipientRepository.create({
-        envelopeId: envelope.id,
+        envelopeId,
         signerId: signer.id,
         email: signer.email,
         fullName: signer.fullName,
@@ -210,28 +263,21 @@ export class ContractSigningService {
         userAgent: null,
         metadata: {},
       });
-      const savedRecipient = await this.envelopeRecipientRepository.save(recipient);
-      recipients.push(savedRecipient);
 
-      await this.sendEnvelopeEmail(envelope, savedRecipient, otpCode);
+      const savedRecipient = await this.envelopeRecipientRepository.save(recipient);
+      recipientsWithOtp.push({ recipient: savedRecipient, otpCode });
     }
 
-    await this.recordEnvelopeEvent(envelope.id, null, 'envelope.sent', 'control-plane-api', {
-      actorUserId: currentUser.id,
-      recipientCount: recipients.length,
-    });
+    return recipientsWithOtp;
+  }
 
-    await this.recordContractEvent(contract.id, 'contract.submitted', 'control-plane-api', {
-      actorUserId: currentUser.id,
-      envelopeId: envelope.id,
-      templateId,
-      templateVersionId: templateVersion.id,
-    });
-
-    return this.toEnvelopeResponse({
-      ...envelope,
-      recipients,
-    });
+  private async sendSigningNotifications(
+    envelope: ContractEnvelope,
+    recipientsWithOtp: Array<{ recipient: ContractEnvelopeRecipient; otpCode: string }>,
+  ): Promise<void> {
+    for (const entry of recipientsWithOtp) {
+      await this.sendEnvelopeEmail(envelope, entry.recipient, entry.otpCode);
+    }
   }
 
   async listSentEnvelopes(
@@ -737,40 +783,6 @@ export class ContractSigningService {
         eventPayload,
       }),
     );
-  }
-
-  private async ensureClientExists(clientId: string): Promise<void> {
-    const exists = await this.clientRepository.exist({ where: { id: clientId } });
-    if (!exists) {
-      throw new BadRequestException({
-        code: 'CLIENT_NOT_FOUND',
-        message: `Client ${clientId} does not exist.`,
-      });
-    }
-  }
-
-  private async ensureTenantBelongsToClient(
-    tenantId: string | undefined,
-    clientId: string,
-  ): Promise<void> {
-    if (!tenantId) {
-      return;
-    }
-
-    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
-    if (!tenant) {
-      throw new BadRequestException({
-        code: 'TENANT_NOT_FOUND',
-        message: `Tenant ${tenantId} does not exist.`,
-      });
-    }
-
-    if (tenant.clientId !== clientId) {
-      throw new BadRequestException({
-        code: 'TENANT_CLIENT_MISMATCH',
-        message: `Tenant ${tenantId} is not owned by client ${clientId}.`,
-      });
-    }
   }
 
   private async sendEnvelopeEmail(

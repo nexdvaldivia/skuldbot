@@ -1,4 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
+import { Repository } from 'typeorm';
+import { Client } from '../clients/entities/client.entity';
+import { Tenant } from '../tenants/entities/tenant.entity';
 import { User } from '../users/entities/user.entity';
 
 export function resolveEffectiveClientScope(
@@ -57,4 +60,42 @@ export function normalizeCodes(values: string[] | null | undefined): string[] {
     .filter((value) => value.length > 0);
 
   return Array.from(new Set(normalized));
+}
+
+export async function ensureClientExists(
+  clientRepository: Repository<Client>,
+  clientId: string,
+): Promise<void> {
+  const exists = await clientRepository.exist({ where: { id: clientId } });
+  if (!exists) {
+    throw new BadRequestException({
+      code: 'CLIENT_NOT_FOUND',
+      message: `Client ${clientId} does not exist.`,
+    });
+  }
+}
+
+export async function ensureTenantBelongsToClient(
+  tenantRepository: Repository<Tenant>,
+  tenantId: string | undefined,
+  clientId: string,
+): Promise<void> {
+  if (!tenantId) {
+    return;
+  }
+
+  const tenant = await tenantRepository.findOne({ where: { id: tenantId } });
+  if (!tenant) {
+    throw new BadRequestException({
+      code: 'TENANT_NOT_FOUND',
+      message: `Tenant ${tenantId} does not exist.`,
+    });
+  }
+
+  if (tenant.clientId !== clientId) {
+    throw new BadRequestException({
+      code: 'TENANT_CLIENT_MISMATCH',
+      message: `Tenant ${tenantId} is not owned by client ${clientId}.`,
+    });
+  }
 }
