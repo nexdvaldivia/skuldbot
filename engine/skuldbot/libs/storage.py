@@ -32,6 +32,7 @@ import hashlib
 import mimetypes
 import tempfile
 import shutil
+import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -4200,3 +4201,164 @@ class SkuldStorage:
         
         return result
 
+
+    # =========================================================================
+    # FILE RESOLUTION — Bridge between storage providers and local-only nodes
+    # =========================================================================
+
+    @keyword("Storage Resolve To Local")
+    def resolve_to_local(
+        self,
+        remote_path: str,
+        mode: str = "read",
+        provider: str = None,
+    ) -> str:
+        """
+        Resolve a storage path to a local temporary file.
+
+        For local provider: returns the full local path directly (no copy).
+        For cloud providers: downloads the file to a temp directory first.
+
+        Use this before calling nodes that only accept local paths
+        (Excel, PDF, OCR, etc.).
+
+        Args:
+            remote_path: Path relative to the storage provider root
+            mode: "read" (download if cloud), "write" (prepare temp path only)
+            provider: Storage provider name (uses current if not specified)
+
+        Returns:
+            Absolute local file path ready for use
+
+        Example:
+            | ${local}= | Storage Resolve To Local | reports/q1.xlsx | mode=read |
+            | Open Workbook | ${local} |
+            | # ... work with the workbook locally ... |
+            | Storage Sync Back | ${local} | reports/q1.xlsx |
+        """
+        backend = self._providers.get(provider) if provider else self._get_provider()
+
+        # Local provider: resolve directly, no temp files needed
+        if hasattr(backend, 'root_path'):
+            full_path = os.path.join(backend.root_path, remote_path)
+            robot_logger.info(f"Resolved to local path: {full_path}")
+            return full_path
+
+        # Cloud provider: use temp directory
+        temp_dir = os.path.join(tempfile.gettempdir(), "skuld_storage", str(uuid.uuid4()))
+        os.makedirs(temp_dir, exist_ok=True)
+        local_path = os.path.join(temp_dir, os.path.basename(remote_path))
+
+        if mode == "read":
+            content = backend.read(remote_path)
+            if isinstance(content, str):
+                content = content.encode("utf-8")
+            with open(local_path, "wb") as f:
+                f.write(content)
+            robot_logger.info(
+                f"Downloaded {remote_path} to {local_path} ({len(content)} bytes)"
+            )
+        else:
+            robot_logger.info(f"Prepared local write path: {local_path}")
+
+        return local_path
+
+    @keyword("Storage Sync Back")
+    def sync_back(
+        self,
+        local_path: str,
+        remote_path: str,
+        content_type: str = None,
+        provider: str = None,
+        cleanup: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Upload a local file back to the storage provider.
+
+        For local provider: no-op if the file is already in place.
+        For cloud providers: uploads and optionally cleans up the temp file.
+
+        Args:
+            local_path: Absolute local file path
+            remote_path: Destination path in the storage provider
+            content_type: MIME type (auto-detected if not specified)
+            provider: Storage provider name (uses current if not specified)
+            cleanup: Remove the local temp file after upload (default: True)
+
+        Returns:
+            Dictionary with path, size, and provider info
+
+        Example:
+            | Storage Sync Back | /tmp/skuld_storage/.../q1.xlsx | reports/q1.xlsx |
+        """
+        backend = self._providers.get(provider) if provider else self._get_provider()
+
+        # Local provider: if the file is already at the right place, nothing to do
+        if hasattr(backend, 'root_path'):
+            expected = os.path.join(backend.root_path, remote_path)
+            if os.path.abspath(local_path) == os.path.abspath(expected):
+                size = os.path.getsize(local_path)
+                robot_logger.info(f"Local provider, file already in place: {expected}")
+                return {"path": remote_path, "size": size, "provider": "local", "synced": False}
+
+            # Local provider but file is in a temp location — copy it
+            os.makedirs(os.path.dirname(expected), exist_ok=True)
+            shutil.copy2(local_path, expected)
+            size = os.path.getsize(expected)
+            robot_logger.info(f"Copied {local_path} to {expected}")
+
+            if cleanup and local_path.startswith(tempfile.gettempdir()):
+                self._cleanup_temp(local_path)
+
+            return {"path": remote_path, "size": size, "provider": "local", "synced": True}
+
+        # Cloud provider: upload
+        with open(local_path, "rb") as f:
+            content = f.read()
+
+        if not content_type:
+            import mimetypes
+            content_type = mimetypes.guess_type(local_path)[0] or "application/octet-stream"
+
+        backend.write(remote_path, content, content_type=content_type)
+        size = len(content)
+        provider_name = getattr(backend, 'provider_type', 'cloud')
+
+        robot_logger.info(
+            f"Uploaded {local_path} to {remote_path} ({size} bytes, {provider_name})"
+        )
+
+        if cleanup and local_path.startswith(tempfile.gettempdir()):
+            self._cleanup_temp(local_path)
+
+        return {"path": remote_path, "size": size, "provider": str(provider_name), "synced": True}
+
+    @keyword("Storage Has Provider")
+    def has_provider(self, name: str = None) -> bool:
+        """
+        Check if a storage provider is configured.
+
+        Args:
+            name: Provider name (checks current provider if not specified)
+
+        Returns:
+            True if provider is configured and connected
+
+        Example:
+            | ${has}= | Storage Has Provider |
+            | Run Keyword If | not ${has} | Log | No storage provider, using local | WARN |
+        """
+        if name:
+            return name in self._providers
+        return self._current_provider is not None and self._current_provider in self._providers
+
+    def _cleanup_temp(self, local_path: str) -> None:
+        """Remove temp file and its parent directory if empty."""
+        try:
+            os.remove(local_path)
+            parent = os.path.dirname(local_path)
+            if parent.startswith(os.path.join(tempfile.gettempdir(), "skuld_storage")):
+                if not os.listdir(parent):
+                    os.rmdir(parent)
+        except OSError:
+            pass
