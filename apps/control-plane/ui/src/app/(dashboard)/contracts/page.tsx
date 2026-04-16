@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import {
   FileText,
   Plus,
@@ -14,6 +15,7 @@ import {
   XCircle,
   FilePen,
   Loader2,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -82,10 +84,10 @@ export default function ContractsPage() {
     clientId: '',
     title: '',
     templateKey: 'msa',
-    signerEmail: '',
-    signerName: '',
-    signerRole: 'Authorized Signer',
   });
+  const [createSigners, setCreateSigners] = useState<
+    { email: string; fullName: string; roleLabel: string }[]
+  >([{ email: '', fullName: '', roleLabel: 'Authorized Signer' }]);
 
   // Submit dialog
   const [submitOpen, setSubmitOpen] = useState(false);
@@ -170,16 +172,20 @@ export default function ContractsPage() {
   );
 
   const handleCreate = async () => {
-    if (
-      !createForm.clientId ||
-      !createForm.title ||
-      !createForm.signerEmail ||
-      !createForm.signerName
-    ) {
+    if (!createForm.clientId || !createForm.title) {
       toast({
         variant: 'error',
         title: 'Missing fields',
-        description: 'Fill all required fields.',
+        description: 'Select a client and enter a title.',
+      });
+      return;
+    }
+    const validSigners = createSigners.filter((s) => s.email.trim() && s.fullName.trim());
+    if (validSigners.length === 0) {
+      toast({
+        variant: 'error',
+        title: 'Missing signers',
+        description: 'Add at least one signer.',
       });
       return;
     }
@@ -190,25 +196,17 @@ export default function ContractsPage() {
         clientId: createForm.clientId,
         title: createForm.title,
         templateKey: createForm.templateKey,
-        signers: [
-          {
-            email: createForm.signerEmail,
-            fullName: createForm.signerName,
-            roleLabel: createForm.signerRole,
-          },
-        ],
+        signers: validSigners.map((s) => ({
+          email: s.email.trim().toLowerCase(),
+          fullName: s.fullName.trim(),
+          roleLabel: s.roleLabel.trim() || 'Authorized Signer',
+        })),
       };
       await contractsApi.create(input);
       toast({ variant: 'success', title: 'Contract created' });
       setCreateOpen(false);
-      setCreateForm({
-        clientId: '',
-        title: '',
-        templateKey: 'msa',
-        signerEmail: '',
-        signerName: '',
-        signerRole: 'Authorized Signer',
-      });
+      setCreateForm({ clientId: '', title: '', templateKey: 'msa' });
+      setCreateSigners([{ email: '', fullName: '', roleLabel: 'Authorized Signer' }]);
       await loadData();
     } catch (error) {
       toast({
@@ -423,8 +421,9 @@ export default function ContractsPage() {
               const signedCount = contract.signers?.filter((s) => s.signedAt).length || 0;
 
               return (
-                <div
+                <Link
                   key={contract.id}
+                  href={`/contracts/${contract.id}`}
                   className="flex items-center gap-4 px-5 py-4 hover:bg-zinc-50/50 transition-colors group"
                 >
                   <div className="w-10 h-10 rounded-lg bg-zinc-100 flex items-center justify-center flex-shrink-0">
@@ -505,7 +504,7 @@ export default function ContractsPage() {
                       </Button>
                     )}
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
@@ -567,25 +566,67 @@ export default function ContractsPage() {
               />
             </div>
             <div className="border-t border-zinc-100 pt-4">
-              <label className="text-sm font-semibold text-zinc-700 mb-2 block">Signer</label>
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  value={createForm.signerName}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, signerName: e.target.value }))}
-                  placeholder="Full name"
-                />
-                <Input
-                  value={createForm.signerEmail}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, signerEmail: e.target.value }))}
-                  placeholder="Email"
-                />
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-semibold text-zinc-700">Signers</label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCreateSigners((s) => [
+                      ...s,
+                      { email: '', fullName: '', roleLabel: 'Authorized Signer' },
+                    ])
+                  }
+                  className="text-xs font-medium text-brand-600 hover:text-brand-700"
+                >
+                  + Add signer
+                </button>
               </div>
-              <Input
-                value={createForm.signerRole}
-                onChange={(e) => setCreateForm((f) => ({ ...f, signerRole: e.target.value }))}
-                placeholder="Role (e.g., CEO, Legal Counsel)"
-                className="mt-3"
-              />
+              <div className="space-y-3">
+                {createSigners.map((signer, index) => (
+                  <div key={index} className="flex gap-2 items-start">
+                    <div className="flex-1 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input
+                          value={signer.fullName}
+                          onChange={(e) => {
+                            const updated = [...createSigners];
+                            updated[index] = { ...updated[index], fullName: e.target.value };
+                            setCreateSigners(updated);
+                          }}
+                          placeholder="Full name"
+                        />
+                        <Input
+                          value={signer.email}
+                          onChange={(e) => {
+                            const updated = [...createSigners];
+                            updated[index] = { ...updated[index], email: e.target.value };
+                            setCreateSigners(updated);
+                          }}
+                          placeholder="Email"
+                        />
+                      </div>
+                      <Input
+                        value={signer.roleLabel}
+                        onChange={(e) => {
+                          const updated = [...createSigners];
+                          updated[index] = { ...updated[index], roleLabel: e.target.value };
+                          setCreateSigners(updated);
+                        }}
+                        placeholder="Role (e.g., CEO, Legal)"
+                      />
+                    </div>
+                    {createSigners.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setCreateSigners((s) => s.filter((_, i) => i !== index))}
+                        className="mt-2 text-zinc-400 hover:text-red-500"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
           <DialogFooter>
