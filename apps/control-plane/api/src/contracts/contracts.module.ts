@@ -25,6 +25,7 @@ import { ContractSignatoryPolicy } from './entities/contract-signatory-policy.en
 import { ContractTypeLookup } from './entities/contract-type-lookup.entity';
 import { ContractEvent } from './entities/contract-event.entity';
 import { ContractSigner } from './entities/contract-signer.entity';
+import { SigningDocument } from './entities/signing-document.entity';
 import { ContractTemplateVersion } from './entities/contract-template-version.entity';
 import { ContractTemplate } from './entities/contract-template.entity';
 import { Contract } from './entities/contract.entity';
@@ -41,6 +42,7 @@ import { PdfService } from './pdf.service';
       ContractEnvelope,
       ContractEnvelopeRecipient,
       ContractEnvelopeEvent,
+      SigningDocument,
       ContractAcceptance,
       ContractRequirement,
       ContractSignatory,

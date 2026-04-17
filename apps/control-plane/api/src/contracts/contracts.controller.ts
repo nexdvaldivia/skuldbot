@@ -66,16 +66,28 @@ import {
 import {
   AcceptContractDto,
   ClientContractStatusResponseDto,
+  CompleteEnvelopeOfflineDto,
   ContractAcceptanceResponseDto,
+  CreateEnvelopeDto,
+  CreateEnvelopeFromTemplatesDto,
+  CreateSigningDocumentDto,
+  EnvelopeDeliveryHistoryResponseDto,
+  EnvelopeStatusSummaryDto,
   ContractEvidenceVerificationResponseDto,
   ContractEnvelopeResponseDto,
   CountersignAcceptanceDto,
   DeclineEnvelopeRecipientDto,
   ListContractAcceptancesQueryDto,
   ListSentContractsQueryDto,
+  ReassignEnvelopeRecipientDto,
   RenderedAcceptanceResponseDto,
+  ResendEnvelopeDto,
   RevokeAcceptanceDto,
   SignEnvelopeRecipientDto,
+  SigningDocumentResponseDto,
+  UpdateEnvelopeDto,
+  UpdateSigningDocumentDto,
+  UploadEnvelopeOfflineEvidenceDto,
   VerifyEnvelopeOtpDto,
 } from './dto/signing.dto';
 import {
@@ -322,6 +334,173 @@ export class ContractsController {
     @CurrentUser() currentUser: User,
   ): Promise<ContractEnvelopeResponseDto> {
     return this.contractSigningService.sendTemplateForSignature(templateId, dto, currentUser);
+  }
+
+  @Post('envelopes')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_WRITE)
+  @HttpCode(HttpStatus.CREATED)
+  async createEnvelope(
+    @Body() dto: CreateEnvelopeDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractEnvelopeResponseDto> {
+    return this.contractSigningService.createEnvelope(dto, currentUser);
+  }
+
+  @Post('envelopes/from-templates')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_WRITE)
+  @HttpCode(HttpStatus.CREATED)
+  async createEnvelopeFromTemplates(
+    @Body() dto: CreateEnvelopeFromTemplatesDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractEnvelopeResponseDto> {
+    return this.contractSigningService.createEnvelopeFromTemplates(dto, currentUser);
+  }
+
+  @Patch('envelopes/:envelopeId')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_WRITE)
+  async updateEnvelope(
+    @Param('envelopeId') envelopeId: string,
+    @Body() dto: UpdateEnvelopeDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractEnvelopeResponseDto> {
+    return this.contractSigningService.updateEnvelope(envelopeId, dto, currentUser);
+  }
+
+  @Get('envelopes/:envelopeId/status')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async getEnvelopeStatus(
+    @Param('envelopeId') envelopeId: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<EnvelopeStatusSummaryDto> {
+    return this.contractSigningService.getEnvelopeStatusSummary(envelopeId, currentUser);
+  }
+
+  @Post('envelopes/:envelopeId/void')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_SIGN)
+  async voidEnvelope(
+    @Param('envelopeId') envelopeId: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractEnvelopeResponseDto> {
+    return this.contractSigningService.voidEnvelope(envelopeId, currentUser);
+  }
+
+  @Post('envelopes/:envelopeId/suspend')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_SIGN)
+  async suspendEnvelope(
+    @Param('envelopeId') envelopeId: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractEnvelopeResponseDto> {
+    return this.contractSigningService.suspendEnvelope(envelopeId, currentUser);
+  }
+
+  @Post('envelopes/:envelopeId/resume')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_SIGN)
+  async resumeEnvelope(
+    @Param('envelopeId') envelopeId: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractEnvelopeResponseDto> {
+    return this.contractSigningService.resumeEnvelope(envelopeId, currentUser);
+  }
+
+  @Post('envelopes/:envelopeId/reassign-recipient')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_SIGN)
+  async reassignEnvelopeRecipient(
+    @Param('envelopeId') envelopeId: string,
+    @Body() dto: ReassignEnvelopeRecipientDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractEnvelopeResponseDto> {
+    return this.contractSigningService.reassignEnvelopeRecipient(envelopeId, dto, currentUser);
+  }
+
+  @Post('envelopes/:envelopeId/force-close')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  async forceCloseEnvelope(
+    @Param('envelopeId') envelopeId: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractEnvelopeResponseDto> {
+    return this.contractSigningService.forceCloseEnvelope(envelopeId, currentUser);
+  }
+
+  @Post('envelopes/:envelopeId/resend')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_SIGN)
+  async resendEnvelope(
+    @Param('envelopeId') envelopeId: string,
+    @Body() dto: ResendEnvelopeDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractEnvelopeResponseDto> {
+    return this.contractSigningService.resendEnvelope(envelopeId, dto, currentUser);
+  }
+
+  @Get('envelopes/:envelopeId/delivery-history')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async getEnvelopeDeliveryHistory(
+    @Param('envelopeId') envelopeId: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<EnvelopeDeliveryHistoryResponseDto> {
+    return this.contractSigningService.getEnvelopeDeliveryHistory(envelopeId, currentUser);
+  }
+
+  @Post('envelopes/:envelopeId/offline-evidence/upload')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_SIGN)
+  async uploadEnvelopeOfflineEvidence(
+    @Param('envelopeId') envelopeId: string,
+    @Body() dto: UploadEnvelopeOfflineEvidenceDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractEnvelopeResponseDto> {
+    return this.contractSigningService.uploadEnvelopeOfflineEvidence(envelopeId, dto, currentUser);
+  }
+
+  @Post('envelopes/:envelopeId/complete-offline')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_SIGN)
+  async completeEnvelopeOffline(
+    @Param('envelopeId') envelopeId: string,
+    @Body() dto: CompleteEnvelopeOfflineDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractEnvelopeResponseDto> {
+    return this.contractSigningService.completeEnvelopeOffline(envelopeId, dto, currentUser);
+  }
+
+  @Post('envelopes/:envelopeId/documents')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_WRITE)
+  @HttpCode(HttpStatus.CREATED)
+  async addEnvelopeDocument(
+    @Param('envelopeId') envelopeId: string,
+    @Body() dto: CreateSigningDocumentDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<SigningDocumentResponseDto> {
+    return this.contractSigningService.addEnvelopeDocument(envelopeId, dto, currentUser);
+  }
+
+  @Get('envelopes/:envelopeId/documents/:docId')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async getEnvelopeDocument(
+    @Param('envelopeId') envelopeId: string,
+    @Param('docId') docId: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<SigningDocumentResponseDto> {
+    return this.contractSigningService.getEnvelopeDocument(envelopeId, docId, currentUser);
+  }
+
+  @Patch('envelopes/:envelopeId/documents/:docId')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_WRITE)
+  async updateEnvelopeDocument(
+    @Param('envelopeId') envelopeId: string,
+    @Param('docId') docId: string,
+    @Body() dto: UpdateSigningDocumentDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<SigningDocumentResponseDto> {
+    return this.contractSigningService.updateEnvelopeDocument(envelopeId, docId, dto, currentUser);
+  }
+
+  @Delete('envelopes/:envelopeId/documents/:docId')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_WRITE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteEnvelopeDocument(
+    @Param('envelopeId') envelopeId: string,
+    @Param('docId') docId: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<void> {
+    await this.contractSigningService.deleteEnvelopeDocument(envelopeId, docId, currentUser);
   }
 
   @Get('sent')

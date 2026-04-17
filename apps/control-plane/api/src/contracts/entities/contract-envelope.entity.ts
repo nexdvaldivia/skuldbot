@@ -14,6 +14,7 @@ import { Contract } from './contract.entity';
 import { ContractEnvelopeStatus } from './contract-domain.enums';
 import { ContractEnvelopeEvent } from './contract-envelope-event.entity';
 import { ContractEnvelopeRecipient } from './contract-envelope-recipient.entity';
+import { SigningDocument } from './signing-document.entity';
 import { ContractTemplate } from './contract-template.entity';
 import { ContractTemplateVersion } from './contract-template-version.entity';
 
@@ -106,6 +107,11 @@ export class ContractEnvelope {
     cascade: false,
   })
   events: ContractEnvelopeEvent[];
+
+  @OneToMany(() => SigningDocument, (document) => document.envelope, {
+    cascade: false,
+  })
+  documents: SigningDocument[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

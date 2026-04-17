@@ -12,6 +12,7 @@ function createRepositoryMock() {
     find: jest.fn(),
     save: jest.fn(async (value) => value),
     create: jest.fn((value) => value),
+    delete: jest.fn(),
     exist: jest.fn(async () => true),
     createQueryBuilder: jest.fn(),
   };
@@ -24,6 +25,7 @@ function createService() {
   const envelopeRepository = createRepositoryMock();
   const envelopeRecipientRepository = createRepositoryMock();
   const envelopeEventRepository = createRepositoryMock();
+  const signingDocumentRepository = createRepositoryMock();
   const acceptanceRepository = createRepositoryMock();
   const clientRepository = createRepositoryMock();
   const tenantRepository = createRepositoryMock();
@@ -76,6 +78,7 @@ function createService() {
     envelopeRepository as any,
     envelopeRecipientRepository as any,
     envelopeEventRepository as any,
+    signingDocumentRepository as any,
     acceptanceRepository as any,
     clientRepository as any,
     tenantRepository as any,
@@ -91,7 +94,10 @@ function createService() {
     mocks: {
       contractRepository,
       signerRepository,
+      envelopeRepository,
       envelopeRecipientRepository,
+      envelopeEventRepository,
+      signingDocumentRepository,
       acceptanceRepository,
     },
   };
@@ -418,5 +424,83 @@ describe('ContractSigningService blockers', () => {
     const response = await service.getRenderedAcceptance('acc-1', currentUser);
     expect(response.acceptanceId).toBe('acc-1');
     expect(response.contentSnapshot).toBe('<p>Signed MSA</p>');
+  });
+
+  it('creates envelope status summary counts', async () => {
+    const { service, mocks } = createService();
+    mocks.envelopeRepository.findOne.mockResolvedValue({
+      id: 'env-1',
+      clientId: 'client-1',
+      status: 'sent',
+      updatedAt: new Date(),
+      recipients: [
+        { status: ContractEnvelopeRecipientStatus.SIGNED },
+        { status: ContractEnvelopeRecipientStatus.SENT },
+      ],
+    });
+
+    const summary = await service.getEnvelopeStatusSummary('env-1', currentUser);
+    expect(summary.totalRecipients).toBe(2);
+    expect(summary.completedRecipients).toBe(1);
+    expect(summary.pendingRecipients).toBe(1);
+  });
+
+  it('adds envelope document with content hash', async () => {
+    const { service, mocks } = createService();
+    mocks.envelopeRepository.findOne.mockResolvedValue({
+      id: 'env-1',
+      clientId: 'client-1',
+    });
+    mocks.signingDocumentRepository.save.mockImplementation(async (value: any) => ({
+      id: 'doc-1',
+      envelopeId: 'env-1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...value,
+    }));
+
+    const response = await service.addEnvelopeDocument(
+      'env-1',
+      { name: 'Main document', content: '<p>x</p>' },
+      currentUser,
+    );
+
+    expect(response.id).toBe('doc-1');
+    expect(response.contentHash).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it('reassigns recipient and resets OTP challenge', async () => {
+    const { service, mocks } = createService();
+    mocks.envelopeRepository.findOne.mockResolvedValue({
+      id: 'env-1',
+      clientId: 'client-1',
+    });
+    mocks.envelopeRecipientRepository.findOne.mockResolvedValue({
+      id: 'rec-1',
+      envelopeId: 'env-1',
+      email: 'old@example.com',
+      fullName: 'Old Signer',
+      roleLabel: 'Signer',
+      status: ContractEnvelopeRecipientStatus.SENT,
+      metadata: {},
+    });
+
+    jest.spyOn(service as any, 'sendEnvelopeEmail').mockResolvedValue(undefined);
+    jest.spyOn(service as any, 'loadEnvelopeResponse').mockResolvedValue({ id: 'env-1' });
+
+    await service.reassignEnvelopeRecipient(
+      'env-1',
+      {
+        recipientId: 'rec-1',
+        email: 'new@example.com',
+        fullName: 'New Signer',
+      },
+      currentUser,
+    );
+
+    const updatedRecipient = mocks.envelopeRecipientRepository.save.mock.calls[0][0];
+    expect(updatedRecipient.email).toBe('new@example.com');
+    expect(updatedRecipient.otpCodeHash).toBeTruthy();
+    expect(updatedRecipient.otpVerifiedAt).toBeNull();
   });
 });

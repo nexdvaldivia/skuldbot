@@ -284,4 +284,82 @@ describe('ContractsController', () => {
     expect(requirementService.renderTemplateForClient).toHaveBeenCalledWith('tpl-1', 'client-1');
     expect(result.clientId).toBe('client-1');
   });
+
+  it('delegates admin envelope creation to signing service', async () => {
+    const signingService = {
+      createEnvelope: jest.fn().mockResolvedValue({ id: 'env-1' }),
+    } as unknown as ContractSigningService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      {} as ContractTemplateService,
+      signingService,
+      {} as ContractLookupsService,
+      {} as ContractRequirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const dto = {
+      clientId: 'client-1',
+      subject: 'Signature request',
+      recipients: [{ email: 'a@example.com', fullName: 'A Signer' }],
+    } as any;
+    const currentUser = { id: 'user-1' } as any;
+    const result = await controller.createEnvelope(dto, currentUser);
+
+    expect(signingService.createEnvelope).toHaveBeenCalledWith(dto, currentUser);
+    expect(result.id).toBe('env-1');
+  });
+
+  it('delegates envelope resend to signing service', async () => {
+    const signingService = {
+      resendEnvelope: jest.fn().mockResolvedValue({ id: 'env-1' }),
+    } as unknown as ContractSigningService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      {} as ContractTemplateService,
+      signingService,
+      {} as ContractLookupsService,
+      {} as ContractRequirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const dto = { recipientId: 'rec-1' } as any;
+    const currentUser = { id: 'user-1' } as any;
+    const result = await controller.resendEnvelope('env-1', dto, currentUser);
+
+    expect(signingService.resendEnvelope).toHaveBeenCalledWith('env-1', dto, currentUser);
+    expect(result.id).toBe('env-1');
+  });
+
+  it('delegates envelope document update to signing service', async () => {
+    const signingService = {
+      updateEnvelopeDocument: jest.fn().mockResolvedValue({ id: 'doc-1' }),
+    } as unknown as ContractSigningService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      {} as ContractTemplateService,
+      signingService,
+      {} as ContractLookupsService,
+      {} as ContractRequirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const dto = { name: 'Updated doc' } as any;
+    const currentUser = { id: 'user-1' } as any;
+    const result = await controller.updateEnvelopeDocument('env-1', 'doc-1', dto, currentUser);
+
+    expect(signingService.updateEnvelopeDocument).toHaveBeenCalledWith(
+      'env-1',
+      'doc-1',
+      dto,
+      currentUser,
+    );
+    expect(result.id).toBe('doc-1');
+  });
 });

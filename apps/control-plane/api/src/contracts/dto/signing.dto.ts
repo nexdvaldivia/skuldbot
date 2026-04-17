@@ -1,15 +1,21 @@
+import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBase64,
   IsDateString,
+  IsEmail,
   IsEnum,
+  IsInt,
   IsIP,
   IsNotEmpty,
   IsObject,
   IsOptional,
   IsString,
   IsUUID,
+  Min,
   MaxLength,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 import {
   ContractAcceptanceMethod,
@@ -56,6 +62,286 @@ export class ContractEnvelopeResponseDto {
   recipients: ContractEnvelopeRecipientResponseDto[];
   createdAt: Date;
   updatedAt: Date;
+}
+
+export class EnvelopeStatusSummaryDto {
+  envelopeId: string;
+  status: ContractEnvelopeStatus;
+  recipientCounts: Record<string, number>;
+  totalRecipients: number;
+  completedRecipients: number;
+  declinedRecipients: number;
+  pendingRecipients: number;
+  updatedAt: Date;
+}
+
+export class EnvelopeDeliveryHistoryItemDto {
+  id: string;
+  envelopeId: string;
+  recipientId: string | null;
+  eventType: string;
+  eventSource: string | null;
+  eventPayload: Record<string, unknown>;
+  occurredAt: Date;
+}
+
+export class EnvelopeDeliveryHistoryResponseDto {
+  envelopeId: string;
+  events: EnvelopeDeliveryHistoryItemDto[];
+}
+
+export class SigningDocumentResponseDto {
+  id: string;
+  envelopeId: string;
+  name: string;
+  contentType: string;
+  contentHash: string;
+  sortOrder: number;
+  templateId: string | null;
+  templateVersionId: string | null;
+  variables: Record<string, unknown> | null;
+  metadata: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export class CreateEnvelopeRecipientDto {
+  @IsEmail()
+  @MaxLength(180)
+  email: string;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(180)
+  fullName: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  roleLabel?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  sortOrder?: number;
+}
+
+export class CreateEnvelopeDto {
+  @IsUUID()
+  clientId: string;
+
+  @IsOptional()
+  @IsUUID()
+  tenantId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  contractId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  templateId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  templateVersionId?: string;
+
+  @IsString()
+  @MinLength(3)
+  @MaxLength(220)
+  subject: string;
+
+  @IsOptional()
+  @IsDateString()
+  expiresAt?: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateEnvelopeRecipientDto)
+  recipients: CreateEnvelopeRecipientDto[];
+
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>;
+}
+
+export class CreateEnvelopeFromTemplatesDto {
+  @IsUUID()
+  clientId: string;
+
+  @IsOptional()
+  @IsUUID()
+  tenantId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(220)
+  subject?: string;
+
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  templateIds: string[];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateEnvelopeRecipientDto)
+  recipients: CreateEnvelopeRecipientDto[];
+
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>;
+}
+
+export class UpdateEnvelopeDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(220)
+  subject?: string;
+
+  @IsOptional()
+  @IsDateString()
+  expiresAt?: string;
+
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>;
+}
+
+export class ReassignEnvelopeRecipientDto {
+  @IsUUID()
+  recipientId: string;
+
+  @IsEmail()
+  @MaxLength(180)
+  email: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(180)
+  fullName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  roleLabel?: string;
+}
+
+export class ResendEnvelopeDto {
+  @IsOptional()
+  @IsUUID()
+  recipientId?: string;
+}
+
+export class UploadEnvelopeOfflineEvidenceDto {
+  @IsBase64()
+  contentBase64: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  contentType?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  fileName?: string;
+}
+
+export class CompleteEnvelopeOfflineDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(180)
+  acceptedByName: string;
+
+  @IsEmail()
+  @MaxLength(180)
+  acceptedByEmail: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(180)
+  acceptedByTitle?: string;
+
+  @IsOptional()
+  @IsIP()
+  ipAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  userAgent?: string;
+}
+
+export class CreateSigningDocumentDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(255)
+  name: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  contentType?: string;
+
+  @IsOptional()
+  @IsString()
+  content?: string;
+
+  @IsOptional()
+  @IsUUID()
+  templateId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  templateVersionId?: string;
+
+  @IsOptional()
+  @IsObject()
+  variables?: Record<string, unknown>;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  sortOrder?: number;
+
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>;
+}
+
+export class UpdateSigningDocumentDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(255)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  contentType?: string;
+
+  @IsOptional()
+  @IsString()
+  content?: string;
+
+  @IsOptional()
+  @IsObject()
+  variables?: Record<string, unknown>;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  sortOrder?: number;
+
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>;
 }
 
 export class ListSentContractsQueryDto {
