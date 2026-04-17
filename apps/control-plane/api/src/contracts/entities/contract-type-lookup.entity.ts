@@ -14,14 +14,23 @@ export class ContractTypeLookup {
   @Column({ type: 'varchar', length: 80, unique: true })
   code: string;
 
-  @Column({ type: 'varchar', length: 180 })
-  label: string;
+  @Column({ type: 'varchar', length: 180, name: 'name' })
+  name: string;
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   description: string | null;
 
   @Column({ name: 'sort_order', type: 'integer', default: 0 })
   sortOrder: number;
+
+  @Column({ name: 'contract_level', type: 'varchar', length: 20, default: 'installation' })
+  contractLevel: string;
+
+  @Column({ name: 'contract_scope', type: 'varchar', length: 20, default: 'global' })
+  contractScope: string;
+
+  @Column({ name: 'product_scopes', type: 'jsonb', nullable: true })
+  productScopes: string[] | null;
 
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;

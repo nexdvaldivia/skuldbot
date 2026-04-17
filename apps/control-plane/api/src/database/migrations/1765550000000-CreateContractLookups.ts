@@ -10,9 +10,12 @@ export class CreateContractLookups1765550000000 implements MigrationInterface {
       CREATE TABLE IF NOT EXISTS "cp_contract_type_lookups" (
         "id" uuid NOT NULL DEFAULT gen_random_uuid(),
         "code" character varying(80) NOT NULL,
-        "label" character varying(180) NOT NULL,
+        "name" character varying(180) NOT NULL,
         "description" character varying(500),
         "sort_order" integer NOT NULL DEFAULT 0,
+        "contract_level" character varying(20) NOT NULL DEFAULT 'installation',
+        "contract_scope" character varying(20) NOT NULL DEFAULT 'global',
+        "product_scopes" jsonb,
         "is_active" boolean NOT NULL DEFAULT true,
         "created_by_user_id" uuid,
         "updated_by_user_id" uuid,
@@ -28,7 +31,7 @@ export class CreateContractLookups1765550000000 implements MigrationInterface {
       CREATE TABLE IF NOT EXISTS "cp_contract_jurisdiction_lookups" (
         "id" uuid NOT NULL DEFAULT gen_random_uuid(),
         "code" character varying(80) NOT NULL,
-        "label" character varying(180) NOT NULL,
+        "name" character varying(180) NOT NULL,
         "description" character varying(500),
         "sort_order" integer NOT NULL DEFAULT 0,
         "is_active" boolean NOT NULL DEFAULT true,
@@ -46,7 +49,7 @@ export class CreateContractLookups1765550000000 implements MigrationInterface {
       CREATE TABLE IF NOT EXISTS "cp_contract_compliance_framework_lookups" (
         "id" uuid NOT NULL DEFAULT gen_random_uuid(),
         "code" character varying(80) NOT NULL,
-        "label" character varying(180) NOT NULL,
+        "name" character varying(180) NOT NULL,
         "description" character varying(500),
         "sort_order" integer NOT NULL DEFAULT 0,
         "is_active" boolean NOT NULL DEFAULT true,

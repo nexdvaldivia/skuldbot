@@ -197,7 +197,7 @@ export class BulkUpsertContractSignatoriesDto {
 
 export class ContractLookupsGroupItemDto {
   code: string;
-  label: string;
+  name: string;
   description: string | null;
   sortOrder: number;
   metadata: Record<string, unknown>;
@@ -228,7 +228,7 @@ export class CreateContractLookupDto {
 
   @IsString()
   @MaxLength(180)
-  label: string;
+  name: string;
 
   @IsOptional()
   @IsString()
@@ -247,6 +247,21 @@ export class CreateContractLookupDto {
   @IsOptional()
   @IsObject()
   metadata?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  contractLevel?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  contractScope?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  productScopes?: string[];
 }
 
 export class UpdateContractLookupDto {
@@ -258,7 +273,7 @@ export class UpdateContractLookupDto {
   @IsOptional()
   @IsString()
   @MaxLength(180)
-  label?: string;
+  name?: string;
 
   @IsOptional()
   @IsString()
@@ -277,15 +292,33 @@ export class UpdateContractLookupDto {
   @IsOptional()
   @IsObject()
   metadata?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  contractLevel?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  contractScope?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  productScopes?: string[];
 }
 
 export class ContractLookupItemDto {
   id: string;
   code: string;
-  label: string;
+  name: string;
   description: string | null;
   sortOrder: number;
   isActive: boolean;
+  contractLevel?: string;
+  contractScope?: string;
+  productScopes?: string[] | null;
   metadata: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;

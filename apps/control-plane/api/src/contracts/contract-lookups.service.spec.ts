@@ -64,7 +64,7 @@ describe('ContractLookupsService', () => {
       {
         id: 'type-1',
         code: 'msa',
-        label: 'MSA',
+        name: 'MSA',
         description: null,
         sortOrder: 10,
         isActive: true,
@@ -77,7 +77,7 @@ describe('ContractLookupsService', () => {
       {
         id: 'jur-1',
         code: 'us',
-        label: 'United States',
+        name: 'United States',
         description: null,
         sortOrder: 5,
         isActive: true,
@@ -90,7 +90,7 @@ describe('ContractLookupsService', () => {
       {
         id: 'fw-1',
         code: 'hipaa',
-        label: 'HIPAA',
+        name: 'HIPAA',
         description: null,
         sortOrder: 1,
         isActive: true,
@@ -113,7 +113,7 @@ describe('ContractLookupsService', () => {
     expect(result.complianceFrameworks).toHaveLength(1);
     expect(typeRepo.find).toHaveBeenCalledWith({
       where: { isActive: true },
-      order: { sortOrder: 'ASC', label: 'ASC' },
+      order: { sortOrder: 'ASC', name: 'ASC' },
     });
   });
 
@@ -122,7 +122,7 @@ describe('ContractLookupsService', () => {
       {
         id: 'type-1',
         code: 'msa',
-        label: 'MSA',
+        name: 'MSA',
         description: null,
         sortOrder: 0,
         isActive: true,
@@ -141,7 +141,7 @@ describe('ContractLookupsService', () => {
       service.createContractType(
         {
           code: 'MSA',
-          label: 'Master Service Agreement',
+          name: 'Master Service Agreement',
         },
         makeUser(),
       ),
@@ -159,7 +159,7 @@ describe('ContractLookupsService', () => {
       service.updateJurisdiction(
         'missing-id',
         {
-          label: 'European Union',
+          name: 'European Union',
         },
         makeUser(),
       ),
@@ -174,7 +174,7 @@ describe('ContractLookupsService', () => {
         {
           id: 'fw-1',
           code: 'soc2',
-          label: 'SOC 2',
+          name: 'SOC 2',
           description: null,
           sortOrder: 1,
           isActive: true,
@@ -185,7 +185,7 @@ describe('ContractLookupsService', () => {
         {
           id: 'fw-2',
           code: 'legacy-framework',
-          label: 'Legacy Framework',
+          name: 'Legacy Framework',
           description: null,
           sortOrder: 2,
           isActive: false,

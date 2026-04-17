@@ -172,7 +172,7 @@ export class ContractLookupsService {
       where: where as any,
       order: {
         sortOrder: 'ASC',
-        label: 'ASC',
+        name: 'ASC',
       } as any,
     });
     return records.map((record: ContractLookupEntity) => this.toLookupItem(record));
@@ -185,13 +185,16 @@ export class ContractLookupsService {
   ): Promise<ContractLookupItemDto> {
     const record = config.repository.create({
       code: dto.code.trim().toLowerCase(),
-      label: dto.label.trim(),
+      name: dto.name.trim(),
       description: dto.description?.trim() || null,
       sortOrder: dto.sortOrder ?? 0,
       isActive: dto.isActive ?? true,
       metadata: dto.metadata ?? {},
       createdByUserId: currentUser.id,
       updatedByUserId: currentUser.id,
+      contractLevel: dto.contractLevel?.trim() || undefined,
+      contractScope: dto.contractScope?.trim() || undefined,
+      productScopes: dto.productScopes ?? undefined,
     });
 
     try {
@@ -223,8 +226,8 @@ export class ContractLookupsService {
     if (dto.code !== undefined) {
       existing.code = dto.code.trim().toLowerCase();
     }
-    if (dto.label !== undefined) {
-      existing.label = dto.label.trim();
+    if (dto.name !== undefined) {
+      existing.name = dto.name.trim();
     }
     if (dto.description !== undefined) {
       existing.description = dto.description.trim() || null;
@@ -240,6 +243,15 @@ export class ContractLookupsService {
         ...(existing.metadata ?? {}),
         ...dto.metadata,
       };
+    }
+    if ('contractLevel' in existing && dto.contractLevel !== undefined) {
+      existing.contractLevel = dto.contractLevel.trim();
+    }
+    if ('contractScope' in existing && dto.contractScope !== undefined) {
+      existing.contractScope = dto.contractScope.trim();
+    }
+    if ('productScopes' in existing && dto.productScopes !== undefined) {
+      existing.productScopes = dto.productScopes;
     }
 
     existing.updatedByUserId = currentUser.id;
@@ -261,10 +273,13 @@ export class ContractLookupsService {
     return {
       id: value.id,
       code: value.code,
-      label: value.label,
+      name: value.name,
       description: value.description,
       sortOrder: value.sortOrder,
       isActive: value.isActive,
+      contractLevel: 'contractLevel' in value ? value.contractLevel : undefined,
+      contractScope: 'contractScope' in value ? value.contractScope : undefined,
+      productScopes: 'productScopes' in value ? value.productScopes : undefined,
       metadata: value.metadata ?? {},
       createdAt: value.createdAt,
       updatedAt: value.updatedAt,

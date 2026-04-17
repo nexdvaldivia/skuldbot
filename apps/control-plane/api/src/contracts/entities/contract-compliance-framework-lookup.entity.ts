@@ -14,8 +14,8 @@ export class ContractComplianceFrameworkLookup {
   @Column({ type: 'varchar', length: 80, unique: true })
   code: string;
 
-  @Column({ type: 'varchar', length: 180 })
-  label: string;
+  @Column({ type: 'varchar', length: 180, name: 'name' })
+  name: string;
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   description: string | null;
