@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ClientContact } from '../clients/entities/client-contact.entity';
 import { Client } from '../clients/entities/client.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { ContractGateService } from './contract-gate.service';
@@ -49,6 +50,7 @@ import { PdfService } from './pdf.service';
       ContractJurisdictionLookup,
       ContractComplianceFrameworkLookup,
       Client,
+      ClientContact,
       Tenant,
     ]),
   ],

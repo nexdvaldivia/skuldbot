@@ -211,4 +211,77 @@ describe('ContractsController', () => {
     );
     expect(result.versionId).toBe('tv-2');
   });
+
+  it('delegates subscription validation to requirement service with resolved client scope', async () => {
+    const requirementService = {
+      validateSubscriptionContracts: jest.fn().mockResolvedValue({
+        valid: false,
+        missingContractTypes: ['MSA'],
+      }),
+    } as unknown as ContractRequirementService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      {} as ContractTemplateService,
+      {} as ContractSigningService,
+      {} as ContractLookupsService,
+      requirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const dto = { clientId: 'client-1', planTier: 'enterprise' } as any;
+    const currentUser = { clientId: 'client-1', isSkuld: () => false } as any;
+    const result = await controller.validateContractsForSubscription(dto, currentUser);
+
+    expect(requirementService.validateSubscriptionContracts).toHaveBeenCalledWith(dto, 'client-1');
+    expect(result.valid).toBe(false);
+  });
+
+  it('delegates vertical required contracts query to requirement service', async () => {
+    const requirementService = {
+      getRequiredContractsForVertical: jest.fn().mockResolvedValue([{ templateId: 'tpl-1' }]),
+    } as unknown as ContractRequirementService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      {} as ContractTemplateService,
+      {} as ContractSigningService,
+      {} as ContractLookupsService,
+      requirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const query = { planTier: 'professional' } as any;
+    const result = await controller.getRequiredContractsForVertical('healthcare', query);
+    expect(requirementService.getRequiredContractsForVertical).toHaveBeenCalledWith(
+      'healthcare',
+      query,
+    );
+    expect(result).toHaveLength(1);
+  });
+
+  it('delegates client template rendering to requirement service', async () => {
+    const requirementService = {
+      renderTemplateForClient: jest.fn().mockResolvedValue({
+        templateId: 'tpl-1',
+        clientId: 'client-1',
+      }),
+    } as unknown as ContractRequirementService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      {} as ContractTemplateService,
+      {} as ContractSigningService,
+      {} as ContractLookupsService,
+      requirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const result = await controller.renderTemplateForClient('tpl-1', 'client-1');
+    expect(requirementService.renderTemplateForClient).toHaveBeenCalledWith('tpl-1', 'client-1');
+    expect(result.clientId).toBe('client-1');
+  });
 });

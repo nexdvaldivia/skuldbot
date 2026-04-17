@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -50,9 +51,17 @@ import {
   UpdateContractLegalInfoDto,
 } from './dto/legal.dto';
 import {
+  ContractRequirementTemplateSummaryDto,
+  ContractValidationResponseDto,
   ConfigureContractRequirementsDto,
   ContractRequirementResponseDto,
+  GetRequiredContractsForVerticalQueryDto,
+  GetRequiredContractsQueryDto,
   ListContractRequirementsQueryDto,
+  RenderContractForClientResponseDto,
+  ValidateAddonContractsDto,
+  ValidateSubscriptionContractsDto,
+  ValidateVerticalContractsDto,
 } from './dto/requirements.dto';
 import {
   AcceptContractDto,
@@ -112,6 +121,7 @@ import {
   UpdateSignerStatusDto,
 } from './dto/contract.dto';
 import { ContractLegalService } from './contract-legal.service';
+import { resolveEffectiveClientScope } from './contracts-access.util';
 
 @Controller('contracts')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -289,6 +299,19 @@ export class ContractsController {
     @CurrentUser() currentUser: User,
   ): Promise<ContractTemplateSignatureFieldsResponseDto> {
     return this.contractTemplateService.updateTemplateSignatureFields(templateId, dto, currentUser);
+  }
+
+  @Get('templates/:templateId/render/:clientId')
+  @RequirePermission(CP_PERMISSIONS.CONTRACTS_READ, {
+    scope: 'client',
+    source: 'params',
+    key: 'clientId',
+  })
+  async renderTemplateForClient(
+    @Param('templateId') templateId: string,
+    @Param('clientId') clientId: string,
+  ): Promise<RenderContractForClientResponseDto> {
+    return this.contractRequirementService.renderTemplateForClient(templateId, clientId);
   }
 
   @Post('templates/:templateId/send')
@@ -551,6 +574,71 @@ export class ContractsController {
     @CurrentUser() currentUser: User,
   ): Promise<ContractRequirementResponseDto[]> {
     return this.contractRequirementService.configureRequirements(dto, currentUser);
+  }
+
+  @Post('validate')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async validateContractsForSubscription(
+    @Body() dto: ValidateSubscriptionContractsDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractValidationResponseDto> {
+    const effectiveClientId = resolveEffectiveClientScope(dto.clientId, currentUser);
+    if (!effectiveClientId) {
+      throw new BadRequestException({
+        code: 'CLIENT_SCOPE_REQUIRED',
+        message: 'Client scope is required for contract validation.',
+      });
+    }
+    return this.contractRequirementService.validateSubscriptionContracts(dto, effectiveClientId);
+  }
+
+  @Get('required')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async getRequiredContracts(
+    @Query() query: GetRequiredContractsQueryDto,
+  ): Promise<ContractRequirementTemplateSummaryDto[]> {
+    return this.contractRequirementService.getRequiredContractsForSubscription(query);
+  }
+
+  @Post('validate/vertical')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async validateContractsForVertical(
+    @Body() dto: ValidateVerticalContractsDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractValidationResponseDto> {
+    const effectiveClientId = resolveEffectiveClientScope(dto.clientId, currentUser);
+    if (!effectiveClientId) {
+      throw new BadRequestException({
+        code: 'CLIENT_SCOPE_REQUIRED',
+        message: 'Client scope is required for contract validation.',
+      });
+    }
+    return this.contractRequirementService.validateVerticalContracts(dto, effectiveClientId);
+  }
+
+  @Get('required/vertical/:verticalSlug')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async getRequiredContractsForVertical(
+    @Param('verticalSlug') verticalSlug: string,
+    @Query() query: GetRequiredContractsForVerticalQueryDto,
+  ): Promise<ContractRequirementTemplateSummaryDto[]> {
+    return this.contractRequirementService.getRequiredContractsForVertical(verticalSlug, query);
+  }
+
+  @Post('validate/addon')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async validateContractsForAddon(
+    @Body() dto: ValidateAddonContractsDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractValidationResponseDto> {
+    const effectiveClientId = resolveEffectiveClientScope(dto.clientId, currentUser);
+    if (!effectiveClientId) {
+      throw new BadRequestException({
+        code: 'CLIENT_SCOPE_REQUIRED',
+        message: 'Client scope is required for contract validation.',
+      });
+    }
+    return this.contractRequirementService.validateAddonContracts(dto, effectiveClientId);
   }
 
   @Get('legal-info')

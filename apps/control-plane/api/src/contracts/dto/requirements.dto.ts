@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -10,7 +10,30 @@ import {
   MaxLength,
   ValidateNested,
 } from 'class-validator';
-import { ContractRequirementAction } from '../entities/contract-domain.enums';
+import {
+  ContractRequirementAction,
+  ContractTemplateStatus,
+} from '../entities/contract-domain.enums';
+
+const toCodeArray = ({
+  value,
+}: {
+  value: string[] | string | null | undefined;
+}): string[] | undefined => {
+  if (value == null) {
+    return undefined;
+  }
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0);
+  }
+  return undefined;
+};
 
 export class ContractRequirementInputDto {
   @IsOptional()
@@ -91,6 +114,112 @@ export class ResolveContractRequirementsDto {
 export class ResolvedContractRequirementsResponseDto {
   action: ContractRequirementAction;
   contractTypeCodes: string[];
+}
+
+export class GetRequiredContractsQueryDto {
+  @IsString()
+  @MaxLength(80)
+  planTier: string;
+
+  @IsOptional()
+  @Transform(toCodeArray)
+  @IsArray()
+  @IsString({ each: true })
+  addonCodes?: string[];
+
+  @IsOptional()
+  @IsEnum(ContractRequirementAction)
+  action?: ContractRequirementAction;
+}
+
+export class ValidateSubscriptionContractsDto extends GetRequiredContractsQueryDto {
+  @IsOptional()
+  @IsUUID()
+  clientId?: string;
+}
+
+export class ValidateVerticalContractsDto {
+  @IsOptional()
+  @IsUUID()
+  clientId?: string;
+
+  @IsString()
+  @MaxLength(120)
+  verticalSlug: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  planTier?: string;
+
+  @IsOptional()
+  @IsEnum(ContractRequirementAction)
+  action?: ContractRequirementAction;
+}
+
+export class GetRequiredContractsForVerticalQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  planTier?: string;
+
+  @IsOptional()
+  @IsEnum(ContractRequirementAction)
+  action?: ContractRequirementAction;
+}
+
+export class ValidateAddonContractsDto {
+  @IsOptional()
+  @IsUUID()
+  clientId?: string;
+
+  @IsString()
+  @MaxLength(120)
+  addonCode: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  planTier?: string;
+
+  @IsOptional()
+  @IsEnum(ContractRequirementAction)
+  action?: ContractRequirementAction;
+}
+
+export class ContractRequirementTemplateSummaryDto {
+  templateId: string;
+  templateKey: string;
+  title: string;
+  status: ContractTemplateStatus;
+  contractTypeCode: string | null;
+  activeVersionId: string | null;
+  activeVersionNumber: number | null;
+}
+
+export class ContractValidationResponseDto {
+  valid: boolean;
+  clientId: string;
+  action: ContractRequirementAction;
+  requiredContractTypes: string[];
+  presentContractTypes: string[];
+  missingContractTypes: string[];
+  requiredContracts: ContractRequirementTemplateSummaryDto[];
+  missingContracts: ContractRequirementTemplateSummaryDto[];
+}
+
+export class RenderContractForClientResponseDto {
+  templateId: string;
+  templateKey: string;
+  versionId: string;
+  versionNumber: number;
+  clientId: string;
+  clientName: string;
+  renderedHtml: string;
+  variables: Record<string, unknown>;
+  missingRequired: string[];
+  unresolved: string[];
+  renderedAt: string;
 }
 
 export class RecordContractAcceptanceDto {
