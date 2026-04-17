@@ -2,11 +2,13 @@ import {
   IsArray,
   IsBoolean,
   IsEmail,
+  IsInt,
   IsObject,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
+  Min,
 } from 'class-validator';
 
 export class UpdateContractLegalInfoDto {
@@ -211,4 +213,80 @@ export class RemoveContractSignatoryQueryDto {
   @IsOptional()
   @IsUUID()
   replacementId?: string;
+}
+
+export class ListContractLookupQueryDto {
+  @IsOptional()
+  @IsBoolean()
+  includeInactive?: boolean;
+}
+
+export class CreateContractLookupDto {
+  @IsString()
+  @MaxLength(80)
+  code: string;
+
+  @IsString()
+  @MaxLength(180)
+  label: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  description?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  sortOrder?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>;
+}
+
+export class UpdateContractLookupDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  code?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(180)
+  label?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  description?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  sortOrder?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>;
+}
+
+export class ContractLookupItemDto {
+  id: string;
+  code: string;
+  label: string;
+  description: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  metadata: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
 }

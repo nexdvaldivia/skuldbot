@@ -27,10 +27,14 @@ import { ContractSigningService } from './contract-signing.service';
 import { ContractTemplateService } from './contract-template.service';
 import { ContractsService } from './contracts.service';
 import {
+  ContractLookupItemDto,
   ContractLegalInfoResponseDto,
   ContractLookupsResponseDto,
   ContractSignatoryResponseDto,
+  CreateContractLookupDto,
+  ListContractLookupQueryDto,
   ListContractSignatoriesQueryDto,
+  UpdateContractLookupDto,
   UpdateContractLegalInfoDto,
 } from './dto/legal.dto';
 import {
@@ -230,6 +234,90 @@ export class ContractsController {
   @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
   async getLookups(): Promise<ContractLookupsResponseDto> {
     return this.contractLookupsService.getContractLookups();
+  }
+
+  @Get('lookups/contract-types')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async listContractTypes(
+    @Query() query: ListContractLookupQueryDto,
+  ): Promise<ContractLookupItemDto[]> {
+    return this.contractLookupsService.listContractTypes(query.includeInactive ?? false);
+  }
+
+  @Post('lookups/contract-types')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  @HttpCode(HttpStatus.CREATED)
+  async createContractType(
+    @Body() dto: CreateContractLookupDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractLookupItemDto> {
+    return this.contractLookupsService.createContractType(dto, currentUser);
+  }
+
+  @Patch('lookups/contract-types/:lookupId')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  async updateContractType(
+    @Param('lookupId') lookupId: string,
+    @Body() dto: UpdateContractLookupDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractLookupItemDto> {
+    return this.contractLookupsService.updateContractType(lookupId, dto, currentUser);
+  }
+
+  @Get('lookups/jurisdictions')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async listJurisdictions(
+    @Query() query: ListContractLookupQueryDto,
+  ): Promise<ContractLookupItemDto[]> {
+    return this.contractLookupsService.listJurisdictions(query.includeInactive ?? false);
+  }
+
+  @Post('lookups/jurisdictions')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  @HttpCode(HttpStatus.CREATED)
+  async createJurisdiction(
+    @Body() dto: CreateContractLookupDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractLookupItemDto> {
+    return this.contractLookupsService.createJurisdiction(dto, currentUser);
+  }
+
+  @Patch('lookups/jurisdictions/:lookupId')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  async updateJurisdiction(
+    @Param('lookupId') lookupId: string,
+    @Body() dto: UpdateContractLookupDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractLookupItemDto> {
+    return this.contractLookupsService.updateJurisdiction(lookupId, dto, currentUser);
+  }
+
+  @Get('lookups/compliance-frameworks')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async listComplianceFrameworks(
+    @Query() query: ListContractLookupQueryDto,
+  ): Promise<ContractLookupItemDto[]> {
+    return this.contractLookupsService.listComplianceFrameworks(query.includeInactive ?? false);
+  }
+
+  @Post('lookups/compliance-frameworks')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  @HttpCode(HttpStatus.CREATED)
+  async createComplianceFramework(
+    @Body() dto: CreateContractLookupDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractLookupItemDto> {
+    return this.contractLookupsService.createComplianceFramework(dto, currentUser);
+  }
+
+  @Patch('lookups/compliance-frameworks/:lookupId')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  async updateComplianceFramework(
+    @Param('lookupId') lookupId: string,
+    @Body() dto: UpdateContractLookupDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractLookupItemDto> {
+    return this.contractLookupsService.updateComplianceFramework(lookupId, dto, currentUser);
   }
 
   @Get('requirements')

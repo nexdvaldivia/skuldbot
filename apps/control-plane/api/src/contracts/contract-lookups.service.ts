@@ -1,44 +1,280 @@
-import { Injectable } from '@nestjs/common';
-import { LookupValue } from '../lookups/entities/lookup-value.entity';
-import { LookupsService } from '../lookups/lookups.service';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
+import { User } from '../users/entities/user.entity';
 import {
-  LOOKUP_DOMAIN_CONTRACT_COMPLIANCE_FRAMEWORK,
-  LOOKUP_DOMAIN_CONTRACT_JURISDICTION,
-  LOOKUP_DOMAIN_CONTRACT_TYPE,
-} from '../lookups/lookups.constants';
-import { ContractLookupsResponseDto } from './dto/legal.dto';
+  ContractLookupItemDto,
+  ContractLookupsResponseDto,
+  CreateContractLookupDto,
+  UpdateContractLookupDto,
+} from './dto/legal.dto';
+import { ContractComplianceFrameworkLookup } from './entities/contract-compliance-framework-lookup.entity';
+import { ContractJurisdictionLookup } from './entities/contract-jurisdiction-lookup.entity';
+import { ContractTypeLookup } from './entities/contract-type-lookup.entity';
+
+type ContractLookupEntity =
+  | ContractTypeLookup
+  | ContractJurisdictionLookup
+  | ContractComplianceFrameworkLookup;
+
+interface LookupRepositoryConfig {
+  repository: Repository<any>;
+  kindLabel: string;
+}
 
 @Injectable()
 export class ContractLookupsService {
-  constructor(private readonly lookupsService: LookupsService) {}
+  constructor(
+    @InjectRepository(ContractTypeLookup)
+    private readonly contractTypeLookupRepository: Repository<ContractTypeLookup>,
+    @InjectRepository(ContractJurisdictionLookup)
+    private readonly jurisdictionLookupRepository: Repository<ContractJurisdictionLookup>,
+    @InjectRepository(ContractComplianceFrameworkLookup)
+    private readonly complianceFrameworkLookupRepository: Repository<ContractComplianceFrameworkLookup>,
+  ) {}
 
   async getContractLookups(): Promise<ContractLookupsResponseDto> {
     const [contractTypes, jurisdictions, complianceFrameworks] = await Promise.all([
-      this.lookupsService.listValuesByDomainCode(LOOKUP_DOMAIN_CONTRACT_TYPE),
-      this.lookupsService.listValuesByDomainCode(LOOKUP_DOMAIN_CONTRACT_JURISDICTION),
-      this.lookupsService.listValuesByDomainCode(LOOKUP_DOMAIN_CONTRACT_COMPLIANCE_FRAMEWORK),
+      this.listContractTypes(false),
+      this.listJurisdictions(false),
+      this.listComplianceFrameworks(false),
     ]);
 
-    return {
-      contractTypes: contractTypes.map((value) => this.toLookupItem(value)),
-      jurisdictions: jurisdictions.map((value) => this.toLookupItem(value)),
-      complianceFrameworks: complianceFrameworks.map((value) => this.toLookupItem(value)),
-    };
+    return { contractTypes, jurisdictions, complianceFrameworks };
   }
 
-  private toLookupItem(value: LookupValue): {
-    code: string;
-    label: string;
-    description: string | null;
-    sortOrder: number;
-    metadata: Record<string, unknown>;
-  } {
+  async listContractTypes(includeInactive = false): Promise<ContractLookupItemDto[]> {
+    return this.listLookups(
+      {
+        repository: this.contractTypeLookupRepository,
+        kindLabel: 'Contract type',
+      },
+      includeInactive,
+    );
+  }
+
+  async createContractType(
+    dto: CreateContractLookupDto,
+    currentUser: User,
+  ): Promise<ContractLookupItemDto> {
+    return this.createLookup(
+      {
+        repository: this.contractTypeLookupRepository,
+        kindLabel: 'Contract type',
+      },
+      dto,
+      currentUser,
+    );
+  }
+
+  async updateContractType(
+    lookupId: string,
+    dto: UpdateContractLookupDto,
+    currentUser: User,
+  ): Promise<ContractLookupItemDto> {
+    return this.updateLookup(
+      {
+        repository: this.contractTypeLookupRepository,
+        kindLabel: 'Contract type',
+      },
+      lookupId,
+      dto,
+      currentUser,
+    );
+  }
+
+  async listJurisdictions(includeInactive = false): Promise<ContractLookupItemDto[]> {
+    return this.listLookups(
+      {
+        repository: this.jurisdictionLookupRepository,
+        kindLabel: 'Contract jurisdiction',
+      },
+      includeInactive,
+    );
+  }
+
+  async createJurisdiction(
+    dto: CreateContractLookupDto,
+    currentUser: User,
+  ): Promise<ContractLookupItemDto> {
+    return this.createLookup(
+      {
+        repository: this.jurisdictionLookupRepository,
+        kindLabel: 'Contract jurisdiction',
+      },
+      dto,
+      currentUser,
+    );
+  }
+
+  async updateJurisdiction(
+    lookupId: string,
+    dto: UpdateContractLookupDto,
+    currentUser: User,
+  ): Promise<ContractLookupItemDto> {
+    return this.updateLookup(
+      {
+        repository: this.jurisdictionLookupRepository,
+        kindLabel: 'Contract jurisdiction',
+      },
+      lookupId,
+      dto,
+      currentUser,
+    );
+  }
+
+  async listComplianceFrameworks(includeInactive = false): Promise<ContractLookupItemDto[]> {
+    return this.listLookups(
+      {
+        repository: this.complianceFrameworkLookupRepository,
+        kindLabel: 'Compliance framework',
+      },
+      includeInactive,
+    );
+  }
+
+  async createComplianceFramework(
+    dto: CreateContractLookupDto,
+    currentUser: User,
+  ): Promise<ContractLookupItemDto> {
+    return this.createLookup(
+      {
+        repository: this.complianceFrameworkLookupRepository,
+        kindLabel: 'Compliance framework',
+      },
+      dto,
+      currentUser,
+    );
+  }
+
+  async updateComplianceFramework(
+    lookupId: string,
+    dto: UpdateContractLookupDto,
+    currentUser: User,
+  ): Promise<ContractLookupItemDto> {
+    return this.updateLookup(
+      {
+        repository: this.complianceFrameworkLookupRepository,
+        kindLabel: 'Compliance framework',
+      },
+      lookupId,
+      dto,
+      currentUser,
+    );
+  }
+
+  private async listLookups(
+    config: LookupRepositoryConfig,
+    includeInactive: boolean,
+  ): Promise<ContractLookupItemDto[]> {
+    const where = includeInactive ? {} : { isActive: true };
+    const records = await config.repository.find({
+      where: where as any,
+      order: {
+        sortOrder: 'ASC',
+        label: 'ASC',
+      } as any,
+    });
+    return records.map((record: ContractLookupEntity) => this.toLookupItem(record));
+  }
+
+  private async createLookup(
+    config: LookupRepositoryConfig,
+    dto: CreateContractLookupDto,
+    currentUser: User,
+  ): Promise<ContractLookupItemDto> {
+    const record = config.repository.create({
+      code: dto.code.trim().toLowerCase(),
+      label: dto.label.trim(),
+      description: dto.description?.trim() || null,
+      sortOrder: dto.sortOrder ?? 0,
+      isActive: dto.isActive ?? true,
+      metadata: dto.metadata ?? {},
+      createdByUserId: currentUser.id,
+      updatedByUserId: currentUser.id,
+    });
+
+    try {
+      const saved = (await config.repository.save(record)) as ContractLookupEntity;
+      return this.toLookupItem(saved);
+    } catch (error) {
+      if (this.isUniqueViolation(error)) {
+        throw new ConflictException(
+          `${config.kindLabel} with code "${record.code}" already exists.`,
+        );
+      }
+      throw error;
+    }
+  }
+
+  private async updateLookup(
+    config: LookupRepositoryConfig,
+    lookupId: string,
+    dto: UpdateContractLookupDto,
+    currentUser: User,
+  ): Promise<ContractLookupItemDto> {
+    const existing = (await config.repository.findOne({
+      where: { id: lookupId },
+    })) as ContractLookupEntity | null;
+    if (!existing) {
+      throw new NotFoundException(`${config.kindLabel} ${lookupId} was not found.`);
+    }
+
+    if (dto.code !== undefined) {
+      existing.code = dto.code.trim().toLowerCase();
+    }
+    if (dto.label !== undefined) {
+      existing.label = dto.label.trim();
+    }
+    if (dto.description !== undefined) {
+      existing.description = dto.description.trim() || null;
+    }
+    if (dto.sortOrder !== undefined) {
+      existing.sortOrder = dto.sortOrder;
+    }
+    if (dto.isActive !== undefined) {
+      existing.isActive = dto.isActive;
+    }
+    if (dto.metadata !== undefined) {
+      existing.metadata = {
+        ...(existing.metadata ?? {}),
+        ...dto.metadata,
+      };
+    }
+
+    existing.updatedByUserId = currentUser.id;
+
+    try {
+      const saved = (await config.repository.save(existing)) as ContractLookupEntity;
+      return this.toLookupItem(saved);
+    } catch (error) {
+      if (this.isUniqueViolation(error)) {
+        throw new ConflictException(
+          `${config.kindLabel} with code "${existing.code}" already exists.`,
+        );
+      }
+      throw error;
+    }
+  }
+
+  private toLookupItem(value: ContractLookupEntity): ContractLookupItemDto {
     return {
+      id: value.id,
       code: value.code,
       label: value.label,
       description: value.description,
       sortOrder: value.sortOrder,
+      isActive: value.isActive,
       metadata: value.metadata ?? {},
+      createdAt: value.createdAt,
+      updatedAt: value.updatedAt,
     };
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    return (
+      error instanceof QueryFailedError &&
+      (error as QueryFailedError & { code?: string }).code === '23505'
+    );
   }
 }
