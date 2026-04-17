@@ -1,6 +1,7 @@
 import {
   IsArray,
   IsBoolean,
+  IsBase64,
   IsEmail,
   IsInt,
   IsObject,
@@ -178,6 +179,9 @@ export class ContractSignatoryResponseDto {
   title: string | null;
   isActive: boolean;
   isDefault: boolean;
+  hasSignature: boolean;
+  signatureContentType: string | null;
+  signatureUploadedAt: Date | null;
   policies: Record<string, unknown>;
   metadata: Record<string, unknown>;
   createdAt: Date;
@@ -213,6 +217,37 @@ export class RemoveContractSignatoryQueryDto {
   @IsOptional()
   @IsUUID()
   replacementId?: string;
+}
+
+export class UploadContractSignatorySignatureDto {
+  @IsBase64()
+  contentBase64: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  contentType?: string;
+}
+
+export class RequestContractSignatorySignatureUploadUrlDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  contentType?: string;
+}
+
+export class ContractSignatorySignatureUploadUrlResponseDto {
+  key: string;
+  uploadUrl: string;
+  expiresInSeconds: number;
+}
+
+export class ContractSignatorySignatureResponseDto {
+  signatoryId: string;
+  hasSignature: boolean;
+  contentType: string | null;
+  uploadedAt: Date | null;
+  signatureUrl: string | null;
 }
 
 export class ListContractLookupQueryDto {

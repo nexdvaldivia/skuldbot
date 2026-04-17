@@ -38,6 +38,18 @@ export class ContractSignatory {
   @Column({ type: 'jsonb', default: '{}' })
   metadata: Record<string, unknown>;
 
+  @Column({ name: 'signature_storage_key', type: 'varchar', length: 500, nullable: true })
+  signatureStorageKey: string | null;
+
+  @Column({ name: 'signature_content_type', type: 'varchar', length: 120, nullable: true })
+  signatureContentType: string | null;
+
+  @Column({ name: 'signature_sha256', type: 'varchar', length: 128, nullable: true })
+  signatureSha256: string | null;
+
+  @Column({ name: 'signature_uploaded_at', type: 'timestamptz', nullable: true })
+  signatureUploadedAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

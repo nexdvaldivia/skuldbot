@@ -1,11 +1,25 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  PayloadTooLargeException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import { createHash } from 'crypto';
 import { Repository } from 'typeorm';
+import { IntegrationType, StorageProvider } from '../common/interfaces/integration.interface';
+import { ProviderFactoryService } from '../integrations/provider-factory.service';
+import { resolveProviderChain } from '../integrations/provider-chain.util';
 import { User } from '../users/entities/user.entity';
 import {
+  ContractSignatorySignatureResponseDto,
+  ContractSignatorySignatureUploadUrlResponseDto,
   ContractLegalInfoResponseDto,
   ContractSignatoryResponseDto,
   CreateContractSignatoryDto,
+  RequestContractSignatorySignatureUploadUrlDto,
+  UploadContractSignatorySignatureDto,
   UpdateContractLegalInfoDto,
   UpdateContractSignatoryDto,
 } from './dto/legal.dto';
@@ -14,12 +28,22 @@ import { ContractSignatory } from './entities/contract-signatory.entity';
 
 @Injectable()
 export class ContractLegalService {
+  private readonly storageProviderChain: string[];
+
   constructor(
     @InjectRepository(ContractLegalInfo)
     private readonly legalInfoRepository: Repository<ContractLegalInfo>,
     @InjectRepository(ContractSignatory)
     private readonly signatoryRepository: Repository<ContractSignatory>,
-  ) {}
+    private readonly providerFactory: ProviderFactoryService,
+    private readonly configService: ConfigService,
+  ) {
+    this.storageProviderChain = resolveProviderChain(
+      this.configService.get<string>('STORAGE_PROVIDER_CHAIN'),
+      this.configService.get<string>('STORAGE_PROVIDER'),
+      ['s3', 'azure-blob'],
+    );
+  }
 
   async getLegalInfo(): Promise<ContractLegalInfoResponseDto> {
     const info = await this.getOrCreateLegalInfo();
@@ -97,41 +121,39 @@ export class ContractLegalService {
     return signatories.map((signatory) => this.toSignatoryResponse(signatory));
   }
 
-  async upsertSignatory(
+  async getSignatoryById(signatoryId: string): Promise<ContractSignatoryResponseDto> {
+    const signatory = await this.findSignatoryOrThrow(signatoryId);
+    return this.toSignatoryResponse(signatory);
+  }
+
+  async createSignatory(
     dto: CreateContractSignatoryDto,
     currentUser: User,
   ): Promise<ContractSignatoryResponseDto> {
-    let signatory = await this.signatoryRepository.findOne({
+    const existing = await this.signatoryRepository.findOne({
       where: { email: dto.email.trim().toLowerCase() },
     });
-
-    if (!signatory) {
-      signatory = this.signatoryRepository.create({
-        fullName: dto.fullName.trim(),
-        email: dto.email.trim().toLowerCase(),
-        title: dto.title?.trim() || null,
-        isActive: dto.isActive ?? true,
-        isDefault: dto.isDefault ?? false,
-        policies: dto.policies ?? {},
-        metadata: dto.metadata ?? {},
-        createdByUserId: currentUser.id,
-        updatedByUserId: currentUser.id,
-      });
-    } else {
-      signatory.fullName = dto.fullName.trim();
-      signatory.title = dto.title?.trim() || null;
-      signatory.isActive = dto.isActive ?? signatory.isActive;
-      signatory.isDefault = dto.isDefault ?? signatory.isDefault;
-      signatory.policies = {
-        ...(signatory.policies ?? {}),
-        ...(dto.policies ?? {}),
-      };
-      signatory.metadata = {
-        ...(signatory.metadata ?? {}),
-        ...(dto.metadata ?? {}),
-      };
-      signatory.updatedByUserId = currentUser.id;
+    if (existing) {
+      throw new ConflictException(
+        `Contract signatory with email ${existing.email} already exists.`,
+      );
     }
+
+    const signatory = this.signatoryRepository.create({
+      fullName: dto.fullName.trim(),
+      email: dto.email.trim().toLowerCase(),
+      title: dto.title?.trim() || null,
+      isActive: dto.isActive ?? true,
+      isDefault: dto.isDefault ?? false,
+      policies: dto.policies ?? {},
+      metadata: dto.metadata ?? {},
+      createdByUserId: currentUser.id,
+      updatedByUserId: currentUser.id,
+      signatureStorageKey: null,
+      signatureContentType: null,
+      signatureSha256: null,
+      signatureUploadedAt: null,
+    });
 
     if (signatory.isDefault) {
       await this.clearDefaultSignatory(signatory.id);
@@ -141,21 +163,48 @@ export class ContractLegalService {
     return this.toSignatoryResponse(saved);
   }
 
+  async upsertSignatory(
+    dto: CreateContractSignatoryDto,
+    currentUser: User,
+  ): Promise<ContractSignatoryResponseDto> {
+    const existing = await this.signatoryRepository.findOne({
+      where: { email: dto.email.trim().toLowerCase() },
+    });
+    if (!existing) {
+      return this.createSignatory(dto, currentUser);
+    }
+
+    return this.updateSignatory(existing.id, dto, currentUser);
+  }
+
+  async bulkUpsertSignatories(
+    dtos: CreateContractSignatoryDto[],
+    currentUser: User,
+  ): Promise<ContractSignatoryResponseDto[]> {
+    const results: ContractSignatoryResponseDto[] = [];
+    for (const dto of dtos) {
+      results.push(await this.upsertSignatory(dto, currentUser));
+    }
+    return results;
+  }
+
   async updateSignatory(
     signatoryId: string,
     dto: UpdateContractSignatoryDto,
     currentUser: User,
   ): Promise<ContractSignatoryResponseDto> {
-    const signatory = await this.signatoryRepository.findOne({ where: { id: signatoryId } });
-    if (!signatory) {
-      throw new Error(`Contract signatory ${signatoryId} was not found.`);
-    }
+    const signatory = await this.findSignatoryOrThrow(signatoryId);
 
     if (dto.fullName !== undefined) {
       signatory.fullName = dto.fullName.trim();
     }
     if (dto.email !== undefined) {
-      signatory.email = dto.email.trim().toLowerCase();
+      const normalized = dto.email.trim().toLowerCase();
+      const duplicated = await this.signatoryRepository.findOne({ where: { email: normalized } });
+      if (duplicated && duplicated.id !== signatory.id) {
+        throw new ConflictException(`Contract signatory with email ${normalized} already exists.`);
+      }
+      signatory.email = normalized;
     }
     if (dto.title !== undefined) {
       signatory.title = dto.title.trim() || null;
@@ -189,7 +238,149 @@ export class ContractLegalService {
   }
 
   async removeSignatory(signatoryId: string): Promise<void> {
+    const signatory = await this.findSignatoryOrThrow(signatoryId);
+    if (signatory.signatureStorageKey) {
+      await this.providerFactory.executeWithFallback<StorageProvider, void>(
+        IntegrationType.STORAGE,
+        'delete',
+        async (provider) => provider.delete(signatory.signatureStorageKey as string),
+        {
+          providerChain: this.storageProviderChain,
+        },
+      );
+    }
     await this.signatoryRepository.delete({ id: signatoryId });
+  }
+
+  async requestSignatorySignatureUploadUrl(
+    signatoryId: string,
+    dto: RequestContractSignatorySignatureUploadUrlDto,
+  ): Promise<ContractSignatorySignatureUploadUrlResponseDto> {
+    await this.findSignatoryOrThrow(signatoryId);
+    const key = this.buildSignatureStorageKey(signatoryId, dto.contentType);
+    const { result } = await this.providerFactory.executeWithFallback<StorageProvider, string>(
+      IntegrationType.STORAGE,
+      'getSignedUrl',
+      async (provider) => provider.getSignedUrl(key, 900),
+      {
+        providerChain: this.storageProviderChain,
+      },
+    );
+    return {
+      key,
+      uploadUrl: result,
+      expiresInSeconds: 900,
+    };
+  }
+
+  async uploadSignatorySignature(
+    signatoryId: string,
+    dto: UploadContractSignatorySignatureDto,
+    currentUser: User,
+  ): Promise<ContractSignatorySignatureResponseDto> {
+    const signatory = await this.findSignatoryOrThrow(signatoryId);
+    const contentType = this.normalizeSignatureContentType(dto.contentType);
+    const buffer = Buffer.from(dto.contentBase64, 'base64');
+    if (buffer.length > 2 * 1024 * 1024) {
+      throw new PayloadTooLargeException('Signature payload exceeds 2MB limit.');
+    }
+
+    const key = this.buildSignatureStorageKey(signatoryId, contentType);
+    const sha256 = createHash('sha256').update(buffer).digest('hex');
+
+    await this.providerFactory.executeWithFallback<StorageProvider, unknown>(
+      IntegrationType.STORAGE,
+      'upload',
+      async (provider) =>
+        provider.upload({
+          key,
+          body: buffer,
+          contentType,
+          metadata: {
+            signatoryId,
+            uploadedBy: currentUser.id,
+            sha256,
+          },
+        }),
+      {
+        providerChain: this.storageProviderChain,
+      },
+    );
+
+    if (signatory.signatureStorageKey && signatory.signatureStorageKey !== key) {
+      await this.providerFactory.executeWithFallback<StorageProvider, void>(
+        IntegrationType.STORAGE,
+        'delete',
+        async (provider) => provider.delete(signatory.signatureStorageKey as string),
+        {
+          providerChain: this.storageProviderChain,
+        },
+      );
+    }
+
+    signatory.signatureStorageKey = key;
+    signatory.signatureContentType = contentType;
+    signatory.signatureSha256 = sha256;
+    signatory.signatureUploadedAt = new Date();
+    signatory.updatedByUserId = currentUser.id;
+    await this.signatoryRepository.save(signatory);
+
+    return this.getSignatorySignature(signatoryId);
+  }
+
+  async getSignatorySignature(signatoryId: string): Promise<ContractSignatorySignatureResponseDto> {
+    const signatory = await this.findSignatoryOrThrow(signatoryId);
+    if (!signatory.signatureStorageKey) {
+      return {
+        signatoryId: signatory.id,
+        hasSignature: false,
+        contentType: null,
+        uploadedAt: null,
+        signatureUrl: null,
+      };
+    }
+
+    const { result } = await this.providerFactory.executeWithFallback<StorageProvider, string>(
+      IntegrationType.STORAGE,
+      'getSignedUrl',
+      async (provider) => provider.getSignedUrl(signatory.signatureStorageKey as string, 900),
+      {
+        providerChain: this.storageProviderChain,
+      },
+    );
+
+    return {
+      signatoryId: signatory.id,
+      hasSignature: true,
+      contentType: signatory.signatureContentType,
+      uploadedAt: signatory.signatureUploadedAt,
+      signatureUrl: result,
+    };
+  }
+
+  async removeSignatorySignature(
+    signatoryId: string,
+    currentUser: User,
+  ): Promise<ContractSignatorySignatureResponseDto> {
+    const signatory = await this.findSignatoryOrThrow(signatoryId);
+    if (signatory.signatureStorageKey) {
+      await this.providerFactory.executeWithFallback<StorageProvider, void>(
+        IntegrationType.STORAGE,
+        'delete',
+        async (provider) => provider.delete(signatory.signatureStorageKey as string),
+        {
+          providerChain: this.storageProviderChain,
+        },
+      );
+    }
+
+    signatory.signatureStorageKey = null;
+    signatory.signatureContentType = null;
+    signatory.signatureSha256 = null;
+    signatory.signatureUploadedAt = null;
+    signatory.updatedByUserId = currentUser.id;
+    await this.signatoryRepository.save(signatory);
+    return this.getSignatorySignature(signatoryId);
   }
 
   async buildLegalVariableContext(): Promise<Record<string, string>> {
@@ -291,10 +482,50 @@ export class ContractLegalService {
       title: signatory.title,
       isActive: signatory.isActive,
       isDefault: signatory.isDefault,
+      hasSignature: Boolean(signatory.signatureStorageKey),
+      signatureContentType: signatory.signatureContentType,
+      signatureUploadedAt: signatory.signatureUploadedAt,
       policies: signatory.policies ?? {},
       metadata: signatory.metadata ?? {},
       createdAt: signatory.createdAt,
       updatedAt: signatory.updatedAt,
     };
+  }
+
+  private async findSignatoryOrThrow(signatoryId: string): Promise<ContractSignatory> {
+    const signatory = await this.signatoryRepository.findOne({ where: { id: signatoryId } });
+    if (!signatory) {
+      throw new NotFoundException(`Contract signatory ${signatoryId} was not found.`);
+    }
+    return signatory;
+  }
+
+  private buildSignatureStorageKey(signatoryId: string, contentType?: string): string {
+    const extension = this.resolveSignatureExtension(contentType);
+    return `contracts/signatories/${signatoryId}/signature-${Date.now()}.${extension}`;
+  }
+
+  private normalizeSignatureContentType(contentType?: string): string {
+    const normalized = contentType?.trim().toLowerCase();
+    if (!normalized) {
+      return 'image/png';
+    }
+
+    const allowed = new Set(['image/png', 'image/jpeg', 'image/svg+xml']);
+    if (!allowed.has(normalized)) {
+      throw new ConflictException(`Unsupported signature content type: ${normalized}`);
+    }
+    return normalized;
+  }
+
+  private resolveSignatureExtension(contentType?: string): string {
+    const normalized = this.normalizeSignatureContentType(contentType);
+    if (normalized === 'image/jpeg') {
+      return 'jpg';
+    }
+    if (normalized === 'image/svg+xml') {
+      return 'svg';
+    }
+    return 'png';
   }
 }

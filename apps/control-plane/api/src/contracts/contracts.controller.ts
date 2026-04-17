@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   HttpCode,
@@ -31,9 +32,16 @@ import {
   ContractLegalInfoResponseDto,
   ContractLookupsResponseDto,
   ContractSignatoryResponseDto,
+  ContractSignatorySignatureResponseDto,
+  ContractSignatorySignatureUploadUrlResponseDto,
+  BulkUpsertContractSignatoriesDto,
   CreateContractLookupDto,
+  CreateContractSignatoryDto,
   ListContractLookupQueryDto,
   ListContractSignatoriesQueryDto,
+  RequestContractSignatorySignatureUploadUrlDto,
+  UploadContractSignatorySignatureDto,
+  UpdateContractSignatoryDto,
   UpdateContractLookupDto,
   UpdateContractLegalInfoDto,
 } from './dto/legal.dto';
@@ -358,6 +366,86 @@ export class ContractsController {
     @Query() query: ListContractSignatoriesQueryDto,
   ): Promise<ContractSignatoryResponseDto[]> {
     return this.contractLegalService.listSignatories(query.onlyActive ?? false);
+  }
+
+  @Get('signatories/:signatoryId')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async getSignatoryById(
+    @Param('signatoryId') signatoryId: string,
+  ): Promise<ContractSignatoryResponseDto> {
+    return this.contractLegalService.getSignatoryById(signatoryId);
+  }
+
+  @Post('signatories')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  @HttpCode(HttpStatus.CREATED)
+  async createSignatory(
+    @Body() dto: CreateContractSignatoryDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractSignatoryResponseDto> {
+    return this.contractLegalService.createSignatory(dto, currentUser);
+  }
+
+  @Post('signatories/bulk-upsert')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  async bulkUpsertSignatories(
+    @Body() dto: BulkUpsertContractSignatoriesDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractSignatoryResponseDto[]> {
+    return this.contractLegalService.bulkUpsertSignatories(dto.signatories, currentUser);
+  }
+
+  @Patch('signatories/:signatoryId')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  async updateSignatory(
+    @Param('signatoryId') signatoryId: string,
+    @Body() dto: UpdateContractSignatoryDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractSignatoryResponseDto> {
+    return this.contractLegalService.updateSignatory(signatoryId, dto, currentUser);
+  }
+
+  @Delete('signatories/:signatoryId')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async removeSignatory(@Param('signatoryId') signatoryId: string): Promise<void> {
+    await this.contractLegalService.removeSignatory(signatoryId);
+  }
+
+  @Post('signatories/:signatoryId/signature/upload-url')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  async requestSignatorySignatureUploadUrl(
+    @Param('signatoryId') signatoryId: string,
+    @Body() dto: RequestContractSignatorySignatureUploadUrlDto,
+  ): Promise<ContractSignatorySignatureUploadUrlResponseDto> {
+    return this.contractLegalService.requestSignatorySignatureUploadUrl(signatoryId, dto);
+  }
+
+  @Post('signatories/:signatoryId/signature')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  async uploadSignatorySignature(
+    @Param('signatoryId') signatoryId: string,
+    @Body() dto: UploadContractSignatorySignatureDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractSignatorySignatureResponseDto> {
+    return this.contractLegalService.uploadSignatorySignature(signatoryId, dto, currentUser);
+  }
+
+  @Get('signatories/:signatoryId/signature')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async getSignatorySignature(
+    @Param('signatoryId') signatoryId: string,
+  ): Promise<ContractSignatorySignatureResponseDto> {
+    return this.contractLegalService.getSignatorySignature(signatoryId);
+  }
+
+  @Delete('signatories/:signatoryId/signature')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  async removeSignatorySignature(
+    @Param('signatoryId') signatoryId: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractSignatorySignatureResponseDto> {
+    return this.contractLegalService.removeSignatorySignature(signatoryId, currentUser);
   }
 
   @Get()
