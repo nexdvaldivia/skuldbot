@@ -61,4 +61,63 @@ describe('ContractsController', () => {
       'attachment; filename="msa.pdf"',
     );
   });
+
+  it('delegates grouped template list to template service', async () => {
+    const contractTemplateService = {
+      listTemplatesGrouped: jest.fn().mockResolvedValue({
+        templates: [{ id: 'tpl-1', templateKey: 'msa.v1' }],
+        total: 1,
+      }),
+    } as unknown as ContractTemplateService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      contractTemplateService,
+      {} as ContractSigningService,
+      {} as ContractLookupsService,
+      {} as ContractRequirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const result = await controller.listTemplatesGrouped({ includeArchived: true });
+
+    expect(contractTemplateService.listTemplatesGrouped).toHaveBeenCalledWith(true);
+    expect(result.total).toBe(1);
+  });
+
+  it('delegates template version chain to template service', async () => {
+    const contractTemplateService = {
+      getTemplateVersionChainByTemplateKey: jest.fn().mockResolvedValue({
+        templateId: 'tpl-1',
+        templateKey: 'msa.v1',
+        title: 'Master Service Agreement',
+        versions: [],
+        integrity: {
+          hasBrokenLinks: false,
+          brokenNodeIds: [],
+          hasVersionGaps: false,
+          expectedNextVersion: 2,
+        },
+      }),
+    } as unknown as ContractTemplateService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      contractTemplateService,
+      {} as ContractSigningService,
+      {} as ContractLookupsService,
+      {} as ContractRequirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const result = await controller.getTemplateVersionChain('MSA.V1', { includeArchived: false });
+
+    expect(contractTemplateService.getTemplateVersionChainByTemplateKey).toHaveBeenCalledWith(
+      'MSA.V1',
+      false,
+    );
+    expect(result.templateId).toBe('tpl-1');
+  });
 });

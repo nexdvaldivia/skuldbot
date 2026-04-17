@@ -74,9 +74,15 @@ import {
   UpdateContractSignatoryPolicyDto,
 } from './dto/signatory-policy.dto';
 import {
+  ContractTemplateGroupedListResponseDto,
   ContractTemplateResponseDto,
+  ContractTemplateVersionChainResponseDto,
+  CreateContractTemplateVersionDto,
   CreateContractTemplateDto,
   DeprecateContractTemplateDto,
+  ListContractTemplatesGroupedQueryDto,
+  ListContractTemplatesQueryDto,
+  ListTemplateVersionChainQueryDto,
   PublishContractTemplateDto,
   SendTemplateForSignatureDto,
   UpdateContractTemplateDraftDto,
@@ -107,8 +113,30 @@ export class ContractsController {
 
   @Get('templates')
   @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
-  async listTemplates(): Promise<ContractTemplateResponseDto[]> {
-    return this.contractTemplateService.listTemplates();
+  async listTemplates(
+    @Query() query: ListContractTemplatesQueryDto,
+  ): Promise<ContractTemplateResponseDto[]> {
+    return this.contractTemplateService.listTemplates(query.includeArchived ?? false);
+  }
+
+  @Get('grouped')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async listTemplatesGrouped(
+    @Query() query: ListContractTemplatesGroupedQueryDto,
+  ): Promise<ContractTemplateGroupedListResponseDto> {
+    return this.contractTemplateService.listTemplatesGrouped(query.includeArchived ?? false);
+  }
+
+  @Get('by-name/:templateKey/version-chain')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async getTemplateVersionChain(
+    @Param('templateKey') templateKey: string,
+    @Query() query: ListTemplateVersionChainQueryDto,
+  ): Promise<ContractTemplateVersionChainResponseDto> {
+    return this.contractTemplateService.getTemplateVersionChainByTemplateKey(
+      templateKey,
+      query.includeArchived ?? false,
+    );
   }
 
   @Post('templates')
@@ -157,6 +185,25 @@ export class ContractsController {
     @CurrentUser() currentUser: User,
   ): Promise<ContractTemplateResponseDto> {
     return this.contractTemplateService.deprecateTemplate(templateId, dto, currentUser);
+  }
+
+  @Post('templates/:templateId/new-version')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_WRITE)
+  async createTemplateVersion(
+    @Param('templateId') templateId: string,
+    @Body() dto: CreateContractTemplateVersionDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractTemplateResponseDto> {
+    return this.contractTemplateService.createTemplateVersion(templateId, dto, currentUser);
+  }
+
+  @Delete('templates/:templateId')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  async archiveTemplate(
+    @Param('templateId') templateId: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractTemplateResponseDto> {
+    return this.contractTemplateService.archiveTemplate(templateId, currentUser);
   }
 
   @Post('templates/:templateId/send')

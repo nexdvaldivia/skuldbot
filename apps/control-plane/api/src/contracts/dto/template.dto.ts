@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsNotEmpty,
   IsObject,
   IsOptional,
@@ -72,6 +73,13 @@ export class CreateContractTemplateDto {
   changeLog?: string;
 }
 
+export class ListContractTemplatesQueryDto {
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  includeArchived?: boolean;
+}
+
 export class UpdateContractTemplateDraftDto {
   @IsOptional()
   @IsString()
@@ -114,6 +122,27 @@ export class DeprecateContractTemplateDto {
   reason?: string;
 }
 
+export class CreateContractTemplateVersionDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  changeLog?: string;
+}
+
+export class ListContractTemplatesGroupedQueryDto {
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  includeArchived?: boolean;
+}
+
+export class ListTemplateVersionChainQueryDto {
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  includeArchived?: boolean;
+}
+
 export class ContractTemplateVersionResponseDto {
   id: string;
   templateId: string;
@@ -144,6 +173,59 @@ export class ContractTemplateResponseDto {
   versions: ContractTemplateVersionResponseDto[];
   createdAt: Date;
   updatedAt: Date;
+}
+
+export class ContractTemplateVersionSummaryDto {
+  id: string;
+  versionNumber: number;
+  status: ContractTemplateStatus;
+  publishedAt: Date | null;
+  deprecatedAt: Date | null;
+  archivedAt: Date | null;
+  updatedAt: Date;
+}
+
+export class ContractTemplateGroupedResponseDto {
+  id: string;
+  templateKey: string;
+  title: string;
+  description: string | null;
+  status: ContractTemplateStatus;
+  totalVersions: number;
+  activeVersion: ContractTemplateVersionSummaryDto | null;
+  draftVersion: ContractTemplateVersionSummaryDto | null;
+  latestVersion: ContractTemplateVersionSummaryDto | null;
+  updatedAt: Date;
+}
+
+export class ContractTemplateGroupedListResponseDto {
+  templates: ContractTemplateGroupedResponseDto[];
+  total: number;
+}
+
+export class ContractTemplateVersionChainNodeDto {
+  id: string;
+  versionNumber: number;
+  status: ContractTemplateStatus;
+  supersedesVersionId: string | null;
+  publishedAt: Date | null;
+  deprecatedAt: Date | null;
+  archivedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export class ContractTemplateVersionChainResponseDto {
+  templateId: string;
+  templateKey: string;
+  title: string;
+  versions: ContractTemplateVersionChainNodeDto[];
+  integrity: {
+    hasBrokenLinks: boolean;
+    brokenNodeIds: string[];
+    hasVersionGaps: boolean;
+    expectedNextVersion: number;
+  };
 }
 
 export class SendTemplateSignerDto {

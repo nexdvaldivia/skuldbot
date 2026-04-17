@@ -3,8 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import {
+  ContractTemplateGroupedListResponseDto,
+  ContractTemplateGroupedResponseDto,
   ContractTemplateResponseDto,
+  ContractTemplateVersionChainNodeDto,
+  ContractTemplateVersionChainResponseDto,
   ContractTemplateVersionResponseDto,
+  CreateContractTemplateVersionDto,
   CreateContractTemplateDto,
   DeprecateContractTemplateDto,
   PublishContractTemplateDto,
@@ -26,7 +31,7 @@ export class ContractTemplateService {
     private readonly pdfService: PdfService,
   ) {}
 
-  async listTemplates(): Promise<ContractTemplateResponseDto[]> {
+  async listTemplates(includeArchived = false): Promise<ContractTemplateResponseDto[]> {
     const templates = await this.templateRepository.find({
       relations: ['versions'],
       order: {
@@ -34,7 +39,29 @@ export class ContractTemplateService {
       },
     });
 
-    return templates.map((template) => this.toTemplateResponse(template));
+    return templates
+      .filter((template) => includeArchived || template.status !== ContractTemplateStatus.ARCHIVED)
+      .map((template) => this.toTemplateResponse(template));
+  }
+
+  async listTemplatesGrouped(
+    includeArchived = false,
+  ): Promise<ContractTemplateGroupedListResponseDto> {
+    const templates = await this.templateRepository.find({
+      relations: ['versions'],
+      order: {
+        updatedAt: 'DESC',
+      },
+    });
+
+    const groups = templates
+      .filter((template) => includeArchived || template.status !== ContractTemplateStatus.ARCHIVED)
+      .map((template) => this.toGroupedResponse(template, includeArchived));
+
+    return {
+      templates: groups,
+      total: groups.length,
+    };
   }
 
   async getTemplateById(templateId: string): Promise<ContractTemplateResponseDto> {
@@ -157,6 +184,13 @@ export class ContractTemplateService {
       });
     }
 
+    if (this.isDocumentJsonEmpty(draft.documentJson)) {
+      throw new BadRequestException({
+        code: 'CONTRACT_TEMPLATE_DOCUMENT_REQUIRED',
+        message: `Template ${template.id} draft version ${draft.versionNumber} has empty content.`,
+      });
+    }
+
     const now = new Date();
     const publishedVersions = template.versions.filter(
       (version) => version.status === ContractTemplateStatus.PUBLISHED,
@@ -221,6 +255,173 @@ export class ContractTemplateService {
     await this.templateRepository.save(template);
 
     return this.getTemplateById(template.id);
+  }
+
+  async createTemplateVersion(
+    templateId: string,
+    dto: CreateContractTemplateVersionDto,
+    currentUser: User,
+  ): Promise<ContractTemplateResponseDto> {
+    const template = await this.requireTemplateWithVersions(templateId);
+    const existingDraft = await this.getLatestDraftVersion(template.id);
+    if (existingDraft) {
+      throw new BadRequestException({
+        code: 'CONTRACT_TEMPLATE_DRAFT_EXISTS',
+        message: `Template ${template.id} already has draft version ${existingDraft.versionNumber}.`,
+      });
+    }
+
+    const sourceVersion = template.activeVersionId
+      ? (template.versions.find((version) => version.id === template.activeVersionId) ?? null)
+      : null;
+
+    const latestVersion =
+      sourceVersion ??
+      template.versions.slice().sort((a, b) => b.versionNumber - a.versionNumber)[0] ??
+      null;
+
+    if (!latestVersion) {
+      throw new BadRequestException({
+        code: 'CONTRACT_TEMPLATE_VERSION_REQUIRED',
+        message: `Template ${template.id} does not have a baseline version.`,
+      });
+    }
+
+    const newVersionNumber = template.latestVersionNumber + 1;
+    const nextDraft = this.templateVersionRepository.create({
+      templateId: template.id,
+      versionNumber: newVersionNumber,
+      supersedesVersionId: latestVersion.id,
+      status: ContractTemplateStatus.DRAFT,
+      documentJson: latestVersion.documentJson ?? {},
+      variableDefinitions: latestVersion.variableDefinitions ?? {},
+      renderedHtml: latestVersion.renderedHtml,
+      changeLog: dto.changeLog?.trim() || null,
+      publishedAt: null,
+      deprecatedAt: null,
+      archivedAt: null,
+      createdByUserId: currentUser.id,
+      updatedByUserId: currentUser.id,
+      metadata: {
+        ...(latestVersion.metadata ?? {}),
+        sourceVersionId: latestVersion.id,
+      },
+    });
+    await this.templateVersionRepository.save(nextDraft);
+
+    template.latestVersionNumber = newVersionNumber;
+    template.updatedByUserId = currentUser.id;
+    await this.templateRepository.save(template);
+
+    return this.getTemplateById(template.id);
+  }
+
+  async archiveTemplate(
+    templateId: string,
+    currentUser: User,
+  ): Promise<ContractTemplateResponseDto> {
+    const template = await this.requireTemplateWithVersions(templateId);
+
+    const activeVersion = template.activeVersionId
+      ? (template.versions.find((version) => version.id === template.activeVersionId) ?? null)
+      : null;
+
+    if (activeVersion?.status === ContractTemplateStatus.PUBLISHED) {
+      throw new BadRequestException({
+        code: 'CONTRACT_TEMPLATE_ARCHIVE_REQUIRES_DEPRECATE',
+        message: `Template ${template.id} must be deprecated before archive.`,
+      });
+    }
+
+    const now = new Date();
+    const versionsToArchive = template.versions.filter(
+      (version) => version.status !== ContractTemplateStatus.ARCHIVED,
+    );
+    for (const version of versionsToArchive) {
+      version.status = ContractTemplateStatus.ARCHIVED;
+      version.archivedAt = now;
+      version.updatedByUserId = currentUser.id;
+    }
+    await this.templateVersionRepository.save(versionsToArchive);
+
+    template.status = ContractTemplateStatus.ARCHIVED;
+    template.activeVersionId = null;
+    template.updatedByUserId = currentUser.id;
+    template.metadata = {
+      ...(template.metadata ?? {}),
+      archivedAt: now.toISOString(),
+      archivedByUserId: currentUser.id,
+    };
+    await this.templateRepository.save(template);
+
+    return this.getTemplateById(template.id);
+  }
+
+  async getTemplateVersionChainByTemplateKey(
+    templateKey: string,
+    includeArchived = false,
+  ): Promise<ContractTemplateVersionChainResponseDto> {
+    const normalizedTemplateKey = templateKey.trim().toLowerCase();
+    const template = await this.templateRepository.findOne({
+      where: { templateKey: normalizedTemplateKey },
+      relations: ['versions'],
+    });
+
+    if (!template) {
+      throw new NotFoundException({
+        code: 'CONTRACT_TEMPLATE_NOT_FOUND',
+        message: `Contract template with key ${templateKey} was not found.`,
+      });
+    }
+
+    const versions = (template.versions ?? [])
+      .filter((version) => includeArchived || version.status !== ContractTemplateStatus.ARCHIVED)
+      .slice()
+      .sort((a, b) => a.versionNumber - b.versionNumber);
+
+    const versionById = new Map(versions.map((version) => [version.id, version]));
+    const brokenNodeIds: string[] = [];
+    let hasVersionGaps = false;
+    let expectedVersionNumber = 1;
+
+    for (const version of versions) {
+      if (version.versionNumber !== expectedVersionNumber) {
+        hasVersionGaps = true;
+      }
+      expectedVersionNumber = Math.max(expectedVersionNumber, version.versionNumber + 1);
+
+      if (version.supersedesVersionId && !versionById.has(version.supersedesVersionId)) {
+        brokenNodeIds.push(version.id);
+      }
+    }
+
+    const chainNodes: ContractTemplateVersionChainNodeDto[] = versions
+      .slice()
+      .sort((a, b) => b.versionNumber - a.versionNumber)
+      .map((version) => ({
+        id: version.id,
+        versionNumber: version.versionNumber,
+        status: version.status,
+        supersedesVersionId: version.supersedesVersionId,
+        publishedAt: version.publishedAt,
+        deprecatedAt: version.deprecatedAt,
+        archivedAt: version.archivedAt,
+        createdAt: version.createdAt,
+        updatedAt: version.updatedAt,
+      }));
+
+    return {
+      templateId: template.id,
+      templateKey: template.templateKey,
+      title: template.title,
+      versions: chainNodes,
+      integrity: {
+        hasBrokenLinks: brokenNodeIds.length > 0,
+        brokenNodeIds,
+        hasVersionGaps,
+        expectedNextVersion: expectedVersionNumber,
+      },
+    };
   }
 
   async getPublishedTemplateVersion(templateId: string): Promise<ContractTemplateVersion> {
@@ -318,6 +519,61 @@ export class ContractTemplateService {
         versionNumber: 'DESC',
       },
     });
+  }
+
+  private toGroupedResponse(
+    template: ContractTemplate,
+    includeArchived: boolean,
+  ): ContractTemplateGroupedResponseDto {
+    const versions = (template.versions ?? [])
+      .filter((version) => includeArchived || version.status !== ContractTemplateStatus.ARCHIVED)
+      .slice()
+      .sort((a, b) => b.versionNumber - a.versionNumber);
+
+    const latestVersion = versions[0] ?? null;
+    const draftVersion =
+      versions.find((version) => version.status === ContractTemplateStatus.DRAFT) ?? null;
+    const activeVersion = template.activeVersionId
+      ? (versions.find((version) => version.id === template.activeVersionId) ?? null)
+      : null;
+
+    return {
+      id: template.id,
+      templateKey: template.templateKey,
+      title: template.title,
+      description: template.description,
+      status: template.status,
+      totalVersions: versions.length,
+      activeVersion: activeVersion ? this.toVersionSummary(activeVersion) : null,
+      draftVersion: draftVersion ? this.toVersionSummary(draftVersion) : null,
+      latestVersion: latestVersion ? this.toVersionSummary(latestVersion) : null,
+      updatedAt: template.updatedAt,
+    };
+  }
+
+  private toVersionSummary(version: ContractTemplateVersion) {
+    return {
+      id: version.id,
+      versionNumber: version.versionNumber,
+      status: version.status,
+      publishedAt: version.publishedAt,
+      deprecatedAt: version.deprecatedAt,
+      archivedAt: version.archivedAt,
+      updatedAt: version.updatedAt,
+    };
+  }
+
+  private isDocumentJsonEmpty(documentJson: Record<string, unknown> | null | undefined): boolean {
+    if (!documentJson || Object.keys(documentJson).length === 0) {
+      return true;
+    }
+
+    const maybeContent = (documentJson as { content?: unknown }).content;
+    if (Array.isArray(maybeContent)) {
+      return maybeContent.length === 0;
+    }
+
+    return false;
   }
 
   private normalizeVariableDefinitions(
