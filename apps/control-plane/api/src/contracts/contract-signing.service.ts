@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomInt, createHash, timingSafeEqual } from 'crypto';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Client } from '../clients/entities/client.entity';
 import { EmailProvider, IntegrationType } from '../common/interfaces/integration.interface';
 import { ProviderFactoryService } from '../integrations/provider-factory.service';
@@ -16,12 +16,18 @@ import {
   resolveEffectiveClientScope,
 } from './contracts-access.util';
 import {
+  AcceptContractDto,
+  ClientContractStatusResponseDto,
   ContractAcceptanceResponseDto,
+  ContractEvidenceVerificationResponseDto,
   ContractEnvelopeResponseDto,
   ContractEnvelopeRecipientResponseDto,
+  CountersignAcceptanceDto,
   DeclineEnvelopeRecipientDto,
   ListContractAcceptancesQueryDto,
   ListSentContractsQueryDto,
+  RenderedAcceptanceResponseDto,
+  RevokeAcceptanceDto,
   SignEnvelopeRecipientDto,
   VerifyEnvelopeOtpDto,
 } from './dto/signing.dto';
@@ -39,6 +45,7 @@ import { ContractEvent } from './entities/contract-event.entity';
 import { ContractSigner, ContractSignerStatus } from './entities/contract-signer.entity';
 import { ContractStatus, Contract } from './entities/contract.entity';
 import { ContractLegalService } from './contract-legal.service';
+import { ContractSignatoryPolicyService } from './contract-signatory-policy.service';
 import { ContractTemplateService } from './contract-template.service';
 
 @Injectable()
@@ -68,6 +75,7 @@ export class ContractSigningService {
     private readonly tenantRepository: Repository<Tenant>,
     private readonly templateService: ContractTemplateService,
     private readonly contractLegalService: ContractLegalService,
+    private readonly contractSignatoryPolicyService: ContractSignatoryPolicyService,
     private readonly providerFactory: ProviderFactoryService,
     private readonly configService: ConfigService,
   ) {
@@ -369,6 +377,281 @@ export class ContractSigningService {
     assertClientBoundary(acceptance.clientId, currentUser);
 
     return this.toAcceptanceResponse(acceptance);
+  }
+
+  async acceptContract(
+    dto: AcceptContractDto,
+    currentUser: User,
+  ): Promise<ContractAcceptanceResponseDto> {
+    const contract = await this.contractRepository.findOne({ where: { id: dto.contractId } });
+    this.assertContractExists(contract, dto.contractId);
+    assertClientBoundary(contract.clientId, currentUser);
+    this.assertContractCanBeAccepted(contract);
+    await this.assertNoActiveAcceptance(contract.id);
+
+    const now = new Date();
+    const acceptancePayload = this.buildAcceptancePayload(contract, dto, currentUser.id, now);
+    const acceptance = await this.acceptanceRepository.save(
+      this.acceptanceRepository.create(acceptancePayload),
+    );
+
+    await this.recordContractEvent(contract.id, 'contract.accepted', 'control-plane-api', {
+      actorUserId: currentUser.id,
+      acceptanceId: acceptance.id,
+    });
+
+    return this.toAcceptanceResponse(acceptance);
+  }
+
+  async countersignAcceptance(
+    acceptanceId: string,
+    dto: CountersignAcceptanceDto,
+    currentUser: User,
+  ): Promise<ContractAcceptanceResponseDto> {
+    const acceptance = await this.requireAcceptance(acceptanceId);
+    assertClientBoundary(acceptance.clientId, currentUser);
+
+    if (acceptance.revokedAt) {
+      throw new BadRequestException({
+        code: 'CONTRACT_ACCEPTANCE_REVOKED',
+        message: `Acceptance ${acceptance.id} is revoked and cannot be countersigned.`,
+      });
+    }
+
+    const contract = await this.contractRepository.findOne({
+      where: { id: acceptance.contractId },
+    });
+    if (!contract) {
+      throw new NotFoundException({
+        code: 'CONTRACT_NOT_FOUND',
+        message: `Contract ${acceptance.contractId} was not found.`,
+      });
+    }
+
+    const resolution = await this.contractSignatoryPolicyService.resolvePreview({
+      contractType: contract.templateKey,
+      requireReady: true,
+    });
+    if (!resolution.signatoryId || !resolution.ready) {
+      throw new BadRequestException({
+        code: 'CONTRACT_COUNTERSIGNATORY_NOT_READY',
+        message: resolution.message,
+      });
+    }
+
+    acceptance.countersignedAt = new Date();
+    acceptance.countersignedBy = dto.countersignedBy?.trim() || resolution.signatoryName || null;
+    acceptance.skuldSignatoryId = resolution.signatoryId;
+    acceptance.skuldSignatoryName = resolution.signatoryName;
+    acceptance.skuldSignatoryTitle = resolution.signatoryTitle;
+    acceptance.skuldSignatoryEmail = resolution.signatoryEmail;
+    acceptance.skuldSignatureHash = resolution.signatureHash;
+    acceptance.skuldResolutionSource = resolution.resolutionSource;
+    acceptance.skuldResolvedAt = resolution.resolvedAt;
+    acceptance.metadata = {
+      ...(acceptance.metadata ?? {}),
+      countersignedByUserId: currentUser.id,
+    };
+
+    const saved = await this.acceptanceRepository.save(acceptance);
+    await this.recordContractEvent(contract.id, 'contract.countersigned', 'control-plane-api', {
+      actorUserId: currentUser.id,
+      acceptanceId: acceptance.id,
+      signatoryId: acceptance.skuldSignatoryId,
+      source: acceptance.skuldResolutionSource,
+    });
+    return this.toAcceptanceResponse(saved);
+  }
+
+  async revokeAcceptance(
+    acceptanceId: string,
+    dto: RevokeAcceptanceDto,
+    currentUser: User,
+  ): Promise<ContractAcceptanceResponseDto> {
+    const acceptance = await this.requireAcceptance(acceptanceId);
+    assertClientBoundary(acceptance.clientId, currentUser);
+
+    if (acceptance.revokedAt) {
+      return this.toAcceptanceResponse(acceptance);
+    }
+
+    acceptance.revokedAt = new Date();
+    acceptance.revocationReason = dto.reason.trim();
+    acceptance.metadata = {
+      ...(acceptance.metadata ?? {}),
+      revokedByUserId: currentUser.id,
+    };
+    const saved = await this.acceptanceRepository.save(acceptance);
+
+    await this.recordContractEvent(
+      acceptance.contractId,
+      'contract.acceptance_revoked',
+      'control-plane-api',
+      {
+        actorUserId: currentUser.id,
+        acceptanceId: acceptance.id,
+        reason: acceptance.revocationReason,
+      },
+    );
+
+    return this.toAcceptanceResponse(saved);
+  }
+
+  async verifyAcceptanceEvidence(
+    acceptanceId: string,
+    currentUser: User,
+  ): Promise<ContractEvidenceVerificationResponseDto> {
+    const acceptance = await this.requireAcceptance(acceptanceId);
+    assertClientBoundary(acceptance.clientId, currentUser);
+
+    const contentSnapshotHashActual = acceptance.contentSnapshot
+      ? createHash('sha256').update(acceptance.contentSnapshot).digest('hex')
+      : null;
+    const contentSnapshotHashMatches = Boolean(
+      contentSnapshotHashActual &&
+      acceptance.contentSnapshotHash &&
+      contentSnapshotHashActual === acceptance.contentSnapshotHash,
+    );
+
+    const signatureData = (acceptance.evidence?.['signatureData'] as string | undefined) ?? null;
+    const signatureHashActual = signatureData
+      ? createHash('sha256').update(signatureData).digest('hex')
+      : null;
+    const signatureHashMatches =
+      signatureHashActual && acceptance.signatureHash
+        ? signatureHashActual === acceptance.signatureHash
+        : null;
+
+    const signedPdfHashValidFormat = Boolean(
+      acceptance.signedPdfHash && /^[a-fA-F0-9]{64}$/.test(acceptance.signedPdfHash),
+    );
+
+    const issues: string[] = [];
+    if (!contentSnapshotHashMatches) {
+      issues.push('Content snapshot hash mismatch.');
+    }
+    if (signatureData && signatureHashMatches === false) {
+      issues.push('Signature hash mismatch.');
+    }
+    if (acceptance.signedPdfUrl && !acceptance.signedPdfHash) {
+      issues.push('Signed PDF hash missing.');
+    }
+    if (acceptance.signedPdfHash && !acceptance.signedPdfUrl) {
+      issues.push('Signed PDF URL missing.');
+    }
+    if (acceptance.signedPdfHash && !signedPdfHashValidFormat) {
+      issues.push('Signed PDF hash has invalid format.');
+    }
+
+    return {
+      acceptanceId: acceptance.id,
+      contentSnapshotHashExpected: acceptance.contentSnapshotHash,
+      contentSnapshotHashActual,
+      contentSnapshotHashMatches,
+      signatureHashExpected: acceptance.signatureHash,
+      signatureHashActual,
+      signatureHashMatches,
+      signedPdfUrl: acceptance.signedPdfUrl,
+      signedPdfHash: acceptance.signedPdfHash,
+      signedPdfHashValidFormat,
+      envelopeId: acceptance.envelopeId,
+      issues,
+      verified: issues.length === 0,
+    };
+  }
+
+  async getClientContractStatus(
+    clientId: string,
+    currentUser: User,
+  ): Promise<ClientContractStatusResponseDto> {
+    assertClientBoundary(clientId, currentUser);
+    const now = new Date();
+    const acceptances = await this.acceptanceRepository.find({
+      where: {
+        clientId,
+        revokedAt: IsNull(),
+      },
+      relations: ['contract'],
+      order: {
+        acceptedAt: 'DESC',
+      },
+    });
+
+    const activeAcceptances = acceptances.filter(
+      (acceptance) => !acceptance.expirationDate || acceptance.expirationDate > now,
+    );
+
+    const acceptedContracts: Record<
+      string,
+      Array<{
+        acceptanceId: string;
+        templateId: string | null;
+        templateVersionId: string | null;
+        templateName: string | null;
+        version: number | null;
+        acceptedAt: string;
+        acceptedBy: string;
+      }>
+    > = {};
+
+    for (const acceptance of activeAcceptances) {
+      const contractType = acceptance.contract?.templateKey ?? 'unknown';
+      if (!acceptedContracts[contractType]) {
+        acceptedContracts[contractType] = [];
+      }
+      acceptedContracts[contractType].push({
+        acceptanceId: acceptance.id,
+        templateId: acceptance.templateId,
+        templateVersionId: acceptance.templateVersionId,
+        templateName: acceptance.contract?.title ?? null,
+        version: acceptance.contract?.version ?? null,
+        acceptedAt: acceptance.acceptedAt.toISOString(),
+        acceptedBy: acceptance.acceptedByName,
+      });
+    }
+
+    return {
+      clientId,
+      acceptedContracts,
+      totalActiveAcceptances: activeAcceptances.length,
+    };
+  }
+
+  async getRenderedAcceptance(
+    acceptanceId: string,
+    currentUser: User,
+  ): Promise<RenderedAcceptanceResponseDto> {
+    const acceptance = await this.requireAcceptance(acceptanceId);
+    assertClientBoundary(acceptance.clientId, currentUser);
+
+    const contract = await this.contractRepository.findOne({
+      where: { id: acceptance.contractId },
+    });
+    if (!contract) {
+      throw new NotFoundException({
+        code: 'CONTRACT_NOT_FOUND',
+        message: `Contract ${acceptance.contractId} was not found.`,
+      });
+    }
+
+    return {
+      acceptanceId: acceptance.id,
+      contractId: acceptance.contractId,
+      templateId: acceptance.templateId,
+      templateVersionId: acceptance.templateVersionId,
+      templateName: contract.title,
+      templateVersion: contract.version,
+      clientId: acceptance.clientId,
+      acceptedAt: acceptance.acceptedAt.toISOString(),
+      acceptedByName: acceptance.acceptedByName,
+      acceptedByEmail: acceptance.acceptedByEmail,
+      acceptedByTitle: acceptance.acceptedByTitle,
+      contentSnapshot: acceptance.contentSnapshot,
+      contentSnapshotHash: acceptance.contentSnapshotHash,
+      variablesUsed: acceptance.variablesUsed,
+      revokedAt: acceptance.revokedAt ? acceptance.revokedAt.toISOString() : null,
+      revocationReason: acceptance.revocationReason,
+    };
   }
 
   async verifyEnvelopeRecipientOtp(
@@ -699,6 +982,10 @@ export class ContractSigningService {
           const primaryRecipient = recipients.slice().sort((a, b) => a.sortOrder - b.sortOrder)[0];
           if (primaryRecipient) {
             const contentHash = this.computeSigningContentHash(contract, envelope);
+            const contentSnapshot = this.resolveAcceptanceSnapshot(contract);
+            const signatureHash = primaryRecipient.signatureValue
+              ? createHash('sha256').update(primaryRecipient.signatureValue).digest('hex')
+              : null;
             await this.acceptanceRepository.save(
               this.acceptanceRepository.create({
                 contractId: contract.id,
@@ -709,10 +996,31 @@ export class ContractSigningService {
                 tenantId: envelope.tenantId,
                 acceptedByName: primaryRecipient.fullName,
                 acceptedByEmail: primaryRecipient.email,
+                acceptedByTitle: primaryRecipient.roleLabel,
                 acceptanceMethod: ContractAcceptanceMethod.ESIGN,
                 ipAddress: primaryRecipient.ipAddress ?? '0.0.0.0',
                 userAgent: primaryRecipient.userAgent,
                 acceptedAt: now,
+                contentSnapshotHash: createHash('sha256').update(contentSnapshot).digest('hex'),
+                contentSnapshot,
+                signatureHash,
+                countersignedAt: null,
+                countersignedBy: null,
+                skuldSignatoryId: null,
+                skuldSignatoryName: null,
+                skuldSignatoryTitle: null,
+                skuldSignatoryEmail: null,
+                skuldSignatureHash: null,
+                skuldResolutionSource: null,
+                skuldResolvedAt: null,
+                signedPdfUrl: null,
+                signedPdfHash: null,
+                variablesUsed: contract.variables ?? {},
+                effectiveDate: now,
+                expirationDate: null,
+                supersededById: null,
+                revokedAt: null,
+                revocationReason: null,
                 evidence: {
                   recipientCount: recipients.length,
                   envelopeId: envelope.id,
@@ -880,6 +1188,134 @@ export class ContractSigningService {
     return createHash('sha256').update(this.stableStringify(payload)).digest('hex');
   }
 
+  private assertContractExists(
+    contract: Contract | null,
+    contractId: string,
+  ): asserts contract is Contract {
+    if (!contract) {
+      throw new NotFoundException({
+        code: 'CONTRACT_NOT_FOUND',
+        message: `Contract ${contractId} was not found.`,
+      });
+    }
+  }
+
+  private assertContractCanBeAccepted(contract: Contract): void {
+    if (contract.status !== ContractStatus.SIGNED) {
+      throw new BadRequestException({
+        code: 'CONTRACT_STATUS_INVALID',
+        message: `Contract ${contract.id} must be in signed status before acceptance.`,
+      });
+    }
+  }
+
+  private async assertNoActiveAcceptance(contractId: string): Promise<void> {
+    const existingActive = await this.acceptanceRepository.findOne({
+      where: {
+        contractId,
+        revokedAt: IsNull(),
+      },
+      order: {
+        acceptedAt: 'DESC',
+      },
+    });
+
+    if (existingActive) {
+      throw new BadRequestException({
+        code: 'CONTRACT_ACCEPTANCE_ALREADY_EXISTS',
+        message: `Contract ${contractId} already has an active acceptance.`,
+      });
+    }
+  }
+
+  private buildAcceptancePayload(
+    contract: Contract,
+    dto: AcceptContractDto,
+    actorUserId: string,
+    now: Date,
+  ): Partial<ContractAcceptance> {
+    const contentSnapshot = this.resolveAcceptanceSnapshot(contract);
+    const contentSnapshotHash = createHash('sha256').update(contentSnapshot).digest('hex');
+    const signatureHash = dto.signatureData
+      ? createHash('sha256').update(dto.signatureData).digest('hex')
+      : null;
+
+    return {
+      contractId: contract.id,
+      envelopeId: contract.envelopeId,
+      templateId: (contract.metadata?.['templateId'] as string | undefined) ?? null,
+      templateVersionId: (contract.metadata?.['templateVersionId'] as string | undefined) ?? null,
+      clientId: contract.clientId,
+      tenantId: contract.tenantId,
+      acceptedByName: dto.acceptedByName.trim(),
+      acceptedByEmail: dto.acceptedByEmail.trim().toLowerCase(),
+      acceptedByTitle: dto.acceptedByTitle?.trim() || null,
+      acceptanceMethod: dto.acceptanceMethod ?? ContractAcceptanceMethod.ESIGN,
+      ipAddress: dto.ipAddress?.trim() || '0.0.0.0',
+      userAgent: dto.userAgent?.trim() || null,
+      acceptedAt: now,
+      contentSnapshotHash,
+      contentSnapshot,
+      signatureHash,
+      countersignedAt: null,
+      countersignedBy: null,
+      skuldSignatoryId: null,
+      skuldSignatoryName: null,
+      skuldSignatoryTitle: null,
+      skuldSignatoryEmail: null,
+      skuldSignatureHash: null,
+      skuldResolutionSource: null,
+      skuldResolvedAt: null,
+      signedPdfUrl: null,
+      signedPdfHash: null,
+      variablesUsed: {
+        ...(contract.variables ?? {}),
+        ...(dto.variables ?? {}),
+      },
+      effectiveDate: dto.effectiveDate ? new Date(dto.effectiveDate) : now,
+      expirationDate: dto.expirationDate ? new Date(dto.expirationDate) : null,
+      supersededById: null,
+      revokedAt: null,
+      revocationReason: null,
+      evidence: {
+        source: 'contracts.accept',
+        envelopeId: contract.envelopeId,
+        signatureData: dto.signatureData ?? null,
+        actorUserId,
+      },
+      metadata: {},
+    };
+  }
+
+  private resolveAcceptanceSnapshot(contract: Contract): string {
+    if (contract.renderedHtml && contract.renderedHtml.trim().length > 0) {
+      return contract.renderedHtml;
+    }
+    return this.stableStringify({
+      title: contract.title,
+      templateKey: contract.templateKey,
+      version: contract.version,
+      documentJson: contract.documentJson ?? {},
+      variables: contract.variables ?? {},
+    });
+  }
+
+  private async requireAcceptance(acceptanceId: string): Promise<ContractAcceptance> {
+    const acceptance = await this.acceptanceRepository.findOne({
+      where: { id: acceptanceId },
+      relations: ['contract'],
+    });
+
+    if (!acceptance) {
+      throw new NotFoundException({
+        code: 'CONTRACT_ACCEPTANCE_NOT_FOUND',
+        message: `Contract acceptance ${acceptanceId} was not found.`,
+      });
+    }
+
+    return acceptance;
+  }
+
   private stableStringify(value: unknown): string {
     if (value === null || typeof value !== 'object') {
       return JSON.stringify(value);
@@ -956,10 +1392,31 @@ export class ContractSigningService {
       tenantId: acceptance.tenantId,
       acceptedByName: acceptance.acceptedByName,
       acceptedByEmail: acceptance.acceptedByEmail,
+      acceptedByTitle: acceptance.acceptedByTitle,
       acceptanceMethod: acceptance.acceptanceMethod,
       ipAddress: acceptance.ipAddress,
       userAgent: acceptance.userAgent,
       acceptedAt: acceptance.acceptedAt,
+      contentSnapshotHash: acceptance.contentSnapshotHash,
+      contentSnapshot: acceptance.contentSnapshot,
+      signatureHash: acceptance.signatureHash,
+      countersignedAt: acceptance.countersignedAt,
+      countersignedBy: acceptance.countersignedBy,
+      skuldSignatoryId: acceptance.skuldSignatoryId,
+      skuldSignatoryName: acceptance.skuldSignatoryName,
+      skuldSignatoryTitle: acceptance.skuldSignatoryTitle,
+      skuldSignatoryEmail: acceptance.skuldSignatoryEmail,
+      skuldSignatureHash: acceptance.skuldSignatureHash,
+      skuldResolutionSource: acceptance.skuldResolutionSource,
+      skuldResolvedAt: acceptance.skuldResolvedAt,
+      signedPdfUrl: acceptance.signedPdfUrl,
+      signedPdfHash: acceptance.signedPdfHash,
+      variablesUsed: acceptance.variablesUsed,
+      effectiveDate: acceptance.effectiveDate,
+      expirationDate: acceptance.expirationDate,
+      supersededById: acceptance.supersededById,
+      revokedAt: acceptance.revokedAt,
+      revocationReason: acceptance.revocationReason,
       evidence: acceptance.evidence ?? {},
       metadata: acceptance.metadata ?? {},
       createdAt: acceptance.createdAt,

@@ -55,11 +55,17 @@ import {
   ListContractRequirementsQueryDto,
 } from './dto/requirements.dto';
 import {
+  AcceptContractDto,
+  ClientContractStatusResponseDto,
   ContractAcceptanceResponseDto,
+  ContractEvidenceVerificationResponseDto,
   ContractEnvelopeResponseDto,
+  CountersignAcceptanceDto,
   DeclineEnvelopeRecipientDto,
   ListContractAcceptancesQueryDto,
   ListSentContractsQueryDto,
+  RenderedAcceptanceResponseDto,
+  RevokeAcceptanceDto,
   SignEnvelopeRecipientDto,
   VerifyEnvelopeOtpDto,
 } from './dto/signing.dto';
@@ -361,6 +367,16 @@ export class ContractsController {
     );
   }
 
+  @Post('accept')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_SIGN)
+  @HttpCode(HttpStatus.CREATED)
+  async acceptContract(
+    @Body() dto: AcceptContractDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractAcceptanceResponseDto> {
+    return this.contractSigningService.acceptContract(dto, currentUser);
+  }
+
   @Get('acceptances')
   @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
   async listAcceptances(
@@ -377,6 +393,57 @@ export class ContractsController {
     @CurrentUser() currentUser: User,
   ): Promise<ContractAcceptanceResponseDto> {
     return this.contractSigningService.getAcceptanceById(acceptanceId, currentUser);
+  }
+
+  @Get('acceptances/:acceptanceId/evidence/verify')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async verifyAcceptanceEvidence(
+    @Param('acceptanceId') acceptanceId: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractEvidenceVerificationResponseDto> {
+    return this.contractSigningService.verifyAcceptanceEvidence(acceptanceId, currentUser);
+  }
+
+  @Post('acceptances/:acceptanceId/countersign')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_SIGN)
+  async countersignAcceptance(
+    @Param('acceptanceId') acceptanceId: string,
+    @Body() dto: CountersignAcceptanceDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractAcceptanceResponseDto> {
+    return this.contractSigningService.countersignAcceptance(acceptanceId, dto, currentUser);
+  }
+
+  @Post('acceptances/:acceptanceId/revoke')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_SIGN)
+  async revokeAcceptance(
+    @Param('acceptanceId') acceptanceId: string,
+    @Body() dto: RevokeAcceptanceDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractAcceptanceResponseDto> {
+    return this.contractSigningService.revokeAcceptance(acceptanceId, dto, currentUser);
+  }
+
+  @Get('client/:clientId/status')
+  @RequirePermission(CP_PERMISSIONS.CONTRACTS_READ, {
+    scope: 'client',
+    source: 'params',
+    key: 'clientId',
+  })
+  async getClientContractStatus(
+    @Param('clientId') clientId: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<ClientContractStatusResponseDto> {
+    return this.contractSigningService.getClientContractStatus(clientId, currentUser);
+  }
+
+  @Get('acceptances/:acceptanceId/rendered')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async getRenderedAcceptance(
+    @Param('acceptanceId') acceptanceId: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<RenderedAcceptanceResponseDto> {
+    return this.contractSigningService.getRenderedAcceptance(acceptanceId, currentUser);
   }
 
   @Get('lookups')

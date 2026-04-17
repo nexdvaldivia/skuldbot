@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { ContractSigningService } from './contract-signing.service';
 import {
   ContractEnvelopeRecipientStatus,
@@ -39,6 +40,20 @@ function createService() {
     executeWithFallback: jest.fn(),
   };
 
+  const contractSignatoryPolicyService = {
+    resolvePreview: jest.fn(async () => ({
+      signatoryId: 'sig-1',
+      signatoryName: 'Skuld Signatory',
+      signatoryTitle: 'Legal',
+      signatoryEmail: 'legal@skuld.ai',
+      signatureHash: 'a'.repeat(64),
+      resolutionSource: 'default',
+      resolvedAt: new Date(),
+      ready: true,
+      message: 'ok',
+    })),
+  };
+
   const configService = {
     get: jest.fn((key: string) => {
       if (key === 'CONTRACT_SIGNING_OTP_SECRET') {
@@ -66,6 +81,7 @@ function createService() {
     tenantRepository as any,
     templateService as any,
     contractLegalService as any,
+    contractSignatoryPolicyService as any,
     providerFactory as any,
     configService as any,
   );
@@ -76,6 +92,7 @@ function createService() {
       contractRepository,
       signerRepository,
       envelopeRecipientRepository,
+      acceptanceRepository,
     },
   };
 }
@@ -238,5 +255,168 @@ describe('ContractSigningService blockers', () => {
     )?.[4] as Record<string, unknown>;
     expect(declinedEventPayload.ipAddress).toBe('203.0.113.10');
     expect(declinedEventPayload.userAgent).toBe('Mozilla/5.0 (X11)');
+  });
+
+  it('creates acceptance with legal evidence hashes', async () => {
+    const { service, mocks } = createService();
+    const now = new Date('2026-04-17T00:00:00.000Z');
+    jest.useFakeTimers().setSystemTime(now);
+
+    mocks.contractRepository.findOne.mockResolvedValue({
+      id: 'contract-1',
+      clientId: 'client-1',
+      tenantId: null,
+      title: 'MSA Contract',
+      templateKey: 'msa',
+      version: 3,
+      status: 'signed',
+      envelopeId: 'env-1',
+      renderedHtml: '<p>Rendered MSA</p>',
+      documentJson: { type: 'doc', content: [] },
+      variables: { client_name: 'ACME' },
+      metadata: { templateId: 'tpl-1', templateVersionId: 'tv-3' },
+    });
+    mocks.acceptanceRepository.findOne.mockResolvedValue(null);
+    mocks.acceptanceRepository.save.mockImplementation(async (value: any) => ({
+      id: 'acc-1',
+      createdAt: now,
+      ...value,
+    }));
+
+    const response = await service.acceptContract(
+      {
+        contractId: 'contract-1',
+        acceptedByName: 'Jane Client',
+        acceptedByEmail: 'jane@example.com',
+        signatureData: 'Jane Signature',
+      },
+      currentUser,
+    );
+
+    expect(response.id).toBe('acc-1');
+    expect(response.contentSnapshotHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(response.signatureHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(mocks.acceptanceRepository.save).toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
+  it('countersigns acceptance using policy resolution', async () => {
+    const { service, mocks } = createService();
+
+    const acceptance = {
+      id: 'acc-1',
+      clientId: 'client-1',
+      contractId: 'contract-1',
+      revokedAt: null,
+      metadata: {},
+    };
+    mocks.acceptanceRepository.findOne.mockResolvedValue(acceptance);
+    mocks.contractRepository.findOne.mockResolvedValue({
+      id: 'contract-1',
+      templateKey: 'msa',
+    });
+    mocks.acceptanceRepository.save.mockImplementation(async (value: any) => value);
+
+    const response = await service.countersignAcceptance('acc-1', {}, currentUser);
+    expect(response.skuldSignatoryId).toBe('sig-1');
+    expect(response.skuldResolutionSource).toBe('default');
+    expect(response.countersignedAt).toBeTruthy();
+  });
+
+  it('revokes acceptance with reason', async () => {
+    const { service, mocks } = createService();
+    const acceptance = {
+      id: 'acc-1',
+      clientId: 'client-1',
+      contractId: 'contract-1',
+      revokedAt: null,
+      revocationReason: null,
+      metadata: {},
+    };
+    mocks.acceptanceRepository.findOne.mockResolvedValue(acceptance);
+    mocks.acceptanceRepository.save.mockImplementation(async (value: any) => value);
+
+    const response = await service.revokeAcceptance(
+      'acc-1',
+      { reason: 'Client request' },
+      currentUser,
+    );
+    expect(response.revocationReason).toBe('Client request');
+    expect(response.revokedAt).toBeTruthy();
+  });
+
+  it('verifies acceptance evidence integrity', async () => {
+    const { service, mocks } = createService();
+    const contentSnapshot = '<p>Signed snapshot</p>';
+    const hash = createHash('sha256').update(contentSnapshot).digest('hex');
+    const signatureData = 'Jane Signature';
+    const signatureHash = createHash('sha256').update(signatureData).digest('hex');
+
+    mocks.acceptanceRepository.findOne.mockResolvedValue({
+      id: 'acc-1',
+      clientId: 'client-1',
+      contentSnapshot,
+      contentSnapshotHash: hash,
+      signatureHash,
+      signedPdfUrl: null,
+      signedPdfHash: null,
+      evidence: { signatureData },
+    });
+
+    const response = await service.verifyAcceptanceEvidence('acc-1', currentUser);
+    expect(response.verified).toBe(true);
+    expect(response.issues).toHaveLength(0);
+  });
+
+  it('returns client contract status grouped by template key', async () => {
+    const { service, mocks } = createService();
+    const now = new Date();
+    mocks.acceptanceRepository.find.mockResolvedValue([
+      {
+        id: 'acc-1',
+        clientId: 'client-1',
+        templateId: 'tpl-1',
+        templateVersionId: 'tv-1',
+        acceptedAt: now,
+        acceptedByName: 'Jane',
+        expirationDate: null,
+        revokedAt: null,
+        contract: { templateKey: 'msa', title: 'MSA', version: 1 },
+      },
+    ]);
+
+    const response = await service.getClientContractStatus('client-1', currentUser);
+    expect(response.totalActiveAcceptances).toBe(1);
+    expect(response.acceptedContracts.msa).toHaveLength(1);
+  });
+
+  it('returns rendered acceptance content snapshot', async () => {
+    const { service, mocks } = createService();
+    const acceptedAt = new Date();
+    mocks.acceptanceRepository.findOne.mockResolvedValue({
+      id: 'acc-1',
+      clientId: 'client-1',
+      contractId: 'contract-1',
+      templateId: 'tpl-1',
+      templateVersionId: 'tv-1',
+      acceptedAt,
+      acceptedByName: 'Jane',
+      acceptedByEmail: 'jane@example.com',
+      acceptedByTitle: 'CEO',
+      contentSnapshot: '<p>Signed MSA</p>',
+      contentSnapshotHash: 'abc',
+      variablesUsed: { client_name: 'ACME' },
+      revokedAt: null,
+      revocationReason: null,
+    });
+    mocks.contractRepository.findOne.mockResolvedValue({
+      id: 'contract-1',
+      title: 'MSA',
+      version: 1,
+    });
+
+    const response = await service.getRenderedAcceptance('acc-1', currentUser);
+    expect(response.acceptanceId).toBe('acc-1');
+    expect(response.contentSnapshot).toBe('<p>Signed MSA</p>');
   });
 });

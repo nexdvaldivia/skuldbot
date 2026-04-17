@@ -1,6 +1,8 @@
 import {
   IsArray,
+  IsDateString,
   IsEnum,
+  IsIP,
   IsNotEmpty,
   IsObject,
   IsOptional,
@@ -80,10 +82,31 @@ export class ContractAcceptanceResponseDto {
   tenantId: string | null;
   acceptedByName: string;
   acceptedByEmail: string;
+  acceptedByTitle: string | null;
   acceptanceMethod: ContractAcceptanceMethod;
   ipAddress: string;
   userAgent: string | null;
   acceptedAt: Date;
+  contentSnapshotHash: string | null;
+  contentSnapshot: string | null;
+  signatureHash: string | null;
+  countersignedAt: Date | null;
+  countersignedBy: string | null;
+  skuldSignatoryId: string | null;
+  skuldSignatoryName: string | null;
+  skuldSignatoryTitle: string | null;
+  skuldSignatoryEmail: string | null;
+  skuldSignatureHash: string | null;
+  skuldResolutionSource: string | null;
+  skuldResolvedAt: Date | null;
+  signedPdfUrl: string | null;
+  signedPdfHash: string | null;
+  variablesUsed: Record<string, unknown> | null;
+  effectiveDate: Date;
+  expirationDate: Date | null;
+  supersededById: string | null;
+  revokedAt: Date | null;
+  revocationReason: string | null;
   evidence: Record<string, unknown>;
   metadata: Record<string, unknown>;
   createdAt: Date;
@@ -101,6 +124,120 @@ export class ListContractAcceptancesQueryDto {
   @IsOptional()
   @IsUUID()
   contractId?: string;
+}
+
+export class AcceptContractDto {
+  @IsUUID()
+  contractId: string;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(180)
+  acceptedByName: string;
+
+  @IsString()
+  @MinLength(3)
+  @MaxLength(180)
+  acceptedByEmail: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(180)
+  acceptedByTitle?: string;
+
+  @IsOptional()
+  @IsEnum(ContractAcceptanceMethod)
+  acceptanceMethod?: ContractAcceptanceMethod;
+
+  @IsOptional()
+  @IsIP()
+  ipAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  userAgent?: string;
+
+  @IsOptional()
+  @IsString()
+  signatureData?: string;
+
+  @IsOptional()
+  @IsObject()
+  variables?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsDateString()
+  effectiveDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  expirationDate?: string;
+}
+
+export class CountersignAcceptanceDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  countersignedBy?: string;
+}
+
+export class RevokeAcceptanceDto {
+  @IsString()
+  @MinLength(3)
+  @MaxLength(1000)
+  reason: string;
+}
+
+export class ContractEvidenceVerificationResponseDto {
+  acceptanceId: string;
+  contentSnapshotHashExpected: string | null;
+  contentSnapshotHashActual: string | null;
+  contentSnapshotHashMatches: boolean;
+  signatureHashExpected: string | null;
+  signatureHashActual: string | null;
+  signatureHashMatches: boolean | null;
+  signedPdfUrl: string | null;
+  signedPdfHash: string | null;
+  signedPdfHashValidFormat: boolean;
+  envelopeId: string | null;
+  issues: string[];
+  verified: boolean;
+}
+
+export class ClientContractStatusItemDto {
+  acceptanceId: string;
+  templateId: string | null;
+  templateVersionId: string | null;
+  templateName: string | null;
+  version: number | null;
+  acceptedAt: string;
+  acceptedBy: string;
+}
+
+export class ClientContractStatusResponseDto {
+  clientId: string;
+  acceptedContracts: Record<string, ClientContractStatusItemDto[]>;
+  totalActiveAcceptances: number;
+}
+
+export class RenderedAcceptanceResponseDto {
+  acceptanceId: string;
+  contractId: string;
+  templateId: string | null;
+  templateVersionId: string | null;
+  templateName: string | null;
+  templateVersion: number | null;
+  clientId: string;
+  acceptedAt: string;
+  acceptedByName: string;
+  acceptedByEmail: string;
+  acceptedByTitle: string | null;
+  contentSnapshot: string | null;
+  contentSnapshotHash: string | null;
+  variablesUsed: Record<string, unknown> | null;
+  revokedAt: string | null;
+  revocationReason: string | null;
 }
 
 export class VerifyEnvelopeOtpDto {

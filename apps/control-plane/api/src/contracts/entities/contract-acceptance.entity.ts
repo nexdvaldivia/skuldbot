@@ -11,6 +11,7 @@ import { Tenant } from '../../tenants/entities/tenant.entity';
 import { Contract } from './contract.entity';
 import { ContractAcceptanceMethod } from './contract-domain.enums';
 import { ContractEnvelope } from './contract-envelope.entity';
+import { ContractSignatory } from './contract-signatory.entity';
 import { ContractTemplate } from './contract-template.entity';
 import { ContractTemplateVersion } from './contract-template-version.entity';
 
@@ -67,6 +68,9 @@ export class ContractAcceptance {
   @Column({ name: 'accepted_by_email', type: 'varchar', length: 180 })
   acceptedByEmail: string;
 
+  @Column({ name: 'accepted_by_title', type: 'varchar', length: 180, nullable: true })
+  acceptedByTitle: string | null;
+
   @Column({
     name: 'acceptance_method',
     type: 'enum',
@@ -83,6 +87,74 @@ export class ContractAcceptance {
 
   @Column({ name: 'accepted_at', type: 'timestamp with time zone', default: () => 'now()' })
   acceptedAt: Date;
+
+  @Column({ name: 'content_snapshot_hash', type: 'varchar', length: 64, nullable: true })
+  contentSnapshotHash: string | null;
+
+  @Column({ name: 'content_snapshot', type: 'text', nullable: true })
+  contentSnapshot: string | null;
+
+  @Column({ name: 'signature_hash', type: 'varchar', length: 64, nullable: true })
+  signatureHash: string | null;
+
+  @Column({ name: 'countersigned_at', type: 'timestamptz', nullable: true })
+  countersignedAt: Date | null;
+
+  @Column({ name: 'countersigned_by', type: 'varchar', length: 255, nullable: true })
+  countersignedBy: string | null;
+
+  @Column({ name: 'skuld_signatory_id', type: 'uuid', nullable: true })
+  skuldSignatoryId: string | null;
+
+  @ManyToOne(() => ContractSignatory, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'skuld_signatory_id' })
+  skuldSignatory: ContractSignatory | null;
+
+  @Column({ name: 'skuld_signatory_name', type: 'varchar', length: 255, nullable: true })
+  skuldSignatoryName: string | null;
+
+  @Column({ name: 'skuld_signatory_title', type: 'varchar', length: 255, nullable: true })
+  skuldSignatoryTitle: string | null;
+
+  @Column({ name: 'skuld_signatory_email', type: 'varchar', length: 255, nullable: true })
+  skuldSignatoryEmail: string | null;
+
+  @Column({ name: 'skuld_signature_hash', type: 'varchar', length: 64, nullable: true })
+  skuldSignatureHash: string | null;
+
+  @Column({ name: 'skuld_resolution_source', type: 'varchar', length: 20, nullable: true })
+  skuldResolutionSource: string | null;
+
+  @Column({ name: 'skuld_resolved_at', type: 'timestamptz', nullable: true })
+  skuldResolvedAt: Date | null;
+
+  @Column({ name: 'signed_pdf_url', type: 'varchar', length: 500, nullable: true })
+  signedPdfUrl: string | null;
+
+  @Column({ name: 'signed_pdf_hash', type: 'varchar', length: 64, nullable: true })
+  signedPdfHash: string | null;
+
+  @Column({ name: 'variables_used', type: 'jsonb', nullable: true })
+  variablesUsed: Record<string, unknown> | null;
+
+  @Column({ name: 'effective_date', type: 'timestamptz', default: () => 'now()' })
+  effectiveDate: Date;
+
+  @Column({ name: 'expiration_date', type: 'timestamptz', nullable: true })
+  expirationDate: Date | null;
+
+  @Column({ name: 'superseded_by_id', type: 'uuid', nullable: true })
+  supersededById: string | null;
+
+  @ManyToOne(() => ContractAcceptance, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'superseded_by_id' })
+  supersededBy: ContractAcceptance | null;
+
+  @Column({ name: 'revoked_at', type: 'timestamptz', nullable: true })
+  revokedAt: Date | null;
+
+  @Column({ name: 'revocation_reason', type: 'text', nullable: true })
+  revocationReason: string | null;
 
   @Column({ type: 'jsonb', default: '{}' })
   evidence: Record<string, unknown>;
