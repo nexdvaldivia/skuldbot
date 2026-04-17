@@ -475,38 +475,27 @@ export class ContractRequirementService {
   }
 
   private resolveSignedContractTypeCodes(contract: Contract, knownTypeCodes: string[]): string[] {
-    const candidates = new Set<string>();
-    const metadata = (contract.metadata ?? {}) as Record<string, unknown>;
-    for (const key of ['contractTypeCode', 'contractType', 'type', 'agreementType']) {
-      const value = metadata[key];
-      if (typeof value === 'string' && value.trim().length > 0) {
-        candidates.add(value.trim().toUpperCase());
-      }
-    }
-
-    const source = `${contract.templateKey} ${contract.title}`.toLowerCase();
-    for (const knownTypeCode of knownTypeCodes) {
-      if (source.includes(knownTypeCode.toLowerCase())) {
-        candidates.add(knownTypeCode);
-      }
-    }
-
-    if (source.includes('master service agreement') || source.includes(' msa ')) {
-      candidates.add('MSA');
-    }
-    if (source.includes('business associate agreement') || source.includes(' baa ')) {
-      candidates.add('BAA');
-    }
-    if (source.includes('data processing agreement') || source.includes(' dpa ')) {
-      candidates.add('DPA');
-    }
-
-    return Array.from(candidates.values()).sort((a, b) => a.localeCompare(b));
+    return this.resolveContractTypeCodes(
+      (contract.metadata ?? {}) as Record<string, unknown>,
+      `${contract.templateKey} ${contract.title}`,
+      knownTypeCodes,
+    );
   }
 
   private resolveTemplateTypeCodes(template: ContractTemplate, knownTypeCodes: string[]): string[] {
+    return this.resolveContractTypeCodes(
+      (template.metadata ?? {}) as Record<string, unknown>,
+      `${template.templateKey} ${template.title}`,
+      knownTypeCodes,
+    );
+  }
+
+  private resolveContractTypeCodes(
+    metadata: Record<string, unknown>,
+    sourceText: string,
+    knownTypeCodes: string[],
+  ): string[] {
     const candidates = new Set<string>();
-    const metadata = (template.metadata ?? {}) as Record<string, unknown>;
     for (const key of ['contractTypeCode', 'contractType', 'type', 'agreementType']) {
       const value = metadata[key];
       if (typeof value === 'string' && value.trim().length > 0) {
@@ -514,7 +503,7 @@ export class ContractRequirementService {
       }
     }
 
-    const source = `${template.templateKey} ${template.title}`.toLowerCase();
+    const source = sourceText.toLowerCase();
     for (const knownTypeCode of knownTypeCodes) {
       if (source.includes(knownTypeCode.toLowerCase())) {
         candidates.add(knownTypeCode);
