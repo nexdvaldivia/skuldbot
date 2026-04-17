@@ -32,6 +32,7 @@ import {
   ContractLegalInfoResponseDto,
   ContractLookupsResponseDto,
   ContractSignatoryResponseDto,
+  ContractSignatoryInitialsResponseDto,
   ContractSignatorySignatureResponseDto,
   ContractSignatorySignatureUploadUrlResponseDto,
   BulkUpsertContractSignatoriesDto,
@@ -39,7 +40,9 @@ import {
   CreateContractSignatoryDto,
   ListContractLookupQueryDto,
   ListContractSignatoriesQueryDto,
+  FindContractSignatoryForContractQueryDto,
   RequestContractSignatorySignatureUploadUrlDto,
+  UploadContractSignatoryInitialsDto,
   UploadContractSignatorySignatureDto,
   UpdateContractSignatoryDto,
   UpdateContractLookupDto,
@@ -365,7 +368,24 @@ export class ContractsController {
   async listSignatories(
     @Query() query: ListContractSignatoriesQueryDto,
   ): Promise<ContractSignatoryResponseDto[]> {
-    return this.contractLegalService.listSignatories(query.onlyActive ?? false);
+    return this.contractLegalService.listSignatories(
+      query.onlyActive ?? false,
+      query.includeDeleted ?? false,
+    );
+  }
+
+  @Get('signatories/default')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async getDefaultSignatory(): Promise<ContractSignatoryResponseDto> {
+    return this.contractLegalService.getDefaultSignatory();
+  }
+
+  @Get('signatories/for-contract')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async getSignatoryForContract(
+    @Query() query: FindContractSignatoryForContractQueryDto,
+  ): Promise<ContractSignatoryResponseDto> {
+    return this.contractLegalService.findSignatoryForContract(query);
   }
 
   @Get('signatories/:signatoryId')
@@ -405,6 +425,15 @@ export class ContractsController {
     return this.contractLegalService.updateSignatory(signatoryId, dto, currentUser);
   }
 
+  @Post('signatories/:signatoryId/set-default')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  async setDefaultSignatory(
+    @Param('signatoryId') signatoryId: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractSignatoryResponseDto> {
+    return this.contractLegalService.setDefaultSignatory(signatoryId, currentUser);
+  }
+
   @Delete('signatories/:signatoryId')
   @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -429,6 +458,16 @@ export class ContractsController {
     @CurrentUser() currentUser: User,
   ): Promise<ContractSignatorySignatureResponseDto> {
     return this.contractLegalService.uploadSignatorySignature(signatoryId, dto, currentUser);
+  }
+
+  @Post('signatories/:signatoryId/initials')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  async uploadSignatoryInitials(
+    @Param('signatoryId') signatoryId: string,
+    @Body() dto: UploadContractSignatoryInitialsDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractSignatoryInitialsResponseDto> {
+    return this.contractLegalService.uploadSignatoryInitials(signatoryId, dto, currentUser);
   }
 
   @Get('signatories/:signatoryId/signature')

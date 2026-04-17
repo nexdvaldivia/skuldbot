@@ -7,18 +7,21 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { IntegrationType, StorageProvider } from '../common/interfaces/integration.interface';
 import { ProviderFactoryService } from '../integrations/provider-factory.service';
 import { resolveProviderChain } from '../integrations/provider-chain.util';
 import { User } from '../users/entities/user.entity';
 import {
+  ContractSignatoryInitialsResponseDto,
   ContractSignatorySignatureResponseDto,
   ContractSignatorySignatureUploadUrlResponseDto,
   ContractLegalInfoResponseDto,
   ContractSignatoryResponseDto,
   CreateContractSignatoryDto,
+  FindContractSignatoryForContractQueryDto,
   RequestContractSignatorySignatureUploadUrlDto,
+  UploadContractSignatoryInitialsDto,
   UploadContractSignatorySignatureDto,
   UpdateContractLegalInfoDto,
   UpdateContractSignatoryDto,
@@ -109,9 +112,15 @@ export class ContractLegalService {
     return this.toLegalInfoResponse(saved);
   }
 
-  async listSignatories(onlyActive = false): Promise<ContractSignatoryResponseDto[]> {
+  async listSignatories(
+    onlyActive = false,
+    includeDeleted = false,
+  ): Promise<ContractSignatoryResponseDto[]> {
     const signatories = await this.signatoryRepository.find({
-      where: onlyActive ? { isActive: true } : {},
+      where: {
+        ...(onlyActive ? { isActive: true } : {}),
+        ...(includeDeleted ? {} : { deletedAt: IsNull() }),
+      },
       order: {
         isDefault: 'DESC',
         fullName: 'ASC',
@@ -123,6 +132,47 @@ export class ContractLegalService {
 
   async getSignatoryById(signatoryId: string): Promise<ContractSignatoryResponseDto> {
     const signatory = await this.findSignatoryOrThrow(signatoryId);
+    return this.toSignatoryResponse(signatory);
+  }
+
+  async getDefaultSignatory(): Promise<ContractSignatoryResponseDto> {
+    const signatory = await this.signatoryRepository.findOne({
+      where: {
+        isDefault: true,
+        isActive: true,
+        deletedAt: IsNull(),
+      },
+      order: {
+        updatedAt: 'DESC',
+      },
+    });
+    if (!signatory) {
+      throw new NotFoundException('No default contract signatory configured.');
+    }
+    return this.toSignatoryResponse(signatory);
+  }
+
+  async findSignatoryForContract(
+    query: FindContractSignatoryForContractQueryDto,
+  ): Promise<ContractSignatoryResponseDto> {
+    const contractType = query.contractType.trim().toLowerCase();
+    const signatory = await this.signatoryRepository
+      .createQueryBuilder('signatory')
+      .where('signatory.deleted_at IS NULL')
+      .andWhere('signatory.is_active = true')
+      .andWhere(
+        "(signatory.policies->'contractTypes' ? :contractType OR lower(signatory.policies->>'contractType') = :contractType OR signatory.is_default = true)",
+        { contractType },
+      )
+      .orderBy('signatory.is_default', 'DESC')
+      .addOrderBy('signatory.updated_at', 'DESC')
+      .getOne();
+
+    if (!signatory) {
+      throw new NotFoundException(
+        `No contract signatory found for contract type ${query.contractType}.`,
+      );
+    }
     return this.toSignatoryResponse(signatory);
   }
 
@@ -143,6 +193,7 @@ export class ContractLegalService {
       fullName: dto.fullName.trim(),
       email: dto.email.trim().toLowerCase(),
       title: dto.title?.trim() || null,
+      companyName: dto.companyName?.trim() || 'Skuld, LLC',
       isActive: dto.isActive ?? true,
       isDefault: dto.isDefault ?? false,
       policies: dto.policies ?? {},
@@ -153,6 +204,13 @@ export class ContractLegalService {
       signatureContentType: null,
       signatureSha256: null,
       signatureUploadedAt: null,
+      initialsImage: null,
+      initialsStorageKey: null,
+      initialsContentType: null,
+      initialsSha256: null,
+      initialsUploadedAt: null,
+      signatureText: null,
+      deletedAt: null,
     });
 
     if (signatory.isDefault) {
@@ -209,6 +267,9 @@ export class ContractLegalService {
     if (dto.title !== undefined) {
       signatory.title = dto.title.trim() || null;
     }
+    if (dto.companyName !== undefined) {
+      signatory.companyName = dto.companyName.trim() || 'Skuld, LLC';
+    }
     if (dto.isActive !== undefined) {
       signatory.isActive = dto.isActive;
     }
@@ -249,7 +310,33 @@ export class ContractLegalService {
         },
       );
     }
-    await this.signatoryRepository.delete({ id: signatoryId });
+    if (signatory.initialsStorageKey) {
+      await this.providerFactory.executeWithFallback<StorageProvider, void>(
+        IntegrationType.STORAGE,
+        'delete',
+        async (provider) => provider.delete(signatory.initialsStorageKey as string),
+        {
+          providerChain: this.storageProviderChain,
+        },
+      );
+    }
+    signatory.isActive = false;
+    signatory.isDefault = false;
+    signatory.deletedAt = new Date();
+    await this.signatoryRepository.save(signatory);
+  }
+
+  async setDefaultSignatory(
+    signatoryId: string,
+    currentUser: User,
+  ): Promise<ContractSignatoryResponseDto> {
+    const signatory = await this.findSignatoryOrThrow(signatoryId);
+    signatory.isDefault = true;
+    signatory.isActive = true;
+    signatory.updatedByUserId = currentUser.id;
+    await this.clearDefaultSignatory(signatory.id);
+    const saved = await this.signatoryRepository.save(signatory);
+    return this.toSignatoryResponse(saved);
   }
 
   async requestSignatorySignatureUploadUrl(
@@ -322,6 +409,9 @@ export class ContractLegalService {
     signatory.signatureContentType = contentType;
     signatory.signatureSha256 = sha256;
     signatory.signatureUploadedAt = new Date();
+    if (dto.signatureText !== undefined) {
+      signatory.signatureText = dto.signatureText?.trim() || null;
+    }
     signatory.updatedByUserId = currentUser.id;
     await this.signatoryRepository.save(signatory);
 
@@ -337,6 +427,7 @@ export class ContractLegalService {
         contentType: null,
         uploadedAt: null,
         signatureUrl: null,
+        signatureText: signatory.signatureText,
       };
     }
 
@@ -355,6 +446,7 @@ export class ContractLegalService {
       contentType: signatory.signatureContentType,
       uploadedAt: signatory.signatureUploadedAt,
       signatureUrl: result,
+      signatureText: signatory.signatureText,
     };
   }
 
@@ -381,6 +473,93 @@ export class ContractLegalService {
     signatory.updatedByUserId = currentUser.id;
     await this.signatoryRepository.save(signatory);
     return this.getSignatorySignature(signatoryId);
+  }
+
+  async uploadSignatoryInitials(
+    signatoryId: string,
+    dto: UploadContractSignatoryInitialsDto,
+    currentUser: User,
+  ): Promise<ContractSignatoryInitialsResponseDto> {
+    const signatory = await this.findSignatoryOrThrow(signatoryId);
+    const contentType = this.normalizeSignatureContentType(dto.contentType);
+    const buffer = Buffer.from(dto.contentBase64, 'base64');
+    if (buffer.length > 2 * 1024 * 1024) {
+      throw new PayloadTooLargeException('Initials payload exceeds 2MB limit.');
+    }
+
+    const key = this.buildInitialsStorageKey(signatoryId, contentType);
+    const sha256 = createHash('sha256').update(buffer).digest('hex');
+
+    await this.providerFactory.executeWithFallback<StorageProvider, unknown>(
+      IntegrationType.STORAGE,
+      'upload',
+      async (provider) =>
+        provider.upload({
+          key,
+          body: buffer,
+          contentType,
+          metadata: {
+            signatoryId,
+            uploadedBy: currentUser.id,
+            sha256,
+            artifactType: 'initials',
+          },
+        }),
+      {
+        providerChain: this.storageProviderChain,
+      },
+    );
+
+    if (signatory.initialsStorageKey && signatory.initialsStorageKey !== key) {
+      await this.providerFactory.executeWithFallback<StorageProvider, void>(
+        IntegrationType.STORAGE,
+        'delete',
+        async (provider) => provider.delete(signatory.initialsStorageKey as string),
+        {
+          providerChain: this.storageProviderChain,
+        },
+      );
+    }
+
+    signatory.initialsImage = key;
+    signatory.initialsStorageKey = key;
+    signatory.initialsContentType = contentType;
+    signatory.initialsSha256 = sha256;
+    signatory.initialsUploadedAt = new Date();
+    signatory.updatedByUserId = currentUser.id;
+    await this.signatoryRepository.save(signatory);
+
+    return this.getSignatoryInitials(signatoryId);
+  }
+
+  async getSignatoryInitials(signatoryId: string): Promise<ContractSignatoryInitialsResponseDto> {
+    const signatory = await this.findSignatoryOrThrow(signatoryId);
+    if (!signatory.initialsStorageKey) {
+      return {
+        signatoryId: signatory.id,
+        hasInitials: false,
+        contentType: null,
+        uploadedAt: null,
+        initialsUrl: null,
+      };
+    }
+
+    const { result } = await this.providerFactory.executeWithFallback<StorageProvider, string>(
+      IntegrationType.STORAGE,
+      'getSignedUrl',
+      async (provider) => provider.getSignedUrl(signatory.initialsStorageKey as string, 900),
+      {
+        providerChain: this.storageProviderChain,
+      },
+    );
+
+    return {
+      signatoryId: signatory.id,
+      hasInitials: true,
+      contentType: signatory.initialsContentType,
+      uploadedAt: signatory.initialsUploadedAt,
+      initialsUrl: result,
+    };
   }
 
   async buildLegalVariableContext(): Promise<Record<string, string>> {
@@ -440,7 +619,9 @@ export class ContractLegalService {
   }
 
   private async clearDefaultSignatory(excludedSignatoryId: string): Promise<void> {
-    const defaults = await this.signatoryRepository.find({ where: { isDefault: true } });
+    const defaults = await this.signatoryRepository.find({
+      where: { isDefault: true, deletedAt: IsNull() },
+    });
     const toUpdate = defaults.filter((item) => item.id !== excludedSignatoryId);
     if (toUpdate.length === 0) {
       return;
@@ -480,11 +661,16 @@ export class ContractLegalService {
       fullName: signatory.fullName,
       email: signatory.email,
       title: signatory.title,
+      companyName: signatory.companyName,
       isActive: signatory.isActive,
       isDefault: signatory.isDefault,
       hasSignature: Boolean(signatory.signatureStorageKey),
       signatureContentType: signatory.signatureContentType,
       signatureUploadedAt: signatory.signatureUploadedAt,
+      hasInitials: Boolean(signatory.initialsStorageKey),
+      initialsContentType: signatory.initialsContentType,
+      initialsUploadedAt: signatory.initialsUploadedAt,
+      signatureText: signatory.signatureText,
       policies: signatory.policies ?? {},
       metadata: signatory.metadata ?? {},
       createdAt: signatory.createdAt,
@@ -493,7 +679,9 @@ export class ContractLegalService {
   }
 
   private async findSignatoryOrThrow(signatoryId: string): Promise<ContractSignatory> {
-    const signatory = await this.signatoryRepository.findOne({ where: { id: signatoryId } });
+    const signatory = await this.signatoryRepository.findOne({
+      where: { id: signatoryId, deletedAt: IsNull() },
+    });
     if (!signatory) {
       throw new NotFoundException(`Contract signatory ${signatoryId} was not found.`);
     }
@@ -503,6 +691,11 @@ export class ContractLegalService {
   private buildSignatureStorageKey(signatoryId: string, contentType?: string): string {
     const extension = this.resolveSignatureExtension(contentType);
     return `contracts/signatories/${signatoryId}/signature-${Date.now()}.${extension}`;
+  }
+
+  private buildInitialsStorageKey(signatoryId: string, contentType?: string): string {
+    const extension = this.resolveSignatureExtension(contentType);
+    return `contracts/signatories/${signatoryId}/initials-${Date.now()}.${extension}`;
   }
 
   private normalizeSignatureContentType(contentType?: string): string {

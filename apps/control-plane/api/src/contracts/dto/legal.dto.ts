@@ -123,6 +123,11 @@ export class CreateContractSignatoryDto {
   title?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  companyName?: string;
+
+  @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 
@@ -156,6 +161,11 @@ export class UpdateContractSignatoryDto {
   title?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  companyName?: string;
+
+  @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 
@@ -182,6 +192,11 @@ export class ContractSignatoryResponseDto {
   hasSignature: boolean;
   signatureContentType: string | null;
   signatureUploadedAt: Date | null;
+  hasInitials: boolean;
+  initialsContentType: string | null;
+  initialsUploadedAt: Date | null;
+  signatureText: string | null;
+  companyName: string;
   policies: Record<string, unknown>;
   metadata: Record<string, unknown>;
   createdAt: Date;
@@ -192,6 +207,10 @@ export class ListContractSignatoriesQueryDto {
   @IsOptional()
   @IsBoolean()
   onlyActive?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  includeDeleted?: boolean;
 }
 
 export class BulkUpsertContractSignatoriesDto {
@@ -227,6 +246,11 @@ export class UploadContractSignatorySignatureDto {
   @IsString()
   @MaxLength(120)
   contentType?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  signatureText?: string;
 }
 
 export class RequestContractSignatorySignatureUploadUrlDto {
@@ -248,6 +272,37 @@ export class ContractSignatorySignatureResponseDto {
   contentType: string | null;
   uploadedAt: Date | null;
   signatureUrl: string | null;
+  signatureText: string | null;
+}
+
+export class UploadContractSignatoryInitialsDto {
+  @IsBase64()
+  contentBase64: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  contentType?: string;
+}
+
+export class ContractSignatoryInitialsResponseDto {
+  signatoryId: string;
+  hasInitials: boolean;
+  contentType: string | null;
+  uploadedAt: Date | null;
+  initialsUrl: string | null;
+}
+
+export class SetDefaultContractSignatoryDto {
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}
+
+export class FindContractSignatoryForContractQueryDto {
+  @IsString()
+  @MaxLength(80)
+  contractType: string;
 }
 
 export class ListContractLookupQueryDto {
