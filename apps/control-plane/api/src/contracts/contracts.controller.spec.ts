@@ -2,6 +2,7 @@ import { StreamableFile } from '@nestjs/common';
 import { ContractLegalService } from './contract-legal.service';
 import { ContractLookupsService } from './contract-lookups.service';
 import { ContractRequirementService } from './contract-requirement.service';
+import { ContractSignatoryPolicyService } from './contract-signatory-policy.service';
 import { ContractSigningService } from './contract-signing.service';
 import { ContractTemplateService } from './contract-template.service';
 import { ContractsController } from './contracts.controller';
@@ -20,6 +21,7 @@ describe('ContractsController', () => {
       {} as ContractLookupsService,
       {} as ContractRequirementService,
       {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
     );
     const currentUser = { id: 'user-1' } as any;
 
@@ -43,6 +45,7 @@ describe('ContractsController', () => {
       {} as ContractLookupsService,
       {} as ContractRequirementService,
       {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
     );
     const response = {
       setHeader: jest.fn(),

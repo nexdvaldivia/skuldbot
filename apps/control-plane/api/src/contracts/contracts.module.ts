@@ -6,6 +6,7 @@ import { ContractGateService } from './contract-gate.service';
 import { ContractLegalService } from './contract-legal.service';
 import { ContractLookupsService } from './contract-lookups.service';
 import { ContractRequirementService } from './contract-requirement.service';
+import { ContractSignatoryPolicyService } from './contract-signatory-policy.service';
 import { ContractSigningService } from './contract-signing.service';
 import { ContractTemplateService } from './contract-template.service';
 import { ContractsController } from './contracts.controller';
@@ -19,6 +20,7 @@ import { ContractJurisdictionLookup } from './entities/contract-jurisdiction-loo
 import { ContractLegalInfo } from './entities/contract-legal-info.entity';
 import { ContractRequirement } from './entities/contract-requirement.entity';
 import { ContractSignatory } from './entities/contract-signatory.entity';
+import { ContractSignatoryPolicy } from './entities/contract-signatory-policy.entity';
 import { ContractTypeLookup } from './entities/contract-type-lookup.entity';
 import { ContractEvent } from './entities/contract-event.entity';
 import { ContractSigner } from './entities/contract-signer.entity';
@@ -41,6 +43,7 @@ import { PdfService } from './pdf.service';
       ContractAcceptance,
       ContractRequirement,
       ContractSignatory,
+      ContractSignatoryPolicy,
       ContractLegalInfo,
       ContractTypeLookup,
       ContractJurisdictionLookup,
@@ -58,6 +61,7 @@ import { PdfService } from './pdf.service';
     ContractLookupsService,
     ContractRequirementService,
     ContractLegalService,
+    ContractSignatoryPolicyService,
     ContractGateService,
   ],
   exports: [ContractsService, ContractGateService, ContractRequirementService],

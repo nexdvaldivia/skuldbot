@@ -24,6 +24,7 @@ import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { User } from '../users/entities/user.entity';
 import { ContractLookupsService } from './contract-lookups.service';
 import { ContractRequirementService } from './contract-requirement.service';
+import { ContractSignatoryPolicyService } from './contract-signatory-policy.service';
 import { ContractSigningService } from './contract-signing.service';
 import { ContractTemplateService } from './contract-template.service';
 import { ContractsService } from './contracts.service';
@@ -63,6 +64,16 @@ import {
   VerifyEnvelopeOtpDto,
 } from './dto/signing.dto';
 import {
+  ContractSignatoryPolicyListResponseDto,
+  ContractSignatoryPolicyResponseDto,
+  ContractSignatoryPolicyToggleResponseDto,
+  ContractSignatoryResolutionPreviewRequestDto,
+  ContractSignatoryResolutionPreviewResponseDto,
+  CreateContractSignatoryPolicyDto,
+  ListContractSignatoryPoliciesQueryDto,
+  UpdateContractSignatoryPolicyDto,
+} from './dto/signatory-policy.dto';
+import {
   ContractTemplateResponseDto,
   CreateContractTemplateDto,
   DeprecateContractTemplateDto,
@@ -91,6 +102,7 @@ export class ContractsController {
     private readonly contractLookupsService: ContractLookupsService,
     private readonly contractRequirementService: ContractRequirementService,
     private readonly contractLegalService: ContractLegalService,
+    private readonly contractSignatoryPolicyService: ContractSignatoryPolicyService,
   ) {}
 
   @Get('templates')
@@ -485,6 +497,76 @@ export class ContractsController {
     @CurrentUser() currentUser: User,
   ): Promise<ContractSignatorySignatureResponseDto> {
     return this.contractLegalService.removeSignatorySignature(signatoryId, currentUser);
+  }
+
+  @Get('signatory-policies')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async listSignatoryPolicies(
+    @Query() query: ListContractSignatoryPoliciesQueryDto,
+  ): Promise<ContractSignatoryPolicyListResponseDto> {
+    return this.contractSignatoryPolicyService.listPolicies(query.contractType, query.isActive);
+  }
+
+  @Get('signatory-policies/history')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async listSignatoryPolicyHistory(
+    @Query() query: ListContractSignatoryPoliciesQueryDto,
+  ): Promise<ContractSignatoryPolicyListResponseDto> {
+    return this.contractSignatoryPolicyService.listPolicyHistory(query.contractType);
+  }
+
+  @Get('signatory-policies/:policyId')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async getSignatoryPolicy(
+    @Param('policyId') policyId: string,
+  ): Promise<ContractSignatoryPolicyResponseDto> {
+    return this.contractSignatoryPolicyService.getPolicy(policyId);
+  }
+
+  @Post('signatory-policies')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  @HttpCode(HttpStatus.CREATED)
+  async createSignatoryPolicy(
+    @Body() dto: CreateContractSignatoryPolicyDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractSignatoryPolicyResponseDto> {
+    return this.contractSignatoryPolicyService.createPolicy(dto, currentUser);
+  }
+
+  @Patch('signatory-policies/:policyId')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  async updateSignatoryPolicy(
+    @Param('policyId') policyId: string,
+    @Body() dto: UpdateContractSignatoryPolicyDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractSignatoryPolicyResponseDto> {
+    return this.contractSignatoryPolicyService.updatePolicy(policyId, dto, currentUser);
+  }
+
+  @Post('signatory-policies/:policyId/activate')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  async activateSignatoryPolicy(
+    @Param('policyId') policyId: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractSignatoryPolicyToggleResponseDto> {
+    return this.contractSignatoryPolicyService.activatePolicy(policyId, currentUser);
+  }
+
+  @Post('signatory-policies/:policyId/deactivate')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
+  async deactivateSignatoryPolicy(
+    @Param('policyId') policyId: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractSignatoryPolicyToggleResponseDto> {
+    return this.contractSignatoryPolicyService.deactivatePolicy(policyId, currentUser);
+  }
+
+  @Post('signatory-policies/resolve-preview')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async resolveSignatoryPolicyPreview(
+    @Body() dto: ContractSignatoryResolutionPreviewRequestDto,
+  ): Promise<ContractSignatoryResolutionPreviewResponseDto> {
+    return this.contractSignatoryPolicyService.resolvePreview(dto);
   }
 
   @Get()
