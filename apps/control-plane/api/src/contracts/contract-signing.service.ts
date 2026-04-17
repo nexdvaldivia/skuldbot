@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  PayloadTooLargeException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomInt, createHash, timingSafeEqual } from 'crypto';
@@ -74,6 +80,14 @@ export class ContractSigningService {
   private readonly emailProviderChain: string[];
   private readonly storageProviderChain: string[];
   private readonly otpSecretPepper: string;
+  private static readonly OFFLINE_EVIDENCE_MAX_BYTES = 50 * 1024 * 1024;
+  private static readonly OFFLINE_EVIDENCE_ALLOWED_CONTENT_TYPES = new Set([
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'image/jpeg',
+    'image/png',
+  ]);
 
   constructor(
     @InjectRepository(Contract)
@@ -431,6 +445,12 @@ export class ContractSigningService {
 
   async voidEnvelope(envelopeId: string, currentUser: User): Promise<ContractEnvelopeResponseDto> {
     const envelope = await this.requireEnvelope(envelopeId, currentUser);
+    this.assertEnvelopeTransition(
+      envelope,
+      'void',
+      [ContractEnvelopeStatus.DRAFT, ContractEnvelopeStatus.SENT],
+      ['sent'],
+    );
     envelope.status = ContractEnvelopeStatus.CANCELLED;
     envelope.cancelledAt = new Date();
     envelope.updatedByUserId = currentUser.id;
@@ -451,6 +471,7 @@ export class ContractSigningService {
     currentUser: User,
   ): Promise<ContractEnvelopeResponseDto> {
     const envelope = await this.requireEnvelope(envelopeId, currentUser);
+    this.assertEnvelopeTransition(envelope, 'suspend', [ContractEnvelopeStatus.SENT], ['sent']);
     envelope.metadata = {
       ...(envelope.metadata ?? {}),
       lifecycleState: 'suspended',
@@ -470,6 +491,7 @@ export class ContractSigningService {
     currentUser: User,
   ): Promise<ContractEnvelopeResponseDto> {
     const envelope = await this.requireEnvelope(envelopeId, currentUser);
+    this.assertEnvelopeTransition(envelope, 'resume', [ContractEnvelopeStatus.SENT], ['suspended']);
     envelope.metadata = {
       ...(envelope.metadata ?? {}),
       lifecycleState: 'sent',
@@ -651,11 +673,12 @@ export class ContractSigningService {
     currentUser: User,
   ): Promise<ContractEnvelopeResponseDto> {
     const envelope = await this.requireEnvelope(envelopeId, currentUser);
-    const contentType = dto.contentType?.trim().toLowerCase() || 'application/pdf';
+    const contentType = this.resolveOfflineEvidenceContentType(dto.contentType);
     const buffer = this.decodeBase64File(
       dto.contentBase64,
       'CONTRACT_OFFLINE_EVIDENCE_INVALID_BASE64',
     );
+    this.assertOfflineEvidenceSize(buffer.length);
     const sha256 = createHash('sha256').update(buffer).digest('hex');
     const fileName = dto.fileName?.trim() || `offline-evidence-${Date.now()}.pdf`;
 
@@ -704,6 +727,12 @@ export class ContractSigningService {
     currentUser: User,
   ): Promise<ContractEnvelopeResponseDto> {
     const envelope = await this.requireEnvelope(envelopeId, currentUser);
+    this.assertEnvelopeTransition(
+      envelope,
+      'complete_offline',
+      [ContractEnvelopeStatus.SENT],
+      ['sent', 'suspended'],
+    );
     const now = new Date();
     envelope.status = ContractEnvelopeStatus.COMPLETED;
     envelope.completedAt = now;
@@ -1645,6 +1674,165 @@ export class ContractSigningService {
     envelopeId: string,
     actorUserId: string,
   ): Promise<ContractEnvelopeResponseDto> {
+    const envelope = await this.requireEnvelopeWithRecipientsOrThrow(
+      envelopeId,
+      `Envelope ${envelopeId} was not found.`,
+    );
+    const recipients = envelope.recipients ?? [];
+    const now = new Date();
+
+    if (this.hasDeclinedRecipient(recipients)) {
+      await this.markEnvelopeAsDeclined(envelope, actorUserId, now);
+    } else if (this.hasAllRecipientsSigned(recipients)) {
+      await this.markEnvelopeAsCompleted(envelope, actorUserId, now);
+      await this.syncSignedContractFromCompletedEnvelope(envelope, recipients, actorUserId, now);
+    } else {
+      await this.markEnvelopeAsSent(envelope, actorUserId);
+    }
+
+    const refreshed = await this.requireEnvelopeWithRecipientsOrThrow(
+      envelope.id,
+      `Envelope ${envelopeId} was not found after status recalculation.`,
+    );
+    return this.toEnvelopeResponse(refreshed);
+  }
+
+  private hasDeclinedRecipient(recipients: ContractEnvelopeRecipient[]): boolean {
+    return recipients.some(
+      (recipient) => recipient.status === ContractEnvelopeRecipientStatus.DECLINED,
+    );
+  }
+
+  private hasAllRecipientsSigned(recipients: ContractEnvelopeRecipient[]): boolean {
+    return (
+      recipients.length > 0 &&
+      recipients.every((recipient) => recipient.status === ContractEnvelopeRecipientStatus.SIGNED)
+    );
+  }
+
+  private async markEnvelopeAsDeclined(
+    envelope: ContractEnvelope,
+    actorUserId: string,
+    now: Date,
+  ): Promise<void> {
+    envelope.status = ContractEnvelopeStatus.DECLINED;
+    envelope.declinedAt = now;
+    envelope.updatedByUserId = actorUserId;
+    await this.envelopeRepository.save(envelope);
+  }
+
+  private async markEnvelopeAsCompleted(
+    envelope: ContractEnvelope,
+    actorUserId: string,
+    now: Date,
+  ): Promise<void> {
+    envelope.status = ContractEnvelopeStatus.COMPLETED;
+    envelope.completedAt = now;
+    envelope.updatedByUserId = actorUserId;
+    await this.envelopeRepository.save(envelope);
+  }
+
+  private async markEnvelopeAsSent(envelope: ContractEnvelope, actorUserId: string): Promise<void> {
+    envelope.status = ContractEnvelopeStatus.SENT;
+    envelope.updatedByUserId = actorUserId;
+    await this.envelopeRepository.save(envelope);
+  }
+
+  private async syncSignedContractFromCompletedEnvelope(
+    envelope: ContractEnvelope,
+    recipients: ContractEnvelopeRecipient[],
+    actorUserId: string,
+    now: Date,
+  ): Promise<void> {
+    if (!envelope.contractId) {
+      return;
+    }
+    const contract = await this.contractRepository.findOne({
+      where: { id: envelope.contractId },
+    });
+    if (!contract) {
+      return;
+    }
+
+    contract.status = ContractStatus.SIGNED;
+    contract.signedAt = now;
+    contract.updatedByUserId = actorUserId;
+    await this.contractRepository.save(contract);
+    await this.createAcceptanceFromCompletedEnvelope(contract, envelope, recipients, now);
+    await this.recordContractEvent(contract.id, 'contract.signed', 'control-plane-api', {
+      actorUserId,
+      envelopeId: envelope.id,
+    });
+  }
+
+  private async createAcceptanceFromCompletedEnvelope(
+    contract: Contract,
+    envelope: ContractEnvelope,
+    recipients: ContractEnvelopeRecipient[],
+    now: Date,
+  ): Promise<void> {
+    const primaryRecipient = recipients.slice().sort((a, b) => a.sortOrder - b.sortOrder)[0];
+    if (!primaryRecipient) {
+      return;
+    }
+
+    const contentHash = this.computeSigningContentHash(contract, envelope);
+    const contentSnapshot = this.resolveAcceptanceSnapshot(contract);
+    const signatureHash = primaryRecipient.signatureValue
+      ? createHash('sha256').update(primaryRecipient.signatureValue).digest('hex')
+      : null;
+
+    await this.acceptanceRepository.save(
+      this.acceptanceRepository.create({
+        contractId: contract.id,
+        envelopeId: envelope.id,
+        templateId: envelope.templateId,
+        templateVersionId: envelope.templateVersionId,
+        clientId: envelope.clientId,
+        tenantId: envelope.tenantId,
+        acceptedByName: primaryRecipient.fullName,
+        acceptedByEmail: primaryRecipient.email,
+        acceptedByTitle: primaryRecipient.roleLabel,
+        acceptanceMethod: ContractAcceptanceMethod.ESIGN,
+        ipAddress: primaryRecipient.ipAddress ?? '0.0.0.0',
+        userAgent: primaryRecipient.userAgent,
+        acceptedAt: now,
+        contentSnapshotHash: createHash('sha256').update(contentSnapshot).digest('hex'),
+        contentSnapshot,
+        signatureHash,
+        countersignedAt: null,
+        countersignedBy: null,
+        skuldSignatoryId: null,
+        skuldSignatoryName: null,
+        skuldSignatoryTitle: null,
+        skuldSignatoryEmail: null,
+        skuldSignatureHash: null,
+        skuldResolutionSource: null,
+        skuldResolvedAt: null,
+        signedPdfUrl: null,
+        signedPdfHash: null,
+        variablesUsed: contract.variables ?? {},
+        effectiveDate: now,
+        expirationDate: null,
+        supersededById: null,
+        revokedAt: null,
+        revocationReason: null,
+        evidence: {
+          recipientCount: recipients.length,
+          envelopeId: envelope.id,
+          contentHash,
+          templateId: envelope.templateId,
+          templateVersionId: envelope.templateVersionId,
+        },
+        metadata: {},
+      }),
+    );
+  }
+
+  private async requireEnvelopeWithRecipientsOrThrow(
+    envelopeId: string,
+    message: string,
+  ): Promise<ContractEnvelope> {
     const envelope = await this.envelopeRepository.findOne({
       where: { id: envelopeId },
       relations: ['recipients'],
@@ -1652,118 +1840,10 @@ export class ContractSigningService {
     if (!envelope) {
       throw new NotFoundException({
         code: 'CONTRACT_ENVELOPE_NOT_FOUND',
-        message: `Envelope ${envelopeId} was not found.`,
+        message,
       });
     }
-
-    const recipients = envelope.recipients ?? [];
-    const now = new Date();
-    const anyDeclined = recipients.some(
-      (recipient) => recipient.status === ContractEnvelopeRecipientStatus.DECLINED,
-    );
-    const allSigned =
-      recipients.length > 0 &&
-      recipients.every((recipient) => recipient.status === ContractEnvelopeRecipientStatus.SIGNED);
-
-    if (anyDeclined) {
-      envelope.status = ContractEnvelopeStatus.DECLINED;
-      envelope.declinedAt = now;
-      envelope.updatedByUserId = actorUserId;
-      await this.envelopeRepository.save(envelope);
-    } else if (allSigned) {
-      envelope.status = ContractEnvelopeStatus.COMPLETED;
-      envelope.completedAt = now;
-      envelope.updatedByUserId = actorUserId;
-      await this.envelopeRepository.save(envelope);
-
-      if (envelope.contractId) {
-        const contract = await this.contractRepository.findOne({
-          where: { id: envelope.contractId },
-        });
-        if (contract) {
-          contract.status = ContractStatus.SIGNED;
-          contract.signedAt = now;
-          contract.updatedByUserId = actorUserId;
-          await this.contractRepository.save(contract);
-
-          const primaryRecipient = recipients.slice().sort((a, b) => a.sortOrder - b.sortOrder)[0];
-          if (primaryRecipient) {
-            const contentHash = this.computeSigningContentHash(contract, envelope);
-            const contentSnapshot = this.resolveAcceptanceSnapshot(contract);
-            const signatureHash = primaryRecipient.signatureValue
-              ? createHash('sha256').update(primaryRecipient.signatureValue).digest('hex')
-              : null;
-            await this.acceptanceRepository.save(
-              this.acceptanceRepository.create({
-                contractId: contract.id,
-                envelopeId: envelope.id,
-                templateId: envelope.templateId,
-                templateVersionId: envelope.templateVersionId,
-                clientId: envelope.clientId,
-                tenantId: envelope.tenantId,
-                acceptedByName: primaryRecipient.fullName,
-                acceptedByEmail: primaryRecipient.email,
-                acceptedByTitle: primaryRecipient.roleLabel,
-                acceptanceMethod: ContractAcceptanceMethod.ESIGN,
-                ipAddress: primaryRecipient.ipAddress ?? '0.0.0.0',
-                userAgent: primaryRecipient.userAgent,
-                acceptedAt: now,
-                contentSnapshotHash: createHash('sha256').update(contentSnapshot).digest('hex'),
-                contentSnapshot,
-                signatureHash,
-                countersignedAt: null,
-                countersignedBy: null,
-                skuldSignatoryId: null,
-                skuldSignatoryName: null,
-                skuldSignatoryTitle: null,
-                skuldSignatoryEmail: null,
-                skuldSignatureHash: null,
-                skuldResolutionSource: null,
-                skuldResolvedAt: null,
-                signedPdfUrl: null,
-                signedPdfHash: null,
-                variablesUsed: contract.variables ?? {},
-                effectiveDate: now,
-                expirationDate: null,
-                supersededById: null,
-                revokedAt: null,
-                revocationReason: null,
-                evidence: {
-                  recipientCount: recipients.length,
-                  envelopeId: envelope.id,
-                  contentHash,
-                  templateId: envelope.templateId,
-                  templateVersionId: envelope.templateVersionId,
-                },
-                metadata: {},
-              }),
-            );
-          }
-
-          await this.recordContractEvent(contract.id, 'contract.signed', 'control-plane-api', {
-            actorUserId,
-            envelopeId: envelope.id,
-          });
-        }
-      }
-    } else {
-      envelope.status = ContractEnvelopeStatus.SENT;
-      envelope.updatedByUserId = actorUserId;
-      await this.envelopeRepository.save(envelope);
-    }
-
-    const refreshed = await this.envelopeRepository.findOne({
-      where: { id: envelope.id },
-      relations: ['recipients'],
-    });
-    if (!refreshed) {
-      throw new NotFoundException({
-        code: 'CONTRACT_ENVELOPE_NOT_FOUND',
-        message: `Envelope ${envelopeId} was not found after status recalculation.`,
-      });
-    }
-
-    return this.toEnvelopeResponse(refreshed);
+    return envelope;
   }
 
   private async recordEnvelopeEvent(
@@ -2151,6 +2231,53 @@ export class ContractSigningService {
     }
 
     return buffer;
+  }
+
+  private resolveOfflineEvidenceContentType(contentType: string | undefined): string {
+    const normalized = contentType?.trim().toLowerCase() || 'application/pdf';
+    if (!ContractSigningService.OFFLINE_EVIDENCE_ALLOWED_CONTENT_TYPES.has(normalized)) {
+      throw new BadRequestException({
+        code: 'CONTRACT_OFFLINE_EVIDENCE_CONTENT_TYPE_INVALID',
+        message:
+          'Offline evidence must be one of: application/pdf, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document, image/jpeg, image/png.',
+      });
+    }
+    return normalized;
+  }
+
+  private assertOfflineEvidenceSize(sizeBytes: number): void {
+    if (sizeBytes > ContractSigningService.OFFLINE_EVIDENCE_MAX_BYTES) {
+      throw new PayloadTooLargeException({
+        code: 'CONTRACT_OFFLINE_EVIDENCE_TOO_LARGE',
+        message: `Offline evidence exceeds ${ContractSigningService.OFFLINE_EVIDENCE_MAX_BYTES} bytes.`,
+      });
+    }
+  }
+
+  private assertEnvelopeTransition(
+    envelope: ContractEnvelope,
+    action: string,
+    allowedStatuses: ContractEnvelopeStatus[],
+    allowedLifecycleStates: string[],
+  ): void {
+    const lifecycleState = this.getEnvelopeLifecycleState(envelope);
+    const statusAllowed = allowedStatuses.includes(envelope.status);
+    const lifecycleAllowed = allowedLifecycleStates.includes(lifecycleState);
+    if (statusAllowed && lifecycleAllowed) {
+      return;
+    }
+    throw new BadRequestException({
+      code: 'CONTRACT_ENVELOPE_STATUS_TRANSITION_INVALID',
+      message: `Envelope ${envelope.id} cannot execute '${action}' from status '${envelope.status}' and lifecycle '${lifecycleState}'.`,
+    });
+  }
+
+  private getEnvelopeLifecycleState(envelope: ContractEnvelope): string {
+    const metadata = envelope.metadata ?? {};
+    const rawState = metadata.lifecycleState;
+    return typeof rawState === 'string' && rawState.trim().length > 0
+      ? rawState.trim().toLowerCase()
+      : 'sent';
   }
 
   private async uploadOfflineEvidenceAsset(

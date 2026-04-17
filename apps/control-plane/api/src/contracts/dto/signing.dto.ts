@@ -5,6 +5,7 @@ import {
   IsDateString,
   IsEmail,
   IsEnum,
+  IsIn,
   IsInt,
   IsIP,
   IsNotEmpty,
@@ -23,6 +24,16 @@ import {
   ContractEnvelopeStatus,
   ContractSignatureType,
 } from '../entities/contract-domain.enums';
+
+const OFFLINE_EVIDENCE_MAX_BYTES = 50 * 1024 * 1024;
+const OFFLINE_EVIDENCE_MAX_BASE64_LENGTH = Math.ceil((OFFLINE_EVIDENCE_MAX_BYTES * 4) / 3) + 4;
+const OFFLINE_EVIDENCE_ALLOWED_CONTENT_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'image/jpeg',
+  'image/png',
+] as const;
 
 export class ContractEnvelopeRecipientResponseDto {
   id: string;
@@ -237,10 +248,12 @@ export class ResendEnvelopeDto {
 
 export class UploadEnvelopeOfflineEvidenceDto {
   @IsBase64()
+  @MaxLength(OFFLINE_EVIDENCE_MAX_BASE64_LENGTH)
   contentBase64: string;
 
   @IsOptional()
   @IsString()
+  @IsIn(OFFLINE_EVIDENCE_ALLOWED_CONTENT_TYPES)
   @MaxLength(160)
   contentType?: string;
 

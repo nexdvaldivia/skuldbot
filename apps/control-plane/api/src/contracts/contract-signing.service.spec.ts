@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { ContractSigningService } from './contract-signing.service';
 import {
+  ContractEnvelopeStatus,
   ContractEnvelopeRecipientStatus,
   ContractSignatureType,
 } from './entities/contract-domain.enums';
@@ -502,5 +503,86 @@ describe('ContractSigningService blockers', () => {
     expect(updatedRecipient.email).toBe('new@example.com');
     expect(updatedRecipient.otpCodeHash).toBeTruthy();
     expect(updatedRecipient.otpVerifiedAt).toBeNull();
+  });
+
+  it('rejects invalid status transition when suspending a non-sent envelope', async () => {
+    const { service } = createService();
+    jest.spyOn(service as any, 'requireEnvelope').mockResolvedValue({
+      id: 'env-1',
+      status: ContractEnvelopeStatus.CANCELLED,
+      metadata: { lifecycleState: 'voided' },
+    });
+
+    await expect(service.suspendEnvelope('env-1', currentUser)).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'CONTRACT_ENVELOPE_STATUS_TRANSITION_INVALID',
+      }),
+    });
+  });
+
+  it('rejects resume when envelope lifecycle is not suspended', async () => {
+    const { service } = createService();
+    jest.spyOn(service as any, 'requireEnvelope').mockResolvedValue({
+      id: 'env-1',
+      status: ContractEnvelopeStatus.SENT,
+      metadata: { lifecycleState: 'sent' },
+    });
+
+    await expect(service.resumeEnvelope('env-1', currentUser)).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'CONTRACT_ENVELOPE_STATUS_TRANSITION_INVALID',
+      }),
+    });
+  });
+
+  it('rejects offline evidence upload when content type is not whitelisted', async () => {
+    const { service } = createService();
+    jest.spyOn(service as any, 'requireEnvelope').mockResolvedValue({
+      id: 'env-1',
+      status: ContractEnvelopeStatus.SENT,
+      metadata: {},
+    });
+
+    await expect(
+      service.uploadEnvelopeOfflineEvidence(
+        'env-1',
+        {
+          contentBase64: Buffer.from('x').toString('base64'),
+          contentType: 'text/plain',
+        },
+        currentUser,
+      ),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'CONTRACT_OFFLINE_EVIDENCE_CONTENT_TYPE_INVALID',
+      }),
+    });
+  });
+
+  it('rejects offline evidence upload when payload exceeds size limit', async () => {
+    const { service } = createService();
+    jest.spyOn(service as any, 'requireEnvelope').mockResolvedValue({
+      id: 'env-1',
+      status: ContractEnvelopeStatus.SENT,
+      metadata: {},
+    });
+    jest
+      .spyOn(service as any, 'decodeBase64File')
+      .mockReturnValue(Buffer.alloc(50 * 1024 * 1024 + 1, 1));
+
+    await expect(
+      service.uploadEnvelopeOfflineEvidence(
+        'env-1',
+        {
+          contentBase64: Buffer.from('x').toString('base64'),
+          contentType: 'application/pdf',
+        },
+        currentUser,
+      ),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'CONTRACT_OFFLINE_EVIDENCE_TOO_LARGE',
+      }),
+    });
   });
 });
