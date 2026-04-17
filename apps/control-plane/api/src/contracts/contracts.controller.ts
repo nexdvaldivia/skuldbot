@@ -523,6 +523,14 @@ export class ContractsController {
     return this.contractSignatoryPolicyService.getPolicy(policyId);
   }
 
+  @Post('signatory-policies/resolve-preview')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async resolveSignatoryPolicyPreview(
+    @Body() dto: ContractSignatoryResolutionPreviewRequestDto,
+  ): Promise<ContractSignatoryResolutionPreviewResponseDto> {
+    return this.contractSignatoryPolicyService.resolvePreview(dto);
+  }
+
   @Post('signatory-policies')
   @RequirePermissions(CP_PERMISSIONS.CONTRACTS_APPROVE)
   @HttpCode(HttpStatus.CREATED)
@@ -559,14 +567,6 @@ export class ContractsController {
     @CurrentUser() currentUser: User,
   ): Promise<ContractSignatoryPolicyToggleResponseDto> {
     return this.contractSignatoryPolicyService.deactivatePolicy(policyId, currentUser);
-  }
-
-  @Post('signatory-policies/resolve-preview')
-  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
-  async resolveSignatoryPolicyPreview(
-    @Body() dto: ContractSignatoryResolutionPreviewRequestDto,
-  ): Promise<ContractSignatoryResolutionPreviewResponseDto> {
-    return this.contractSignatoryPolicyService.resolvePreview(dto);
   }
 
   @Get()
