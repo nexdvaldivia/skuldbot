@@ -3,6 +3,21 @@ import { ContractTemplateService } from './contract-template.service';
 import { ContractTemplateStatus } from './entities/contract-domain.enums';
 
 describe('ContractTemplateService', () => {
+  const createService = (
+    templateRepository: unknown,
+    templateVersionRepository: unknown,
+    pdfService: unknown,
+    providerFactory: unknown = { executeWithFallback: jest.fn() },
+    configService: unknown = { get: jest.fn(() => undefined) },
+  ) =>
+    new ContractTemplateService(
+      templateRepository as any,
+      templateVersionRepository as any,
+      pdfService as any,
+      providerFactory as any,
+      configService as any,
+    );
+
   it('rejects duplicate template keys', async () => {
     const templateRepository = {
       findOne: jest.fn(async () => ({ id: 'tpl-existing' })),
@@ -21,11 +36,7 @@ describe('ContractTemplateService', () => {
       convertTipTapJsonToHtml: jest.fn(() => '<p>html</p>'),
     };
 
-    const service = new ContractTemplateService(
-      templateRepository as any,
-      templateVersionRepository as any,
-      pdfService as any,
-    );
+    const service = createService(templateRepository, templateVersionRepository, pdfService);
 
     await expect(
       service.createTemplate(
@@ -112,11 +123,7 @@ describe('ContractTemplateService', () => {
       convertTipTapJsonToHtml: jest.fn(() => '<p>html</p>'),
     };
 
-    const service = new ContractTemplateService(
-      templateRepository as any,
-      templateVersionRepository as any,
-      pdfService as any,
-    );
+    const service = createService(templateRepository, templateVersionRepository, pdfService);
 
     const result = await service.createTemplate(
       {
@@ -204,11 +211,9 @@ describe('ContractTemplateService', () => {
       }),
     };
 
-    const service = new ContractTemplateService(
-      templateRepository as any,
-      templateVersionRepository as any,
-      { convertTipTapJsonToHtml: jest.fn() } as any,
-    );
+    const service = createService(templateRepository, templateVersionRepository, {
+      convertTipTapJsonToHtml: jest.fn(),
+    });
 
     const result = await service.createTemplateVersion(
       'tpl-1',
@@ -254,14 +259,14 @@ describe('ContractTemplateService', () => {
       create: jest.fn((value) => value),
     };
 
-    const service = new ContractTemplateService(
-      templateRepository as any,
+    const service = createService(
+      templateRepository,
       {
         findOne: jest.fn(),
         save: jest.fn(),
         create: jest.fn((value) => value),
-      } as any,
-      { convertTipTapJsonToHtml: jest.fn() } as any,
+      },
+      { convertTipTapJsonToHtml: jest.fn() },
     );
 
     await expect(service.archiveTemplate('tpl-1', { id: 'user-1' } as any)).rejects.toBeInstanceOf(
@@ -296,14 +301,14 @@ describe('ContractTemplateService', () => {
       create: jest.fn((value) => value),
     };
 
-    const service = new ContractTemplateService(
-      templateRepository as any,
+    const service = createService(
+      templateRepository,
       {
         findOne: jest.fn(async () => null),
         save: jest.fn(),
         create: jest.fn((value) => value),
-      } as any,
-      { convertTipTapJsonToHtml: jest.fn() } as any,
+      },
+      { convertTipTapJsonToHtml: jest.fn() },
     );
 
     await expect(
@@ -352,14 +357,14 @@ describe('ContractTemplateService', () => {
       create: jest.fn((value) => value),
     };
 
-    const service = new ContractTemplateService(
-      templateRepository as any,
+    const service = createService(
+      templateRepository,
       {
         findOne: jest.fn(),
         save: jest.fn(),
         create: jest.fn((value) => value),
-      } as any,
-      { convertTipTapJsonToHtml: jest.fn() } as any,
+      },
+      { convertTipTapJsonToHtml: jest.fn() },
     );
 
     const chain = await service.getTemplateVersionChainByTemplateKey('MSA.V1', false);
@@ -369,5 +374,166 @@ describe('ContractTemplateService', () => {
     expect(chain.integrity.brokenNodeIds).toContain('tv-3');
     expect(chain.integrity.hasVersionGaps).toBe(true);
     expect(chain.integrity.expectedNextVersion).toBe(4);
+  });
+
+  it('uploads template PDF to storage and returns preview URL', async () => {
+    const draftVersion: any = {
+      id: 'tv-1',
+      templateId: 'tpl-1',
+      versionNumber: 1,
+      status: ContractTemplateStatus.DRAFT,
+      metadata: {},
+      documentJson: { type: 'doc', content: [{ type: 'paragraph' }] },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const templateState: any = {
+      id: 'tpl-1',
+      templateKey: 'msa.v1',
+      title: 'Master Service Agreement',
+      status: ContractTemplateStatus.DRAFT,
+      activeVersionId: null,
+      latestVersionNumber: 1,
+      versions: [draftVersion],
+    };
+
+    const templateRepository = {
+      findOne: jest.fn(async () => templateState),
+      save: jest.fn(async (value: any) => value),
+      find: jest.fn(),
+      create: jest.fn((value) => value),
+    };
+    const templateVersionRepository = {
+      findOne: jest.fn(async () => draftVersion),
+      save: jest.fn(async (value: any) => {
+        Object.assign(draftVersion, value);
+        return value;
+      }),
+      create: jest.fn((value) => value),
+    };
+    const providerFactory = {
+      executeWithFallback: jest.fn(async (_type: string, operation: string) => {
+        if (operation === 'upload') {
+          return { result: { key: 'contracts/templates/tpl-1/versions/1/template.pdf', url: '' } };
+        }
+        if (operation === 'getSignedUrl') {
+          return { result: 'https://signed.example/template.pdf' };
+        }
+        return { result: null };
+      }),
+    };
+
+    const service = createService(
+      templateRepository,
+      templateVersionRepository,
+      { convertTipTapJsonToHtml: jest.fn() },
+      providerFactory,
+    );
+
+    const result = await service.uploadTemplatePdf(
+      'tpl-1',
+      { contentBase64: Buffer.from('%PDF-1.4 test').toString('base64') },
+      { id: 'user-1' } as any,
+    );
+
+    expect(result.hasPdf).toBe(true);
+    expect(result.signedUrl).toBe('https://signed.example/template.pdf');
+    expect(providerFactory.executeWithFallback).toHaveBeenCalled();
+  });
+
+  it('updates signature fields on draft version', async () => {
+    const draftVersion: any = {
+      id: 'tv-1',
+      templateId: 'tpl-1',
+      versionNumber: 1,
+      status: ContractTemplateStatus.DRAFT,
+      metadata: {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const templateState: any = {
+      id: 'tpl-1',
+      templateKey: 'msa.v1',
+      title: 'Master Service Agreement',
+      status: ContractTemplateStatus.DRAFT,
+      activeVersionId: null,
+      latestVersionNumber: 1,
+      versions: [draftVersion],
+    };
+    const service = createService(
+      {
+        findOne: jest.fn(async () => templateState),
+        save: jest.fn(async (value: any) => value),
+        find: jest.fn(),
+        create: jest.fn((value) => value),
+      },
+      {
+        findOne: jest.fn(async () => draftVersion),
+        save: jest.fn(async (value: any) => value),
+        create: jest.fn((value) => value),
+      },
+      { convertTipTapJsonToHtml: jest.fn() },
+    );
+
+    const response = await service.updateTemplateSignatureFields(
+      'tpl-1',
+      {
+        fields: [
+          {
+            id: 'client-signature',
+            type: 'signature' as any,
+            variableKey: 'signer_full_name',
+            required: true,
+          },
+        ],
+      },
+      { id: 'user-1' } as any,
+    );
+
+    expect(response.fields).toHaveLength(1);
+    expect(response.fields[0].id).toBe('client-signature');
+  });
+
+  it('resolves variables and reports missing required keys', async () => {
+    const template = {
+      id: 'tpl-1',
+      templateKey: 'msa.v1',
+      title: 'Master Service Agreement',
+      versions: [
+        {
+          id: 'tv-1',
+          versionNumber: 1,
+          status: ContractTemplateStatus.DRAFT,
+          variableDefinitions: {
+            client_name: { key: 'client_name', required: true },
+            contract_term: { key: 'contract_term', required: false, defaultValue: '12 months' },
+          },
+          metadata: {},
+        },
+      ],
+    };
+
+    const service = createService(
+      {
+        findOne: jest.fn(async () => template),
+        save: jest.fn(),
+        find: jest.fn(),
+        create: jest.fn((value) => value),
+      },
+      {
+        findOne: jest.fn(),
+        save: jest.fn(),
+        create: jest.fn((value) => value),
+      },
+      { convertTipTapJsonToHtml: jest.fn() },
+    );
+
+    const response = await service.resolveTemplateVariables('tpl-1', {
+      variables: {},
+      context: {},
+    });
+
+    expect(response.missingRequired).toEqual(['client_name']);
+    expect(response.resolved.contract_term).toBe('12 months');
   });
 });

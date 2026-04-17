@@ -1,11 +1,30 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  PayloadTooLargeException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import { createHash } from 'crypto';
 import { Repository } from 'typeorm';
+import {
+  IntegrationType,
+  StorageProvider,
+  UploadResult,
+} from '../common/interfaces/integration.interface';
+import { ProviderFactoryService } from '../integrations/provider-factory.service';
+import { resolveProviderChain } from '../integrations/provider-chain.util';
 import { User } from '../users/entities/user.entity';
 import {
+  ContractTemplateLintResponseDto,
+  ContractTemplatePdfPreviewResponseDto,
   ContractTemplateGroupedListResponseDto,
   ContractTemplateGroupedResponseDto,
   ContractTemplateResponseDto,
+  ContractTemplateSignatureFieldsResponseDto,
+  ContractTemplateVariableCatalogResponseDto,
+  ContractTemplateVariablesResponseDto,
   ContractTemplateVersionChainNodeDto,
   ContractTemplateVersionChainResponseDto,
   ContractTemplateVersionResponseDto,
@@ -13,7 +32,16 @@ import {
   CreateContractTemplateDto,
   DeprecateContractTemplateDto,
   PublishContractTemplateDto,
+  ResolveTemplateVariablesDto,
+  ResolveTemplateVariablesResponseDto,
+  TemplateLintIssueDto,
+  TemplateLintSeverity,
+  TemplateSignatureFieldDto,
+  TemplateVariableCatalogCategoryDto,
+  TemplateVariableItemDto,
   TemplateVariableDefinitionDto,
+  UpdateTemplateSignatureFieldsDto,
+  UploadTemplatePdfDto,
   UpdateContractTemplateDraftDto,
 } from './dto/template.dto';
 import { ContractTemplateStatus } from './entities/contract-domain.enums';
@@ -21,15 +49,105 @@ import { ContractTemplate } from './entities/contract-template.entity';
 import { ContractTemplateVersion } from './entities/contract-template-version.entity';
 import { PdfService } from './pdf.service';
 
+type TemplatePdfMetadata = {
+  storageKey: string;
+  contentType: string;
+  sha256: string;
+  sizeBytes: number;
+  uploadedAt: string;
+};
+
+const TEMPLATE_VARIABLE_CATALOG: Array<{
+  key: string;
+  label: string;
+  description: string;
+  type: string;
+  category: string;
+}> = [
+  {
+    key: 'client_name',
+    label: 'Client Name',
+    description: 'Legal or commercial client name.',
+    type: 'string',
+    category: 'client',
+  },
+  {
+    key: 'client_email',
+    label: 'Client Email',
+    description: 'Primary client contact email.',
+    type: 'string',
+    category: 'client',
+  },
+  {
+    key: 'tenant_name',
+    label: 'Tenant Name',
+    description: 'Tenant/environment display name.',
+    type: 'string',
+    category: 'client',
+  },
+  {
+    key: 'signer_full_name',
+    label: 'Signer Full Name',
+    description: 'Recipient full name used for signature blocks.',
+    type: 'string',
+    category: 'signer',
+  },
+  {
+    key: 'signer_email',
+    label: 'Signer Email',
+    description: 'Recipient email used in legal evidence.',
+    type: 'string',
+    category: 'signer',
+  },
+  {
+    key: 'contract_title',
+    label: 'Contract Title',
+    description: 'Template display title.',
+    type: 'string',
+    category: 'contract',
+  },
+  {
+    key: 'contract_version',
+    label: 'Contract Version',
+    description: 'Current template version number.',
+    type: 'number',
+    category: 'contract',
+  },
+  {
+    key: 'current_date',
+    label: 'Current Date',
+    description: 'Execution date in ISO format.',
+    type: 'date',
+    category: 'contract',
+  },
+  {
+    key: 'provider_legal_name',
+    label: 'Provider Legal Name',
+    description: 'Skuld legal entity name.',
+    type: 'string',
+    category: 'provider',
+  },
+];
+
 @Injectable()
 export class ContractTemplateService {
+  private readonly storageProviderChain: string[];
+
   constructor(
     @InjectRepository(ContractTemplate)
     private readonly templateRepository: Repository<ContractTemplate>,
     @InjectRepository(ContractTemplateVersion)
     private readonly templateVersionRepository: Repository<ContractTemplateVersion>,
     private readonly pdfService: PdfService,
-  ) {}
+    private readonly providerFactory: ProviderFactoryService,
+    private readonly configService: ConfigService,
+  ) {
+    this.storageProviderChain = resolveProviderChain(
+      this.configService.get<string>('STORAGE_PROVIDER_CHAIN'),
+      this.configService.get<string>('STORAGE_PROVIDER'),
+      ['s3', 'azure-blob'],
+    );
+  }
 
   async listTemplates(includeArchived = false): Promise<ContractTemplateResponseDto[]> {
     const templates = await this.templateRepository.find({
@@ -78,6 +196,385 @@ export class ContractTemplateService {
     }
 
     return this.toTemplateResponse(template);
+  }
+
+  async getTemplateVariables(templateId: string): Promise<ContractTemplateVariablesResponseDto> {
+    const template = await this.requireTemplateWithVersions(templateId);
+    const version = this.resolveTemplateVersionForRead(template);
+    const variables = this.toTemplateVariableItems(version.variableDefinitions ?? {});
+
+    return {
+      templateId: template.id,
+      templateKey: template.templateKey,
+      versionId: version.id,
+      variables,
+    };
+  }
+
+  async getTemplateVariableCatalog(
+    templateId: string,
+  ): Promise<ContractTemplateVariableCatalogResponseDto> {
+    const template = await this.requireTemplateWithVersions(templateId);
+    const version = this.resolveTemplateVersionForRead(template);
+    const templateVariables = this.toTemplateVariableItems(version.variableDefinitions ?? {});
+    const categoriesMap = new Map<string, TemplateVariableCatalogCategoryDto>();
+
+    const addItemToCategory = (category: string, label: string, item: TemplateVariableItemDto) => {
+      const existing = categoriesMap.get(category);
+      if (!existing) {
+        categoriesMap.set(category, {
+          category,
+          label,
+          variables: [item],
+        });
+        return;
+      }
+      existing.variables.push(item);
+    };
+
+    for (const item of templateVariables) {
+      addItemToCategory('template', 'Template Variables', item);
+    }
+
+    for (const catalogItem of this.getSystemCatalogVariables()) {
+      const categoryLabel = `${catalogItem.category[0].toUpperCase()}${catalogItem.category.slice(1)}`;
+      addItemToCategory(catalogItem.category, categoryLabel, catalogItem);
+    }
+
+    return {
+      templateId: template.id,
+      templateKey: template.templateKey,
+      categories: Array.from(categoriesMap.values()).sort((a, b) =>
+        a.category.localeCompare(b.category),
+      ),
+    };
+  }
+
+  async lintTemplate(templateId: string): Promise<ContractTemplateLintResponseDto> {
+    const template = await this.requireTemplateWithVersions(templateId);
+    const version = this.resolveTemplateVersionForRead(template);
+    const issues: TemplateLintIssueDto[] = [];
+
+    if (this.isDocumentJsonEmpty(version.documentJson)) {
+      issues.push({
+        code: 'TEMPLATE_EMPTY_DOCUMENT',
+        severity: TemplateLintSeverity.ERROR,
+        message: 'Template document is empty. Add at least one content block.',
+        path: 'documentJson',
+      });
+    }
+
+    const variableDefinitions = this.toTemplateVariableItems(version.variableDefinitions ?? {});
+    if (variableDefinitions.length === 0) {
+      issues.push({
+        code: 'TEMPLATE_VARIABLES_EMPTY',
+        severity: TemplateLintSeverity.WARNING,
+        message: 'Template has no variable definitions configured.',
+        path: 'variableDefinitions',
+      });
+    }
+
+    const signatureFields = this.getTemplateSignatureFields(version);
+    const templateVariableKeys = new Set(variableDefinitions.map((item) => item.key));
+    const systemVariableKeys = new Set(this.getSystemCatalogVariables().map((item) => item.key));
+    const hasUploadedPdf = Boolean(this.getTemplatePdfMetadata(version));
+    if (signatureFields.length > 0 && !hasUploadedPdf) {
+      issues.push({
+        code: 'TEMPLATE_SIGNATURE_FIELDS_WITHOUT_PDF',
+        severity: TemplateLintSeverity.WARNING,
+        message: 'Signature fields are configured but no PDF has been uploaded yet.',
+        path: 'metadata.signatureFields',
+      });
+    }
+
+    signatureFields.forEach((field, index) => {
+      if (!field.variableKey) {
+        return;
+      }
+      const isKnownVariable =
+        templateVariableKeys.has(field.variableKey) || systemVariableKeys.has(field.variableKey);
+      if (!isKnownVariable) {
+        issues.push({
+          code: 'SIGNATURE_FIELD_UNKNOWN_VARIABLE',
+          severity: TemplateLintSeverity.ERROR,
+          message: `Signature field ${field.id} references unknown variable key ${field.variableKey}.`,
+          path: `metadata.signatureFields[${index}].variableKey`,
+        });
+      }
+    });
+
+    return {
+      templateId: template.id,
+      templateKey: template.templateKey,
+      versionId: version.id,
+      valid: !issues.some((item) => item.severity === TemplateLintSeverity.ERROR),
+      issues,
+    };
+  }
+
+  async resolveTemplateVariables(
+    templateId: string,
+    dto: ResolveTemplateVariablesDto,
+  ): Promise<ResolveTemplateVariablesResponseDto> {
+    const template = await this.requireTemplateWithVersions(templateId);
+    const version = this.resolveTemplateVersionForRead(template);
+    const definitions = this.toTemplateVariableItems(version.variableDefinitions ?? {});
+    const inputs = dto.variables ?? {};
+    const context = dto.context ?? {};
+    const resolved: Record<string, unknown> = {};
+    const missingRequired: string[] = [];
+    const unresolved: string[] = [];
+
+    for (const definition of definitions) {
+      const providedInput = inputs[definition.key];
+      const contextValue = context[definition.key];
+      const value = this.firstDefinedValue(providedInput, contextValue, definition.defaultValue);
+
+      if (value === undefined || value === null || value === '') {
+        unresolved.push(definition.key);
+        if (definition.required) {
+          missingRequired.push(definition.key);
+        }
+        continue;
+      }
+      resolved[definition.key] = value;
+    }
+
+    const systemDefaults: Record<string, unknown> = {
+      contract_title: template.title,
+      contract_version: version.versionNumber,
+      current_date: new Date().toISOString().slice(0, 10),
+      provider_legal_name: 'Skuld, LLC',
+    };
+
+    for (const catalogVariable of this.getSystemCatalogVariables()) {
+      if (resolved[catalogVariable.key] !== undefined) {
+        continue;
+      }
+      const value = this.firstDefinedValue(
+        inputs[catalogVariable.key],
+        context[catalogVariable.key],
+        systemDefaults[catalogVariable.key],
+      );
+      if (value !== undefined) {
+        resolved[catalogVariable.key] = value;
+      }
+    }
+
+    return {
+      templateId: template.id,
+      templateKey: template.templateKey,
+      versionId: version.id,
+      resolved,
+      missingRequired,
+      unresolved,
+    };
+  }
+
+  async uploadTemplatePdf(
+    templateId: string,
+    dto: UploadTemplatePdfDto,
+    currentUser: User,
+  ): Promise<ContractTemplatePdfPreviewResponseDto> {
+    const template = await this.requireTemplateWithVersions(templateId);
+    if (template.status === ContractTemplateStatus.ARCHIVED) {
+      throw new BadRequestException({
+        code: 'CONTRACT_TEMPLATE_ARCHIVED',
+        message: `Template ${template.id} is archived and cannot be modified.`,
+      });
+    }
+
+    const draft = await this.resolveOrCreateDraftVersion(template, currentUser.id);
+    const contentType = dto.contentType?.trim().toLowerCase() || 'application/pdf';
+    if (contentType !== 'application/pdf') {
+      throw new BadRequestException({
+        code: 'CONTRACT_TEMPLATE_PDF_CONTENT_TYPE_INVALID',
+        message: 'Only application/pdf content type is supported.',
+      });
+    }
+
+    let buffer: Buffer;
+    try {
+      buffer = Buffer.from(dto.contentBase64, 'base64');
+    } catch {
+      throw new BadRequestException({
+        code: 'CONTRACT_TEMPLATE_PDF_INVALID_BASE64',
+        message: 'Uploaded PDF content is not valid base64.',
+      });
+    }
+
+    if (buffer.length === 0) {
+      throw new BadRequestException({
+        code: 'CONTRACT_TEMPLATE_PDF_EMPTY',
+        message: 'Uploaded PDF file cannot be empty.',
+      });
+    }
+
+    const maxUploadBytes = 15 * 1024 * 1024;
+    if (buffer.length > maxUploadBytes) {
+      throw new PayloadTooLargeException({
+        code: 'CONTRACT_TEMPLATE_PDF_TOO_LARGE',
+        message: `Uploaded PDF exceeds ${maxUploadBytes} bytes.`,
+      });
+    }
+
+    const previousMetadata = this.getTemplatePdfMetadata(draft);
+    const storageKey = this.buildTemplatePdfStorageKey(template.id, draft.versionNumber);
+    const sha256 = createHash('sha256').update(buffer).digest('hex');
+
+    await this.providerFactory.executeWithFallback<StorageProvider, UploadResult>(
+      IntegrationType.STORAGE,
+      'upload',
+      async (provider) =>
+        provider.upload({
+          key: storageKey,
+          body: buffer,
+          contentType,
+          metadata: {
+            templateId: template.id,
+            templateVersionId: draft.id,
+            templateKey: template.templateKey,
+          },
+        }),
+      {
+        providerChain: this.storageProviderChain,
+      },
+    );
+
+    if (previousMetadata?.storageKey && previousMetadata.storageKey !== storageKey) {
+      await this.providerFactory.executeWithFallback<StorageProvider, void>(
+        IntegrationType.STORAGE,
+        'delete',
+        async (provider) => provider.delete(previousMetadata.storageKey),
+        {
+          providerChain: this.storageProviderChain,
+        },
+      );
+    }
+
+    draft.metadata = {
+      ...(draft.metadata ?? {}),
+      templatePdf: {
+        storageKey,
+        contentType,
+        sha256,
+        sizeBytes: buffer.length,
+        uploadedAt: new Date().toISOString(),
+      },
+    };
+    draft.updatedByUserId = currentUser.id;
+    await this.templateVersionRepository.save(draft);
+
+    return this.previewTemplatePdf(template.id);
+  }
+
+  async previewTemplatePdf(templateId: string): Promise<ContractTemplatePdfPreviewResponseDto> {
+    const template = await this.requireTemplateWithVersions(templateId);
+    const version = this.resolveTemplateVersionForRead(template);
+    const metadata = this.getTemplatePdfMetadata(version);
+    if (!metadata) {
+      return {
+        templateId: template.id,
+        templateKey: template.templateKey,
+        versionId: version.id,
+        hasPdf: false,
+        contentType: null,
+        uploadedAt: null,
+        signedUrl: null,
+      };
+    }
+
+    const { result } = await this.providerFactory.executeWithFallback<StorageProvider, string>(
+      IntegrationType.STORAGE,
+      'getSignedUrl',
+      async (provider) => provider.getSignedUrl(metadata.storageKey, 900),
+      {
+        providerChain: this.storageProviderChain,
+      },
+    );
+
+    return {
+      templateId: template.id,
+      templateKey: template.templateKey,
+      versionId: version.id,
+      hasPdf: true,
+      contentType: metadata.contentType,
+      uploadedAt: new Date(metadata.uploadedAt),
+      signedUrl: result,
+    };
+  }
+
+  async removeTemplatePdf(
+    templateId: string,
+    currentUser: User,
+  ): Promise<ContractTemplatePdfPreviewResponseDto> {
+    const template = await this.requireTemplateWithVersions(templateId);
+    if (template.status === ContractTemplateStatus.ARCHIVED) {
+      throw new BadRequestException({
+        code: 'CONTRACT_TEMPLATE_ARCHIVED',
+        message: `Template ${template.id} is archived and cannot be modified.`,
+      });
+    }
+
+    const draft = await this.resolveOrCreateDraftVersion(template, currentUser.id);
+    const metadata = this.getTemplatePdfMetadata(draft);
+
+    if (metadata?.storageKey) {
+      await this.providerFactory.executeWithFallback<StorageProvider, void>(
+        IntegrationType.STORAGE,
+        'delete',
+        async (provider) => provider.delete(metadata.storageKey),
+        {
+          providerChain: this.storageProviderChain,
+        },
+      );
+    }
+
+    const nextMetadata = { ...(draft.metadata ?? {}) };
+    delete nextMetadata['templatePdf'];
+    draft.metadata = nextMetadata;
+    draft.updatedByUserId = currentUser.id;
+    await this.templateVersionRepository.save(draft);
+
+    return {
+      templateId: template.id,
+      templateKey: template.templateKey,
+      versionId: draft.id,
+      hasPdf: false,
+      contentType: null,
+      uploadedAt: null,
+      signedUrl: null,
+    };
+  }
+
+  async updateTemplateSignatureFields(
+    templateId: string,
+    dto: UpdateTemplateSignatureFieldsDto,
+    currentUser: User,
+  ): Promise<ContractTemplateSignatureFieldsResponseDto> {
+    const template = await this.requireTemplateWithVersions(templateId);
+    if (template.status === ContractTemplateStatus.ARCHIVED) {
+      throw new BadRequestException({
+        code: 'CONTRACT_TEMPLATE_ARCHIVED',
+        message: `Template ${template.id} is archived and cannot be modified.`,
+      });
+    }
+
+    const draft = await this.resolveOrCreateDraftVersion(template, currentUser.id);
+    const fields = this.normalizeSignatureFields(dto.fields);
+    draft.metadata = {
+      ...(draft.metadata ?? {}),
+      signatureFields: fields,
+    };
+    draft.updatedByUserId = currentUser.id;
+    await this.templateVersionRepository.save(draft);
+
+    return {
+      templateId: template.id,
+      templateKey: template.templateKey,
+      versionId: draft.id,
+      fields,
+    };
   }
 
   async createTemplate(
@@ -574,6 +1071,147 @@ export class ContractTemplateService {
     }
 
     return false;
+  }
+
+  private resolveTemplateVersionForRead(template: ContractTemplate): ContractTemplateVersion {
+    const versions = template.versions ?? [];
+    const draft = versions
+      .filter((version) => version.status === ContractTemplateStatus.DRAFT)
+      .sort((a, b) => b.versionNumber - a.versionNumber)[0];
+    if (draft) {
+      return draft;
+    }
+
+    if (template.activeVersionId) {
+      const active = versions.find((version) => version.id === template.activeVersionId);
+      if (active) {
+        return active;
+      }
+    }
+
+    const latest = versions.slice().sort((a, b) => b.versionNumber - a.versionNumber)[0];
+    if (!latest) {
+      throw new BadRequestException({
+        code: 'CONTRACT_TEMPLATE_VERSION_REQUIRED',
+        message: `Template ${template.id} does not have versions.`,
+      });
+    }
+
+    return latest;
+  }
+
+  private toTemplateVariableItems(
+    definitions: Record<string, unknown> | null | undefined,
+  ): TemplateVariableItemDto[] {
+    if (!definitions || typeof definitions !== 'object') {
+      return [];
+    }
+
+    return Object.entries(definitions)
+      .map(([key, raw]) => {
+        const value = (raw ?? {}) as Record<string, unknown>;
+        return {
+          key,
+          label: (value['label'] as string | undefined) ?? null,
+          description: (value['description'] as string | undefined) ?? null,
+          type: (value['type'] as string | undefined) ?? null,
+          required: Boolean(value['required']),
+          defaultValue: value['defaultValue'],
+          source: 'template' as const,
+          category: 'template',
+        };
+      })
+      .sort((a, b) => a.key.localeCompare(b.key));
+  }
+
+  private getSystemCatalogVariables(): TemplateVariableItemDto[] {
+    return TEMPLATE_VARIABLE_CATALOG.map((item) => ({
+      key: item.key,
+      label: item.label,
+      description: item.description,
+      type: item.type,
+      required: false,
+      defaultValue: undefined,
+      source: 'system' as const,
+      category: item.category,
+    }));
+  }
+
+  private getTemplatePdfMetadata(version: ContractTemplateVersion): TemplatePdfMetadata | null {
+    const metadata = (version.metadata ?? {}) as Record<string, unknown>;
+    const raw = metadata['templatePdf'];
+    if (!raw || typeof raw !== 'object') {
+      return null;
+    }
+
+    const obj = raw as Record<string, unknown>;
+    if (typeof obj['storageKey'] !== 'string' || typeof obj['contentType'] !== 'string') {
+      return null;
+    }
+
+    return {
+      storageKey: obj['storageKey'],
+      contentType: obj['contentType'],
+      sha256: typeof obj['sha256'] === 'string' ? obj['sha256'] : '',
+      sizeBytes: typeof obj['sizeBytes'] === 'number' ? obj['sizeBytes'] : 0,
+      uploadedAt:
+        typeof obj['uploadedAt'] === 'string' ? obj['uploadedAt'] : new Date(0).toISOString(),
+    };
+  }
+
+  private getTemplateSignatureFields(
+    version: ContractTemplateVersion,
+  ): TemplateSignatureFieldDto[] {
+    const metadata = (version.metadata ?? {}) as Record<string, unknown>;
+    const raw = metadata['signatureFields'];
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+
+    return this.normalizeSignatureFields(raw as TemplateSignatureFieldDto[]);
+  }
+
+  private normalizeSignatureFields(
+    fields: TemplateSignatureFieldDto[],
+  ): TemplateSignatureFieldDto[] {
+    const seenIds = new Set<string>();
+    const normalized: TemplateSignatureFieldDto[] = [];
+    for (const field of fields) {
+      const id = field.id.trim();
+      if (!id) {
+        continue;
+      }
+      if (seenIds.has(id)) {
+        throw new BadRequestException({
+          code: 'CONTRACT_TEMPLATE_SIGNATURE_FIELD_DUPLICATE',
+          message: `Duplicate signature field id ${id}.`,
+        });
+      }
+      seenIds.add(id);
+      normalized.push({
+        id,
+        type: field.type,
+        label: field.label?.trim(),
+        variableKey: field.variableKey?.trim(),
+        role: field.role?.trim(),
+        placement: field.placement ?? {},
+        required: field.required ?? true,
+      });
+    }
+    return normalized;
+  }
+
+  private buildTemplatePdfStorageKey(templateId: string, versionNumber: number): string {
+    return `contracts/templates/${templateId}/versions/${versionNumber}/template.pdf`;
+  }
+
+  private firstDefinedValue(...values: unknown[]): unknown {
+    for (const value of values) {
+      if (value !== undefined) {
+        return value;
+      }
+    }
+    return undefined;
   }
 
   private normalizeVariableDefinitions(

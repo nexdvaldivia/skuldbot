@@ -120,4 +120,95 @@ describe('ContractsController', () => {
     );
     expect(result.templateId).toBe('tpl-1');
   });
+
+  it('delegates template variables catalog to template service', async () => {
+    const contractTemplateService = {
+      getTemplateVariableCatalog: jest.fn().mockResolvedValue({
+        templateId: 'tpl-1',
+        templateKey: 'msa.v1',
+        categories: [],
+      }),
+    } as unknown as ContractTemplateService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      contractTemplateService,
+      {} as ContractSigningService,
+      {} as ContractLookupsService,
+      {} as ContractRequirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const result = await controller.getTemplateVariableCatalog('tpl-1');
+    expect(contractTemplateService.getTemplateVariableCatalog).toHaveBeenCalledWith('tpl-1');
+    expect(result.templateId).toBe('tpl-1');
+  });
+
+  it('delegates template PDF upload to template service', async () => {
+    const contractTemplateService = {
+      uploadTemplatePdf: jest.fn().mockResolvedValue({
+        templateId: 'tpl-1',
+        templateKey: 'msa.v1',
+        versionId: 'tv-1',
+        hasPdf: true,
+        contentType: 'application/pdf',
+        uploadedAt: new Date('2026-04-17T00:00:00.000Z'),
+        signedUrl: 'https://signed.example/template.pdf',
+      }),
+    } as unknown as ContractTemplateService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      contractTemplateService,
+      {} as ContractSigningService,
+      {} as ContractLookupsService,
+      {} as ContractRequirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const currentUser = { id: 'user-1' } as any;
+    const payload = { contentBase64: Buffer.from('%PDF-1.4').toString('base64') };
+    const result = await controller.uploadTemplatePdf('tpl-1', payload as any, currentUser);
+
+    expect(contractTemplateService.uploadTemplatePdf).toHaveBeenCalledWith(
+      'tpl-1',
+      payload,
+      currentUser,
+    );
+    expect(result.hasPdf).toBe(true);
+  });
+
+  it('delegates signature fields update to template service', async () => {
+    const contractTemplateService = {
+      updateTemplateSignatureFields: jest.fn().mockResolvedValue({
+        templateId: 'tpl-1',
+        templateKey: 'msa.v1',
+        versionId: 'tv-2',
+        fields: [{ id: 'sig-1', type: 'signature' }],
+      }),
+    } as unknown as ContractTemplateService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      contractTemplateService,
+      {} as ContractSigningService,
+      {} as ContractLookupsService,
+      {} as ContractRequirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const currentUser = { id: 'user-1' } as any;
+    const dto = { fields: [{ id: 'sig-1', type: 'signature' }] };
+    const result = await controller.updateTemplateSignatureFields('tpl-1', dto as any, currentUser);
+
+    expect(contractTemplateService.updateTemplateSignatureFields).toHaveBeenCalledWith(
+      'tpl-1',
+      dto,
+      currentUser,
+    );
+    expect(result.versionId).toBe('tv-2');
+  });
 });

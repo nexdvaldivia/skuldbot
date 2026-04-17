@@ -74,8 +74,13 @@ import {
   UpdateContractSignatoryPolicyDto,
 } from './dto/signatory-policy.dto';
 import {
+  ContractTemplateLintResponseDto,
+  ContractTemplatePdfPreviewResponseDto,
   ContractTemplateGroupedListResponseDto,
   ContractTemplateResponseDto,
+  ContractTemplateSignatureFieldsResponseDto,
+  ContractTemplateVariableCatalogResponseDto,
+  ContractTemplateVariablesResponseDto,
   ContractTemplateVersionChainResponseDto,
   CreateContractTemplateVersionDto,
   CreateContractTemplateDto,
@@ -84,7 +89,11 @@ import {
   ListContractTemplatesQueryDto,
   ListTemplateVersionChainQueryDto,
   PublishContractTemplateDto,
+  ResolveTemplateVariablesDto,
+  ResolveTemplateVariablesResponseDto,
   SendTemplateForSignatureDto,
+  UpdateTemplateSignatureFieldsDto,
+  UploadTemplatePdfDto,
   UpdateContractTemplateDraftDto,
 } from './dto/template.dto';
 import {
@@ -204,6 +213,76 @@ export class ContractsController {
     @CurrentUser() currentUser: User,
   ): Promise<ContractTemplateResponseDto> {
     return this.contractTemplateService.archiveTemplate(templateId, currentUser);
+  }
+
+  @Get('templates/:templateId/variables')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async getTemplateVariables(
+    @Param('templateId') templateId: string,
+  ): Promise<ContractTemplateVariablesResponseDto> {
+    return this.contractTemplateService.getTemplateVariables(templateId);
+  }
+
+  @Get('templates/:templateId/variables/catalog')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async getTemplateVariableCatalog(
+    @Param('templateId') templateId: string,
+  ): Promise<ContractTemplateVariableCatalogResponseDto> {
+    return this.contractTemplateService.getTemplateVariableCatalog(templateId);
+  }
+
+  @Post('templates/:templateId/lint')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_WRITE)
+  async lintTemplate(
+    @Param('templateId') templateId: string,
+  ): Promise<ContractTemplateLintResponseDto> {
+    return this.contractTemplateService.lintTemplate(templateId);
+  }
+
+  @Post('templates/:templateId/variables/resolve')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_WRITE)
+  async resolveTemplateVariables(
+    @Param('templateId') templateId: string,
+    @Body() dto: ResolveTemplateVariablesDto,
+  ): Promise<ResolveTemplateVariablesResponseDto> {
+    return this.contractTemplateService.resolveTemplateVariables(templateId, dto);
+  }
+
+  @Post('templates/:templateId/upload-pdf')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_WRITE)
+  async uploadTemplatePdf(
+    @Param('templateId') templateId: string,
+    @Body() dto: UploadTemplatePdfDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractTemplatePdfPreviewResponseDto> {
+    return this.contractTemplateService.uploadTemplatePdf(templateId, dto, currentUser);
+  }
+
+  @Get('templates/:templateId/preview-pdf')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_READ)
+  async previewTemplatePdf(
+    @Param('templateId') templateId: string,
+  ): Promise<ContractTemplatePdfPreviewResponseDto> {
+    return this.contractTemplateService.previewTemplatePdf(templateId);
+  }
+
+  @Delete('templates/:templateId/pdf')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_WRITE)
+  async removeTemplatePdf(
+    @Param('templateId') templateId: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractTemplatePdfPreviewResponseDto> {
+    return this.contractTemplateService.removeTemplatePdf(templateId, currentUser);
+  }
+
+  @Put('templates/:templateId/signature-fields')
+  @RequirePermissions(CP_PERMISSIONS.CONTRACTS_WRITE)
+  async updateTemplateSignatureFields(
+    @Param('templateId') templateId: string,
+    @Body() dto: UpdateTemplateSignatureFieldsDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<ContractTemplateSignatureFieldsResponseDto> {
+    return this.contractTemplateService.updateTemplateSignatureFields(templateId, dto, currentUser);
   }
 
   @Post('templates/:templateId/send')
