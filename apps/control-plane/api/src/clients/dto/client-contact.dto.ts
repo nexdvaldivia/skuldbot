@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   MaxLength,
   MinLength,
   ValidateNested,
@@ -14,6 +15,7 @@ import {
 import { ClientContactType } from '../entities/client-contact.entity';
 
 const CONTACT_TYPES = Object.values(ClientContactType);
+const PHONE_NUMBER_PATTERN = /^\+?[\d\-()\s]{7,50}$/;
 
 export class CreateClientContactDto {
   @IsString()
@@ -37,11 +39,17 @@ export class CreateClientContactDto {
   @IsOptional()
   @IsString()
   @MaxLength(50)
+  @Matches(PHONE_NUMBER_PATTERN, {
+    message: 'phone must be a valid phone number format',
+  })
   phone?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(50)
+  @Matches(PHONE_NUMBER_PATTERN, {
+    message: 'mobile must be a valid phone number format',
+  })
   mobile?: string;
 
   @IsOptional()
@@ -119,11 +127,17 @@ export class UpdateClientContactDto {
   @IsOptional()
   @IsString()
   @MaxLength(50)
+  @Matches(PHONE_NUMBER_PATTERN, {
+    message: 'phone must be a valid phone number format',
+  })
   phone?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(50)
+  @Matches(PHONE_NUMBER_PATTERN, {
+    message: 'mobile must be a valid phone number format',
+  })
   mobile?: string;
 
   @IsOptional()

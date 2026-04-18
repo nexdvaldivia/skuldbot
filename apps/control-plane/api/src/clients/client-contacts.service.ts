@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
@@ -18,6 +13,11 @@ import {
 } from './dto/client-contact.dto';
 import { ClientContact } from './entities/client-contact.entity';
 import { Client } from './entities/client.entity';
+import {
+  clearPrimaryForType,
+  ensureClientAccess,
+  normalizeOptionalString,
+} from './clients-shared.util';
 
 @Injectable()
 export class ClientContactsService {
@@ -33,7 +33,7 @@ export class ClientContactsService {
     query: ListClientContactsQueryDto,
     currentUser: User,
   ): Promise<ClientContactListResponseDto> {
-    await this.ensureClientAccess(clientId, currentUser);
+    await ensureClientAccess(this.clientRepository, clientId, currentUser);
 
     const qb = this.contactRepository
       .createQueryBuilder('contact')
@@ -65,7 +65,7 @@ export class ClientContactsService {
     contactId: string,
     currentUser: User,
   ): Promise<ClientContactResponseDto> {
-    await this.ensureClientAccess(clientId, currentUser);
+    await ensureClientAccess(this.clientRepository, clientId, currentUser);
     const contact = await this.requireContact(clientId, contactId);
     return this.toResponse(contact);
   }
@@ -75,11 +75,17 @@ export class ClientContactsService {
     dto: CreateClientContactDto,
     currentUser: User,
   ): Promise<ClientContactResponseDto> {
-    await this.ensureClientAccess(clientId, currentUser);
+    await ensureClientAccess(this.clientRepository, clientId, currentUser);
     await this.ensureUniqueContactEmail(clientId, dto.email);
 
     if (dto.isPrimary) {
-      await this.clearPrimaryForType(clientId, dto.contactType);
+      await clearPrimaryForType(
+        this.contactRepository,
+        ClientContact,
+        clientId,
+        'contact_type',
+        dto.contactType,
+      );
     }
 
     const contact = await this.contactRepository.save(
@@ -89,19 +95,19 @@ export class ClientContactsService {
         firstName: dto.firstName.trim(),
         lastName: dto.lastName.trim(),
         email: dto.email.trim().toLowerCase(),
-        phone: this.normalizeOptionalString(dto.phone),
-        mobile: this.normalizeOptionalString(dto.mobile),
-        jobTitle: this.normalizeOptionalString(dto.jobTitle),
-        department: this.normalizeOptionalString(dto.department),
-        linkedinUrl: this.normalizeOptionalString(dto.linkedinUrl),
+        phone: normalizeOptionalString(dto.phone),
+        mobile: normalizeOptionalString(dto.mobile),
+        jobTitle: normalizeOptionalString(dto.jobTitle),
+        department: normalizeOptionalString(dto.department),
+        linkedinUrl: normalizeOptionalString(dto.linkedinUrl),
         isPrimary: dto.isPrimary ?? false,
         isContractSigner: dto.isContractSigner ?? false,
         isInstaller: dto.isInstaller ?? false,
         isActive: dto.isActive ?? true,
         canReceiveMarketing: dto.canReceiveMarketing ?? true,
         canReceiveUpdates: dto.canReceiveUpdates ?? true,
-        preferredLanguage: this.normalizeOptionalString(dto.preferredLanguage) ?? 'en',
-        notes: this.normalizeOptionalString(dto.notes),
+        preferredLanguage: normalizeOptionalString(dto.preferredLanguage) ?? 'en',
+        notes: normalizeOptionalString(dto.notes),
         deletedAt: null,
       }),
     );
@@ -114,7 +120,7 @@ export class ClientContactsService {
     dto: BulkCreateClientContactsDto,
     currentUser: User,
   ): Promise<ClientContactBulkResponseDto> {
-    await this.ensureClientAccess(clientId, currentUser);
+    await ensureClientAccess(this.clientRepository, clientId, currentUser);
 
     const created: ClientContactResponseDto[] = [];
     const errors: string[] = [];
@@ -140,7 +146,7 @@ export class ClientContactsService {
     dto: UpdateClientContactDto,
     currentUser: User,
   ): Promise<ClientContactResponseDto> {
-    await this.ensureClientAccess(clientId, currentUser);
+    await ensureClientAccess(this.clientRepository, clientId, currentUser);
     const contact = await this.requireContact(clientId, contactId);
 
     if (dto.email && dto.email.trim().toLowerCase() !== contact.email) {
@@ -150,20 +156,26 @@ export class ClientContactsService {
     const nextType = dto.contactType ?? contact.contactType;
     const nextIsPrimary = dto.isPrimary ?? contact.isPrimary;
     if (nextIsPrimary) {
-      await this.clearPrimaryForType(clientId, nextType, contact.id);
+      await clearPrimaryForType(
+        this.contactRepository,
+        ClientContact,
+        clientId,
+        'contact_type',
+        nextType,
+        contact.id,
+      );
     }
 
     if (dto.contactType !== undefined) contact.contactType = dto.contactType;
     if (dto.firstName !== undefined) contact.firstName = dto.firstName.trim();
     if (dto.lastName !== undefined) contact.lastName = dto.lastName.trim();
     if (dto.email !== undefined) contact.email = dto.email.trim().toLowerCase();
-    if (dto.phone !== undefined) contact.phone = this.normalizeOptionalString(dto.phone);
-    if (dto.mobile !== undefined) contact.mobile = this.normalizeOptionalString(dto.mobile);
-    if (dto.jobTitle !== undefined) contact.jobTitle = this.normalizeOptionalString(dto.jobTitle);
-    if (dto.department !== undefined)
-      contact.department = this.normalizeOptionalString(dto.department);
+    if (dto.phone !== undefined) contact.phone = normalizeOptionalString(dto.phone);
+    if (dto.mobile !== undefined) contact.mobile = normalizeOptionalString(dto.mobile);
+    if (dto.jobTitle !== undefined) contact.jobTitle = normalizeOptionalString(dto.jobTitle);
+    if (dto.department !== undefined) contact.department = normalizeOptionalString(dto.department);
     if (dto.linkedinUrl !== undefined)
-      contact.linkedinUrl = this.normalizeOptionalString(dto.linkedinUrl);
+      contact.linkedinUrl = normalizeOptionalString(dto.linkedinUrl);
     if (dto.isPrimary !== undefined) contact.isPrimary = dto.isPrimary;
     if (dto.isContractSigner !== undefined) contact.isContractSigner = dto.isContractSigner;
     if (dto.isInstaller !== undefined) contact.isInstaller = dto.isInstaller;
@@ -172,8 +184,8 @@ export class ClientContactsService {
       contact.canReceiveMarketing = dto.canReceiveMarketing;
     if (dto.canReceiveUpdates !== undefined) contact.canReceiveUpdates = dto.canReceiveUpdates;
     if (dto.preferredLanguage !== undefined)
-      contact.preferredLanguage = this.normalizeOptionalString(dto.preferredLanguage) ?? 'en';
-    if (dto.notes !== undefined) contact.notes = this.normalizeOptionalString(dto.notes);
+      contact.preferredLanguage = normalizeOptionalString(dto.preferredLanguage) ?? 'en';
+    if (dto.notes !== undefined) contact.notes = normalizeOptionalString(dto.notes);
 
     const saved = await this.contactRepository.save(contact);
     return this.toResponse(saved);
@@ -185,7 +197,7 @@ export class ClientContactsService {
     hardDelete: boolean,
     currentUser: User,
   ): Promise<void> {
-    await this.ensureClientAccess(clientId, currentUser);
+    await ensureClientAccess(this.clientRepository, clientId, currentUser);
     const contact = await this.requireContact(clientId, contactId);
 
     if (hardDelete) {
@@ -202,29 +214,20 @@ export class ClientContactsService {
     contactId: string,
     currentUser: User,
   ): Promise<ClientContactResponseDto> {
-    await this.ensureClientAccess(clientId, currentUser);
+    await ensureClientAccess(this.clientRepository, clientId, currentUser);
     const contact = await this.requireContact(clientId, contactId);
 
-    await this.clearPrimaryForType(clientId, contact.contactType, contact.id);
+    await clearPrimaryForType(
+      this.contactRepository,
+      ClientContact,
+      clientId,
+      'contact_type',
+      contact.contactType,
+      contact.id,
+    );
     contact.isPrimary = true;
     const saved = await this.contactRepository.save(contact);
     return this.toResponse(saved);
-  }
-
-  private async ensureClientAccess(clientId: string, currentUser: User): Promise<void> {
-    const clientExists = await this.clientRepository.exist({ where: { id: clientId } });
-    if (!clientExists) {
-      throw new NotFoundException({
-        code: 'CLIENT_NOT_FOUND',
-        message: `Client ${clientId} not found`,
-      });
-    }
-    if (!currentUser.isSkuld() && currentUser.clientId !== clientId) {
-      throw new BadRequestException({
-        code: 'CLIENT_SCOPE_VIOLATION',
-        message: `Current user cannot access resources for client ${clientId}.`,
-      });
-    }
   }
 
   private async requireContact(clientId: string, contactId: string): Promise<ClientContact> {
@@ -267,35 +270,6 @@ export class ClientContactsService {
         message: `Contact email ${normalized} already exists for client ${clientId}`,
       });
     }
-  }
-
-  private async clearPrimaryForType(
-    clientId: string,
-    contactType: string,
-    excludeId?: string,
-  ): Promise<void> {
-    const qb = this.contactRepository
-      .createQueryBuilder()
-      .update(ClientContact)
-      .set({ isPrimary: false })
-      .where('client_id = :clientId', { clientId })
-      .andWhere('contact_type = :contactType', { contactType })
-      .andWhere('is_primary = :isPrimary', { isPrimary: true })
-      .andWhere('deleted_at IS NULL');
-
-    if (excludeId) {
-      qb.andWhere('id != :excludeId', { excludeId });
-    }
-
-    await qb.execute();
-  }
-
-  private normalizeOptionalString(value: string | undefined): string | null {
-    if (value === undefined) {
-      return null;
-    }
-    const normalized = value.trim();
-    return normalized.length > 0 ? normalized : null;
   }
 
   private toResponse(contact: ClientContact): ClientContactResponseDto {
