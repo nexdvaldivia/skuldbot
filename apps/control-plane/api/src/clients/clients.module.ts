@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Client } from './entities/client.entity';
+import { ClientApiKeyAudit } from './entities/client-api-key-audit.entity';
 import { ClientContact } from './entities/client-contact.entity';
 import { ClientAddress } from './entities/client-address.entity';
 import { ClientsService } from './clients.service';
@@ -23,6 +24,7 @@ import { Ticket } from '../tickets/entities/ticket.entity';
       Client,
       ClientContact,
       ClientAddress,
+      ClientApiKeyAudit,
       Tenant,
       User,
       TenantSubscription,

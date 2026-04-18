@@ -46,6 +46,7 @@ import {
 } from '../common/utils/secret-crypto.util';
 import { ensureClientAccess } from './clients-shared.util';
 import { ClientContact } from './entities/client-contact.entity';
+import { ClientApiKeyAudit } from './entities/client-api-key-audit.entity';
 
 interface StoredClientContract {
   id: string;
@@ -91,7 +92,8 @@ const PLAN_LIMITS: Record<string, { executions: number; storageGb: number; dataP
 @Injectable()
 export class ClientsService {
   private readonly logger = new Logger(ClientsService.name);
-  private readonly apiKeySeed: string;
+  private readonly apiKeyPrimarySeed: string;
+  private readonly apiKeyDecryptionSeeds: string[];
 
   constructor(
     @InjectRepository(Client)
@@ -110,12 +112,16 @@ export class ClientsService {
     private readonly ticketRepository: Repository<Ticket>,
     @InjectRepository(ClientContact)
     private readonly contactRepository: Repository<ClientContact>,
+    @InjectRepository(ClientApiKeyAudit)
+    private readonly apiKeyAuditRepository: Repository<ClientApiKeyAudit>,
     @Inject(PAYMENT_PROVIDER)
     private readonly paymentProvider: PaymentProvider,
     private readonly lookupsService: LookupsService,
     private readonly configService: ConfigService,
   ) {
-    this.apiKeySeed = this.resolveApiKeySeed();
+    const seeds = this.resolveApiKeySeeds();
+    this.apiKeyPrimarySeed = seeds.primary;
+    this.apiKeyDecryptionSeeds = seeds.candidates;
   }
 
   async findAll(query: ListClientsQueryDto): Promise<ClientResponseDto[]> {
@@ -316,7 +322,11 @@ export class ClientsService {
     return this.toDetailDto(saved);
   }
 
-  async regenerateApiKey(id: string): Promise<RegenerateClientApiKeyResponseDto> {
+  async regenerateApiKey(
+    id: string,
+    currentUser: User,
+    requestIp: string | null,
+  ): Promise<RegenerateClientApiKeyResponseDto> {
     const client = await this.clientRepository.findOne({ where: { id } });
 
     if (!client) {
@@ -329,6 +339,20 @@ export class ClientsService {
     client.apiKeyHash = apiKeyPayload.hash;
     client.apiKeyRotatedAt = new Date();
     await this.clientRepository.save(client);
+
+    await this.apiKeyAuditRepository.save(
+      this.apiKeyAuditRepository.create({
+        clientId: client.id,
+        oldKeyPrefix,
+        newKeyPrefix: this.getApiKeyPrefix(client.apiKey) ?? 'hidden',
+        rotatedBy: currentUser.email,
+        rotatedAt: client.apiKeyRotatedAt,
+        rotatedFromIp: requestIp,
+        metadata: {
+          operation: 'regenerate_api_key',
+        },
+      }),
+    );
 
     return {
       status: 'success',
@@ -1106,23 +1130,44 @@ export class ClientsService {
     };
   }
 
-  private resolveApiKeySeed(): string {
-    const candidate =
+  private resolveApiKeySeeds(): { primary: string; candidates: string[] } {
+    const primaryCandidate =
+      this.configService.get<string>('CLIENT_API_KEY_ENCRYPTION_KEY_PRIMARY') ??
       this.configService.get<string>('CLIENT_API_KEY_ENCRYPTION_KEY') ??
       this.configService.get<string>('JWT_SECRET');
+    const secondaryCandidate =
+      this.configService.get<string>('CLIENT_API_KEY_ENCRYPTION_KEY_SECONDARY') ?? null;
 
     const blockedDefaults = new Set(['change-this-secret', 'changeme', 'default-secret', 'secret']);
 
-    if (candidate && !blockedDefaults.has(candidate.toLowerCase())) {
-      return candidate;
+    const isSecure = (value: string | null | undefined): value is string => {
+      if (typeof value !== 'string') {
+        return false;
+      }
+      const normalized = value.trim();
+      return normalized.length > 0 && !blockedDefaults.has(normalized.toLowerCase());
+    };
+
+    if (isSecure(primaryCandidate)) {
+      const candidates = new Set<string>([primaryCandidate]);
+      if (isSecure(secondaryCandidate)) {
+        candidates.add(secondaryCandidate);
+      }
+      return {
+        primary: primaryCandidate,
+        candidates: [...candidates],
+      };
     }
 
     if (this.configService.get<string>('NODE_ENV') === 'test') {
-      return 'test-client-api-key-seed';
+      return {
+        primary: 'test-client-api-key-seed',
+        candidates: ['test-client-api-key-seed'],
+      };
     }
 
     throw new Error(
-      'CLIENT_API_KEY_ENCRYPTION_KEY or JWT_SECRET must be configured with a secure value.',
+      'CLIENT_API_KEY_ENCRYPTION_KEY_PRIMARY (or CLIENT_API_KEY_ENCRYPTION_KEY/JWT_SECRET fallback) must be configured with a secure value.',
     );
   }
 
@@ -1130,7 +1175,7 @@ export class ClientsService {
     const raw = `skd_${randomBytes(24).toString('base64url')}`;
     return {
       raw,
-      encrypted: encryptSecretAes256Gcm(raw, this.apiKeySeed),
+      encrypted: encryptSecretAes256Gcm(raw, this.apiKeyPrimarySeed),
       hash: hashSecretSha256(raw),
     };
   }
@@ -1144,12 +1189,16 @@ export class ClientsService {
       return apiKey;
     }
 
-    try {
-      return decryptSecretAes256Gcm(apiKey, this.apiKeySeed);
-    } catch (error) {
-      this.logger.error('Failed to decrypt client API key for prefix display', error);
-      return null;
+    for (const seed of this.apiKeyDecryptionSeeds) {
+      try {
+        return decryptSecretAes256Gcm(apiKey, seed);
+      } catch {
+        continue;
+      }
     }
+
+    this.logger.error('Failed to decrypt client API key for prefix display');
+    return null;
   }
 
   private getApiKeyPrefix(apiKey: string | null): string | null {

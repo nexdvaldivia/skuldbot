@@ -10,7 +10,9 @@ import {
   HttpCode,
   HttpStatus,
   Query,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { ClientsService } from './clients.service';
 import {
   CreateClientDto,
@@ -112,8 +114,17 @@ export class ClientsController {
   @Post(':id/regenerate-api-key')
   @Roles(UserRole.SKULD_ADMIN)
   @RequirePermissions(CP_PERMISSIONS.CLIENTS_WRITE)
-  async regenerateApiKey(@Param('id') id: string): Promise<RegenerateClientApiKeyResponseDto> {
-    return this.clientsService.regenerateApiKey(id);
+  async regenerateApiKey(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<RegenerateClientApiKeyResponseDto> {
+    const forwardedFor = request.headers['x-forwarded-for'];
+    const resolvedIp =
+      typeof forwardedFor === 'string'
+        ? forwardedFor.split(',')[0]?.trim() || null
+        : request.ip || null;
+    return this.clientsService.regenerateApiKey(id, currentUser, resolvedIp);
   }
 
   @Post(':id/authorize')

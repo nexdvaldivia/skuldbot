@@ -112,15 +112,6 @@ export class UsageIngestApiKeyGuard implements CanActivate {
       where: { apiKeyHash: hash },
       select: ['id'],
     });
-    if (byHash) {
-      return byHash.id;
-    }
-
-    // Legacy fallback for deployments that still persisted plaintext API keys.
-    const byLegacyValue = await this.clientRepository.findOne({
-      where: { apiKey },
-      select: ['id'],
-    });
-    return byLegacyValue?.id ?? null;
+    return byHash?.id ?? null;
   }
 }

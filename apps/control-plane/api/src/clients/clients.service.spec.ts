@@ -42,6 +42,7 @@ describe('ClientsService', () => {
   let usageRecordRepository: RepoMock;
   let ticketRepository: RepoMock;
   let contactRepository: RepoMock;
+  let apiKeyAuditRepository: RepoMock;
   let paymentProvider: PaymentProvider;
   let lookupsService: jest.Mocked<Pick<LookupsService, 'getDefaultCode' | 'assertActiveCode'>>;
   let configService: { get: jest.Mock };
@@ -55,6 +56,7 @@ describe('ClientsService', () => {
     usageRecordRepository = createRepoMock();
     ticketRepository = createRepoMock();
     contactRepository = createRepoMock();
+    apiKeyAuditRepository = createRepoMock();
     paymentProvider = {
       name: 'stripe-test',
       type: 'payment' as never,
@@ -103,6 +105,7 @@ describe('ClientsService', () => {
       usageRecordRepository as unknown as any,
       ticketRepository as unknown as any,
       contactRepository as unknown as any,
+      apiKeyAuditRepository as unknown as any,
       paymentProvider,
       lookupsService as unknown as LookupsService,
       configService as any,
@@ -185,13 +188,20 @@ describe('ClientsService', () => {
       updatedAt: new Date(),
     });
     clientRepository.save.mockImplementation(async (payload) => payload);
+    apiKeyAuditRepository.create.mockImplementation((payload) => payload);
+    apiKeyAuditRepository.save.mockImplementation(async (payload) => payload);
 
-    const response = await service.regenerateApiKey('client-1');
+    const response = await service.regenerateApiKey(
+      'client-1',
+      { email: 'admin@skuld.test' } as any,
+      '127.0.0.1',
+    );
 
     expect(response.status).toBe('success');
     expect(response.oldKeyPrefix).toBe('skd_old_...');
     expect(response.newApiKey).toMatch(/^skd_/);
     expect(response.newApiKey).not.toEqual('skd_old_key_value');
+    expect(apiKeyAuditRepository.save).toHaveBeenCalled();
   });
 
   it('computes gates from client/tenant/billing status', async () => {
