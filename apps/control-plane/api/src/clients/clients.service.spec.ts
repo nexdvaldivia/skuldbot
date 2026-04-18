@@ -38,14 +38,23 @@ describe('ClientsService', () => {
   let tenantRepository: RepoMock;
   let userRepository: RepoMock;
   let subscriptionRepository: RepoMock;
+  let invoiceRepository: RepoMock;
+  let usageRecordRepository: RepoMock;
+  let ticketRepository: RepoMock;
+  let contactRepository: RepoMock;
   let paymentProvider: PaymentProvider;
   let lookupsService: jest.Mocked<Pick<LookupsService, 'getDefaultCode' | 'assertActiveCode'>>;
+  let configService: { get: jest.Mock };
 
   beforeEach(() => {
     clientRepository = createRepoMock();
     tenantRepository = createRepoMock();
     userRepository = createRepoMock();
     subscriptionRepository = createRepoMock();
+    invoiceRepository = createRepoMock();
+    usageRecordRepository = createRepoMock();
+    ticketRepository = createRepoMock();
+    contactRepository = createRepoMock();
     paymentProvider = {
       name: 'stripe-test',
       type: 'payment' as never,
@@ -73,13 +82,30 @@ describe('ClientsService', () => {
       assertActiveCode: jest.fn(),
     };
 
+    configService = {
+      get: jest.fn((key: string) => {
+        if (key === 'CLIENT_API_KEY_ENCRYPTION_KEY') {
+          return 'test-secure-client-key';
+        }
+        if (key === 'NODE_ENV') {
+          return 'test';
+        }
+        return undefined;
+      }),
+    };
+
     service = new ClientsService(
       clientRepository as unknown as Repository<Client>,
       tenantRepository as unknown as any,
       userRepository as unknown as any,
       subscriptionRepository as unknown as any,
+      invoiceRepository as unknown as any,
+      usageRecordRepository as unknown as any,
+      ticketRepository as unknown as any,
+      contactRepository as unknown as any,
       paymentProvider,
       lookupsService as unknown as LookupsService,
+      configService as any,
     );
   });
 

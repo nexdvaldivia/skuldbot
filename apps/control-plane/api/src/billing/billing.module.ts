@@ -11,6 +11,7 @@ import { RevenueShareRecord, PartnerPayout } from './entities/revenue-share.enti
 import { TenantSubscription, PaymentHistory } from './entities/subscription.entity';
 import { PaymentConfig } from './entities/payment-config.entity';
 import { Partner } from '../marketplace/entities/partner.entity';
+import { Client } from '../clients/entities/client.entity';
 import { BillingService } from './billing.service';
 import { BillingController } from './billing.controller';
 import { SubscriptionService } from './subscription.service';
@@ -81,6 +82,7 @@ import { UsageIngestApiKeyGuard } from './guards/usage-ingest-api-key.guard';
       PaymentHistory,
       PaymentConfig,
       Partner,
+      Client,
     ]),
     ConfigModule,
     IntegrationsModule,

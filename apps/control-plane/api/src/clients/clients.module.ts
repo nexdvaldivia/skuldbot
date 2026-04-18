@@ -13,6 +13,9 @@ import { ClientAddressesController } from './client-addresses.controller';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { User } from '../users/entities/user.entity';
 import { TenantSubscription } from '../billing/entities/subscription.entity';
+import { InvoiceEntity } from '../integrations/payment/entities/invoice.entity';
+import { UsageRecord } from '../billing/entities/usage-record.entity';
+import { Ticket } from '../tickets/entities/ticket.entity';
 
 @Module({
   imports: [
@@ -23,6 +26,9 @@ import { TenantSubscription } from '../billing/entities/subscription.entity';
       Tenant,
       User,
       TenantSubscription,
+      InvoiceEntity,
+      UsageRecord,
+      Ticket,
     ]),
     LookupsModule,
   ],

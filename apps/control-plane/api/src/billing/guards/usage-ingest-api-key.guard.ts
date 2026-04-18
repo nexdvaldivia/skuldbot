@@ -1,13 +1,21 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { CP_PERMISSIONS } from '../../common/authz/permissions';
 import { UserRole } from '../../users/entities/user.entity';
+import { Client } from '../../clients/entities/client.entity';
+import { hashSecretSha256 } from '../../common/utils/secret-crypto.util';
 
 @Injectable()
 export class UsageIngestApiKeyGuard implements CanActivate {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    @InjectRepository(Client)
+    private readonly clientRepository: Repository<Client>,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const apiKey = this.headerValue(request.headers['x-api-key']);
     const licenseKey = this.headerValue(request.headers['x-license-key']);
@@ -21,8 +29,26 @@ export class UsageIngestApiKeyGuard implements CanActivate {
       throw new UnauthorizedException('Missing orchestrator ID');
     }
 
-    this.assertKeyAllowList('USAGE_INGEST_API_KEYS', apiKey);
-    this.assertKeyAllowList('USAGE_INGEST_LICENSE_KEYS', licenseKey);
+    const licenseKeyStatus = this.validateAllowList('USAGE_INGEST_LICENSE_KEYS', licenseKey);
+    if (licenseKeyStatus === 'mismatch') {
+      throw new UnauthorizedException('Invalid credential for USAGE_INGEST_LICENSE_KEYS');
+    }
+    const isLicenseAuthenticated = Boolean(licenseKey);
+
+    const apiKeyStatus = this.validateAllowList('USAGE_INGEST_API_KEYS', apiKey);
+    if (apiKeyStatus === 'mismatch') {
+      throw new UnauthorizedException('Invalid credential for USAGE_INGEST_API_KEYS');
+    }
+
+    let matchedClientId: string | null = null;
+    if (apiKey) {
+      matchedClientId = await this.resolveClientIdFromApiKey(apiKey);
+    }
+    const isApiAuthenticated = apiKeyStatus === 'matched' || Boolean(matchedClientId);
+
+    if (!isApiAuthenticated && !isLicenseAuthenticated) {
+      throw new UnauthorizedException('Invalid API key or license key');
+    }
 
     // The ingest endpoint is service-to-service auth. Provide scoped permission context.
     request.user = {
@@ -34,6 +60,7 @@ export class UsageIngestApiKeyGuard implements CanActivate {
       },
       authType: 'usage-ingest-api-key',
       orchestratorId,
+      clientId: matchedClientId,
     };
 
     return true;
@@ -54,14 +81,17 @@ export class UsageIngestApiKeyGuard implements CanActivate {
     return trimmed.length > 0 ? trimmed : null;
   }
 
-  private assertKeyAllowList(configKey: string, suppliedValue: string | null): void {
+  private validateAllowList(
+    configKey: string,
+    suppliedValue: string | null,
+  ): 'not_configured' | 'matched' | 'mismatch' {
     if (!suppliedValue) {
-      return;
+      return 'not_configured';
     }
 
     const raw = this.configService.get<string>(configKey);
     if (!raw) {
-      return;
+      return 'not_configured';
     }
 
     const allowList = raw
@@ -70,11 +100,27 @@ export class UsageIngestApiKeyGuard implements CanActivate {
       .filter((value) => value.length > 0);
 
     if (allowList.length === 0) {
-      return;
+      return 'not_configured';
     }
 
-    if (!allowList.includes(suppliedValue)) {
-      throw new UnauthorizedException(`Invalid credential for ${configKey}`);
+    return allowList.includes(suppliedValue) ? 'matched' : 'mismatch';
+  }
+
+  private async resolveClientIdFromApiKey(apiKey: string): Promise<string | null> {
+    const hash = hashSecretSha256(apiKey);
+    const byHash = await this.clientRepository.findOne({
+      where: { apiKeyHash: hash },
+      select: ['id'],
+    });
+    if (byHash) {
+      return byHash.id;
     }
+
+    // Legacy fallback for deployments that still persisted plaintext API keys.
+    const byLegacyValue = await this.clientRepository.findOne({
+      where: { apiKey },
+      select: ['id'],
+    });
+    return byLegacyValue?.id ?? null;
   }
 }

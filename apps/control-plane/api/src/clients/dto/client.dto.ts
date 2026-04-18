@@ -9,6 +9,10 @@ import {
   MinLength,
   MaxLength,
   Matches,
+  IsBoolean,
+  IsArray,
+  ArrayMinSize,
+  ArrayMaxSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -127,4 +131,44 @@ export class ClientOverviewResponseDto {
   activeSubscriptions: number;
   hasApiKey: boolean;
   hasStripeCustomer: boolean;
+}
+
+export class ClientAuthorizationResponseDto {
+  success: boolean;
+  message: string;
+  clientId: string;
+  clientEmail: string;
+  accessToken: string | null;
+}
+
+export class ResendAuthorizationQueryDto {
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  regenerateToken?: boolean;
+}
+
+export class DenyClientQueryDto {
+  @IsString()
+  @MinLength(10)
+  @MaxLength(500)
+  reason: string;
+}
+
+export class SendClientContractsRequestDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  templateTypes: string[];
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  autoSend?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  notes?: string;
 }

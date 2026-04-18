@@ -39,6 +39,9 @@ export class Client {
   @Column({ name: 'api_key', type: 'varchar', nullable: true, unique: true })
   apiKey: string | null;
 
+  @Column({ name: 'api_key_hash', type: 'varchar', length: 64, nullable: true, unique: true })
+  apiKeyHash: string | null;
+
   @Column({ name: 'api_key_rotated_at', type: 'timestamp with time zone', nullable: true })
   apiKeyRotatedAt: Date | null;
 
