@@ -10,12 +10,13 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-export enum LeadStatus {
-  NEW = 'new',
-  WORKING = 'working',
-  QUALIFIED = 'qualified',
-  DISQUALIFIED = 'disqualified',
-}
+export type LeadStatus = string;
+export const LeadStatus = {
+  NEW: 'new',
+  WORKING: 'working',
+  QUALIFIED: 'qualified',
+  DISQUALIFIED: 'disqualified',
+} as const;
 
 @Entity('leads')
 @Unique('uq_leads_tenant_email', ['tenantId', 'normalizedEmail'])
@@ -72,7 +73,7 @@ export class Lead {
   intakeCount: number;
 
   @Column({ type: 'varchar', length: 50, default: LeadStatus.NEW })
-  status: LeadStatus;
+  status: string;
 
   @Column({ type: 'jsonb', default: '{}' })
   metadata: Record<string, unknown>;

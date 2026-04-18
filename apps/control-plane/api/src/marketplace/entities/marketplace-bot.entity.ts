@@ -14,47 +14,51 @@ import { Partner } from './partner.entity';
 /**
  * Bot status in the marketplace
  */
-export enum MarketplaceBotStatus {
-  DRAFT = 'draft',
-  PENDING_REVIEW = 'pending_review',
-  APPROVED = 'approved',
-  PUBLISHED = 'published',
-  DEPRECATED = 'deprecated',
-  REJECTED = 'rejected',
-}
+export type MarketplaceBotStatus = string;
+export const MarketplaceBotStatus = {
+  DRAFT: 'draft',
+  PENDING_REVIEW: 'pending_review',
+  APPROVED: 'approved',
+  PUBLISHED: 'published',
+  DEPRECATED: 'deprecated',
+  REJECTED: 'rejected',
+} as const;
 
 /**
  * Bot category
  */
-export enum BotCategory {
-  EMAIL = 'email',
-  INSURANCE = 'insurance',
-  FINANCE = 'finance',
-  HR = 'hr',
-  SALES = 'sales',
-  HEALTHCARE = 'healthcare',
-  LOGISTICS = 'logistics',
-  CUSTOM = 'custom',
-}
+export type BotCategory = string;
+export const BotCategory = {
+  EMAIL: 'email',
+  INSURANCE: 'insurance',
+  FINANCE: 'finance',
+  HR: 'hr',
+  SALES: 'sales',
+  HEALTHCARE: 'healthcare',
+  LOGISTICS: 'logistics',
+  CUSTOM: 'custom',
+} as const;
 
 /**
  * Execution mode
  */
-export enum ExecutionMode {
-  CLOUD = 'cloud', // Runs on Orchestrator cloud workers
-  RUNNER = 'runner', // Runs on customer's on-premise runner
-  HYBRID = 'hybrid', // Some parts cloud, some parts runner
-}
+export type ExecutionMode = string;
+export const ExecutionMode = {
+  CLOUD: 'cloud', // Runs on Orchestrator cloud workers
+  RUNNER: 'runner', // Runs on customer's on-premise runner
+  HYBRID: 'hybrid', // Some parts cloud, some parts runner
+} as const;
 
 /**
  * Pricing model
  */
-export enum PricingModel {
-  FREE = 'free',
-  SUBSCRIPTION = 'subscription',
-  USAGE = 'usage',
-  HYBRID = 'hybrid', // Subscription + usage
-}
+export type PricingModel = string;
+export const PricingModel = {
+  FREE: 'free',
+  SUBSCRIPTION: 'subscription',
+  USAGE: 'usage',
+  HYBRID: 'hybrid', // Subscription + usage
+} as const;
 
 /**
  * Marketplace Bot Entity
@@ -92,7 +96,7 @@ export class MarketplaceBot {
   longDescription: string; // Markdown
 
   @Column({ type: 'varchar', length: 50, default: BotCategory.CUSTOM })
-  category: BotCategory;
+  category: string;
 
   @Column({ type: 'jsonb', default: '[]' })
   tags: string[];
@@ -101,12 +105,8 @@ export class MarketplaceBot {
   // EXECUTION MODE
   // ============================================================================
 
-  @Column({
-    type: 'enum',
-    enum: ExecutionMode,
-    default: ExecutionMode.RUNNER,
-  })
-  executionMode: ExecutionMode;
+  @Column({ type: 'varchar', length: 50, default: ExecutionMode.RUNNER })
+  executionMode: string;
 
   @Column({ type: 'jsonb', nullable: true })
   hybridConfig?: {
@@ -142,7 +142,7 @@ export class MarketplaceBot {
   // ============================================================================
 
   @Column({ type: 'varchar', length: 50, default: MarketplaceBotStatus.DRAFT })
-  status: MarketplaceBotStatus;
+  status: string;
 
   @Column({ type: 'varchar', nullable: true })
   submittedAt?: Date;
@@ -257,7 +257,7 @@ export class MarketplaceBot {
   // ============================================================================
 
   @Column({ type: 'varchar', length: 50, default: PricingModel.USAGE })
-  pricingModel: PricingModel;
+  pricingModel: string;
 
   @Column({ type: 'jsonb', nullable: true })
   pricing: {
