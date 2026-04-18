@@ -11,6 +11,8 @@ import { ContractSignatoryPolicyService } from './contract-signatory-policy.serv
 import { ContractSigningService } from './contract-signing.service';
 import { ContractTemplateService } from './contract-template.service';
 import { ContractsController } from './contracts.controller';
+import { PublicSigningController } from './public-signing.controller';
+import { PublicSigningService } from './public-signing.service';
 import { ContractsService } from './contracts.service';
 import { ContractAcceptance } from './entities/contract-acceptance.entity';
 import { ContractComplianceFrameworkLookup } from './entities/contract-compliance-framework-lookup.entity';
@@ -56,7 +58,7 @@ import { PdfService } from './pdf.service';
       Tenant,
     ]),
   ],
-  controllers: [ContractsController],
+  controllers: [ContractsController, PublicSigningController],
   providers: [
     ContractsService,
     PdfService,
@@ -67,6 +69,7 @@ import { PdfService } from './pdf.service';
     ContractLegalService,
     ContractSignatoryPolicyService,
     ContractGateService,
+    PublicSigningService,
   ],
   exports: [ContractsService, ContractGateService, ContractRequirementService],
 })

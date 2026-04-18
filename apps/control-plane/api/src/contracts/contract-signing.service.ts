@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { randomInt, createHash, timingSafeEqual } from 'crypto';
+import { randomInt, randomUUID, createHash, timingSafeEqual } from 'crypto';
 import { IsNull, Repository } from 'typeorm';
 import { Client } from '../clients/entities/client.entity';
 import {
@@ -224,7 +224,12 @@ export class ContractSigningService {
     contract.envelopeId = envelope.id;
     await this.contractRepository.save(contract);
 
-    const recipientsWithOtp = await this.createEnvelopeRecipients(envelope.id, signers, now);
+    const recipientsWithOtp = await this.createEnvelopeRecipients(
+      envelope.id,
+      signers,
+      now,
+      envelope.expiresAt,
+    );
     await this.sendSigningNotifications(envelope, recipientsWithOtp);
     const recipients = recipientsWithOtp.map((entry) => entry.recipient);
 
@@ -284,6 +289,7 @@ export class ContractSigningService {
       envelope.id,
       dto.recipients,
       now,
+      envelope.expiresAt,
     );
     await this.sendSigningNotifications(envelope, recipientsWithOtp);
     await this.recordEnvelopeEvent(envelope.id, null, 'envelope.created', 'control-plane-api', {
@@ -347,6 +353,7 @@ export class ContractSigningService {
       envelope.id,
       dto.recipients,
       now,
+      envelope.expiresAt,
     );
     await this.sendSigningNotifications(envelope, recipientsWithOtp);
 
@@ -552,6 +559,10 @@ export class ContractSigningService {
       reassignedAt: new Date().toISOString(),
       reassignedByUserId: currentUser.id,
     };
+    recipient.metadata = this.ensureRecipientPublicSigningMetadata(
+      recipient.metadata,
+      envelope.expiresAt,
+    );
     await this.envelopeRecipientRepository.save(recipient);
 
     await this.sendEnvelopeEmail(envelope, recipient, otpCode);
@@ -634,6 +645,10 @@ export class ContractSigningService {
         resentAt: new Date().toISOString(),
         resentByUserId: currentUser.id,
       };
+      recipient.metadata = this.ensureRecipientPublicSigningMetadata(
+        recipient.metadata,
+        envelope.expiresAt,
+      );
       await this.envelopeRecipientRepository.save(recipient);
       await this.sendEnvelopeEmail(envelope, recipient, otpCode);
       await this.recordEnvelopeEvent(
@@ -931,6 +946,7 @@ export class ContractSigningService {
     envelopeId: string,
     signers: ContractSigner[],
     now: Date,
+    envelopeExpiresAt: Date | null,
   ): Promise<Array<{ recipient: ContractEnvelopeRecipient; otpCode: string }>> {
     const recipientsWithOtp: Array<{ recipient: ContractEnvelopeRecipient; otpCode: string }> = [];
     for (const signer of signers) {
@@ -955,7 +971,7 @@ export class ContractSigningService {
         signatureAssetPath: null,
         ipAddress: null,
         userAgent: null,
-        metadata: {},
+        metadata: this.ensureRecipientPublicSigningMetadata({}, envelopeExpiresAt),
       });
 
       const savedRecipient = await this.envelopeRecipientRepository.save(recipient);
@@ -978,6 +994,7 @@ export class ContractSigningService {
     envelopeId: string,
     recipients: CreateEnvelopeRecipientDto[],
     now: Date,
+    envelopeExpiresAt: Date | null,
   ): Promise<Array<{ recipient: ContractEnvelopeRecipient; otpCode: string }>> {
     const sorted = recipients
       .slice()
@@ -1011,7 +1028,7 @@ export class ContractSigningService {
           signatureAssetPath: null,
           ipAddress: null,
           userAgent: null,
-          metadata: {},
+          metadata: this.ensureRecipientPublicSigningMetadata({}, envelopeExpiresAt),
         }),
       );
 
@@ -1885,6 +1902,8 @@ export class ContractSigningService {
     recipient: ContractEnvelopeRecipient,
     otpCode: string,
   ): Promise<void> {
+    const signingToken = this.getRecipientPublicSigningToken(recipient);
+    const signingLink = signingToken ? this.buildPublicSigningLink(signingToken) : null;
     try {
       await this.providerFactory.executeWithFallback<EmailProvider, unknown>(
         IntegrationType.EMAIL,
@@ -1899,6 +1918,7 @@ export class ContractSigningService {
               'You have a contract pending signature.',
               `Envelope ID: ${envelope.id}`,
               `OTP Code: ${otpCode}`,
+              ...(signingLink ? [`Signing Link: ${signingLink}`] : []),
               '',
               'Use this OTP in the signing flow to verify your identity.',
             ].join('\n'),
@@ -1907,6 +1927,15 @@ export class ContractSigningService {
               '<p>You have a contract pending signature.</p>',
               `<p><strong>Envelope ID:</strong> ${this.escapeHtml(envelope.id)}</p>`,
               `<p><strong>OTP Code:</strong> ${this.escapeHtml(otpCode)}</p>`,
+              ...(signingLink
+                ? [
+                    `<p><strong>Signing Link:</strong> <a href="${this.escapeHtml(
+                      signingLink,
+                    )}" target="_blank" rel="noopener noreferrer">${this.escapeHtml(
+                      signingLink,
+                    )}</a></p>`,
+                  ]
+                : []),
               '<p>Use this OTP in the signing flow to verify your identity.</p>',
             ].join(''),
           }),
@@ -1957,6 +1986,52 @@ export class ContractSigningService {
     return createHash('sha256')
       .update(`${recipientEmail.toLowerCase()}::${code}::${this.otpSecretPepper}`)
       .digest('hex');
+  }
+
+  private ensureRecipientPublicSigningMetadata(
+    metadata: Record<string, unknown> | null | undefined,
+    envelopeExpiresAt: Date | null,
+  ): Record<string, unknown> {
+    const current = metadata ?? {};
+    const existingToken =
+      typeof current['publicSigningToken'] === 'string' ? current['publicSigningToken'] : null;
+    const existingExpiresAt =
+      typeof current['publicSigningTokenExpiresAt'] === 'string'
+        ? current['publicSigningTokenExpiresAt']
+        : null;
+    const token = existingToken ?? randomUUID().replace(/-/g, '');
+    const expiresAt =
+      existingExpiresAt ??
+      (envelopeExpiresAt ?? this.resolveEnvelopeExpiry(new Date())).toISOString();
+    return {
+      ...current,
+      publicSigningToken: token,
+      publicSigningTokenExpiresAt: expiresAt,
+    };
+  }
+
+  private getRecipientPublicSigningToken(recipient: ContractEnvelopeRecipient): string | null {
+    const metadata = recipient.metadata ?? {};
+    const token =
+      typeof metadata['publicSigningToken'] === 'string' ? metadata['publicSigningToken'] : null;
+    return token && token.trim().length > 0 ? token.trim() : null;
+  }
+
+  private buildPublicSigningLink(token: string): string {
+    const baseUrl = this.resolvePublicSigningBaseUrl();
+    return `${baseUrl}/${encodeURIComponent(token)}`;
+  }
+
+  private resolvePublicSigningBaseUrl(): string {
+    const configured =
+      this.configService.get<string>('PUBLIC_SIGNING_BASE_URL')?.trim() ||
+      this.configService.get<string>('FRONTEND_URL')?.trim() ||
+      'http://localhost:3004/sign';
+    const withoutTrailing = configured.replace(/\/+$/, '');
+    if (withoutTrailing.endsWith('/sign')) {
+      return withoutTrailing;
+    }
+    return `${withoutTrailing}/sign`;
   }
 
   private computeSigningContentHash(contract: Contract | null, envelope: ContractEnvelope): string {
