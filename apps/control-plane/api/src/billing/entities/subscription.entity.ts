@@ -44,14 +44,14 @@ export class TenantSubscription {
   @Column({ type: 'uuid' })
   tenantId: string;
 
-  @Column()
+  @Column({ type: 'varchar', length: 180 })
   tenantName: string;
 
   // Stripe Subscription
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   stripeCustomerId?: string;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   stripeSubscriptionId?: string;
 
   // Payment Method
@@ -62,17 +62,17 @@ export class TenantSubscription {
   })
   paymentMethodType: PaymentMethodType;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   stripePaymentMethodId?: string;
 
   // Bank Account Info (masked for display)
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
   bankName?: string; // e.g., "Chase"
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 20, nullable: true })
   bankAccountLast4?: string; // e.g., "4242"
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 50, nullable: true })
   bankAccountType?: string; // "checking" or "savings"
 
   // Subscription Status
@@ -101,13 +101,13 @@ export class TenantSubscription {
   @Column({ type: 'timestamptz', nullable: true })
   lastPaymentAttempt?: Date;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 500, nullable: true })
   lastPaymentError?: string;
 
   @Column({ type: 'timestamptz', nullable: true })
   suspendedAt?: Date;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   suspensionReason?: string;
 
   // Grace Period Settings (Industry Standard: 14 days)
@@ -125,14 +125,14 @@ export class TenantSubscription {
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   monthlyAmount?: number;
 
-  @Column({ default: 'USD' })
+  @Column({ type: 'varchar', length: 10, default: 'USD' })
   currency: string;
 
   // Bot Execution Control
   @Column({ default: true })
   botsCanRun: boolean; // Master switch - set to false when suspended
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   botsDisabledReason?: string;
 
   @Column({ type: 'timestamptz', nullable: true })
@@ -165,20 +165,20 @@ export class PaymentHistory {
   subscriptionId: string;
 
   // Stripe References
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   stripePaymentIntentId?: string;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   stripeInvoiceId?: string;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   stripeChargeId?: string;
 
   // Payment Details
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   amount: number;
 
-  @Column({ default: 'USD' })
+  @Column({ type: 'varchar', length: 10, default: 'USD' })
   currency: string;
 
   @Column({
@@ -204,17 +204,17 @@ export class PaymentHistory {
   clearedAt?: Date;
 
   // Error Information
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 50, nullable: true })
   errorCode?: string;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 500, nullable: true })
   errorMessage?: string;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   declineReason?: string;
 
   // Invoice Period
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 10, nullable: true })
   invoicePeriod?: string; // YYYY-MM
 
   @Column({ type: 'jsonb', nullable: true })

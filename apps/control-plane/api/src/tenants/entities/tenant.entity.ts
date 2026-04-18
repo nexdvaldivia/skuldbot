@@ -44,10 +44,10 @@ export class Tenant {
   @JoinColumn({ name: 'client_id' })
   client: Client;
 
-  @Column()
+  @Column({ type: 'varchar', length: 180 })
   name: string;
 
-  @Column({ unique: true })
+  @Column({ type: 'varchar', length: 120, unique: true })
   slug: string;
 
   @Column({ type: 'enum', enum: TenantEnvironment, default: TenantEnvironment.PRODUCTION })
@@ -64,28 +64,28 @@ export class Tenant {
   @Column({ type: 'enum', enum: TenantStatus, default: TenantStatus.PROVISIONING })
   status: TenantStatus;
 
-  @Column({ name: 'db_host', type: 'varchar', nullable: true })
+  @Column({ name: 'db_host', type: 'varchar', length: 255, nullable: true })
   dbHost: string | null;
 
   @Column({ name: 'db_port', type: 'int', nullable: true })
   dbPort: number | null;
 
-  @Column({ name: 'db_name', type: 'varchar', nullable: true })
+  @Column({ name: 'db_name', type: 'varchar', length: 128, nullable: true })
   dbName: string | null;
 
-  @Column({ name: 'db_user', type: 'varchar', nullable: true })
+  @Column({ name: 'db_user', type: 'varchar', length: 128, nullable: true })
   dbUser: string | null;
 
-  @Column({ name: 'db_password', type: 'varchar', nullable: true })
+  @Column({ name: 'db_password', type: 'varchar', length: 255, nullable: true })
   dbPassword: string | null;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', length: 50, nullable: true })
   region: string | null;
 
-  @Column({ name: 'api_url', type: 'varchar', nullable: true })
+  @Column({ name: 'api_url', type: 'varchar', length: 500, nullable: true })
   apiUrl: string | null;
 
-  @Column({ name: 'ui_url', type: 'varchar', nullable: true })
+  @Column({ name: 'ui_url', type: 'varchar', length: 500, nullable: true })
   uiUrl: string | null;
 
   @OneToMany(() => License, (license) => license.tenant)

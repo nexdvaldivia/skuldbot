@@ -46,10 +46,7 @@ export class RevenueShareRecord {
   @Column({ type: 'decimal', precision: 18, scale: 2 })
   grossRevenue: number; // Total revenue from partner's bots
 
-  @Column({
-    type: 'enum',
-    enum: RevenueShareTier,
-  })
+  @Column({ type: 'varchar', length: 50 })
   tier: RevenueShareTier;
 
   @Column({ type: 'decimal', precision: 5, scale: 2 })

@@ -17,6 +17,7 @@ import { SubscriptionService } from './subscription.service';
 import { SubscriptionController } from './subscription.controller';
 import { PaymentMethodService } from './payment-method.service';
 import { IntegrationsModule } from '../integrations/integrations.module';
+import { UsageIngestApiKeyGuard } from './guards/usage-ingest-api-key.guard';
 
 /**
  * Billing Module
@@ -85,7 +86,7 @@ import { IntegrationsModule } from '../integrations/integrations.module';
     IntegrationsModule,
   ],
   controllers: [BillingController, SubscriptionController],
-  providers: [BillingService, SubscriptionService, PaymentMethodService],
+  providers: [BillingService, SubscriptionService, PaymentMethodService, UsageIngestApiKeyGuard],
   exports: [BillingService, SubscriptionService, PaymentMethodService],
 })
 export class BillingModule {}

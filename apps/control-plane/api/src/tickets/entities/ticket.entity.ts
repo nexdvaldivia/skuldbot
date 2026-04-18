@@ -58,18 +58,10 @@ export class Ticket {
   @Column({ name: 'message', type: 'text', nullable: true })
   message: string | null;
 
-  @Column({
-    type: 'enum',
-    enum: TicketStatus,
-    default: TicketStatus.OPEN,
-  })
+  @Column({ type: 'varchar', length: 50, default: TicketStatus.OPEN })
   status: TicketStatus;
 
-  @Column({
-    type: 'enum',
-    enum: TicketPriority,
-    default: TicketPriority.NORMAL,
-  })
+  @Column({ type: 'varchar', length: 50, default: TicketPriority.NORMAL })
   priority: TicketPriority;
 
   @Column({ type: 'jsonb', default: '{}' })

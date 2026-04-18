@@ -71,11 +71,7 @@ export class Lead {
   @Column({ name: 'intake_count', type: 'integer', default: 1 })
   intakeCount: number;
 
-  @Column({
-    type: 'enum',
-    enum: LeadStatus,
-    default: LeadStatus.NEW,
-  })
+  @Column({ type: 'varchar', length: 50, default: LeadStatus.NEW })
   status: LeadStatus;
 
   @Column({ type: 'jsonb', default: '{}' })

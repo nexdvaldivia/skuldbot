@@ -13,10 +13,10 @@ export class Client {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
+  @Column({ type: 'varchar', length: 180, unique: true })
   name: string;
 
-  @Column({ unique: true })
+  @Column({ type: 'varchar', length: 120, unique: true })
   slug: string;
 
   @Column({ type: 'varchar', length: 80, default: 'free' })
@@ -25,13 +25,13 @@ export class Client {
   @Column({ type: 'varchar', length: 80, default: 'pending' })
   status: string;
 
-  @Column({ name: 'billing_email' })
+  @Column({ name: 'billing_email', type: 'varchar', length: 180 })
   billingEmail: string;
 
-  @Column({ name: 'stripe_customer_id', type: 'varchar', nullable: true })
+  @Column({ name: 'stripe_customer_id', type: 'varchar', length: 255, nullable: true })
   stripeCustomerId: string | null;
 
-  @Column({ name: 'stripe_subscription_id', type: 'varchar', nullable: true })
+  @Column({ name: 'stripe_subscription_id', type: 'varchar', length: 255, nullable: true })
   stripeSubscriptionId: string | null;
 
   @Column({ type: 'jsonb', default: '{}' })

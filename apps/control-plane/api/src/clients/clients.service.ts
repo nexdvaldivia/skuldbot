@@ -1,11 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  ConflictException,
-  BadRequestException,
-  Inject,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, ConflictException, BadRequestException, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Client } from './entities/client.entity';
@@ -22,6 +15,8 @@ import {
   LOOKUP_DOMAIN_CLIENT_PLAN,
   LOOKUP_DOMAIN_CLIENT_STATUS,
 } from '../lookups/lookups.constants';
+import { requireEntity } from '../common/utils/entity.util';
+import { normalizeOptionalLowercaseString } from '../common/utils/string.util';
 
 @Injectable()
 export class ClientsService {
@@ -45,28 +40,16 @@ export class ClientsService {
   }
 
   async findOne(id: string): Promise<ClientDetailResponseDto> {
-    const client = await this.clientRepository.findOne({
-      where: { id },
+    const client = await requireEntity(this.clientRepository, { id }, 'Client', {
       relations: ['tenants'],
     });
-
-    if (!client) {
-      throw new NotFoundException(`Client with ID ${id} not found`);
-    }
-
     return this.toDetailDto(client);
   }
 
   async findBySlug(slug: string): Promise<ClientDetailResponseDto> {
-    const client = await this.clientRepository.findOne({
-      where: { slug },
+    const client = await requireEntity(this.clientRepository, { slug }, 'Client', {
       relations: ['tenants'],
     });
-
-    if (!client) {
-      throw new NotFoundException(`Client with slug ${slug} not found`);
-    }
-
     return this.toDetailDto(client);
   }
 
@@ -79,9 +62,10 @@ export class ClientsService {
       throw new ConflictException('Client with this name or slug already exists');
     }
 
-    const plan = dto.plan
-      ? dto.plan.trim().toLowerCase()
-      : await this.lookupsService.getDefaultCode(LOOKUP_DOMAIN_CLIENT_PLAN, 'free');
+    const normalizedPlan = normalizeOptionalLowercaseString(dto.plan);
+    const plan =
+      normalizedPlan ??
+      (await this.lookupsService.getDefaultCode(LOOKUP_DOMAIN_CLIENT_PLAN, 'free'));
     await this.lookupsService.assertActiveCode(
       LOOKUP_DOMAIN_CLIENT_PLAN,
       plan,
@@ -116,17 +100,12 @@ export class ClientsService {
   }
 
   async update(id: string, dto: UpdateClientDto): Promise<ClientDetailResponseDto> {
-    const client = await this.clientRepository.findOne({
-      where: { id },
+    const hydrated = await requireEntity(this.clientRepository, { id }, 'Client', {
       relations: ['tenants'],
     });
 
-    if (!client) {
-      throw new NotFoundException(`Client with ID ${id} not found`);
-    }
-
-    if (dto.plan) {
-      const normalizedPlan = dto.plan.trim().toLowerCase();
+    const normalizedPlan = normalizeOptionalLowercaseString(dto.plan);
+    if (normalizedPlan) {
       await this.lookupsService.assertActiveCode(
         LOOKUP_DOMAIN_CLIENT_PLAN,
         normalizedPlan,
@@ -135,8 +114,8 @@ export class ClientsService {
       dto.plan = normalizedPlan;
     }
 
-    if (dto.status) {
-      const normalizedStatus = dto.status.trim().toLowerCase();
+    const normalizedStatus = normalizeOptionalLowercaseString(dto.status);
+    if (normalizedStatus) {
       await this.lookupsService.assertActiveCode(
         LOOKUP_DOMAIN_CLIENT_STATUS,
         normalizedStatus,
@@ -146,84 +125,77 @@ export class ClientsService {
     }
 
     // Update Stripe customer if email changed
-    if (dto.billingEmail && dto.billingEmail !== client.billingEmail && client.stripeCustomerId) {
+    if (
+      dto.billingEmail &&
+      dto.billingEmail !== hydrated.billingEmail &&
+      hydrated.stripeCustomerId
+    ) {
       if (this.paymentProvider.isConfigured()) {
         try {
-          await this.paymentProvider.updateCustomer(client.stripeCustomerId, {
+          await this.paymentProvider.updateCustomer(hydrated.stripeCustomerId, {
             email: dto.billingEmail,
-            name: dto.name || client.name,
+            name: dto.name || hydrated.name,
           });
         } catch (error) {
-          this.logger.error(`Failed to update Stripe customer for ${client.slug}`, error);
+          this.logger.error(`Failed to update Stripe customer for ${hydrated.slug}`, error);
         }
       }
     }
 
-    Object.assign(client, dto);
-    const saved = await this.clientRepository.save(client);
+    Object.assign(hydrated, dto);
+    const saved = await this.clientRepository.save(hydrated);
     return this.toDetailDto(saved);
   }
 
   async delete(id: string): Promise<void> {
-    const client = await this.clientRepository.findOne({
-      where: { id },
+    const hydrated = await requireEntity(this.clientRepository, { id }, 'Client', {
       relations: ['tenants'],
     });
 
-    if (!client) {
-      throw new NotFoundException(`Client with ID ${id} not found`);
-    }
-
-    if (client.tenants && client.tenants.length > 0) {
+    if (hydrated.tenants && hydrated.tenants.length > 0) {
       throw new ConflictException('Cannot delete client with active tenants');
     }
 
     // Delete Stripe customer
-    if (client.stripeCustomerId && this.paymentProvider.isConfigured()) {
+    if (hydrated.stripeCustomerId && this.paymentProvider.isConfigured()) {
       try {
-        await this.paymentProvider.deleteCustomer(client.stripeCustomerId);
+        await this.paymentProvider.deleteCustomer(hydrated.stripeCustomerId);
       } catch (error) {
-        this.logger.error(`Failed to delete Stripe customer for ${client.slug}`, error);
+        this.logger.error(`Failed to delete Stripe customer for ${hydrated.slug}`, error);
       }
     }
 
-    await this.clientRepository.remove(client);
+    await this.clientRepository.remove(hydrated);
   }
 
   async activate(id: string): Promise<ClientDetailResponseDto> {
-    const client = await this.clientRepository.findOne({
-      where: { id },
+    const hydrated = await requireEntity(this.clientRepository, { id }, 'Client', {
       relations: ['tenants'],
     });
 
-    if (!client) {
-      throw new NotFoundException(`Client with ID ${id} not found`);
-    }
-
     const activeStatus = await this.resolveRequiredStatus('active');
-    client.status = activeStatus;
-    const saved = await this.clientRepository.save(client);
+    hydrated.status = activeStatus;
+    const saved = await this.clientRepository.save(hydrated);
     return this.toDetailDto(saved);
   }
 
   async suspend(id: string): Promise<ClientDetailResponseDto> {
-    const client = await this.clientRepository.findOne({
-      where: { id },
+    const hydrated = await requireEntity(this.clientRepository, { id }, 'Client', {
       relations: ['tenants'],
     });
 
-    if (!client) {
-      throw new NotFoundException(`Client with ID ${id} not found`);
-    }
-
     const suspendedStatus = await this.resolveRequiredStatus('suspended');
-    client.status = suspendedStatus;
-    const saved = await this.clientRepository.save(client);
+    hydrated.status = suspendedStatus;
+    const saved = await this.clientRepository.save(hydrated);
     return this.toDetailDto(saved);
   }
 
   private async resolveRequiredStatus(code: string): Promise<string> {
-    const normalized = code.trim().toLowerCase();
+    const normalized = normalizeOptionalLowercaseString(code);
+    if (!normalized) {
+      throw new BadRequestException('Client status code is required');
+    }
+
     try {
       await this.lookupsService.assertActiveCode(LOOKUP_DOMAIN_CLIENT_STATUS, normalized);
       return normalized;

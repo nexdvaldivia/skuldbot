@@ -38,7 +38,7 @@ export class License {
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
 
-  @Column({ unique: true })
+  @Column({ type: 'varchar', length: 255, unique: true })
   key: string;
 
   @Column({ type: 'varchar', length: 80, default: 'trial' })

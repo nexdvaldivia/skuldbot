@@ -92,11 +92,7 @@ export class Partner {
   // STATUS
   // ============================================================================
 
-  @Column({
-    type: 'enum',
-    enum: PartnerStatus,
-    default: PartnerStatus.PENDING,
-  })
+  @Column({ type: 'varchar', length: 50, default: PartnerStatus.PENDING })
   status: PartnerStatus;
 
   @Column({ type: 'varchar', nullable: true })
@@ -131,11 +127,7 @@ export class Partner {
   // REVENUE SHARE
   // ============================================================================
 
-  @Column({
-    type: 'enum',
-    enum: RevenueShareTier,
-    default: RevenueShareTier.STARTER,
-  })
+  @Column({ type: 'varchar', length: 50, default: RevenueShareTier.STARTER })
   revenueShareTier: RevenueShareTier;
 
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })

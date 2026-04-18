@@ -1,4 +1,4 @@
-import { Controller, Get, UseInterceptors } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { MCPMetricsService } from './mcp-metrics.service';
 
 /**
@@ -11,6 +11,7 @@ export class MetricsController {
   constructor(private readonly metricsService: MCPMetricsService) {}
 
   @Get()
+  // PUBLIC: Prometheus metrics scrape endpoint - no auth required
   async getMetrics(): Promise<string> {
     return await this.metricsService.getMetrics();
   }

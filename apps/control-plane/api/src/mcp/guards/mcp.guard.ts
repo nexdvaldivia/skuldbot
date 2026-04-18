@@ -1,4 +1,5 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Observable } from 'rxjs';
 
 /**
@@ -9,6 +10,8 @@ import { Observable } from 'rxjs';
  */
 @Injectable()
 export class MCPGuard implements CanActivate {
+  constructor(private readonly configService: ConfigService) {}
+
   canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
     const request = context.switchToHttp().getRequest();
 
@@ -19,8 +22,9 @@ export class MCPGuard implements CanActivate {
       return false;
     }
 
-    // TODO: Validate API key against database
-    // For now, accept any non-empty key
+    if (!this.validateApiKey(apiKey)) {
+      return false;
+    }
 
     // Extract tenant ID from API key or token
     // In production, this would come from JWT claims
@@ -33,5 +37,19 @@ export class MCPGuard implements CanActivate {
     };
 
     return true;
+  }
+
+  private validateApiKey(apiKey: string): boolean {
+    const rawAllowedKeys = this.configService.get<string>('MCP_API_KEYS');
+    if (!rawAllowedKeys) {
+      return false;
+    }
+
+    const allowedKeys = rawAllowedKeys
+      .split(',')
+      .map((key) => key.trim())
+      .filter((key) => key.length > 0);
+
+    return allowedKeys.includes(apiKey);
   }
 }

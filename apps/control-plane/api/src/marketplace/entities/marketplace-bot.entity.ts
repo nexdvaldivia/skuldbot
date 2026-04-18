@@ -91,11 +91,7 @@ export class MarketplaceBot {
   @Column({ type: 'text', nullable: true })
   longDescription: string; // Markdown
 
-  @Column({
-    type: 'enum',
-    enum: BotCategory,
-    default: BotCategory.CUSTOM,
-  })
+  @Column({ type: 'varchar', length: 50, default: BotCategory.CUSTOM })
   category: BotCategory;
 
   @Column({ type: 'jsonb', default: '[]' })
@@ -145,11 +141,7 @@ export class MarketplaceBot {
   // STATUS
   // ============================================================================
 
-  @Column({
-    type: 'enum',
-    enum: MarketplaceBotStatus,
-    default: MarketplaceBotStatus.DRAFT,
-  })
+  @Column({ type: 'varchar', length: 50, default: MarketplaceBotStatus.DRAFT })
   status: MarketplaceBotStatus;
 
   @Column({ type: 'varchar', nullable: true })
@@ -264,11 +256,7 @@ export class MarketplaceBot {
   // PRICING
   // ============================================================================
 
-  @Column({
-    type: 'enum',
-    enum: PricingModel,
-    default: PricingModel.USAGE,
-  })
+  @Column({ type: 'varchar', length: 50, default: PricingModel.USAGE })
   pricingModel: PricingModel;
 
   @Column({ type: 'jsonb', nullable: true })

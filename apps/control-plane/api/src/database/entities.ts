@@ -25,6 +25,18 @@ import { Lead, LeadIntakeEvent } from '../public-leads/entities/lead.entity';
 import { Ticket } from '../tickets/entities/ticket.entity';
 import { LookupDomain } from '../lookups/entities/lookup-domain.entity';
 import { LookupValue } from '../lookups/entities/lookup-value.entity';
+import { BotCategoryLookup } from '../lookups/entities/bot-category-lookup.entity';
+import { MarketplaceBotStatusLookup } from '../lookups/entities/marketplace-bot-status-lookup.entity';
+import { PartnerStatusLookup } from '../lookups/entities/partner-status-lookup.entity';
+import { RevenueShareTierLookup } from '../lookups/entities/revenue-share-tier-lookup.entity';
+import { TicketStatusLookup } from '../lookups/entities/ticket-status-lookup.entity';
+import { TicketPriorityLookup } from '../lookups/entities/ticket-priority-lookup.entity';
+import { MarketplaceSubscriptionStatusLookup } from '../lookups/entities/marketplace-subscription-status-lookup.entity';
+import { MarketplaceSubscriptionPlanLookup } from '../lookups/entities/marketplace-subscription-plan-lookup.entity';
+import { LeadStatusLookup } from '../lookups/entities/lead-status-lookup.entity';
+import { ClientContactTypeLookup } from '../lookups/entities/client-contact-type-lookup.entity';
+import { ClientAddressTypeLookup } from '../lookups/entities/client-address-type-lookup.entity';
+import { PricingModelLookup } from '../lookups/entities/pricing-model-lookup.entity';
 import { RunnerHeartbeatEntity } from '../mcp/entities/runner-heartbeat.entity';
 
 export const databaseEntities = [
@@ -58,5 +70,17 @@ export const databaseEntities = [
   Ticket,
   LookupDomain,
   LookupValue,
+  BotCategoryLookup,
+  MarketplaceBotStatusLookup,
+  PartnerStatusLookup,
+  RevenueShareTierLookup,
+  TicketStatusLookup,
+  TicketPriorityLookup,
+  MarketplaceSubscriptionStatusLookup,
+  MarketplaceSubscriptionPlanLookup,
+  LeadStatusLookup,
+  ClientContactTypeLookup,
+  ClientAddressTypeLookup,
+  PricingModelLookup,
   RunnerHeartbeatEntity,
 ];

@@ -6,7 +6,7 @@ import {
   Headers,
   Logger,
   HttpStatus,
-  BadRequestException,
+  NotImplementedException,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { StripeProvider } from './stripe.provider';
@@ -216,19 +216,17 @@ export class WebhooksController {
 
   private async handleSubscriptionCreated(data: Record<string, unknown>): Promise<void> {
     this.logger.log(`Subscription created: ${data.id}`);
-    // TODO: Create/update SubscriptionEntity
-    // TODO: Activate bot installation for tenant
+    this.failFastUnhandled('customer.subscription.created', data);
   }
 
   private async handleSubscriptionUpdated(data: Record<string, unknown>): Promise<void> {
     this.logger.log(`Subscription updated: ${data.id}`);
-    // TODO: Update SubscriptionEntity status, period dates, etc.
+    this.failFastUnhandled('customer.subscription.updated', data);
   }
 
   private async handleSubscriptionDeleted(data: Record<string, unknown>): Promise<void> {
     this.logger.log(`Subscription deleted: ${data.id}`);
-    // TODO: Mark SubscriptionEntity as canceled
-    // TODO: Deactivate bot installation
+    this.failFastUnhandled('customer.subscription.deleted', data);
   }
 
   // ============================================================================
@@ -237,25 +235,22 @@ export class WebhooksController {
 
   private async handleInvoiceCreated(data: Record<string, unknown>): Promise<void> {
     this.logger.log(`Invoice created: ${data.id}`);
-    // TODO: Create InvoiceEntity
+    this.failFastUnhandled('invoice.created', data);
   }
 
   private async handleInvoicePaid(data: Record<string, unknown>): Promise<void> {
     this.logger.log(`Invoice paid: ${data.id}`);
-    // TODO: Update InvoiceEntity status to paid
-    // TODO: If partner bot, calculate and create transfer for revenue share
+    this.failFastUnhandled('invoice.paid', data);
   }
 
   private async handleInvoicePaymentFailed(data: Record<string, unknown>): Promise<void> {
     this.logger.log(`Invoice payment failed: ${data.id}`);
-    // TODO: Update InvoiceEntity status
-    // TODO: Send notification to tenant
-    // TODO: Consider subscription status update
+    this.failFastUnhandled('invoice.payment_failed', data);
   }
 
   private async handleInvoiceFinalized(data: Record<string, unknown>): Promise<void> {
     this.logger.log(`Invoice finalized: ${data.id}`);
-    // TODO: Update InvoiceEntity
+    this.failFastUnhandled('invoice.finalized', data);
   }
 
   // ============================================================================
@@ -264,7 +259,7 @@ export class WebhooksController {
 
   private async handleCheckoutCompleted(data: Record<string, unknown>): Promise<void> {
     this.logger.log(`Checkout completed: ${data.id}`);
-    // TODO: If this is a new subscription checkout, create the installation
+    this.failFastUnhandled('checkout.session.completed', data);
   }
 
   // ============================================================================
@@ -273,15 +268,17 @@ export class WebhooksController {
 
   private async handleCustomerCreated(data: Record<string, unknown>): Promise<void> {
     this.logger.log(`Customer created: ${data.id}`);
-    // TODO: Update tenant with Stripe customer ID if needed
+    this.failFastUnhandled('customer.created', data);
   }
 
   private async handleCustomerUpdated(data: Record<string, unknown>): Promise<void> {
     this.logger.log(`Customer updated: ${data.id}`);
+    this.failFastUnhandled('customer.updated', data);
   }
 
   private async handleCustomerDeleted(data: Record<string, unknown>): Promise<void> {
     this.logger.log(`Customer deleted: ${data.id}`);
+    this.failFastUnhandled('customer.deleted', data);
   }
 
   // ============================================================================
@@ -290,16 +287,12 @@ export class WebhooksController {
 
   private async handleConnectAccountUpdated(data: Record<string, unknown>): Promise<void> {
     this.logger.log(`Connect account updated: ${data.id}`);
-    // TODO: Update PartnerEntity with:
-    // - chargesEnabled
-    // - payoutsEnabled
-    // - detailsSubmitted
+    this.failFastUnhandled('account.updated', data);
   }
 
   private async handleConnectAccountDeauthorized(data: Record<string, unknown>): Promise<void> {
     this.logger.log(`Connect account deauthorized: ${data.id}`);
-    // TODO: Mark partner as unable to receive payouts
-    // TODO: Send notification to partner
+    this.failFastUnhandled('account.application.deauthorized', data);
   }
 
   // ============================================================================
@@ -308,25 +301,34 @@ export class WebhooksController {
 
   private async handleTransferCreated(data: Record<string, unknown>): Promise<void> {
     this.logger.log(`Transfer created: ${data.id}`);
-    // TODO: Record transfer in partner payout history
+    this.failFastUnhandled('transfer.created', data);
   }
 
   private async handleTransferReversed(data: Record<string, unknown>): Promise<void> {
     this.logger.log(`Transfer reversed: ${data.id}`);
-    // TODO: Update partner payout record
+    this.failFastUnhandled('transfer.reversed', data);
   }
 
   private async handlePayoutCreated(data: Record<string, unknown>): Promise<void> {
     this.logger.log(`Payout created: ${data.id}`);
+    this.failFastUnhandled('payout.created', data);
   }
 
   private async handlePayoutPaid(data: Record<string, unknown>): Promise<void> {
     this.logger.log(`Payout paid: ${data.id}`);
-    // TODO: Update partner's lifetimePayouts
+    this.failFastUnhandled('payout.paid', data);
   }
 
   private async handlePayoutFailed(data: Record<string, unknown>): Promise<void> {
     this.logger.log(`Payout failed: ${data.id}`);
-    // TODO: Send notification to partner
+    this.failFastUnhandled('payout.failed', data);
+  }
+
+  private failFastUnhandled(eventType: string, data: Record<string, unknown>): never {
+    this.logger.warn(`Unhandled Stripe event: ${eventType}`, {
+      eventId: data.id,
+      eventType,
+    });
+    throw new NotImplementedException(`Stripe event ${eventType} handler not yet implemented`);
   }
 }

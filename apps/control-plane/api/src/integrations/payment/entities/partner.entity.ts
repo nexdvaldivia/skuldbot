@@ -55,11 +55,7 @@ export class PartnerEntity {
   @Column({ type: 'varchar', length: 100, nullable: true })
   country: string | null;
 
-  @Column({
-    type: 'enum',
-    enum: PartnerStatus,
-    default: PartnerStatus.PENDING,
-  })
+  @Column({ type: 'varchar', length: 50, default: PartnerStatus.PENDING })
   status: PartnerStatus;
 
   @Column({ type: 'timestamp', nullable: true })
@@ -83,11 +79,7 @@ export class PartnerEntity {
   @Column({ type: 'boolean', default: false })
   stripeDetailsSubmitted: boolean;
 
-  @Column({
-    type: 'enum',
-    enum: RevenueShareTier,
-    default: RevenueShareTier.STARTER,
-  })
+  @Column({ type: 'varchar', length: 50, default: RevenueShareTier.STARTER })
   revenueShareTier: RevenueShareTier;
 
   @Column({ type: 'bigint', default: 0 })
