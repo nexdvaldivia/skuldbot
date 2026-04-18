@@ -43,3 +43,10 @@ export enum ContractRequirementAction {
   PROCESS_PHI = 'process_phi',
   PROCESS_EU_PII = 'process_eu_pii',
 }
+
+export enum ContractRenewalRequirementStatus {
+  PENDING = 'pending',
+  ACCEPTED = 'accepted',
+  EXPIRED = 'expired',
+  WAIVED = 'waived',
+}
