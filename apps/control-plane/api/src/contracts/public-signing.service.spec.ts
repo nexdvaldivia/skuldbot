@@ -17,6 +17,7 @@ function createService() {
   const envelopeRecipientRepository = createRepositoryMock();
   const envelopeRepository = createRepositoryMock();
   const acceptanceRepository = createRepositoryMock();
+  const envelopeEventRepository = createRepositoryMock();
   const clientRepository = createRepositoryMock();
 
   const contractSigningService = {
@@ -50,6 +51,7 @@ function createService() {
     envelopeRecipientRepository as unknown as never,
     envelopeRepository as unknown as never,
     acceptanceRepository as unknown as never,
+    envelopeEventRepository as unknown as never,
     clientRepository as unknown as never,
     contractSigningService as unknown as never,
     providerFactory as unknown as never,
@@ -63,6 +65,7 @@ function createService() {
       envelopeRecipientRepository,
       envelopeRepository,
       acceptanceRepository,
+      envelopeEventRepository,
       clientRepository,
       contractSigningService,
       providerFactory,
@@ -174,6 +177,45 @@ describe('PublicSigningService', () => {
     );
   });
 
+  it('applies OTP request rate limit per recipient', async () => {
+    const { service, mocks } = createService();
+    const recipient = {
+      id: 'rec-1',
+      envelopeId: 'env-1',
+      email: 'john@example.com',
+      fullName: 'John Doe',
+      roleLabel: 'Signer',
+      sortOrder: 0,
+      status: ContractEnvelopeRecipientStatus.SENT,
+      otpVerifiedAt: null,
+      metadata: {
+        publicSigningToken: 'token-1',
+        publicOtpRateLimit: {
+          windowStartedAt: new Date().toISOString(),
+          count: 5,
+          lastRequestedAt: new Date().toISOString(),
+        },
+      },
+    };
+    mockTokenLookup(mocks.envelopeRecipientRepository, recipient);
+    mocks.envelopeRepository.findOne.mockResolvedValue({
+      id: 'env-1',
+      clientId: 'client-1',
+      tenantId: null,
+      status: ContractEnvelopeStatus.SENT,
+      recipients: [recipient],
+      documents: [],
+      metadata: {},
+      contract: null,
+    });
+
+    await expect(service.requestEmailOtp('token-1', '127.0.0.1', 'agent')).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'CONTRACT_PUBLIC_OTP_RATE_LIMITED',
+      }),
+    });
+  });
+
   it('rejects invalid sms otp code', async () => {
     const { service, mocks } = createService();
     const recipient = {
@@ -208,8 +250,100 @@ describe('PublicSigningService', () => {
       contract: null,
     });
 
-    await expect(service.verifySmsOtp('token-1', { code: '123456' })).rejects.toBeInstanceOf(
-      BadRequestException,
+    await expect(
+      service.verifySmsOtp('token-1', { code: '123456' }, '127.0.0.1', 'agent'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('locks sms otp after max attempts and blocks future verification', async () => {
+    const { service, mocks } = createService();
+    const recipient = {
+      id: 'rec-1',
+      envelopeId: 'env-1',
+      email: 'john@example.com',
+      fullName: 'John Doe',
+      roleLabel: 'Signer',
+      sortOrder: 0,
+      status: ContractEnvelopeRecipientStatus.SENT,
+      otpVerifiedAt: new Date(),
+      metadata: {
+        publicSigningToken: 'token-1',
+        publicSmsOtp: {
+          phone: '+14155551234',
+          codeHash: 'different-hash',
+          expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          attempts: 4,
+          verifiedAt: null,
+        },
+      },
+    };
+    mockTokenLookup(mocks.envelopeRecipientRepository, recipient);
+    mocks.envelopeRepository.findOne.mockResolvedValue({
+      id: 'env-1',
+      clientId: 'client-1',
+      tenantId: null,
+      status: ContractEnvelopeStatus.SENT,
+      recipients: [recipient],
+      documents: [],
+      metadata: { requireSmsOtp: true },
+      contract: null,
+    });
+
+    await expect(
+      service.verifySmsOtp('token-1', { code: '123456' }, '127.0.0.1', 'agent'),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'CONTRACT_PUBLIC_OTP_LOCKED',
+      }),
+    });
+
+    await expect(
+      service.verifySmsOtp('token-1', { code: '123456' }, '127.0.0.1', 'agent'),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'CONTRACT_PUBLIC_OTP_LOCKED',
+      }),
+    });
+  });
+
+  it('records public audit events for otp requests and page views', async () => {
+    const { service, mocks } = createService();
+    const recipient = {
+      id: 'rec-1',
+      envelopeId: 'env-1',
+      email: 'john@example.com',
+      fullName: 'John Doe',
+      roleLabel: 'Signer',
+      sortOrder: 0,
+      status: ContractEnvelopeRecipientStatus.SENT,
+      otpVerifiedAt: null,
+      metadata: { publicSigningToken: 'token-1' },
+    };
+    mockTokenLookup(mocks.envelopeRecipientRepository, recipient);
+    mocks.envelopeRepository.findOne.mockResolvedValue({
+      id: 'env-1',
+      clientId: 'client-1',
+      tenantId: null,
+      status: ContractEnvelopeStatus.SENT,
+      recipients: [recipient],
+      documents: [],
+      metadata: {},
+      contract: null,
+    });
+    mocks.envelopeRecipientRepository.findOne.mockResolvedValue(recipient);
+
+    await service.markViewed('token-1', '127.0.0.1', 'agent');
+    await service.requestEmailOtp('token-1', '127.0.0.1', 'agent');
+
+    expect(mocks.envelopeEventRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'public.page_viewed',
+      }),
+    );
+    expect(mocks.envelopeEventRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'public.otp_requested',
+      }),
     );
   });
 });

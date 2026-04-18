@@ -35,6 +35,7 @@ import {
   ContractEnvelopeStatus,
 } from './entities/contract-domain.enums';
 import { ContractAcceptance } from './entities/contract-acceptance.entity';
+import { ContractEnvelopeEvent } from './entities/contract-envelope-event.entity';
 import { ContractEnvelopeRecipient } from './entities/contract-envelope-recipient.entity';
 import { ContractEnvelope } from './entities/contract-envelope.entity';
 import { SigningDocument } from './entities/signing-document.entity';
@@ -64,6 +65,7 @@ export class PublicSigningService {
   private readonly storageProviderChain: string[];
   private readonly smsProviderChain: string[];
   private readonly otpSecretPepper: string;
+  private static readonly OTP_REQUEST_LIMIT_PER_HOUR = 5;
 
   constructor(
     @InjectRepository(ContractEnvelopeRecipient)
@@ -72,6 +74,8 @@ export class PublicSigningService {
     private readonly envelopeRepository: Repository<ContractEnvelope>,
     @InjectRepository(ContractAcceptance)
     private readonly acceptanceRepository: Repository<ContractAcceptance>,
+    @InjectRepository(ContractEnvelopeEvent)
+    private readonly envelopeEventRepository: Repository<ContractEnvelopeEvent>,
     @InjectRepository(Client)
     private readonly clientRepository: Repository<Client>,
     private readonly contractSigningService: ContractSigningService,
@@ -155,6 +159,14 @@ export class PublicSigningService {
       publicViewedAt: now.toISOString(),
     };
     await this.envelopeRecipientRepository.save(recipient);
+    await this.recordPublicEnvelopeEvent(
+      recipient.envelopeId,
+      recipient.id,
+      'public.page_viewed',
+      ipAddress,
+      userAgent,
+      {},
+    );
     return {
       success: true,
       viewedAt: recipient.viewedAt,
@@ -221,6 +233,8 @@ export class PublicSigningService {
     userAgent: string | null,
   ): Promise<PublicRequestEmailOtpResponseDto> {
     const { envelope, recipient } = await this.resolveSigningContext(token);
+    this.assertOtpRequestRateLimit(recipient);
+    await this.envelopeRecipientRepository.save(recipient);
     const actor = this.createPublicActor(envelope.clientId);
     await this.contractSigningService.resendEnvelope(
       envelope.id,
@@ -240,6 +254,14 @@ export class PublicSigningService {
     updatedRecipient.ipAddress = ipAddress;
     updatedRecipient.userAgent = userAgent;
     await this.envelopeRecipientRepository.save(updatedRecipient);
+    await this.recordPublicEnvelopeEvent(
+      envelope.id,
+      updatedRecipient.id,
+      'public.otp_requested',
+      ipAddress,
+      userAgent,
+      { channel: 'email' },
+    );
 
     return {
       success: true,
@@ -251,15 +273,37 @@ export class PublicSigningService {
   async verifyEmailOtp(
     token: string,
     dto: PublicVerifyOtpDto,
+    ipAddress: string,
+    userAgent: string | null,
   ): Promise<PublicOtpSimpleResponseDto> {
     const { envelope, recipient } = await this.resolveSigningContext(token);
     const actor = this.createPublicActor(envelope.clientId);
     const verificationDto: VerifyEnvelopeOtpDto = { code: dto.code };
-    await this.contractSigningService.verifyEnvelopeRecipientOtp(
+    try {
+      await this.contractSigningService.verifyEnvelopeRecipientOtp(
+        envelope.id,
+        recipient.id,
+        verificationDto,
+        actor,
+      );
+    } catch (error) {
+      await this.recordPublicEnvelopeEvent(
+        envelope.id,
+        recipient.id,
+        'public.otp_failed',
+        ipAddress,
+        userAgent,
+        { channel: 'email' },
+      );
+      throw error;
+    }
+    await this.recordPublicEnvelopeEvent(
       envelope.id,
       recipient.id,
-      verificationDto,
-      actor,
+      'public.otp_verified',
+      ipAddress,
+      userAgent,
+      { channel: 'email' },
     );
 
     return {
@@ -275,6 +319,7 @@ export class PublicSigningService {
     userAgent: string | null,
   ): Promise<PublicRequestSmsOtpResponseDto> {
     const { recipient, envelope } = await this.resolveSigningContext(token);
+    this.assertOtpRequestRateLimit(recipient);
     const code = this.generateOtpCode();
     const now = new Date();
     const expiresAt = this.resolveOtpExpiry(now);
@@ -287,6 +332,7 @@ export class PublicSigningService {
         codeHash: this.hashOtpCode(code, normalizedPhone),
         expiresAt: expiresAt.toISOString(),
         attempts: 0,
+        lockedAt: null,
         verifiedAt: null,
         requestedAt: now.toISOString(),
       },
@@ -308,6 +354,14 @@ export class PublicSigningService {
         providerChain: this.smsProviderChain,
       },
     );
+    await this.recordPublicEnvelopeEvent(
+      envelope.id,
+      recipient.id,
+      'public.otp_requested',
+      ipAddress,
+      userAgent,
+      { channel: 'sms' },
+    );
 
     return {
       success: true,
@@ -316,8 +370,13 @@ export class PublicSigningService {
     };
   }
 
-  async verifySmsOtp(token: string, dto: PublicVerifyOtpDto): Promise<PublicOtpSimpleResponseDto> {
-    const { recipient } = await this.resolveSigningContext(token);
+  async verifySmsOtp(
+    token: string,
+    dto: PublicVerifyOtpDto,
+    ipAddress: string,
+    userAgent: string | null,
+  ): Promise<PublicOtpSimpleResponseDto> {
+    const { recipient, envelope } = await this.resolveSigningContext(token);
     const smsOtp = this.readSmsOtpState(recipient);
     if (!smsOtp) {
       throw new BadRequestException({
@@ -326,7 +385,31 @@ export class PublicSigningService {
       });
     }
 
+    const maxAttempts = this.resolveOtpMaxAttempts();
+    if (smsOtp.lockedAt || smsOtp.attempts >= maxAttempts) {
+      await this.recordPublicEnvelopeEvent(
+        envelope.id,
+        recipient.id,
+        'public.otp_failed',
+        ipAddress,
+        userAgent,
+        { channel: 'sms', reason: 'locked' },
+      );
+      throw new BadRequestException({
+        code: 'CONTRACT_PUBLIC_OTP_LOCKED',
+        message: 'SMS OTP is locked due to too many failed attempts.',
+      });
+    }
+
     if (new Date(smsOtp.expiresAt).getTime() < Date.now()) {
+      await this.recordPublicEnvelopeEvent(
+        envelope.id,
+        recipient.id,
+        'public.otp_failed',
+        ipAddress,
+        userAgent,
+        { channel: 'sms', reason: 'expired' },
+      );
       throw new BadRequestException({
         code: 'CONTRACT_SMS_OTP_EXPIRED',
         message: 'SMS OTP has expired. Request a new code.',
@@ -336,14 +419,34 @@ export class PublicSigningService {
     const expectedHash = this.hashOtpCode(dto.code, smsOtp.phone);
     if (expectedHash !== smsOtp.codeHash) {
       const attempts = Number(smsOtp.attempts ?? 0) + 1;
+      const lockedAt = attempts >= maxAttempts ? new Date().toISOString() : null;
       recipient.metadata = {
         ...(recipient.metadata ?? {}),
         publicSmsOtp: {
           ...smsOtp,
           attempts,
+          lockedAt,
         },
       };
       await this.envelopeRecipientRepository.save(recipient);
+      await this.recordPublicEnvelopeEvent(
+        envelope.id,
+        recipient.id,
+        'public.otp_failed',
+        ipAddress,
+        userAgent,
+        {
+          channel: 'sms',
+          attempts,
+          locked: Boolean(lockedAt),
+        },
+      );
+      if (lockedAt) {
+        throw new BadRequestException({
+          code: 'CONTRACT_PUBLIC_OTP_LOCKED',
+          message: 'SMS OTP is locked due to too many failed attempts.',
+        });
+      }
       throw new BadRequestException({
         code: 'CONTRACT_SMS_OTP_INVALID',
         message: 'SMS OTP code is invalid.',
@@ -356,9 +459,18 @@ export class PublicSigningService {
         ...smsOtp,
         verifiedAt: new Date().toISOString(),
         attempts: 0,
+        lockedAt: null,
       },
     };
     await this.envelopeRecipientRepository.save(recipient);
+    await this.recordPublicEnvelopeEvent(
+      envelope.id,
+      recipient.id,
+      'public.otp_verified',
+      ipAddress,
+      userAgent,
+      { channel: 'sms' },
+    );
 
     return {
       success: true,
@@ -391,6 +503,14 @@ export class PublicSigningService {
       actor,
     );
     const updatedRecipient = response.recipients.find((entry) => entry.id === recipient.id) ?? null;
+    await this.recordPublicEnvelopeEvent(
+      envelope.id,
+      recipient.id,
+      'public.signed',
+      dto.ipAddress,
+      dto.userAgent ?? null,
+      { signatureType: dto.signatureType },
+    );
 
     return {
       success: true,
@@ -415,6 +535,14 @@ export class PublicSigningService {
       actor,
     );
     const updatedRecipient = response.recipients.find((entry) => entry.id === recipient.id) ?? null;
+    await this.recordPublicEnvelopeEvent(
+      envelope.id,
+      recipient.id,
+      'public.declined',
+      dto.ipAddress,
+      dto.userAgent ?? null,
+      { reason: dto.reason ?? null },
+    );
     return {
       success: true,
       message: 'You have declined to sign.',
@@ -586,6 +714,7 @@ export class PublicSigningService {
     codeHash: string;
     expiresAt: string;
     attempts: number;
+    lockedAt: string | null;
     verifiedAt: string | null;
   } | null {
     const metadata = recipient.metadata ?? {};
@@ -606,7 +735,43 @@ export class PublicSigningService {
       codeHash: payload['codeHash'],
       expiresAt: payload['expiresAt'],
       attempts: Number(payload['attempts'] ?? 0),
+      lockedAt: typeof payload['lockedAt'] === 'string' ? payload['lockedAt'] : null,
       verifiedAt: typeof payload['verifiedAt'] === 'string' ? payload['verifiedAt'] : null,
+    };
+  }
+
+  private assertOtpRequestRateLimit(recipient: ContractEnvelopeRecipient): void {
+    const limit = this.resolveOtpRequestLimitPerHour();
+    const now = Date.now();
+    const metadata = recipient.metadata ?? {};
+    const rawRate = metadata['publicOtpRateLimit'];
+    const rateState =
+      rawRate && typeof rawRate === 'object' ? (rawRate as Record<string, unknown>) : {};
+    const windowStartedAtRaw =
+      typeof rateState['windowStartedAt'] === 'string'
+        ? new Date(rateState['windowStartedAt']).getTime()
+        : NaN;
+    const countRaw = Number(rateState['count'] ?? 0);
+    const windowActive =
+      Number.isFinite(windowStartedAtRaw) && now - windowStartedAtRaw < 60 * 60 * 1000;
+    const count = windowActive ? countRaw : 0;
+
+    if (count >= limit) {
+      throw new BadRequestException({
+        code: 'CONTRACT_PUBLIC_OTP_RATE_LIMITED',
+        message: `OTP request limit exceeded (${limit} per hour).`,
+      });
+    }
+
+    recipient.metadata = {
+      ...metadata,
+      publicOtpRateLimit: {
+        windowStartedAt: windowActive
+          ? new Date(windowStartedAtRaw).toISOString()
+          : new Date(now).toISOString(),
+        count: count + 1,
+        lastRequestedAt: new Date(now).toISOString(),
+      },
     };
   }
 
@@ -706,6 +871,23 @@ export class PublicSigningService {
     return Number.isFinite(rawMinutes) && rawMinutes > 0 ? Math.floor(rawMinutes) : 15;
   }
 
+  private resolveOtpMaxAttempts(): number {
+    const rawAttempts = Number(
+      this.configService.get<string>('CONTRACT_SIGNING_OTP_MAX_ATTEMPTS') ?? '5',
+    );
+    return Number.isFinite(rawAttempts) && rawAttempts > 0 ? Math.floor(rawAttempts) : 5;
+  }
+
+  private resolveOtpRequestLimitPerHour(): number {
+    const rawLimit = Number(
+      this.configService.get<string>('CONTRACT_PUBLIC_OTP_REQUEST_LIMIT_PER_HOUR') ??
+        String(PublicSigningService.OTP_REQUEST_LIMIT_PER_HOUR),
+    );
+    return Number.isFinite(rawLimit) && rawLimit > 0
+      ? Math.floor(rawLimit)
+      : PublicSigningService.OTP_REQUEST_LIMIT_PER_HOUR;
+  }
+
   private resolveOtpExpiry(from: Date): Date {
     const minutes = this.resolveOtpExpiryMinutes();
     return new Date(from.getTime() + minutes * 60 * 1000);
@@ -792,6 +974,27 @@ export class PublicSigningService {
     return createHash('sha256')
       .update(`${recipientPhone.toLowerCase()}::${code}::${this.otpSecretPepper}`)
       .digest('hex');
+  }
+
+  private async recordPublicEnvelopeEvent(
+    envelopeId: string,
+    recipientId: string,
+    eventType: string,
+    ipAddress: string | null | undefined,
+    userAgent: string | null | undefined,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    await this.envelopeEventRepository.save({
+      envelopeId,
+      recipientId,
+      eventType,
+      eventSource: 'public-signing-api',
+      eventPayload: {
+        ...payload,
+        ipAddress: ipAddress ?? null,
+        userAgent: userAgent ?? null,
+      },
+    });
   }
 
   private toSafeFilename(value: string): string {

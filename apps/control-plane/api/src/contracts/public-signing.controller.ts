@@ -77,8 +77,14 @@ export class PublicSigningController {
   async verifyEmailOtp(
     @Param('token') token: string,
     @Body() dto: PublicVerifyOtpDto,
+    @Req() request: Request,
   ): Promise<PublicOtpSimpleResponseDto> {
-    return this.publicSigningService.verifyEmailOtp(token, dto);
+    return this.publicSigningService.verifyEmailOtp(
+      token,
+      dto,
+      this.getClientIp(request),
+      this.getUserAgent(request),
+    );
   }
 
   @Post(':token/otp/request-sms')
@@ -99,8 +105,14 @@ export class PublicSigningController {
   async verifySmsOtp(
     @Param('token') token: string,
     @Body() dto: PublicVerifyOtpDto,
+    @Req() request: Request,
   ): Promise<PublicOtpSimpleResponseDto> {
-    return this.publicSigningService.verifySmsOtp(token, dto);
+    return this.publicSigningService.verifySmsOtp(
+      token,
+      dto,
+      this.getClientIp(request),
+      this.getUserAgent(request),
+    );
   }
 
   @Post(':token/sign')
