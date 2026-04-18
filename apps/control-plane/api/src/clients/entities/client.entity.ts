@@ -36,6 +36,12 @@ export class Client {
   @Column({ name: 'stripe_subscription_id', type: 'varchar', nullable: true })
   stripeSubscriptionId: string | null;
 
+  @Column({ name: 'api_key', type: 'varchar', nullable: true, unique: true })
+  apiKey: string | null;
+
+  @Column({ name: 'api_key_rotated_at', type: 'timestamp with time zone', nullable: true })
+  apiKeyRotatedAt: Date | null;
+
   @Column({ type: 'jsonb', default: '{}' })
   settings: Record<string, unknown>;
 

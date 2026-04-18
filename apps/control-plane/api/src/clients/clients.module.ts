@@ -10,9 +10,22 @@ import { ClientContactsService } from './client-contacts.service';
 import { ClientAddressesService } from './client-addresses.service';
 import { ClientContactsController } from './client-contacts.controller';
 import { ClientAddressesController } from './client-addresses.controller';
+import { Tenant } from '../tenants/entities/tenant.entity';
+import { User } from '../users/entities/user.entity';
+import { TenantSubscription } from '../billing/entities/subscription.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Client, ClientContact, ClientAddress]), LookupsModule],
+  imports: [
+    TypeOrmModule.forFeature([
+      Client,
+      ClientContact,
+      ClientAddress,
+      Tenant,
+      User,
+      TenantSubscription,
+    ]),
+    LookupsModule,
+  ],
   controllers: [ClientsController, ClientContactsController, ClientAddressesController],
   providers: [ClientsService, ClientContactsService, ClientAddressesService],
   exports: [ClientsService, ClientContactsService, ClientAddressesService],

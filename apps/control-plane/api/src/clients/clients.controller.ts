@@ -9,6 +9,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import { ClientsService } from './clients.service';
 import {
@@ -16,6 +17,10 @@ import {
   UpdateClientDto,
   ClientResponseDto,
   ClientDetailResponseDto,
+  ListClientsQueryDto,
+  RegenerateClientApiKeyResponseDto,
+  ClientGatesResponseDto,
+  ClientOverviewResponseDto,
 } from './dto/client.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -33,8 +38,15 @@ export class ClientsController {
   @Get()
   @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
   @RequirePermissions(CP_PERMISSIONS.CLIENTS_READ)
-  async findAll(): Promise<ClientResponseDto[]> {
-    return this.clientsService.findAll();
+  async findAll(@Query() query: ListClientsQueryDto): Promise<ClientResponseDto[]> {
+    return this.clientsService.findAll(query);
+  }
+
+  @Get('slug/:slug')
+  @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT, UserRole.CLIENT_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.CLIENTS_READ)
+  async findBySlug(@Param('slug') slug: string): Promise<ClientDetailResponseDto> {
+    return this.clientsService.findBySlug(slug);
   }
 
   @Get(':id')
@@ -82,5 +94,33 @@ export class ClientsController {
   @RequirePermissions(CP_PERMISSIONS.CLIENTS_WRITE)
   async suspend(@Param('id') id: string): Promise<ClientDetailResponseDto> {
     return this.clientsService.suspend(id);
+  }
+
+  @Post(':id/reactivate')
+  @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.CLIENTS_WRITE)
+  async reactivate(@Param('id') id: string): Promise<ClientDetailResponseDto> {
+    return this.clientsService.reactivate(id);
+  }
+
+  @Post(':id/regenerate-api-key')
+  @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.CLIENTS_WRITE)
+  async regenerateApiKey(@Param('id') id: string): Promise<RegenerateClientApiKeyResponseDto> {
+    return this.clientsService.regenerateApiKey(id);
+  }
+
+  @Get(':id/gates')
+  @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT, UserRole.CLIENT_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.CLIENTS_READ)
+  async getGates(@Param('id') id: string): Promise<ClientGatesResponseDto> {
+    return this.clientsService.getGates(id);
+  }
+
+  @Get(':id/overview')
+  @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT, UserRole.CLIENT_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.CLIENTS_READ)
+  async getOverview(@Param('id') id: string): Promise<ClientOverviewResponseDto> {
+    return this.clientsService.getOverview(id);
   }
 }
