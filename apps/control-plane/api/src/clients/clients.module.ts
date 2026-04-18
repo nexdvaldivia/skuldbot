@@ -1,14 +1,20 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Client } from './entities/client.entity';
+import { ClientContact } from './entities/client-contact.entity';
+import { ClientAddress } from './entities/client-address.entity';
 import { ClientsService } from './clients.service';
 import { ClientsController } from './clients.controller';
 import { LookupsModule } from '../lookups/lookups.module';
+import { ClientContactsService } from './client-contacts.service';
+import { ClientAddressesService } from './client-addresses.service';
+import { ClientContactsController } from './client-contacts.controller';
+import { ClientAddressesController } from './client-addresses.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Client]), LookupsModule],
-  controllers: [ClientsController],
-  providers: [ClientsService],
-  exports: [ClientsService],
+  imports: [TypeOrmModule.forFeature([Client, ClientContact, ClientAddress]), LookupsModule],
+  controllers: [ClientsController, ClientContactsController, ClientAddressesController],
+  providers: [ClientsService, ClientContactsService, ClientAddressesService],
+  exports: [ClientsService, ClientContactsService, ClientAddressesService],
 })
 export class ClientsModule {}
