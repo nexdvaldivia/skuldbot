@@ -78,6 +78,7 @@ Library           skuldbot.libs.DataLibrary
 {% if 'secrets.' in node_types_str %}
 Library           skuldbot.libs.vault    WITH NAME    SkuldVault
 Library           skuldbot.libs.local_vault    WITH NAME    LocalVault
+Library           skuldbot.libs.mfa    WITH NAME    MFA
 {% endif %}
 {% if 'voice.' in node_types_str or 'trigger.voice' in node_types_str %}
 Library           skuldbot.libs.voice    WITH NAME    SkuldVoice
@@ -2191,6 +2192,43 @@ Execute Node By ID
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $valid}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Certificate valid: ${valid}, expires: ${expires}    console=yes
+
+{# ===== MFA / AUTHENTICATION ===== #}
+{% elif node.type == 'security.totp_generate' %}
+            # Generate TOTP code for MFA authentication
+            ${secret_name}=    Set Variable    {{ node.config.get('secret_name', '') | transform_vars }}
+            ${vault_provider}=    Set Variable    {{ node.config.get('vault_provider', 'local') }}
+            ${digits}=    Set Variable    {{ node.config.get('digits', '6') }}
+            ${period}=    Set Variable    {{ node.config.get('period', '30') }}
+            ${algorithm}=    Set Variable    {{ node.config.get('algorithm', 'SHA1') }}
+            ${totp_code}=    MFA.Generate TOTP
+            ...    secret_name=${secret_name}
+            ...    vault_provider=${vault_provider}
+            ...    digits=${digits}
+            ...    period=${period}
+            ...    algorithm=${algorithm}
+            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${totp_code}    code=${totp_code}    secretName=${secret_name}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': '[TOTP_CODE_REDACTED]'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
+            Log    TOTP code generated for ${secret_name} [code redacted]    console=yes
+
+{% elif node.type == 'security.totp_generate_with_expiry' %}
+            # Generate TOTP code with expiration metadata
+            ${secret_name}=    Set Variable    {{ node.config.get('secret_name', '') | transform_vars }}
+            ${vault_provider}=    Set Variable    {{ node.config.get('vault_provider', 'local') }}
+            ${digits}=    Set Variable    {{ node.config.get('digits', '6') }}
+            ${period}=    Set Variable    {{ node.config.get('period', '30') }}
+            ${algorithm}=    Set Variable    {{ node.config.get('algorithm', 'SHA1') }}
+            ${totp_result}=    MFA.Generate TOTP With Expiry
+            ...    secret_name=${secret_name}
+            ...    vault_provider=${vault_provider}
+            ...    digits=${digits}
+            ...    period=${period}
+            ...    algorithm=${algorithm}
+            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${totp_result}    code=${totp_result}[code]    expiresIn=${totp_result}[expires_in]    generatedAt=${totp_result}[generated_at]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': '[TOTP_CODE_REDACTED]', 'expires_in': ${totp_result}[expires_in]}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
+            Log    TOTP code generated for ${secret_name}, expires in ${totp_result}[expires_in]s [code redacted]    console=yes
 
 {# ===== HUMAN ===== #}
 {% elif node.type == 'human.approval' %}

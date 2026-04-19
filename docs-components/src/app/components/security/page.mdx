@@ -5,6 +5,7 @@ export const metadata = {
 
 export const sections = [
   { title: 'Get Secret', id: 'security-get_secret' },
+  { title: 'TOTP Generate', id: 'security-totp_generate' },
   { title: 'Encrypt Data', id: 'security-encrypt' },
   { title: 'Decrypt Data', id: 'security-decrypt' },
   { title: 'Hash Data', id: 'security-hash' },
@@ -45,6 +46,78 @@ ${vault.API_KEY}
 ${vault.DB_PASSWORD}
 ${vault.OAUTH_CLIENT_SECRET}
 ```
+
+---
+
+<NodeHeader id="security-totp_generate" icon="ShieldCheck" label="TOTP Generate" description="Generate MFA code for bot authentication" bgColor="#fee2e2" textColor="#991b1b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `security.totp_generate`
+  </Property>
+</Properties>
+
+Generates a TOTP (Time-based One-Time Password) code for MFA authentication. Uses a shared secret from the KeyVault to produce the 6-digit code that Google Authenticator, Microsoft Authenticator, and other TOTP apps use.
+
+**How it works:** The bot retrieves the shared secret from the KeyVault by name, generates the same code that an authenticator app would produce, fills it into the MFA field, and discards the secret from memory. The secret never appears in the workflow, logs, or Evidence Pack.
+
+**Configuration:**
+- **secret_name** (`text`, required) — Name of the TOTP shared secret in the KeyVault (e.g., `erp-sap-mfa-secret`)
+- **vault_provider** (`select`, default: `local`) — Where to resolve the secret:
+  - `local` — Local Vault (Studio debug)
+  - `orchestrator` — Orchestrator Vault (production)
+  - `azure` — Azure Key Vault
+  - `aws` — AWS Secrets Manager
+  - `hashicorp` — HashiCorp Vault
+  - `env` — Environment Variable
+- **digits** (`number`, default: `6`) — Number of digits in the code
+- **period** (`number`, default: `30`) — How often the code changes (seconds)
+- **algorithm** (`select`, default: `SHA1`) — Hash algorithm (SHA-1, SHA-256, SHA-512)
+
+**Output:** The generated TOTP code (e.g., `"847293"`)
+
+**Example — Login to SAP with MFA:**
+
+```
+[Manual Trigger]
+    |
+[Open Browser] -> url: https://sap.company.com
+    |
+[Fill Field] -> #username -> ${vault.sap-username}
+    |
+[Fill Field] -> #password -> ${vault.sap-password}
+    |
+[Click] -> #login-button
+    |
+[Wait Element] -> #mfa-code-input
+    |
+[TOTP Generate] -> secret_name: erp-sap-mfa-secret    <-- generates code
+    |
+[Fill Field] -> #mfa-code-input -> ${TOTP Generate.code}
+    |
+[Click] -> #verify-button
+    |
+[Wait Element] -> #dashboard    <-- logged in!
+```
+
+**Setup (one-time):**
+1. Create a service account on the target system (e.g., SAP) with TOTP MFA enabled
+2. When the system shows the QR code, extract the shared secret (the text inside the QR)
+3. Store it in the KeyVault: name = `erp-sap-mfa-secret`, value = the shared secret
+4. Multiple bots can use the same secret — configure the `secret_name` in each bot
+
+<Note>
+  The TOTP code changes every 30 seconds. The bot generates it at the exact moment it needs to fill the MFA field, ensuring the code is always fresh. Works with any system that supports Google Authenticator, Microsoft Authenticator, Authy, or any TOTP-compatible app.
+</Note>
+
+**Security:**
+- The shared secret is encrypted at rest in the KeyVault (AES-256-GCM)
+- It lives in memory only during code generation and is scrubbed immediately after
+- The TOTP code is redacted in logs and Evidence Pack as `[TOTP_CODE_REDACTED]`
+- Access to the secret is controlled by KeyVault policies per bot
+- Every access generates an audit event
+
+**Supported systems:** Any system using TOTP (RFC 6238) — Microsoft 365, Google Workspace, Salesforce, SAP, AWS Console, Okta, GitHub, and hundreds more.
 
 ---
 

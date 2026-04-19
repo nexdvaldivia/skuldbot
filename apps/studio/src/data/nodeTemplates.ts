@@ -6724,6 +6724,73 @@ result = [{
     configSchema: [{ name: 'url', label: 'URL', type: 'text', required: true }],
   },
 
+  // --- MFA / Authentication ---
+  {
+    type: 'security.totp_generate',
+    category: 'security',
+    label: 'TOTP Generate',
+    description:
+      'Generate a TOTP code for MFA authentication. Uses a shared secret from KeyVault to produce the 6-digit code that systems like Google Authenticator or Microsoft Authenticator require.',
+    icon: 'ShieldCheck',
+    defaultConfig: {
+      vault_provider: 'local',
+      digits: 6,
+      period: 30,
+      algorithm: 'SHA1',
+    },
+    configSchema: [
+      {
+        name: 'secret_name',
+        label: 'Secret Name (in KeyVault)',
+        type: 'text',
+        required: true,
+        placeholder: 'erp-sap-mfa-secret',
+        description:
+          'Name of the TOTP shared secret stored in the KeyVault. The bot resolves it at runtime — the value never appears in the workflow.',
+      },
+      {
+        name: 'vault_provider',
+        label: 'Vault Provider',
+        type: 'select',
+        default: 'local',
+        options: [
+          { value: 'local', label: 'Local Vault' },
+          { value: 'orchestrator', label: 'Orchestrator' },
+          { value: 'azure', label: 'Azure Key Vault' },
+          { value: 'aws', label: 'AWS Secrets Manager' },
+          { value: 'hashicorp', label: 'HashiCorp Vault' },
+          { value: 'env', label: 'Environment Variable' },
+        ],
+      },
+      {
+        name: 'digits',
+        label: 'Code Digits',
+        type: 'number',
+        default: 6,
+        description: 'Number of digits in the TOTP code (standard: 6)',
+      },
+      {
+        name: 'period',
+        label: 'Period (seconds)',
+        type: 'number',
+        default: 30,
+        description: 'How often the code changes (standard: 30 seconds)',
+      },
+      {
+        name: 'algorithm',
+        label: 'Algorithm',
+        type: 'select',
+        default: 'SHA1',
+        options: [
+          { value: 'SHA1', label: 'SHA-1 (standard)' },
+          { value: 'SHA256', label: 'SHA-256' },
+          { value: 'SHA512', label: 'SHA-512' },
+        ],
+        description: 'Hash algorithm. SHA-1 is the standard for most TOTP implementations.',
+      },
+    ],
+  },
+
   // --- Vault Providers (Enterprise Secrets Management) ---
   {
     type: 'secrets.azure_keyvault',
