@@ -22,6 +22,7 @@ import { TicketsModule } from './tickets/tickets.module';
 import { LookupsModule } from './lookups/lookups.module';
 import { RbacModule } from './rbac/rbac.module';
 import { MeModule } from './me/me.module';
+import { MfaModule } from './mfa/mfa.module';
 
 enforceEnvironmentPolicy(process.env);
 
@@ -61,6 +62,7 @@ enforceEnvironmentPolicy(process.env);
     LookupsModule,
     RbacModule,
     MeModule,
+    MfaModule,
 
     // MCP Module (Model Context Protocol)
     MCPModule,

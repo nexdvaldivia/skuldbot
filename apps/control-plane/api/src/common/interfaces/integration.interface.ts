@@ -60,6 +60,25 @@ export interface PaymentProvider extends IntegrationProvider {
 
   // Webhooks
   handleWebhook(payload: Buffer, signature: string): Promise<WebhookEvent>;
+
+  // Customer payment methods (optional capabilities, provider-specific)
+  createACHSetupIntent?(
+    customerId: string,
+    metadata?: Record<string, string>,
+  ): Promise<{
+    clientSecret: string;
+    setupIntentId: string;
+  }>;
+  getCustomerBankAccount?(customerId: string): Promise<{
+    id: string;
+    bankName: string;
+    last4: string;
+    accountType: string;
+    status: string;
+  } | null>;
+  setDefaultPaymentMethod?(customerId: string, paymentMethodId: string): Promise<void>;
+  detachPaymentMethod?(paymentMethodId: string): Promise<void>;
+  createBillingPortalSession?(customerId: string, returnUrl: string): Promise<{ url: string }>;
 }
 
 export interface CreateCustomerData {

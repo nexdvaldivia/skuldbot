@@ -8,9 +8,12 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
 import {
   ClientAddressListResponseDto,
   ClientAddressResponseDto,
@@ -32,7 +35,15 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { User, UserRole } from '../users/entities/user.entity';
 import { MeService } from './me.service';
-import { MyInfoDto, UpdateMyProfileDto } from './me.dto';
+import {
+  AddMyAddonDto,
+  AddPaymentMethodDto,
+  AcceptMyContractDto,
+  MyInfoDto,
+  SetDefaultPaymentMethodDto,
+  UpdateMyNotificationPreferencesDto,
+  UpdateMyProfileDto,
+} from './me.dto';
 
 @Controller('me')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -147,5 +158,134 @@ export class MeController {
     @Param('contactId') contactId: string,
   ): Promise<ClientContactResponseDto> {
     return this.meService.setContactPrimary(currentUser, contactId);
+  }
+
+  @Get('payment-methods/setup')
+  async getPaymentMethodSetup(@CurrentUser() currentUser: User): Promise<Record<string, unknown>> {
+    return this.meService.getPaymentMethodSetup(currentUser);
+  }
+
+  @Get('payment-methods')
+  async listPaymentMethods(@CurrentUser() currentUser: User): Promise<Record<string, unknown>> {
+    return this.meService.listPaymentMethods(currentUser);
+  }
+
+  @Post('payment-methods')
+  @HttpCode(HttpStatus.CREATED)
+  async addPaymentMethod(
+    @CurrentUser() currentUser: User,
+    @Body() dto: AddPaymentMethodDto,
+    @Req() request: Request,
+  ): Promise<Record<string, unknown>> {
+    return this.meService.addPaymentMethod(currentUser, dto, this.resolveRequestIp(request));
+  }
+
+  @Put('payment-methods/default')
+  async setDefaultPaymentMethod(
+    @CurrentUser() currentUser: User,
+    @Body() dto: SetDefaultPaymentMethodDto,
+    @Req() request: Request,
+  ): Promise<Record<string, unknown>> {
+    return this.meService.setDefaultPaymentMethod(currentUser, dto, this.resolveRequestIp(request));
+  }
+
+  @Delete('payment-methods/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deletePaymentMethod(
+    @CurrentUser() currentUser: User,
+    @Param('id') paymentMethodId: string,
+    @Req() request: Request,
+  ): Promise<void> {
+    await this.meService.deletePaymentMethod(
+      currentUser,
+      paymentMethodId,
+      this.resolveRequestIp(request),
+    );
+  }
+
+  @Get('payment-config')
+  async getPaymentConfig(@CurrentUser() currentUser: User): Promise<Record<string, unknown>> {
+    return this.meService.getPaymentConfig(currentUser);
+  }
+
+  @Get('contracts/required')
+  async getRequiredContracts(@CurrentUser() currentUser: User): Promise<Record<string, unknown>> {
+    return this.meService.getRequiredContracts(currentUser);
+  }
+
+  @Post('contracts/accept')
+  async acceptContract(
+    @CurrentUser() currentUser: User,
+    @Body() dto: AcceptMyContractDto,
+    @Req() request: Request,
+  ): Promise<Record<string, unknown>> {
+    return this.meService.acceptContract(currentUser, dto, this.resolveRequestIp(request));
+  }
+
+  @Get('subscriptions/available-addons')
+  async listAvailableAddons(@CurrentUser() currentUser: User): Promise<Record<string, unknown>> {
+    return this.meService.listAvailableAddons(currentUser);
+  }
+
+  @Get('subscriptions/my-addons')
+  async listMyAddons(@CurrentUser() currentUser: User): Promise<Record<string, unknown>> {
+    return this.meService.listMyAddons(currentUser);
+  }
+
+  @Get('subscriptions/addons/:addonId/preview')
+  async getAddonPreview(
+    @CurrentUser() currentUser: User,
+    @Param('addonId') addonId: string,
+  ): Promise<Record<string, unknown>> {
+    return this.meService.getAddonPreview(currentUser, addonId);
+  }
+
+  @Post('subscriptions/addons/:addonId')
+  @HttpCode(HttpStatus.CREATED)
+  async addAddon(
+    @CurrentUser() currentUser: User,
+    @Param('addonId') addonId: string,
+    @Body() dto: AddMyAddonDto,
+    @Req() request: Request,
+  ): Promise<Record<string, unknown>> {
+    return this.meService.addAddon(currentUser, addonId, dto, this.resolveRequestIp(request));
+  }
+
+  @Delete('subscriptions/addons/:addonId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async removeAddon(
+    @CurrentUser() currentUser: User,
+    @Param('addonId') addonId: string,
+    @Req() request: Request,
+  ): Promise<void> {
+    await this.meService.removeAddon(currentUser, addonId, this.resolveRequestIp(request));
+  }
+
+  @Get('notification-preferences')
+  async getNotificationPreferences(
+    @CurrentUser() currentUser: User,
+  ): Promise<Record<string, unknown>> {
+    return this.meService.getNotificationPreferences(currentUser);
+  }
+
+  @Patch('notification-preferences')
+  async updateNotificationPreferences(
+    @CurrentUser() currentUser: User,
+    @Body() dto: UpdateMyNotificationPreferencesDto,
+    @Req() request: Request,
+  ): Promise<Record<string, unknown>> {
+    return this.meService.updateNotificationPreferences(
+      currentUser,
+      dto,
+      this.resolveRequestIp(request),
+    );
+  }
+
+  private resolveRequestIp(request: Request): string | null {
+    const forwardedFor = request.headers['x-forwarded-for'];
+    if (typeof forwardedFor === 'string') {
+      return forwardedFor.split(',')[0]?.trim() || null;
+    }
+    return request.ip || null;
   }
 }
