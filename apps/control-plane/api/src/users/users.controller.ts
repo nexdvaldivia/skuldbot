@@ -10,7 +10,9 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { UsersService } from './users.service';
 import {
   CreateUserDto,
@@ -86,8 +88,12 @@ export class UsersController {
   @Post(':id/activate')
   @Roles(UserRole.SKULD_ADMIN)
   @RequirePermissions(CP_PERMISSIONS.USERS_STATUS)
-  async activate(@Param('id') id: string): Promise<UserResponseDto> {
-    return this.usersService.activate(id);
+  async activate(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<UserResponseDto> {
+    return this.usersService.activate(id, currentUser, this.resolveRequestIp(request));
   }
 
   @Post(':id/suspend')
@@ -96,8 +102,9 @@ export class UsersController {
   async suspend(
     @Param('id') id: string,
     @CurrentUser() currentUser: User,
+    @Req() request: Request,
   ): Promise<UserResponseDto> {
-    return this.usersService.suspend(id, currentUser);
+    return this.usersService.suspend(id, currentUser, this.resolveRequestIp(request));
   }
 
   @Post(':id/toggle-active')
@@ -106,8 +113,9 @@ export class UsersController {
   async toggleActive(
     @Param('id') id: string,
     @CurrentUser() currentUser: User,
+    @Req() request: Request,
   ): Promise<UserResponseDto> {
-    return this.usersService.toggleActive(id, currentUser);
+    return this.usersService.toggleActive(id, currentUser, this.resolveRequestIp(request));
   }
 
   @Post(':id/reset-password')
@@ -117,24 +125,45 @@ export class UsersController {
     @Param('id') id: string,
     @Body() dto: ResetUserPasswordDto,
     @CurrentUser() currentUser: User,
+    @Req() request: Request,
   ): Promise<UserResponseDto> {
-    return this.usersService.resetPassword(id, dto.password, currentUser);
+    return this.usersService.resetPassword(
+      id,
+      dto.password,
+      currentUser,
+      this.resolveRequestIp(request),
+    );
   }
 
   @Post(':id/avatar')
   @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
   @RequirePermissions(CP_PERMISSIONS.USERS_WRITE)
+  @HttpCode(HttpStatus.CREATED)
   async uploadAvatar(
     @Param('id') id: string,
     @Body() dto: UploadUserAvatarDto,
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
   ): Promise<UserResponseDto> {
-    return this.usersService.uploadAvatar(id, dto);
+    return this.usersService.uploadAvatar(id, dto, currentUser, this.resolveRequestIp(request));
   }
 
   @Delete(':id/avatar')
   @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
   @RequirePermissions(CP_PERMISSIONS.USERS_WRITE)
-  async deleteAvatar(@Param('id') id: string): Promise<UserResponseDto> {
-    return this.usersService.deleteAvatar(id);
+  async deleteAvatar(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<UserResponseDto> {
+    return this.usersService.deleteAvatar(id, currentUser, this.resolveRequestIp(request));
+  }
+
+  private resolveRequestIp(request: Request): string | null {
+    const forwardedFor = request.headers['x-forwarded-for'];
+    if (typeof forwardedFor === 'string') {
+      return forwardedFor.split(',')[0]?.trim() || null;
+    }
+    return request.ip || null;
   }
 }

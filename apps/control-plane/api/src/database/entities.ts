@@ -38,6 +38,7 @@ import { ClientContactTypeLookup } from '../lookups/entities/client-contact-type
 import { ClientAddressTypeLookup } from '../lookups/entities/client-address-type-lookup.entity';
 import { PricingModelLookup } from '../lookups/entities/pricing-model-lookup.entity';
 import { RunnerHeartbeatEntity } from '../mcp/entities/runner-heartbeat.entity';
+import { SecurityAuditEvent } from '../common/audit/entities/security-audit-event.entity';
 
 export const databaseEntities = [
   Client,
@@ -83,4 +84,5 @@ export const databaseEntities = [
   ClientAddressTypeLookup,
   PricingModelLookup,
   RunnerHeartbeatEntity,
+  SecurityAuditEvent,
 ];

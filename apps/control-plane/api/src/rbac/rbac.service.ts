@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import { SecurityAuditEvent } from '../common/audit/entities/security-audit-event.entity';
 import { Client } from '../clients/entities/client.entity';
 import { User } from '../users/entities/user.entity';
 import {
@@ -30,6 +31,8 @@ export class RbacService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Client)
     private readonly clientRepository: Repository<Client>,
+    @InjectRepository(SecurityAuditEvent)
+    private readonly securityAuditRepository: Repository<SecurityAuditEvent>,
   ) {}
 
   async listPermissions(): Promise<PermissionResponseDto[]> {
@@ -197,7 +200,12 @@ export class RbacService {
     return this.toRoleResponse(saved, true);
   }
 
-  async addRolePermission(roleId: string, permissionId: string): Promise<PermissionResponseDto> {
+  async addRolePermission(
+    roleId: string,
+    permissionId: string,
+    actor: User,
+    requestIp: string | null,
+  ): Promise<PermissionResponseDto> {
     const role = await this.requireRole(roleId, ['permissions', 'client']);
     if (role.isSystem) {
       this.throwSystemRoleImmutable();
@@ -220,11 +228,26 @@ export class RbacService {
 
     role.permissions = [...(role.permissions ?? []), permission];
     await this.roleRepository.save(role);
+    await this.recordSecurityAuditEvent({
+      action: 'rbac.add_role_permission',
+      targetType: 'role',
+      targetId: role.id,
+      actor,
+      requestIp,
+      details: {
+        permissionId: permission.id,
+      },
+    });
 
     return this.toPermissionResponse(permission);
   }
 
-  async removeRolePermission(roleId: string, permissionId: string): Promise<void> {
+  async removeRolePermission(
+    roleId: string,
+    permissionId: string,
+    actor: User,
+    requestIp: string | null,
+  ): Promise<void> {
     const role = await this.requireRole(roleId, ['permissions', 'client']);
     if (role.isSystem) {
       this.throwSystemRoleImmutable();
@@ -243,9 +266,24 @@ export class RbacService {
 
     role.permissions = nextPermissions;
     await this.roleRepository.save(role);
+    await this.recordSecurityAuditEvent({
+      action: 'rbac.remove_role_permission',
+      targetType: 'role',
+      targetId: role.id,
+      actor,
+      requestIp,
+      details: {
+        permissionId,
+      },
+    });
   }
 
-  async replaceRolePermissions(roleId: string, permissionIds: string[]): Promise<RoleResponseDto> {
+  async replaceRolePermissions(
+    roleId: string,
+    permissionIds: string[],
+    actor: User,
+    requestIp: string | null,
+  ): Promise<RoleResponseDto> {
     const role = await this.requireRole(roleId, ['permissions', 'client']);
     if (role.isSystem) {
       this.throwSystemRoleImmutable();
@@ -253,6 +291,16 @@ export class RbacService {
 
     role.permissions = await this.resolvePermissions(permissionIds);
     const saved = await this.roleRepository.save(role);
+    await this.recordSecurityAuditEvent({
+      action: 'rbac.replace_role_permissions',
+      targetType: 'role',
+      targetId: role.id,
+      actor,
+      requestIp,
+      details: {
+        permissionIds,
+      },
+    });
     return this.toRoleResponse(saved, true);
   }
 
@@ -292,7 +340,12 @@ export class RbacService {
     return (user.roles ?? []).map((role) => this.toRoleResponse(role, true));
   }
 
-  async assignUserRoles(userId: string, dto: AssignUserRolesDto): Promise<RoleResponseDto[]> {
+  async assignUserRoles(
+    userId: string,
+    dto: AssignUserRolesDto,
+    actor: User,
+    requestIp: string | null,
+  ): Promise<RoleResponseDto[]> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: ['roles'],
@@ -323,6 +376,16 @@ export class RbacService {
 
     user.roles = roles;
     await this.userRepository.save(user);
+    await this.recordSecurityAuditEvent({
+      action: 'rbac.assign_user_roles',
+      targetType: 'user',
+      targetId: user.id,
+      actor,
+      requestIp,
+      details: {
+        roleIds: roles.map((role) => role.id),
+      },
+    });
 
     return roles.map((role) => this.toRoleResponse(role, true));
   }
@@ -449,5 +512,27 @@ export class RbacService {
         });
       }
     }
+  }
+
+  private async recordSecurityAuditEvent(input: {
+    action: string;
+    targetType: string;
+    targetId: string;
+    actor: User;
+    requestIp: string | null;
+    details: Record<string, unknown>;
+  }): Promise<void> {
+    await this.securityAuditRepository.save(
+      this.securityAuditRepository.create({
+        category: 'rbac',
+        action: input.action,
+        targetType: input.targetType,
+        targetId: input.targetId,
+        actorUserId: input.actor.id ?? null,
+        actorEmail: input.actor.email ?? null,
+        requestIp: input.requestIp,
+        details: input.details,
+      }),
+    );
   }
 }

@@ -11,6 +11,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
 import { In, Repository } from 'typeorm';
 import * as argon2 from 'argon2';
+import { SecurityAuditEvent } from '../common/audit/entities/security-audit-event.entity';
 import { Client } from '../clients/entities/client.entity';
 import { StorageProvider } from '../common/interfaces/integration.interface';
 import { STORAGE_PROVIDER } from '../integrations/storage/storage.module';
@@ -44,6 +45,8 @@ export class UsersService {
     private readonly clientRepository: Repository<Client>,
     @InjectRepository(CpRole)
     private readonly roleRepository: Repository<CpRole>,
+    @InjectRepository(SecurityAuditEvent)
+    private readonly securityAuditRepository: Repository<SecurityAuditEvent>,
     @Inject(STORAGE_PROVIDER)
     private readonly storageProvider: StorageProvider,
   ) {}
@@ -190,38 +193,84 @@ export class UsersService {
     this.logger.log(`Deleted user ${user.email}`);
   }
 
-  async activate(id: string): Promise<UserResponseDto> {
+  async activate(
+    id: string,
+    currentUser: User,
+    requestIp: string | null,
+  ): Promise<UserResponseDto> {
     const user = await this.requireUser(id);
+    const previousStatus = user.status;
     user.status = UserStatus.ACTIVE;
     const saved = await this.userRepository.save(user);
+    await this.recordSecurityAuditEvent({
+      action: 'users.activate',
+      targetId: saved.id,
+      actor: currentUser,
+      requestIp,
+      details: {
+        previousStatus,
+        newStatus: saved.status,
+      },
+    });
     return this.toResponseDto(saved);
   }
 
-  async suspend(id: string, currentUser: User): Promise<UserResponseDto> {
+  async suspend(id: string, currentUser: User, requestIp: string | null): Promise<UserResponseDto> {
     const user = await this.requireUser(id);
 
     if (user.id === currentUser.id) {
       throw new ForbiddenException('Cannot suspend your own account');
     }
 
+    const previousStatus = user.status;
     user.status = UserStatus.SUSPENDED;
     const saved = await this.userRepository.save(user);
+    await this.recordSecurityAuditEvent({
+      action: 'users.suspend',
+      targetId: saved.id,
+      actor: currentUser,
+      requestIp,
+      details: {
+        previousStatus,
+        newStatus: saved.status,
+      },
+    });
     return this.toResponseDto(saved);
   }
 
-  async toggleActive(id: string, currentUser: User): Promise<UserResponseDto> {
+  async toggleActive(
+    id: string,
+    currentUser: User,
+    requestIp: string | null,
+  ): Promise<UserResponseDto> {
     const user = await this.requireUser(id);
 
     if (user.id === currentUser.id) {
       throw new ForbiddenException('Cannot toggle your own account status');
     }
 
+    const previousStatus = user.status;
     user.status = user.status === UserStatus.ACTIVE ? UserStatus.SUSPENDED : UserStatus.ACTIVE;
     const saved = await this.userRepository.save(user);
+    await this.recordSecurityAuditEvent({
+      action: 'users.toggle_status',
+      targetId: saved.id,
+      actor: currentUser,
+      requestIp,
+      details: {
+        previousStatus,
+        newStatus: saved.status,
+      },
+    });
     return this.toResponseDto(saved);
   }
 
-  async resetPassword(id: string, password: string, currentUser: User): Promise<UserResponseDto> {
+  async resetPassword(
+    id: string,
+    password: string,
+    currentUser: User,
+    requestIp: string | null,
+  ): Promise<UserResponseDto> {
     const user = await this.requireUser(id);
 
     if (user.id === currentUser.id) {
@@ -237,10 +286,24 @@ export class UsersService {
     };
 
     const saved = await this.userRepository.save(user);
+    await this.recordSecurityAuditEvent({
+      action: 'users.reset_password',
+      targetId: saved.id,
+      actor: currentUser,
+      requestIp,
+      details: {
+        status: saved.status,
+      },
+    });
     return this.toResponseDto(saved);
   }
 
-  async uploadAvatar(id: string, dto: UploadUserAvatarDto): Promise<UserResponseDto> {
+  async uploadAvatar(
+    id: string,
+    dto: UploadUserAvatarDto,
+    currentUser: User,
+    requestIp: string | null,
+  ): Promise<UserResponseDto> {
     const user = await this.requireUser(id);
     this.ensureAvatarContentType(dto.contentType);
 
@@ -275,10 +338,25 @@ export class UsersService {
     user.avatarUploadedAt = new Date();
 
     const saved = await this.userRepository.save(user);
+    await this.recordSecurityAuditEvent({
+      action: 'users.upload_avatar',
+      targetId: saved.id,
+      actor: currentUser,
+      requestIp,
+      details: {
+        avatarStorageKey: saved.avatarStorageKey,
+        avatarContentType: saved.avatarContentType,
+        avatarSha256: saved.avatarSha256,
+      },
+    });
     return this.toResponseDto(saved);
   }
 
-  async deleteAvatar(id: string): Promise<UserResponseDto> {
+  async deleteAvatar(
+    id: string,
+    currentUser: User,
+    requestIp: string | null,
+  ): Promise<UserResponseDto> {
     const user = await this.requireUser(id);
 
     if (user.avatarStorageKey) {
@@ -291,6 +369,13 @@ export class UsersService {
     user.avatarUploadedAt = null;
 
     const saved = await this.userRepository.save(user);
+    await this.recordSecurityAuditEvent({
+      action: 'users.delete_avatar',
+      targetId: saved.id,
+      actor: currentUser,
+      requestIp,
+      details: {},
+    });
     return this.toResponseDto(saved);
   }
 
@@ -458,5 +543,26 @@ export class UsersService {
         message: `Role ${role.name} is scoped to a different client.`,
       });
     }
+  }
+
+  private async recordSecurityAuditEvent(input: {
+    action: string;
+    targetId: string;
+    actor: User;
+    requestIp: string | null;
+    details: Record<string, unknown>;
+  }): Promise<void> {
+    await this.securityAuditRepository.save(
+      this.securityAuditRepository.create({
+        category: 'users',
+        action: input.action,
+        targetType: 'user',
+        targetId: input.targetId,
+        actorUserId: input.actor.id ?? null,
+        actorEmail: input.actor.email ?? null,
+        requestIp: input.requestIp,
+        details: input.details,
+      }),
+    );
   }
 }

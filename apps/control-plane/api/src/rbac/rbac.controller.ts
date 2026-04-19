@@ -10,12 +10,16 @@ import {
   Post,
   Put,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { CP_PERMISSIONS } from '../common/authz/permissions';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { User } from '../users/entities/user.entity';
 import {
   AddRolePermissionDto,
   AssignUserRolesDto,
@@ -73,8 +77,15 @@ export class RbacController {
   async addRolePermission(
     @Param('roleId') roleId: string,
     @Body() dto: AddRolePermissionDto,
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
   ): Promise<PermissionResponseDto> {
-    return this.rbacService.addRolePermission(roleId, dto.permissionId);
+    return this.rbacService.addRolePermission(
+      roleId,
+      dto.permissionId,
+      currentUser,
+      this.resolveRequestIp(request),
+    );
   }
 
   @Delete('roles/:roleId/permissions/:permissionId')
@@ -83,8 +94,15 @@ export class RbacController {
   async removeRolePermission(
     @Param('roleId') roleId: string,
     @Param('permissionId') permissionId: string,
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
   ): Promise<void> {
-    await this.rbacService.removeRolePermission(roleId, permissionId);
+    await this.rbacService.removeRolePermission(
+      roleId,
+      permissionId,
+      currentUser,
+      this.resolveRequestIp(request),
+    );
   }
 
   @Put('roles/:roleId/permissions')
@@ -92,8 +110,15 @@ export class RbacController {
   async replaceRolePermissions(
     @Param('roleId') roleId: string,
     @Body() dto: ReplaceRolePermissionsDto,
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
   ): Promise<RoleResponseDto> {
-    return this.rbacService.replaceRolePermissions(roleId, dto.permissionIds);
+    return this.rbacService.replaceRolePermissions(
+      roleId,
+      dto.permissionIds,
+      currentUser,
+      this.resolveRequestIp(request),
+    );
   }
 
   @Delete('roles/:roleId')
@@ -114,7 +139,22 @@ export class RbacController {
   async assignUserRoles(
     @Param('userId') userId: string,
     @Body() dto: AssignUserRolesDto,
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
   ): Promise<RoleResponseDto[]> {
-    return this.rbacService.assignUserRoles(userId, dto);
+    return this.rbacService.assignUserRoles(
+      userId,
+      dto,
+      currentUser,
+      this.resolveRequestIp(request),
+    );
+  }
+
+  private resolveRequestIp(request: Request): string | null {
+    const forwardedFor = request.headers['x-forwarded-for'];
+    if (typeof forwardedFor === 'string') {
+      return forwardedFor.split(',')[0]?.trim() || null;
+    }
+    return request.ip || null;
   }
 }

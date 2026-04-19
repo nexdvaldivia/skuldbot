@@ -1,5 +1,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
+import { SecurityAuditEvent } from '../common/audit/entities/security-audit-event.entity';
 import { Client } from '../clients/entities/client.entity';
 import { User } from '../users/entities/user.entity';
 import { RbacService } from './rbac.service';
@@ -32,18 +33,23 @@ describe('RbacService', () => {
   let permissionRepository: RepoMock;
   let userRepository: RepoMock;
   let clientRepository: RepoMock;
+  let securityAuditRepository: RepoMock;
+  const actor = { id: 'admin-1', email: 'admin@skuld.local' } as User;
+  const requestIp = '127.0.0.1';
 
   beforeEach(() => {
     roleRepository = createRepoMock();
     permissionRepository = createRepoMock();
     userRepository = createRepoMock();
     clientRepository = createRepoMock();
+    securityAuditRepository = createRepoMock();
 
     service = new RbacService(
       roleRepository as unknown as Repository<CpRole>,
       permissionRepository as unknown as Repository<CpPermission>,
       userRepository as unknown as Repository<User>,
       clientRepository as unknown as Repository<Client>,
+      securityAuditRepository as unknown as Repository<SecurityAuditEvent>,
     );
   });
 
@@ -64,10 +70,11 @@ describe('RbacService', () => {
       description: null,
     });
 
-    const result = await service.addRolePermission('role-1', 'perm-1');
+    const result = await service.addRolePermission('role-1', 'perm-1', actor, requestIp);
 
     expect(result.id).toBe('perm-1');
     expect(roleRepository.save).toHaveBeenCalled();
+    expect(securityAuditRepository.save).toHaveBeenCalled();
   });
 
   it('rejects duplicate permission assignment', async () => {
@@ -87,9 +94,9 @@ describe('RbacService', () => {
       description: null,
     });
 
-    await expect(service.addRolePermission('role-1', 'perm-1')).rejects.toBeInstanceOf(
-      ConflictException,
-    );
+    await expect(
+      service.addRolePermission('role-1', 'perm-1', actor, requestIp),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('fails when removing non-existing permission on role', async () => {
@@ -102,8 +109,8 @@ describe('RbacService', () => {
       clientId: null,
     });
 
-    await expect(service.removeRolePermission('role-1', 'perm-2')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.removeRolePermission('role-1', 'perm-2', actor, requestIp),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

@@ -3,6 +3,7 @@ import { Repository } from 'typeorm';
 import { StorageProvider } from '../common/interfaces/integration.interface';
 import { Client } from '../clients/entities/client.entity';
 import { CpRole } from '../rbac/entities/cp-role.entity';
+import { SecurityAuditEvent } from '../common/audit/entities/security-audit-event.entity';
 import { User, UserRole, UserStatus } from './entities/user.entity';
 import { UsersService } from './users.service';
 
@@ -33,12 +34,14 @@ describe('UsersService', () => {
   let userRepository: RepoMock;
   let clientRepository: RepoMock;
   let roleRepository: RepoMock;
+  let securityAuditRepository: RepoMock;
   let storageProvider: jest.Mocked<StorageProvider>;
 
   beforeEach(() => {
     userRepository = createRepoMock();
     clientRepository = createRepoMock();
     roleRepository = createRepoMock();
+    securityAuditRepository = createRepoMock();
     storageProvider = {
       name: 'storage-test',
       type: 'storage' as never,
@@ -55,6 +58,7 @@ describe('UsersService', () => {
       userRepository as unknown as Repository<User>,
       clientRepository as unknown as Repository<Client>,
       roleRepository as unknown as Repository<CpRole>,
+      securityAuditRepository as unknown as Repository<SecurityAuditEvent>,
       storageProvider,
     );
   });
@@ -87,7 +91,7 @@ describe('UsersService', () => {
       clientId: null,
     });
 
-    const result = await service.toggleActive('user-1', { id: 'admin-1' } as User);
+    const result = await service.toggleActive('user-1', { id: 'admin-1' } as User, '127.0.0.1');
 
     expect(result.status).toBe(UserStatus.SUSPENDED);
     expect(userRepository.save).toHaveBeenCalled();
@@ -102,7 +106,7 @@ describe('UsersService', () => {
     });
 
     await expect(
-      service.toggleActive('self-user', { id: 'self-user' } as User),
+      service.toggleActive('self-user', { id: 'self-user' } as User, '127.0.0.1'),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
@@ -115,10 +119,15 @@ describe('UsersService', () => {
     });
 
     await expect(
-      service.uploadAvatar('user-avatar', {
-        contentType: 'application/pdf',
-        contentBase64: Buffer.from('sample').toString('base64'),
-      }),
+      service.uploadAvatar(
+        'user-avatar',
+        {
+          contentType: 'application/pdf',
+          contentBase64: Buffer.from('sample').toString('base64'),
+        },
+        { id: 'admin-1', email: 'admin@test.local' } as User,
+        '127.0.0.1',
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
