@@ -12,7 +12,15 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateUserDto, UpdateUserDto, UserResponseDto } from './dto/user.dto';
+import {
+  CreateUserDto,
+  ListUsersQueryDto,
+  ResetUserPasswordDto,
+  UpdateUserDto,
+  UploadUserAvatarDto,
+  UserResponseDto,
+  UserStatsResponseDto,
+} from './dto/user.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
@@ -30,8 +38,15 @@ export class UsersController {
   @Get()
   @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
   @RequirePermissions(CP_PERMISSIONS.USERS_READ)
-  async findAll(@Query('clientId') clientId?: string): Promise<UserResponseDto[]> {
-    return this.usersService.findAll(clientId);
+  async findAll(@Query() query: ListUsersQueryDto): Promise<UserResponseDto[]> {
+    return this.usersService.findAll(query);
+  }
+
+  @Get('stats')
+  @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
+  @RequirePermissions(CP_PERMISSIONS.USERS_READ)
+  async getStats(): Promise<UserStatsResponseDto> {
+    return this.usersService.getStats();
   }
 
   @Get(':id')
@@ -83,5 +98,43 @@ export class UsersController {
     @CurrentUser() currentUser: User,
   ): Promise<UserResponseDto> {
     return this.usersService.suspend(id, currentUser);
+  }
+
+  @Post(':id/toggle-active')
+  @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.USERS_STATUS)
+  async toggleActive(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<UserResponseDto> {
+    return this.usersService.toggleActive(id, currentUser);
+  }
+
+  @Post(':id/reset-password')
+  @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.USERS_WRITE)
+  async resetPassword(
+    @Param('id') id: string,
+    @Body() dto: ResetUserPasswordDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<UserResponseDto> {
+    return this.usersService.resetPassword(id, dto.password, currentUser);
+  }
+
+  @Post(':id/avatar')
+  @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
+  @RequirePermissions(CP_PERMISSIONS.USERS_WRITE)
+  async uploadAvatar(
+    @Param('id') id: string,
+    @Body() dto: UploadUserAvatarDto,
+  ): Promise<UserResponseDto> {
+    return this.usersService.uploadAvatar(id, dto);
+  }
+
+  @Delete(':id/avatar')
+  @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
+  @RequirePermissions(CP_PERMISSIONS.USERS_WRITE)
+  async deleteAvatar(@Param('id') id: string): Promise<UserResponseDto> {
+    return this.usersService.deleteAvatar(id);
   }
 }

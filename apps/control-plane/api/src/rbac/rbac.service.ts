@@ -152,18 +152,13 @@ export class RbacService {
     return this.toRoleResponse(loaded!, true);
   }
 
-  async updateRole(roleId: string, dto: UpdateRoleDto): Promise<RoleResponseDto> {
-    const role = await this.roleRepository.findOne({
-      where: { id: roleId },
-      relations: ['permissions', 'client'],
-    });
+  async getRole(roleId: string): Promise<RoleResponseDto> {
+    const role = await this.requireRole(roleId, ['permissions', 'client']);
+    return this.toRoleResponse(role, true);
+  }
 
-    if (!role) {
-      throw new NotFoundException({
-        code: 'ROLE_NOT_FOUND',
-        message: `Role ${roleId} was not found.`,
-      });
-    }
+  async updateRole(roleId: string, dto: UpdateRoleDto): Promise<RoleResponseDto> {
+    const role = await this.requireRole(roleId, ['permissions', 'client']);
 
     if (role.isSystem && dto.displayName) {
       throw new BadRequestException({
@@ -202,18 +197,67 @@ export class RbacService {
     return this.toRoleResponse(saved, true);
   }
 
-  async deleteRole(roleId: string): Promise<void> {
-    const role = await this.roleRepository.findOne({
-      where: { id: roleId },
-      relations: ['users'],
-    });
+  async addRolePermission(roleId: string, permissionId: string): Promise<PermissionResponseDto> {
+    const role = await this.requireRole(roleId, ['permissions', 'client']);
+    if (role.isSystem) {
+      this.throwSystemRoleImmutable();
+    }
 
-    if (!role) {
+    const permission = await this.permissionRepository.findOne({ where: { id: permissionId } });
+    if (!permission) {
       throw new NotFoundException({
-        code: 'ROLE_NOT_FOUND',
-        message: `Role ${roleId} was not found.`,
+        code: 'PERMISSION_NOT_FOUND',
+        message: `Permission ${permissionId} was not found.`,
       });
     }
+
+    if ((role.permissions ?? []).some((existing) => existing.id === permission.id)) {
+      throw new ConflictException({
+        code: 'ROLE_PERMISSION_EXISTS',
+        message: 'Permission already assigned to this role.',
+      });
+    }
+
+    role.permissions = [...(role.permissions ?? []), permission];
+    await this.roleRepository.save(role);
+
+    return this.toPermissionResponse(permission);
+  }
+
+  async removeRolePermission(roleId: string, permissionId: string): Promise<void> {
+    const role = await this.requireRole(roleId, ['permissions', 'client']);
+    if (role.isSystem) {
+      this.throwSystemRoleImmutable();
+    }
+
+    const nextPermissions = (role.permissions ?? []).filter(
+      (permission) => permission.id !== permissionId,
+    );
+
+    if (nextPermissions.length === (role.permissions ?? []).length) {
+      throw new NotFoundException({
+        code: 'ROLE_PERMISSION_NOT_FOUND',
+        message: `Permission ${permissionId} is not assigned to role ${roleId}.`,
+      });
+    }
+
+    role.permissions = nextPermissions;
+    await this.roleRepository.save(role);
+  }
+
+  async replaceRolePermissions(roleId: string, permissionIds: string[]): Promise<RoleResponseDto> {
+    const role = await this.requireRole(roleId, ['permissions', 'client']);
+    if (role.isSystem) {
+      this.throwSystemRoleImmutable();
+    }
+
+    role.permissions = await this.resolvePermissions(permissionIds);
+    const saved = await this.roleRepository.save(role);
+    return this.toRoleResponse(saved, true);
+  }
+
+  async deleteRole(roleId: string): Promise<void> {
+    const role = await this.requireRole(roleId, ['users']);
 
     if (role.isSystem) {
       throw new BadRequestException({
@@ -330,6 +374,29 @@ export class RbacService {
         message: `Client ${clientId} not found.`,
       });
     }
+  }
+
+  private async requireRole(roleId: string, relations: string[] = []): Promise<CpRole> {
+    const role = await this.roleRepository.findOne({
+      where: { id: roleId },
+      relations,
+    });
+
+    if (!role) {
+      throw new NotFoundException({
+        code: 'ROLE_NOT_FOUND',
+        message: `Role ${roleId} was not found.`,
+      });
+    }
+
+    return role;
+  }
+
+  private throwSystemRoleImmutable(): never {
+    throw new BadRequestException({
+      code: 'SYSTEM_ROLE_IMMUTABLE',
+      message: 'System roles cannot be modified.',
+    });
   }
 
   private toPermissionResponse(permission: CpPermission): PermissionResponseDto {

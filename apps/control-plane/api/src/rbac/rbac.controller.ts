@@ -17,10 +17,12 @@ import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import {
+  AddRolePermissionDto,
   AssignUserRolesDto,
   CreateRoleDto,
   ListRolesQueryDto,
   PermissionResponseDto,
+  ReplaceRolePermissionsDto,
   RoleResponseDto,
   UpdateRoleDto,
 } from './dto/rbac.dto';
@@ -57,6 +59,41 @@ export class RbacController {
     @Body() dto: UpdateRoleDto,
   ): Promise<RoleResponseDto> {
     return this.rbacService.updateRole(roleId, dto);
+  }
+
+  @Get('roles/:roleId')
+  @RequirePermissions(CP_PERMISSIONS.ROLES_READ)
+  async getRole(@Param('roleId') roleId: string): Promise<RoleResponseDto> {
+    return this.rbacService.getRole(roleId);
+  }
+
+  @Post('roles/:roleId/permissions')
+  @RequirePermissions(CP_PERMISSIONS.ROLES_ASSIGN, CP_PERMISSIONS.ROLES_WRITE)
+  @HttpCode(HttpStatus.CREATED)
+  async addRolePermission(
+    @Param('roleId') roleId: string,
+    @Body() dto: AddRolePermissionDto,
+  ): Promise<PermissionResponseDto> {
+    return this.rbacService.addRolePermission(roleId, dto.permissionId);
+  }
+
+  @Delete('roles/:roleId/permissions/:permissionId')
+  @RequirePermissions(CP_PERMISSIONS.ROLES_ASSIGN, CP_PERMISSIONS.ROLES_WRITE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async removeRolePermission(
+    @Param('roleId') roleId: string,
+    @Param('permissionId') permissionId: string,
+  ): Promise<void> {
+    await this.rbacService.removeRolePermission(roleId, permissionId);
+  }
+
+  @Put('roles/:roleId/permissions')
+  @RequirePermissions(CP_PERMISSIONS.ROLES_ASSIGN, CP_PERMISSIONS.ROLES_WRITE)
+  async replaceRolePermissions(
+    @Param('roleId') roleId: string,
+    @Body() dto: ReplaceRolePermissionsDto,
+  ): Promise<RoleResponseDto> {
+    return this.rbacService.replaceRolePermissions(roleId, dto.permissionIds);
   }
 
   @Delete('roles/:roleId')

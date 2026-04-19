@@ -76,6 +76,18 @@ export class User {
   @Column({ name: 'mfa_secret', type: 'varchar', nullable: true })
   mfaSecret: string | null;
 
+  @Column({ name: 'avatar_storage_key', type: 'varchar', length: 255, nullable: true })
+  avatarStorageKey: string | null;
+
+  @Column({ name: 'avatar_content_type', type: 'varchar', length: 120, nullable: true })
+  avatarContentType: string | null;
+
+  @Column({ name: 'avatar_sha256', type: 'varchar', length: 64, nullable: true })
+  avatarSha256: string | null;
+
+  @Column({ name: 'avatar_uploaded_at', type: 'timestamp with time zone', nullable: true })
+  avatarUploadedAt: Date | null;
+
   @Column({ type: 'jsonb', default: '{}' })
   settings: Record<string, unknown>;
 
