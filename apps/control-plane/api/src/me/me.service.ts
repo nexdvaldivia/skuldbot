@@ -1,5 +1,6 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { randomUUID } from 'crypto';
 import { In, Repository } from 'typeorm';
 import {
   ClientAddressListResponseDto,
@@ -512,7 +513,7 @@ export class MeService {
       };
     } else {
       contracts.push({
-        id: `contract_${Math.random().toString(36).slice(2, 10)}`,
+        id: `contract_${randomUUID()}`,
         templateType: dto.templateType,
         status: 'active',
         createdAt: nowIso,
