@@ -1,6 +1,7 @@
 import { Client } from '../clients/entities/client.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { License } from '../licenses/entities/license.entity';
+import { LicenseAudit } from '../licenses/entities/license-audit.entity';
 import { LicenseTypeFeature } from '../licenses/entities/license-type-feature.entity';
 import { QuotaPolicy, UsageCounter } from '../licenses/entities/quota.entity';
 import { LicenseRuntimeDecision } from '../licenses/entities/license-runtime-decision.entity';
@@ -16,6 +17,7 @@ import {
 import { RevenueShareRecord, PartnerPayout } from '../billing/entities/revenue-share.entity';
 import { TenantSubscription, PaymentHistory } from '../billing/entities/subscription.entity';
 import { PaymentConfig } from '../billing/entities/payment-config.entity';
+import { PricingPlan } from '../billing/entities/pricing-plan.entity';
 import { MarketplaceBot, BotVersion } from '../marketplace/entities/marketplace-bot.entity';
 import { Partner } from '../marketplace/entities/partner.entity';
 import { MarketplaceSubscription } from '../marketplace/entities/marketplace-subscription.entity';
@@ -44,6 +46,7 @@ export const databaseEntities = [
   Client,
   Tenant,
   License,
+  LicenseAudit,
   LicenseTypeFeature,
   QuotaPolicy,
   UsageCounter,
@@ -64,6 +67,7 @@ export const databaseEntities = [
   TenantSubscription,
   PaymentHistory,
   PaymentConfig,
+  PricingPlan,
   DiscoveredSchema,
   OrchestratorInstance,
   Lead,

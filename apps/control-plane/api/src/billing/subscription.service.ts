@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -8,6 +8,9 @@ import {
   SubscriptionStatus,
   PaymentMethodType,
 } from './entities/subscription.entity';
+import { DEFAULT_PRICING_PLANS, PricingPlan } from './entities/pricing-plan.entity';
+import { PAYMENT_PROVIDER } from '../integrations/payment/payment.module';
+import { PaymentProvider } from '../common/interfaces/integration.interface';
 
 /**
  * ACH Bank Account Setup DTO
@@ -19,6 +22,9 @@ export interface SetupACHDto {
   routingNumber: string;
   accountNumber: string;
   accountType: 'checking' | 'savings';
+  customerEmail?: string;
+  planCode?: string;
+  billingInterval?: 'monthly' | 'annual';
 }
 
 /**
@@ -48,6 +54,10 @@ export class SubscriptionService {
     private readonly subscriptionRepository: Repository<TenantSubscription>,
     @InjectRepository(PaymentHistory)
     private readonly paymentHistoryRepository: Repository<PaymentHistory>,
+    @InjectRepository(PricingPlan)
+    private readonly pricingPlanRepository: Repository<PricingPlan>,
+    @Inject(PAYMENT_PROVIDER)
+    private readonly paymentProvider: PaymentProvider,
   ) {}
 
   /**
@@ -57,7 +67,14 @@ export class SubscriptionService {
     tenantId: string,
     tenantName: string,
     trialDays: number = 14,
+    options?: {
+      customerEmail?: string;
+      planCode?: string;
+      billingInterval?: 'monthly' | 'annual';
+    },
   ): Promise<TenantSubscription> {
+    await this.ensureDefaultPricingPlans();
+
     // Check if subscription already exists
     const existing = await this.subscriptionRepository.findOne({
       where: { tenantId },
@@ -67,19 +84,29 @@ export class SubscriptionService {
       throw new BadRequestException('Subscription already exists for this tenant');
     }
 
+    const plan = await this.resolvePricingPlan(options?.planCode ?? 'starter');
+    const billingInterval = options?.billingInterval ?? 'monthly';
     const trialEnd = new Date();
     trialEnd.setDate(trialEnd.getDate() + trialDays);
 
     const subscription = this.subscriptionRepository.create({
       tenantId,
       tenantName,
+      planCode: plan.code,
+      billingInterval,
       status: SubscriptionStatus.TRIALING,
       trialEnd,
       botsCanRun: true, // Bots can run during trial
       gracePeriodDays: 14, // Industry standard: 14 days grace period
+      monthlyAmount:
+        billingInterval === 'annual' ? plan.baseAnnualCents / 100 : plan.baseMonthlyCents / 100,
     });
 
-    return this.subscriptionRepository.save(subscription);
+    const saved = await this.subscriptionRepository.save(subscription);
+    if (options?.customerEmail?.trim()) {
+      await this.ensureStripeCustomer(saved, options.customerEmail.trim());
+    }
+    return saved;
   }
 
   /**
@@ -92,6 +119,7 @@ export class SubscriptionService {
    * 4. Create/Update Stripe Subscription with ACH as default
    */
   async setupACHPayment(dto: SetupACHDto): Promise<TenantSubscription> {
+    await this.ensureDefaultPricingPlans();
     const subscription = await this.subscriptionRepository.findOne({
       where: { tenantId: dto.tenantId },
     });
@@ -100,11 +128,19 @@ export class SubscriptionService {
       throw new NotFoundException(`Subscription not found for tenant ${dto.tenantId}`);
     }
 
-    // In production, would call Stripe API here:
-    // 1. stripe.customers.create() or retrieve
-    // 2. stripe.paymentMethods.create({ type: 'us_bank_account', ... })
-    // 3. stripe.paymentMethods.attach()
-    // 4. stripe.subscriptions.create({ default_payment_method: ... })
+    if (dto.planCode) {
+      const plan = await this.resolvePricingPlan(dto.planCode);
+      subscription.planCode = plan.code;
+    }
+    if (dto.billingInterval) {
+      subscription.billingInterval = dto.billingInterval;
+    }
+
+    if (dto.customerEmail?.trim()) {
+      await this.ensureStripeCustomer(subscription, dto.customerEmail.trim());
+    }
+
+    const plan = await this.resolvePricingPlan(subscription.planCode);
 
     // For now, simulate the setup
     subscription.paymentMethodType = PaymentMethodType.ACH_DEBIT;
@@ -121,6 +157,12 @@ export class SubscriptionService {
         subscription.currentPeriodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
       }
     }
+
+    await this.syncStripeSubscriptionForPlan(subscription, plan);
+    subscription.monthlyAmount =
+      subscription.billingInterval === 'annual'
+        ? plan.baseAnnualCents / 100
+        : plan.baseMonthlyCents / 100;
 
     this.logger.log(`ACH payment setup for tenant ${dto.tenantId}`);
     return this.subscriptionRepository.save(subscription);
@@ -334,6 +376,141 @@ export class SubscriptionService {
     return this.subscriptionRepository.findOne({ where: { tenantId } });
   }
 
+  async listPricingPlans(): Promise<PricingPlan[]> {
+    await this.ensureDefaultPricingPlans();
+    return this.pricingPlanRepository.find({
+      where: { isActive: true },
+      order: { sortOrder: 'ASC', code: 'ASC' },
+    });
+  }
+
+  async changePlan(
+    tenantId: string,
+    planCode: string,
+    billingInterval: 'monthly' | 'annual' = 'monthly',
+  ): Promise<TenantSubscription> {
+    const subscription = await this.requireSubscription(tenantId);
+    const plan = await this.resolvePricingPlan(planCode);
+
+    subscription.planCode = plan.code;
+    subscription.billingInterval = billingInterval;
+    subscription.monthlyAmount =
+      billingInterval === 'annual' ? plan.baseAnnualCents / 100 : plan.baseMonthlyCents / 100;
+    await this.syncStripeSubscriptionForPlan(subscription, plan);
+    return this.subscriptionRepository.save(subscription);
+  }
+
+  async cancelSubscriptionWithGrace(
+    tenantId: string,
+    graceDays?: number,
+  ): Promise<TenantSubscription> {
+    const subscription = await this.requireSubscription(tenantId);
+    const effectiveGrace = this.resolveGraceDays(graceDays ?? subscription.gracePeriodDays);
+    const graceEnds = new Date();
+    graceEnds.setDate(graceEnds.getDate() + effectiveGrace);
+
+    subscription.status = SubscriptionStatus.PAST_DUE;
+    subscription.gracePeriodDays = effectiveGrace;
+    subscription.gracePeriodEnds = graceEnds;
+    subscription.canceledAt = new Date();
+
+    if (subscription.stripeSubscriptionId && this.paymentProvider.isConfigured()) {
+      await this.paymentProvider.cancelSubscription(subscription.stripeSubscriptionId);
+    }
+    return this.subscriptionRepository.save(subscription);
+  }
+
+  async createBillingPortalLink(
+    tenantId: string,
+    returnUrl: string,
+  ): Promise<{ url: string; provider: string }> {
+    const subscription = await this.requireSubscription(tenantId);
+    if (!subscription.stripeCustomerId) {
+      throw new BadRequestException('No Stripe customer is linked to this tenant.');
+    }
+    if (!this.paymentProvider.createBillingPortalSession) {
+      throw new BadRequestException('Current payment provider does not support billing portal.');
+    }
+
+    const session = await this.paymentProvider.createBillingPortalSession(
+      subscription.stripeCustomerId,
+      returnUrl,
+    );
+    return { url: session.url, provider: this.paymentProvider.name };
+  }
+
+  async getActiveMeteredSubscription(tenantId: string): Promise<{
+    stripeSubscriptionId: string;
+    stripeSubscriptionItemId: string | null;
+    planCode: string;
+    billingInterval: 'monthly' | 'annual';
+  } | null> {
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { tenantId },
+    });
+    if (!subscription || !subscription.stripeSubscriptionId) {
+      return null;
+    }
+    if (
+      subscription.status === SubscriptionStatus.CANCELED ||
+      subscription.status === SubscriptionStatus.SUSPENDED
+    ) {
+      return null;
+    }
+
+    return {
+      stripeSubscriptionId: subscription.stripeSubscriptionId,
+      stripeSubscriptionItemId: subscription.stripeSubscriptionItemId ?? null,
+      planCode: subscription.planCode,
+      billingInterval: subscription.billingInterval,
+    };
+  }
+
+  async syncStripeSubscriptionState(
+    tenantId: string,
+    status: string,
+    stripeSubscriptionId?: string,
+    periodStart?: Date,
+    periodEnd?: Date,
+  ): Promise<void> {
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { tenantId },
+    });
+    if (!subscription) {
+      return;
+    }
+
+    if (stripeSubscriptionId) {
+      subscription.stripeSubscriptionId = stripeSubscriptionId;
+    }
+    if (periodStart) {
+      subscription.currentPeriodStart = periodStart;
+    }
+    if (periodEnd) {
+      subscription.currentPeriodEnd = periodEnd;
+    }
+
+    const normalized = status.trim().toLowerCase();
+    if (normalized === 'active') {
+      subscription.status = SubscriptionStatus.ACTIVE;
+      subscription.botsCanRun = true;
+      subscription.botsDisabledReason = undefined;
+      subscription.botsDisabledAt = undefined;
+      subscription.suspendedAt = undefined;
+      subscription.suspensionReason = undefined;
+    } else if (normalized === 'past_due' || normalized === 'unpaid') {
+      subscription.status = SubscriptionStatus.PAST_DUE;
+    } else if (normalized === 'canceled' || normalized === 'cancelled') {
+      subscription.status = SubscriptionStatus.CANCELED;
+      subscription.botsCanRun = false;
+      subscription.botsDisabledReason = 'Subscription canceled in payment provider';
+      subscription.botsDisabledAt = new Date();
+      subscription.canceledAt = new Date();
+    }
+
+    await this.subscriptionRepository.save(subscription);
+  }
+
   /**
    * List subscriptions across tenants
    */
@@ -469,5 +646,138 @@ export class SubscriptionService {
     this.logger.log(`Subscription for tenant ${tenantId} manually reactivated by ${reactivatedBy}`);
 
     return this.subscriptionRepository.save(subscription);
+  }
+
+  private async ensureDefaultPricingPlans(): Promise<void> {
+    for (const defaults of DEFAULT_PRICING_PLANS) {
+      const existing = await this.pricingPlanRepository.findOne({
+        where: { code: defaults.code },
+      });
+      if (existing) {
+        continue;
+      }
+
+      const row = this.pricingPlanRepository.create({
+        ...defaults,
+        currency: 'USD',
+        stripePriceMonthlyId: null,
+        stripePriceAnnualId: null,
+        stripeMeterId: null,
+        isActive: true,
+      });
+      await this.pricingPlanRepository.save(row);
+    }
+  }
+
+  private async resolvePricingPlan(planCode: string): Promise<PricingPlan> {
+    const normalized = (planCode || 'starter').trim().toLowerCase();
+    const plan = await this.pricingPlanRepository.findOne({
+      where: { code: normalized, isActive: true },
+    });
+    if (!plan) {
+      throw new BadRequestException(`Pricing plan "${planCode}" is not active or does not exist.`);
+    }
+    return plan;
+  }
+
+  private resolveStripePriceForPlan(plan: PricingPlan, interval: 'monthly' | 'annual'): string {
+    const directPriceId =
+      interval === 'annual' ? plan.stripePriceAnnualId : plan.stripePriceMonthlyId;
+
+    if (directPriceId?.trim()) {
+      return directPriceId.trim();
+    }
+
+    const envName =
+      interval === 'annual'
+        ? `STRIPE_PRICE_${plan.code.toUpperCase()}_ANNUAL`
+        : `STRIPE_PRICE_${plan.code.toUpperCase()}_MONTHLY`;
+    const envValue = this.configService.get<string>(envName);
+    if (!envValue?.trim()) {
+      throw new BadRequestException(
+        `Missing Stripe price configuration for plan "${plan.code}" and interval "${interval}".`,
+      );
+    }
+    return envValue.trim();
+  }
+
+  private async requireSubscription(tenantId: string): Promise<TenantSubscription> {
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { tenantId },
+    });
+    if (!subscription) {
+      throw new NotFoundException(`Subscription not found for tenant ${tenantId}`);
+    }
+    return subscription;
+  }
+
+  private resolveGraceDays(rawDays: number): number {
+    if (!Number.isFinite(rawDays)) {
+      return 14;
+    }
+    return Math.min(120, Math.max(0, Math.floor(rawDays)));
+  }
+
+  private async ensureStripeCustomer(
+    subscription: TenantSubscription,
+    email: string,
+  ): Promise<void> {
+    if (!this.paymentProvider.isConfigured() || subscription.stripeCustomerId) {
+      return;
+    }
+
+    const customer = await this.paymentProvider.createCustomer({
+      email,
+      name: subscription.tenantName,
+      metadata: {
+        tenantId: subscription.tenantId,
+        source: 'subscription_service',
+      },
+    });
+
+    subscription.stripeCustomerId = customer.id;
+  }
+
+  private async syncStripeSubscriptionForPlan(
+    subscription: TenantSubscription,
+    plan: PricingPlan,
+  ): Promise<void> {
+    if (!this.paymentProvider.isConfigured() || !subscription.stripeCustomerId) {
+      return;
+    }
+
+    const stripePriceId = this.resolveStripePriceForPlan(plan, subscription.billingInterval);
+
+    if (!subscription.stripeSubscriptionId) {
+      const created = await this.paymentProvider.createSubscription({
+        customerId: subscription.stripeCustomerId,
+        priceId: stripePriceId,
+        metadata: {
+          tenantId: subscription.tenantId,
+          planCode: subscription.planCode,
+          billingInterval: subscription.billingInterval,
+        },
+      });
+      subscription.stripeSubscriptionId = created.id;
+      subscription.currentPeriodStart = created.currentPeriodStart;
+      subscription.currentPeriodEnd = created.currentPeriodEnd;
+      subscription.status =
+        created.status === 'active' ? SubscriptionStatus.ACTIVE : subscription.status;
+      return;
+    }
+
+    const updated = await this.paymentProvider.updateSubscription(
+      subscription.stripeSubscriptionId,
+      {
+        priceId: stripePriceId,
+        metadata: {
+          tenantId: subscription.tenantId,
+          planCode: subscription.planCode,
+          billingInterval: subscription.billingInterval,
+        },
+      },
+    );
+    subscription.currentPeriodStart = updated.currentPeriodStart;
+    subscription.currentPeriodEnd = updated.currentPeriodEnd;
   }
 }

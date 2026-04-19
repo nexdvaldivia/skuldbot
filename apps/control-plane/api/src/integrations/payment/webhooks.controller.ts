@@ -27,7 +27,7 @@ import { WebhookEvent } from '../../common/interfaces/integration.interface';
  *
  * @see https://docs.stripe.com/webhooks
  */
-@Controller('webhooks')
+@Controller('integrations/webhooks')
 export class WebhooksController {
   private readonly logger = new Logger(WebhooksController.name);
 

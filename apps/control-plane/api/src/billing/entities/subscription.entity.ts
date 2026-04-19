@@ -54,6 +54,15 @@ export class TenantSubscription {
   @Column({ type: 'varchar', length: 255, nullable: true })
   stripeSubscriptionId?: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  stripeSubscriptionItemId?: string;
+
+  @Column({ type: 'varchar', length: 80, default: 'starter' })
+  planCode: string;
+
+  @Column({ type: 'varchar', length: 20, default: 'monthly' })
+  billingInterval: 'monthly' | 'annual';
+
   // Payment Method
   @Column({
     type: 'enum',
@@ -106,6 +115,9 @@ export class TenantSubscription {
 
   @Column({ type: 'timestamptz', nullable: true })
   suspendedAt?: Date;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  canceledAt?: Date;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   suspensionReason?: string;

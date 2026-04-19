@@ -10,6 +10,7 @@ import {
 import { RevenueShareRecord, PartnerPayout } from './entities/revenue-share.entity';
 import { TenantSubscription, PaymentHistory } from './entities/subscription.entity';
 import { PaymentConfig } from './entities/payment-config.entity';
+import { PricingPlan } from './entities/pricing-plan.entity';
 import { Partner } from '../marketplace/entities/partner.entity';
 import { Client } from '../clients/entities/client.entity';
 import { BillingService } from './billing.service';
@@ -81,6 +82,7 @@ import { UsageIngestApiKeyGuard } from './guards/usage-ingest-api-key.guard';
       TenantSubscription,
       PaymentHistory,
       PaymentConfig,
+      PricingPlan,
       Partner,
       Client,
     ]),

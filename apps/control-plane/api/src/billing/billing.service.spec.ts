@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { BillingService, UsageBatchDto } from './billing.service';
 
-type RepoMock<T = unknown> = {
+type RepoMock = {
   findOne: jest.Mock;
   find: jest.Mock;
   create: jest.Mock;
@@ -26,6 +26,11 @@ describe('BillingService - usage ingest idempotency', () => {
     const revenueShareRepository = createRepoMock();
     const partnerPayoutRepository = createRepoMock();
     const partnerRepository = createRepoMock();
+    const subscriptionRepository = createRepoMock();
+    const paymentProvider = {
+      isConfigured: jest.fn(() => false),
+      recordUsage: jest.fn(),
+    };
     const configService = {
       get: jest.fn((_: string, defaultValue: unknown) => defaultValue),
     } as unknown as ConfigService;
@@ -43,6 +48,8 @@ describe('BillingService - usage ingest idempotency', () => {
       revenueShareRepository as any,
       partnerPayoutRepository as any,
       partnerRepository as any,
+      subscriptionRepository as any,
+      paymentProvider as any,
     );
 
     const batch: UsageBatchDto = {
@@ -91,6 +98,11 @@ describe('BillingService - usage ingest idempotency', () => {
     const revenueShareRepository = createRepoMock();
     const partnerPayoutRepository = createRepoMock();
     const partnerRepository = createRepoMock();
+    const subscriptionRepository = createRepoMock();
+    const paymentProvider = {
+      isConfigured: jest.fn(() => false),
+      recordUsage: jest.fn(),
+    };
     const configService = {
       get: jest.fn((key: string, defaultValue: unknown) => {
         if (key === 'USAGE_INGEST_MAX_RETRIES') {
@@ -116,6 +128,8 @@ describe('BillingService - usage ingest idempotency', () => {
       revenueShareRepository as any,
       partnerPayoutRepository as any,
       partnerRepository as any,
+      subscriptionRepository as any,
+      paymentProvider as any,
     );
 
     const batch: UsageBatchDto = {
@@ -149,6 +163,11 @@ describe('BillingService - usage ingest idempotency', () => {
     const revenueShareRepository = createRepoMock();
     const partnerPayoutRepository = createRepoMock();
     const partnerRepository = createRepoMock();
+    const subscriptionRepository = createRepoMock();
+    const paymentProvider = {
+      isConfigured: jest.fn(() => false),
+      recordUsage: jest.fn(),
+    };
     const configService = {
       get: jest.fn((_: string, defaultValue: unknown) => defaultValue),
     } as unknown as ConfigService;
@@ -165,6 +184,8 @@ describe('BillingService - usage ingest idempotency', () => {
       revenueShareRepository as any,
       partnerPayoutRepository as any,
       partnerRepository as any,
+      subscriptionRepository as any,
+      paymentProvider as any,
     );
 
     const batch: UsageBatchDto = {
@@ -188,5 +209,79 @@ describe('BillingService - usage ingest idempotency', () => {
 
     expect(usageIngestDeadLetterRepository.save).not.toHaveBeenCalled();
     expect(usageRecordRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('records metered usage in provider when subscription is active', async () => {
+    const usageRecordRepository = createRepoMock();
+    const usageBatchRepository = createRepoMock();
+    const usageIngestEventRepository = createRepoMock();
+    const usageIngestDeadLetterRepository = createRepoMock();
+    const revenueShareRepository = createRepoMock();
+    const partnerPayoutRepository = createRepoMock();
+    const partnerRepository = createRepoMock();
+    const subscriptionRepository = createRepoMock();
+    const paymentProvider = {
+      isConfigured: jest.fn(() => true),
+      recordUsage: jest.fn(async () => ({
+        id: 'meter-usage-1',
+        subscriptionItemId: 'si_123',
+        quantity: 4,
+        timestamp: new Date(),
+        action: 'increment',
+      })),
+    };
+    const configService = {
+      get: jest.fn((key: string, defaultValue: unknown) => {
+        if (key === 'STRIPE_METER_BOT_RUNS') {
+          return 'meter_bot_runs';
+        }
+        return defaultValue;
+      }),
+    } as unknown as ConfigService;
+
+    usageBatchRepository.findOne.mockResolvedValue(null);
+    usageIngestEventRepository.find.mockResolvedValue([]);
+    usageRecordRepository.findOne.mockResolvedValue(null);
+    subscriptionRepository.findOne.mockResolvedValue({
+      tenantId: 'tenant-1',
+      stripeSubscriptionId: 'sub_123',
+      stripeSubscriptionItemId: 'si_123',
+      status: 'active',
+    });
+
+    const service = new BillingService(
+      configService,
+      usageRecordRepository as any,
+      usageBatchRepository as any,
+      usageIngestEventRepository as any,
+      usageIngestDeadLetterRepository as any,
+      revenueShareRepository as any,
+      partnerPayoutRepository as any,
+      partnerRepository as any,
+      subscriptionRepository as any,
+      paymentProvider as any,
+    );
+
+    await service.ingestUsageBatch('orch-1', {
+      batchId: 'batch-metering-1',
+      tenantId: 'tenant-1',
+      sentAt: new Date().toISOString(),
+      events: [
+        {
+          id: 'evt-meter-1',
+          metric: 'bot_runs',
+          quantity: 4,
+          occurredAt: new Date().toISOString(),
+        },
+      ],
+    });
+
+    expect(paymentProvider.recordUsage).toHaveBeenCalledTimes(1);
+    expect(usageRecordRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stripeUsageRecordId: 'meter-usage-1',
+        stripeSubscriptionItemId: 'si_123',
+      }),
+    );
   });
 });

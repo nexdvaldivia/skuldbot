@@ -1,34 +1,26 @@
 import {
-  Controller,
-  Post,
-  Get,
+  BadRequestException,
   Body,
-  Param,
-  Query,
+  Controller,
+  Get,
   Headers,
-  RawBodyRequest,
-  Req,
   HttpCode,
   HttpStatus,
-  BadRequestException,
+  Param,
+  Patch,
+  Post,
+  Query,
+  RawBodyRequest,
+  Req,
   Logger,
+  Inject,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { ConfigService } from '@nestjs/config';
 import { SubscriptionService } from './subscription.service';
 import type { SetupACHDto } from './subscription.service';
 import { SubscriptionStatus } from './entities/subscription.entity';
-
-/**
- * Stripe Webhook Event Types we handle
- */
-type StripeWebhookEvent = {
-  id: string;
-  type: string;
-  data: {
-    object: Record<string, unknown>;
-  };
-};
+import { PAYMENT_PROVIDER } from '../integrations/payment/payment.module';
+import { PaymentProvider, WebhookEvent } from '../common/interfaces/integration.interface';
 
 /**
  * Subscription Controller
@@ -52,7 +44,8 @@ export class SubscriptionController {
 
   constructor(
     private readonly subscriptionService: SubscriptionService,
-    private readonly configService: ConfigService,
+    @Inject(PAYMENT_PROVIDER)
+    private readonly paymentProvider: PaymentProvider,
   ) {}
 
   // ============================================================================
@@ -65,13 +58,31 @@ export class SubscriptionController {
   @Post('subscriptions')
   @HttpCode(HttpStatus.CREATED)
   async createSubscription(
-    @Body() body: { tenantId: string; tenantName: string; trialDays?: number },
+    @Body()
+    body: {
+      tenantId: string;
+      tenantName: string;
+      trialDays?: number;
+      customerEmail?: string;
+      planCode?: string;
+      billingInterval?: 'monthly' | 'annual';
+    },
   ) {
     return this.subscriptionService.createSubscription(
       body.tenantId,
       body.tenantName,
       body.trialDays,
+      {
+        customerEmail: body.customerEmail,
+        planCode: body.planCode,
+        billingInterval: body.billingInterval,
+      },
     );
+  }
+
+  @Get('subscriptions/plans')
+  async listPricingPlans() {
+    return this.subscriptionService.listPricingPlans();
   }
 
   /**
@@ -114,6 +125,9 @@ export class SubscriptionController {
       routingNumber: string;
       accountNumber: string;
       accountType: 'checking' | 'savings';
+      customerEmail?: string;
+      planCode?: string;
+      billingInterval?: 'monthly' | 'annual';
     },
   ) {
     const dto: SetupACHDto = {
@@ -146,6 +160,33 @@ export class SubscriptionController {
     return this.subscriptionService.getPaymentHistory(tenantId, limit ? parseInt(limit, 10) : 20);
   }
 
+  @Patch('subscriptions/:tenantId/plan')
+  @HttpCode(HttpStatus.OK)
+  async changePlan(
+    @Param('tenantId') tenantId: string,
+    @Body() body: { planCode: string; billingInterval?: 'monthly' | 'annual' },
+  ) {
+    return this.subscriptionService.changePlan(tenantId, body.planCode, body.billingInterval);
+  }
+
+  @Post('subscriptions/:tenantId/cancel')
+  @HttpCode(HttpStatus.OK)
+  async cancelSubscription(
+    @Param('tenantId') tenantId: string,
+    @Body() body: { graceDays?: number },
+  ) {
+    return this.subscriptionService.cancelSubscriptionWithGrace(tenantId, body.graceDays);
+  }
+
+  @Post('subscriptions/:tenantId/billing-portal')
+  @HttpCode(HttpStatus.OK)
+  async createBillingPortal(
+    @Param('tenantId') tenantId: string,
+    @Body() body: { returnUrl: string },
+  ) {
+    return this.subscriptionService.createBillingPortalLink(tenantId, body.returnUrl);
+  }
+
   /**
    * Manually reactivate a suspended subscription (admin only)
    */
@@ -158,148 +199,88 @@ export class SubscriptionController {
     return this.subscriptionService.reactivateSubscription(tenantId, body.reactivatedBy);
   }
 
-  // ============================================================================
-  // STRIPE WEBHOOKS
-  // ============================================================================
-
-  /**
-   * Handle Stripe webhook events
-   *
-   * Key events for ACH payments:
-   * - payment_intent.succeeded: Payment cleared
-   * - payment_intent.payment_failed: Payment failed
-   * - invoice.payment_succeeded: Subscription payment succeeded
-   * - invoice.payment_failed: Subscription payment failed
-   * - customer.subscription.updated: Subscription status changed
-   * - customer.subscription.deleted: Subscription canceled
-   *
-   * ACH-specific events:
-   * - payment_intent.processing: ACH payment initiated (takes 4-5 days)
-   * - payment_intent.requires_action: Bank verification needed
-   */
   @Post('webhooks/stripe')
   @HttpCode(HttpStatus.OK)
   async handleStripeWebhook(
     @Headers('stripe-signature') signature: string,
     @Req() req: RawBodyRequest<Request>,
   ): Promise<{ received: boolean }> {
-    const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET');
-
-    if (!webhookSecret) {
-      this.logger.warn('Stripe webhook secret not configured');
-      throw new BadRequestException('Webhook not configured');
+    if (!signature?.trim()) {
+      throw new BadRequestException('Missing stripe signature.');
     }
 
-    // In production, would verify signature using Stripe SDK:
-    // const event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-
-    // For now, parse the body directly (NOT SECURE - only for development)
     const rawBody = req.rawBody;
     if (!rawBody) {
-      throw new BadRequestException('Missing request body');
+      throw new BadRequestException('Missing webhook payload.');
     }
 
-    let event: StripeWebhookEvent;
+    let event: WebhookEvent;
     try {
-      event = JSON.parse(rawBody.toString()) as StripeWebhookEvent;
-    } catch {
-      throw new BadRequestException('Invalid JSON');
-    }
-
-    this.logger.log(`Received Stripe webhook: ${event.type}`);
-
-    try {
-      switch (event.type) {
-        case 'invoice.payment_succeeded':
-          await this.handleInvoicePaymentSucceeded(event.data.object);
-          break;
-
-        case 'invoice.payment_failed':
-          await this.handleInvoicePaymentFailed(event.data.object);
-          break;
-
-        case 'payment_intent.succeeded':
-          await this.handlePaymentIntentSucceeded(event.data.object);
-          break;
-
-        case 'payment_intent.payment_failed':
-          await this.handlePaymentIntentFailed(event.data.object);
-          break;
-
-        case 'customer.subscription.updated':
-          await this.handleSubscriptionUpdated(event.data.object);
-          break;
-
-        case 'customer.subscription.deleted':
-          await this.handleSubscriptionDeleted(event.data.object);
-          break;
-
-        default:
-          this.logger.debug(`Unhandled webhook event type: ${event.type}`);
-      }
+      event = await this.paymentProvider.handleWebhook(rawBody, signature);
     } catch (error) {
-      this.logger.error(`Error processing webhook ${event.type}: ${error}`);
-      // Return 200 to acknowledge receipt (Stripe will retry otherwise)
-      // Log for investigation
+      this.logger.warn(`Stripe webhook signature verification failed: ${String(error)}`);
+      throw new BadRequestException('Invalid webhook signature.');
     }
 
+    await this.routeWebhookEvent(event);
     return { received: true };
   }
 
-  /**
-   * Handle successful invoice payment (recurring subscription payment)
-   */
-  private async handleInvoicePaymentSucceeded(invoice: Record<string, unknown>): Promise<void> {
-    const customerId = invoice.customer as string;
-    const subscriptionId = invoice.subscription as string;
-    const paymentIntentId = invoice.payment_intent as string;
-    const amountPaid = (invoice.amount_paid as number) / 100; // Stripe uses cents
-    const periodStart = invoice.period_start as number;
+  private async routeWebhookEvent(event: WebhookEvent): Promise<void> {
+    const payload = event.data;
+    switch (event.type) {
+      case 'invoice.payment_succeeded':
+      case 'invoice.paid':
+        await this.handleInvoicePaid(payload);
+        return;
+      case 'invoice.payment_failed':
+        await this.handleInvoicePaymentFailed(payload);
+        return;
+      case 'customer.subscription.updated':
+      case 'customer.subscription.deleted':
+      case 'customer.subscription.created':
+        await this.handleSubscriptionState(payload);
+        return;
+      default:
+        this.logger.debug(`Ignoring unsupported Stripe webhook event type: ${event.type}`);
+    }
+  }
 
-    // Get tenant ID from customer metadata
-    // In production, would look up customer in our database
-    const tenantId = (invoice.metadata as Record<string, string>)?.tenantId;
-
+  private async handleInvoicePaid(invoice: Record<string, unknown>): Promise<void> {
+    const tenantId = this.readTenantId(invoice);
     if (!tenantId) {
-      this.logger.warn(`No tenant ID found for customer ${customerId}`);
+      this.logger.warn('Stripe invoice paid event without tenantId metadata.', {
+        invoiceId: invoice.id,
+      });
       return;
     }
 
-    // Calculate invoice period
-    const periodDate = new Date(periodStart * 1000);
-    const invoicePeriod = `${periodDate.getFullYear()}-${String(periodDate.getMonth() + 1).padStart(2, '0')}`;
-
+    const paymentIntentId = String(invoice.payment_intent ?? invoice.id ?? '');
+    const amountPaid = this.readCents(invoice.amount_paid);
+    const invoicePeriod = this.resolveInvoicePeriod(invoice.period_start);
     await this.subscriptionService.handlePaymentSucceeded(
       tenantId,
       paymentIntentId,
       amountPaid,
       invoicePeriod,
     );
-
-    this.logger.log(`Invoice payment succeeded for tenant ${tenantId}: $${amountPaid}`);
   }
 
-  /**
-   * Handle failed invoice payment
-   */
   private async handleInvoicePaymentFailed(invoice: Record<string, unknown>): Promise<void> {
-    const customerId = invoice.customer as string;
-    const paymentIntentId = invoice.payment_intent as string;
-    const amountDue = (invoice.amount_due as number) / 100;
-
-    // Get tenant ID
-    const tenantId = (invoice.metadata as Record<string, string>)?.tenantId;
-
+    const tenantId = this.readTenantId(invoice);
     if (!tenantId) {
-      this.logger.warn(`No tenant ID found for customer ${customerId}`);
+      this.logger.warn('Stripe invoice payment_failed event without tenantId metadata.', {
+        invoiceId: invoice.id,
+      });
       return;
     }
 
-    // Get error details from the charge
-    const lastPaymentError = invoice.last_payment_error as Record<string, unknown> | undefined;
-    const errorCode = (lastPaymentError?.code as string) || 'unknown';
-    const errorMessage = (lastPaymentError?.message as string) || 'Payment failed';
-
+    const paymentIntentId = String(invoice.payment_intent ?? invoice.id ?? '');
+    const amountDue = this.readCents(invoice.amount_due);
+    const lastPaymentError =
+      (invoice.last_payment_error as Record<string, unknown> | undefined) ?? undefined;
+    const errorCode = String(lastPaymentError?.code ?? 'payment_failed');
+    const errorMessage = String(lastPaymentError?.message ?? 'Payment failed');
     await this.subscriptionService.handlePaymentFailed(
       tenantId,
       paymentIntentId,
@@ -307,91 +288,55 @@ export class SubscriptionController {
       errorCode,
       errorMessage,
     );
-
-    this.logger.warn(
-      `Invoice payment failed for tenant ${tenantId}: ${errorCode} - ${errorMessage}`,
-    );
   }
 
-  /**
-   * Handle successful payment intent (one-time or initial payment)
-   */
-  private async handlePaymentIntentSucceeded(
-    paymentIntent: Record<string, unknown>,
-  ): Promise<void> {
-    const tenantId = (paymentIntent.metadata as Record<string, string>)?.tenantId;
-
+  private async handleSubscriptionState(subscription: Record<string, unknown>): Promise<void> {
+    const tenantId = this.readTenantId(subscription);
     if (!tenantId) {
-      return; // Not a tenant payment
+      this.logger.warn('Stripe subscription state event without tenantId metadata.', {
+        subscriptionId: subscription.id,
+      });
+      return;
     }
 
-    const amount = (paymentIntent.amount as number) / 100;
-    const invoicePeriod = (paymentIntent.metadata as Record<string, string>)?.invoicePeriod || '';
-
-    await this.subscriptionService.handlePaymentSucceeded(
+    await this.subscriptionService.syncStripeSubscriptionState(
       tenantId,
-      paymentIntent.id as string,
-      amount,
-      invoicePeriod,
+      String(subscription.status ?? ''),
+      String(subscription.id ?? ''),
+      this.readEpochAsDate(subscription.current_period_start),
+      this.readEpochAsDate(subscription.current_period_end),
     );
   }
 
-  /**
-   * Handle failed payment intent
-   */
-  private async handlePaymentIntentFailed(paymentIntent: Record<string, unknown>): Promise<void> {
-    const tenantId = (paymentIntent.metadata as Record<string, string>)?.tenantId;
-
-    if (!tenantId) {
-      return;
+  private readTenantId(payload: Record<string, unknown>): string | null {
+    const metadata = (payload.metadata as Record<string, unknown> | undefined) ?? undefined;
+    const raw = metadata?.tenantId;
+    if (typeof raw !== 'string' || !raw.trim()) {
+      return null;
     }
-
-    const amount = (paymentIntent.amount as number) / 100;
-    const lastError = paymentIntent.last_payment_error as Record<string, unknown> | undefined;
-    const errorCode = (lastError?.code as string) || 'unknown';
-    const errorMessage = (lastError?.message as string) || 'Payment failed';
-
-    await this.subscriptionService.handlePaymentFailed(
-      tenantId,
-      paymentIntent.id as string,
-      amount,
-      errorCode,
-      errorMessage,
-    );
+    return raw.trim();
   }
 
-  /**
-   * Handle subscription status updates from Stripe
-   */
-  private async handleSubscriptionUpdated(subscription: Record<string, unknown>): Promise<void> {
-    const status = subscription.status as string;
-    const tenantId = (subscription.metadata as Record<string, string>)?.tenantId;
-
-    if (!tenantId) {
-      return;
+  private readCents(raw: unknown): number {
+    if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+      return 0;
     }
-
-    this.logger.log(
-      `Subscription ${subscription.id} updated to status: ${status} for tenant ${tenantId}`,
-    );
-
-    // Stripe subscription statuses: active, past_due, unpaid, canceled, incomplete, trialing
-    // Our system handles these via payment success/failure webhooks
+    return raw / 100;
   }
 
-  /**
-   * Handle subscription deletion/cancellation
-   */
-  private async handleSubscriptionDeleted(subscription: Record<string, unknown>): Promise<void> {
-    const tenantId = (subscription.metadata as Record<string, string>)?.tenantId;
-
-    if (!tenantId) {
-      return;
+  private resolveInvoicePeriod(rawStart: unknown): string {
+    if (typeof rawStart === 'number' && Number.isFinite(rawStart)) {
+      const date = new Date(rawStart * 1000);
+      return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
     }
+    const now = new Date();
+    return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
 
-    this.logger.warn(`Subscription canceled for tenant ${tenantId}`);
-
-    // In production, would update our subscription status to CANCELED
-    // and disable bot execution
+  private readEpochAsDate(raw: unknown): Date | undefined {
+    if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+      return undefined;
+    }
+    return new Date(raw * 1000);
   }
 }

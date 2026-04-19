@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, QueryFailedError } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -16,6 +16,9 @@ import {
 import { Partner } from '../marketplace/entities/partner.entity';
 import { assertNoOperationalEvidencePayload } from '../common/security/evidence-boundary.util';
 import { requireEntity } from '../common/utils/entity.util';
+import { TenantSubscription, SubscriptionStatus } from './entities/subscription.entity';
+import { PAYMENT_PROVIDER } from '../integrations/payment/payment.module';
+import { PaymentProvider } from '../common/interfaces/integration.interface';
 
 /**
  * Usage Event from Orchestrator
@@ -87,6 +90,10 @@ export class BillingService {
     private readonly partnerPayoutRepository: Repository<PartnerPayout>,
     @InjectRepository(Partner)
     private readonly partnerRepository: Repository<Partner>,
+    @InjectRepository(TenantSubscription)
+    private readonly subscriptionRepository: Repository<TenantSubscription>,
+    @Inject(PAYMENT_PROVIDER)
+    private readonly paymentProvider: PaymentProvider,
   ) {}
 
   /**
@@ -170,8 +177,8 @@ export class BillingService {
       traceId,
     );
     const aggregated = this.aggregateUsageEvents(batch.tenantId, acceptedEvents);
-    await this.resolveStripeMetering(aggregated);
-    await this.finalizeUsageBatch(orchestratorId, aggregated);
+    const meteringResults = await this.resolveStripeMetering(aggregated);
+    await this.finalizeUsageBatch(orchestratorId, aggregated, meteringResults);
 
     return {
       processedCount: acceptedEvents.length,
@@ -345,15 +352,16 @@ export class BillingService {
   private aggregateUsageEvents(
     tenantId: string,
     records: UsageEventDto[],
-  ): Map<string, { quantity: number; installationId?: string; botId?: string }> {
+  ): Map<string, { metric: string; quantity: number; installationId?: string; botId?: string }> {
     const aggregated = new Map<
       string,
-      { quantity: number; installationId?: string; botId?: string }
+      { metric: string; quantity: number; installationId?: string; botId?: string }
     >();
 
     for (const event of records) {
       const key = `${tenantId}:${event.metric}:${event.installationId || 'none'}`;
       const existing = aggregated.get(key) || {
+        metric: event.metric,
         quantity: 0,
         installationId: event.installationId,
         botId: event.botId,
@@ -366,15 +374,88 @@ export class BillingService {
   }
 
   private async resolveStripeMetering(
-    aggregated: Map<string, { quantity: number; installationId?: string; botId?: string }>,
-  ): Promise<void> {
-    // Reserved for Stripe metering sync pipeline.
-    void aggregated;
+    aggregated: Map<
+      string,
+      { metric: string; quantity: number; installationId?: string; botId?: string }
+    >,
+  ): Promise<
+    Map<string, { stripeUsageRecordId: string; stripeSubscriptionItemId: string | null }>
+  > {
+    const meteringResults = new Map<
+      string,
+      { stripeUsageRecordId: string; stripeSubscriptionItemId: string | null }
+    >();
+
+    if (!this.paymentProvider.isConfigured()) {
+      return meteringResults;
+    }
+
+    const subscriptionCache = new Map<string, TenantSubscription | null>();
+    for (const [aggregateKey, data] of aggregated.entries()) {
+      const [tenantId] = aggregateKey.split(':');
+      if (!tenantId || data.quantity <= 0) {
+        continue;
+      }
+
+      let subscription = subscriptionCache.get(tenantId);
+      if (subscription === undefined) {
+        subscription = await this.subscriptionRepository.findOne({
+          where: { tenantId },
+        });
+        subscriptionCache.set(tenantId, subscription);
+      }
+
+      if (
+        !subscription?.stripeSubscriptionId ||
+        subscription.status === SubscriptionStatus.CANCELED ||
+        subscription.status === SubscriptionStatus.SUSPENDED
+      ) {
+        continue;
+      }
+
+      const meterId = this.resolveMeterIdForMetric(data.metric);
+      if (!meterId && !subscription.stripeSubscriptionItemId) {
+        continue;
+      }
+
+      try {
+        const usage = await this.paymentProvider.recordUsage({
+          subscriptionId: subscription.stripeSubscriptionId,
+          subscriptionItemId: subscription.stripeSubscriptionItemId,
+          meterId: meterId ?? undefined,
+          quantity: data.quantity,
+          timestamp: new Date(),
+          metadata: {
+            tenantId,
+            metric: data.metric,
+          },
+        });
+        meteringResults.set(aggregateKey, {
+          stripeUsageRecordId: usage.id,
+          stripeSubscriptionItemId: usage.subscriptionItemId || null,
+        });
+      } catch (error) {
+        this.logger.error(
+          `Failed to record Stripe usage for tenant ${tenantId}, metric ${data.metric}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
+    return meteringResults;
   }
 
   private async finalizeUsageBatch(
     orchestratorId: string,
-    aggregated: Map<string, { quantity: number; installationId?: string; botId?: string }>,
+    aggregated: Map<
+      string,
+      { metric: string; quantity: number; installationId?: string; botId?: string }
+    >,
+    meteringResults: Map<
+      string,
+      { stripeUsageRecordId: string; stripeSubscriptionItemId: string | null }
+    >,
   ): Promise<void> {
     const period = this.getCurrentPeriod();
 
@@ -391,6 +472,13 @@ export class BillingService {
 
       if (existing) {
         existing.quantity = Number(existing.quantity) + data.quantity;
+        const metering = meteringResults.get(key);
+        if (metering?.stripeUsageRecordId) {
+          existing.stripeUsageRecordId = metering.stripeUsageRecordId;
+        }
+        if (metering?.stripeSubscriptionItemId) {
+          existing.stripeSubscriptionItemId = metering.stripeSubscriptionItemId;
+        }
         await this.usageRecordRepository.save(existing);
         continue;
       }
@@ -404,10 +492,26 @@ export class BillingService {
           metric,
           quantity: data.quantity,
           period,
+          stripeUsageRecordId: meteringResults.get(key)?.stripeUsageRecordId,
+          stripeSubscriptionItemId: meteringResults.get(key)?.stripeSubscriptionItemId ?? undefined,
           status: 'pending',
         }),
       );
     }
+  }
+
+  private resolveMeterIdForMetric(metric: string): string | null {
+    const normalized = metric
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '_');
+    const fromMetric = this.configService.get<string>(`STRIPE_METER_${normalized}`);
+    if (fromMetric?.trim()) {
+      return fromMetric.trim();
+    }
+
+    const fallback = this.configService.get<string>('STRIPE_DEFAULT_METER_ID');
+    return fallback?.trim() ? fallback.trim() : null;
   }
 
   private getIngestMaxAttempts(): number {
