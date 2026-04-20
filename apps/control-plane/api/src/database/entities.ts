@@ -1,5 +1,7 @@
 import { Client } from '../clients/entities/client.entity';
 import { ClientContact } from '../clients/entities/client-contact.entity';
+import { ClientAddress } from '../clients/entities/client-address.entity';
+import { ClientApiKeyAudit } from '../clients/entities/client-api-key-audit.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { License } from '../licenses/entities/license.entity';
 import { LicenseAudit } from '../licenses/entities/license-audit.entity';
@@ -55,11 +57,23 @@ import { ContractAcceptance } from '../contracts/entities/contract-acceptance.en
 import { ContractRequirement } from '../contracts/entities/contract-requirement.entity';
 import { ContractSignatory } from '../contracts/entities/contract-signatory.entity';
 import { ContractLegalInfo } from '../contracts/entities/contract-legal-info.entity';
+import { ContractTypeLookup } from '../contracts/entities/contract-type-lookup.entity';
+import { ContractJurisdictionLookup } from '../contracts/entities/contract-jurisdiction-lookup.entity';
+import { ContractComplianceFrameworkLookup } from '../contracts/entities/contract-compliance-framework-lookup.entity';
+import { ContractSignatoryPolicy } from '../contracts/entities/contract-signatory-policy.entity';
+import { ContractRenewalRequirement } from '../contracts/entities/contract-renewal-requirement.entity';
+import { SigningDocument } from '../contracts/entities/signing-document.entity';
+import { SubscriptionEntity } from '../integrations/payment/entities/subscription.entity';
+import { InvoiceEntity } from '../integrations/payment/entities/invoice.entity';
+import { UsageRecordEntity } from '../integrations/payment/entities/usage-record.entity';
+import { PartnerEntity } from '../integrations/payment/entities/partner.entity';
 import { SecurityAuditEvent } from '../common/audit/entities/security-audit-event.entity';
 
 export const databaseEntities = [
   Client,
   ClientContact,
+  ClientAddress,
+  ClientApiKeyAudit,
   Tenant,
   License,
   LicenseAudit,
@@ -118,5 +132,15 @@ export const databaseEntities = [
   ContractRequirement,
   ContractSignatory,
   ContractLegalInfo,
+  ContractTypeLookup,
+  ContractJurisdictionLookup,
+  ContractComplianceFrameworkLookup,
+  ContractSignatoryPolicy,
+  ContractRenewalRequirement,
+  SigningDocument,
+  SubscriptionEntity,
+  InvoiceEntity,
+  UsageRecordEntity,
+  PartnerEntity,
   SecurityAuditEvent,
 ];

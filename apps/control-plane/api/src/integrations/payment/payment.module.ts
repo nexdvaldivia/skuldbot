@@ -19,7 +19,8 @@ import { InvoiceEntity } from './entities/invoice.entity';
 import { UsageRecordEntity } from './entities/usage-record.entity';
 import { PartnerEntity } from './entities/partner.entity';
 
-export const PAYMENT_PROVIDER = 'PAYMENT_PROVIDER';
+import { PAYMENT_PROVIDER } from './payment.constants';
+export { PAYMENT_PROVIDER }; // Re-export for backwards compatibility
 
 /**
  * PaymentModule - Handles all payment and billing operations.

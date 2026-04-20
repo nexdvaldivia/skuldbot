@@ -25,7 +25,7 @@ import { ClientsService } from '../clients/clients.service';
 import { Client } from '../clients/entities/client.entity';
 import { SecurityAuditEvent } from '../common/audit/entities/security-audit-event.entity';
 import { PaymentProvider } from '../common/interfaces/integration.interface';
-import { PAYMENT_PROVIDER } from '../integrations/payment/payment.module';
+import { PAYMENT_PROVIDER } from '../integrations/payment/payment.constants';
 import { PaymentConfig, ProductType } from '../billing/entities/payment-config.entity';
 import { PaymentMethodType, TenantSubscription } from '../billing/entities/subscription.entity';
 import { PaymentMethodService } from '../billing/payment-method.service';

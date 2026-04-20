@@ -17,7 +17,7 @@ import { Partner } from '../marketplace/entities/partner.entity';
 import { assertNoOperationalEvidencePayload } from '../common/security/evidence-boundary.util';
 import { requireEntity } from '../common/utils/entity.util';
 import { TenantSubscription, SubscriptionStatus } from './entities/subscription.entity';
-import { PAYMENT_PROVIDER } from '../integrations/payment/payment.module';
+import { PAYMENT_PROVIDER } from '../integrations/payment/payment.constants';
 import { PaymentProvider } from '../common/interfaces/integration.interface';
 
 /**

@@ -7,7 +7,7 @@ import {
   DEFAULT_PAYMENT_CONFIGS,
 } from './entities/payment-config.entity';
 import { PaymentProvider } from '../common/interfaces/integration.interface';
-import { PAYMENT_PROVIDER } from '../integrations/payment/payment.module';
+import { PAYMENT_PROVIDER } from '../integrations/payment/payment.constants';
 
 /**
  * Payment Method Selection Result

@@ -9,7 +9,7 @@ import {
   PaymentMethodType,
 } from './entities/subscription.entity';
 import { DEFAULT_PRICING_PLANS, PricingPlan } from './entities/pricing-plan.entity';
-import { PAYMENT_PROVIDER } from '../integrations/payment/payment.module';
+import { PAYMENT_PROVIDER } from '../integrations/payment/payment.constants';
 import { PaymentProvider } from '../common/interfaces/integration.interface';
 import { SecurityAuditEvent } from '../common/audit/entities/security-audit-event.entity';
 

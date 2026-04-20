@@ -2,7 +2,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import { Tool, Resource, ToolResult, ResourceContent } from '../types/mcp.types';
 import { BillingService } from '../../billing/billing.service';
 import { SubscriptionService } from '../../billing/subscription.service';
-import { PAYMENT_PROVIDER } from '../../integrations/payment/payment.module';
+import { PAYMENT_PROVIDER } from '../../integrations/payment/payment.constants';
 import { PaymentProvider } from '../../common/interfaces/integration.interface';
 import { PaymentHistory } from '../../billing/entities/subscription.entity';
 

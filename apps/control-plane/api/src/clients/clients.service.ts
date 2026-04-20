@@ -21,7 +21,7 @@ import {
   RegenerateClientApiKeyResponseDto,
 } from './dto/client.dto';
 import { PaymentProvider } from '../common/interfaces/integration.interface';
-import { PAYMENT_PROVIDER } from '../integrations/payment/payment.module';
+import { PAYMENT_PROVIDER } from '../integrations/payment/payment.constants';
 import { LookupsService } from '../lookups/lookups.service';
 import {
   LOOKUP_DOMAIN_CLIENT_PLAN,

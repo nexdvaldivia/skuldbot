@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { PaymentProvider, WebhookEvent } from '../../common/interfaces/integration.interface';
-import { PAYMENT_PROVIDER } from './payment.module';
+import { PAYMENT_PROVIDER } from './payment.constants';
 
 /**
  * WebhooksController - Handles incoming webhooks from payment providers.
