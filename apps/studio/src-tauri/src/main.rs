@@ -2530,6 +2530,28 @@ async fn save_project(path: String, data: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+async fn save_env_config(path: String, config: serde_json::Value) -> Result<(), String> {
+    println!("💾 Saving env config to: {}", path);
+    let json = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
+    // Create parent directory if it doesn't exist
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&path, json).map_err(|e| e.to_string())?;
+    println!("✅ Env config saved");
+    Ok(())
+}
+
+#[tauri::command]
+async fn load_env_config(path: String) -> Result<serde_json::Value, String> {
+    println!("📂 Loading env config from: {}", path);
+    let data = std::fs::read_to_string(&path).map_err(|e| format!("Config not found: {}", e))?;
+    let config: serde_json::Value = serde_json::from_str(&data).map_err(|e| format!("Invalid JSON: {}", e))?;
+    println!("✅ Env config loaded");
+    Ok(config)
+}
+
+#[tauri::command]
 async fn load_project(path: String) -> Result<String, String> {
     println!("📂 Loading project from: {}", path);
     let data = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
@@ -7552,6 +7574,8 @@ fn main() {
             debug_get_variables,
             save_project,
             load_project,
+            save_env_config,
+            load_env_config,
             get_engine_info,
             // Project commands
             create_project,
