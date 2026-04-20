@@ -1114,3 +1114,169 @@ export const mcpApi = {
     return result.subscriptions;
   },
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONTRACTS API
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type ContractStatus = 'draft' | 'active' | 'deprecated' | 'archived';
+
+export const CONTRACT_TYPE_LABELS: Record<string, string> = {
+  msa: 'Master Service Agreement',
+  tos: 'Terms of Service',
+  sla: 'Service Level Agreement',
+  aup: 'Acceptable Use Policy',
+  dpa: 'Data Processing Agreement',
+  privacy: 'Privacy Policy',
+  baa: 'Business Associate Agreement',
+  pci_addendum: 'PCI-DSS Addendum',
+  soc2: 'SOC2 Attestation',
+  nda: 'Non-Disclosure Agreement',
+  eula: 'Software License Agreement (EULA)',
+  custom: 'Custom Agreement',
+};
+
+export interface ContractTypeLookupItem {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  sort_order: number;
+  contract_level: string;
+  contract_scope: string;
+  product_scopes?: string[] | null;
+}
+
+export interface ContractLookupItem {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface ContractMetadataLookupsResponse {
+  contract_types: ContractTypeLookupItem[];
+  jurisdictions: ContractLookupItem[];
+  compliance_frameworks: ContractLookupItem[];
+}
+
+export interface ContractGroupSummary {
+  id: string;
+  name: string;
+  display_name: string;
+  contract_type: string;
+  summary: string | null;
+  is_required: boolean;
+  requires_signature: boolean;
+  requires_countersignature: boolean;
+  legal_jurisdiction: string | null;
+  compliance_frameworks: string[] | null;
+  required_for_plans: string[] | null;
+  required_for_addons: string[] | null;
+  required_for_verticals: string[] | null;
+  total_versions: number;
+  active_version: { id: string; version: string; effective_date: string | null; pdf_url: string | null; has_pdf: boolean } | null;
+  draft_version: { id: string; version: string; created_at: string | null } | null;
+  latest_version: { id: string; version: string; status: ContractStatus } | null;
+}
+
+export interface ContractAcceptance {
+  id: string;
+  template_id: string;
+  client_id: string;
+  accepted_at: string;
+  acceptance_method: string;
+  accepted_by_name: string;
+  accepted_by_email: string;
+  accepted_by_title: string | null;
+  ip_address: string;
+  countersigned_at: string | null;
+  countersigned_by: string | null;
+  content_snapshot_hash: string;
+  effective_date: string;
+  expiration_date: string | null;
+  is_active: boolean;
+  revoked_at: string | null;
+  revocation_reason: string | null;
+  created_at: string;
+  signed_pdf_url: string | null;
+  skuld_signatory_name?: string;
+  skuld_resolution_source?: string;
+  template: { id: string; display_name: string; version: string } | null;
+}
+
+export const contractsApi = {
+  // Grouped view
+  listContractsGrouped: (params?: { contract_type?: string; include_archived?: boolean }) => {
+    const sp = new URLSearchParams();
+    if (params?.contract_type) sp.append('contract_type', params.contract_type);
+    if (params?.include_archived) sp.append('include_archived', 'true');
+    const q = sp.toString();
+    return fetchApi<{ contracts: ContractGroupSummary[]; total: number }>(`/api/contracts/grouped${q ? `?${q}` : ''}`);
+  },
+
+  // Acceptances
+  listAcceptances: (params?: { client_id?: string; is_active?: boolean }) => {
+    const sp = new URLSearchParams();
+    if (params?.client_id) sp.append('client_id', params.client_id);
+    if (params?.is_active !== undefined) sp.append('is_active', params.is_active.toString());
+    const q = sp.toString();
+    return fetchApi<ContractAcceptance[]>(`/api/contracts/acceptances${q ? `?${q}` : ''}`);
+  },
+
+  // Metadata lookups
+  getMetadataLookups: (includeInactive = false) =>
+    fetchApi<ContractMetadataLookupsResponse>(`/api/contracts/lookups${includeInactive ? '?include_inactive=true' : ''}`),
+
+  // Templates
+  listTemplates: (params?: { contract_type?: string; status?: ContractStatus; include_archived?: boolean }) => {
+    const sp = new URLSearchParams();
+    if (params?.contract_type) sp.append('contract_type', params.contract_type);
+    if (params?.status) sp.append('status', params.status);
+    if (params?.include_archived) sp.append('include_archived', 'true');
+    const q = sp.toString();
+    return fetchApi<{ templates: unknown[]; total: number }>(`/api/contracts/templates${q ? `?${q}` : ''}`);
+  },
+
+  getTemplate: (templateId: string) =>
+    fetchApi<unknown>(`/api/contracts/templates/${templateId}`),
+
+  createTemplate: (data: Record<string, unknown>) =>
+    fetchApi<unknown>('/api/contracts/templates', { method: 'POST', body: JSON.stringify(data) }),
+
+  publishTemplate: (templateId: string) =>
+    fetchApi<unknown>(`/api/contracts/templates/${templateId}/publish`, { method: 'POST' }),
+
+  deprecateTemplate: (templateId: string) =>
+    fetchApi<unknown>(`/api/contracts/templates/${templateId}/deprecate`, { method: 'POST' }),
+
+  archiveTemplate: (templateId: string) =>
+    fetchApi<unknown>(`/api/contracts/templates/${templateId}`, { method: 'DELETE' }),
+
+  // Contract versions
+  listContractVersions: (contractName: string, params?: { include_archived?: boolean }) => {
+    const sp = new URLSearchParams();
+    if (params?.include_archived) sp.append('include_archived', 'true');
+    const q = sp.toString();
+    return fetchApi<unknown>(`/api/contracts/by-name/${contractName}/versions${q ? `?${q}` : ''}`);
+  },
+
+  // Signatories
+  listContractSignatories: (activeOnly = true) =>
+    fetchApi<unknown[]>(`/api/contracts/signatories${activeOnly ? '?active_only=true' : '?active_only=false'}`),
+
+  // Signatory policies
+  listSignatoryPolicies: (params?: { contract_type?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.contract_type) sp.append('contract_type', params.contract_type);
+    const q = sp.toString();
+    return fetchApi<{ policies: unknown[]; total: number }>(`/api/contracts/signatory-policies${q ? `?${q}` : ''}`);
+  },
+
+  // Validation
+  getClientContractStatus: (clientId: string) =>
+    fetchApi<unknown>(`/api/contracts/client/${clientId}/status`),
+};
