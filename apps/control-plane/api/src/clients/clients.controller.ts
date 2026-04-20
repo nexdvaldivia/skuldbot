@@ -23,6 +23,7 @@ import {
   ClientOverviewResponseDto,
 } from './dto/client.dto';
 import {
+  ListClientContactsQueryDto,
   ClientContactResponseDto,
   CreateClientContactDto,
   UpdateClientContactDto,
@@ -71,9 +72,15 @@ export class ClientsController {
   @RequirePermissions(CP_PERMISSIONS.CLIENTS_READ)
   async listContacts(
     @Param('clientId') clientId: string,
+    @Query() query: ListClientContactsQueryDto,
     @CurrentUser() currentUser: User,
   ): Promise<ClientContactResponseDto[]> {
-    return this.clientContactsService.list(clientId, currentUser);
+    const response = await this.clientContactsService.listClientContacts(
+      clientId,
+      query,
+      currentUser,
+    );
+    return response.contacts;
   }
 
   @Get(':clientId/contacts/:contactId')
@@ -84,7 +91,7 @@ export class ClientsController {
     @Param('contactId') contactId: string,
     @CurrentUser() currentUser: User,
   ): Promise<ClientContactResponseDto> {
-    return this.clientContactsService.getById(clientId, contactId, currentUser);
+    return this.clientContactsService.getClientContact(clientId, contactId, currentUser);
   }
 
   @Post(':clientId/contacts')
@@ -96,7 +103,7 @@ export class ClientsController {
     @Body() dto: CreateClientContactDto,
     @CurrentUser() currentUser: User,
   ): Promise<ClientContactResponseDto> {
-    return this.clientContactsService.create(clientId, dto, currentUser);
+    return this.clientContactsService.createClientContact(clientId, dto, currentUser);
   }
 
   @Patch(':clientId/contacts/:contactId')
@@ -108,7 +115,7 @@ export class ClientsController {
     @Body() dto: UpdateClientContactDto,
     @CurrentUser() currentUser: User,
   ): Promise<ClientContactResponseDto> {
-    return this.clientContactsService.update(clientId, contactId, dto, currentUser);
+    return this.clientContactsService.updateClientContact(clientId, contactId, dto, currentUser);
   }
 
   @Delete(':clientId/contacts/:contactId')
@@ -120,7 +127,7 @@ export class ClientsController {
     @Param('contactId') contactId: string,
     @CurrentUser() currentUser: User,
   ): Promise<void> {
-    return this.clientContactsService.remove(clientId, contactId, currentUser);
+    return this.clientContactsService.deleteClientContact(clientId, contactId, false, currentUser);
   }
 
   @Post()

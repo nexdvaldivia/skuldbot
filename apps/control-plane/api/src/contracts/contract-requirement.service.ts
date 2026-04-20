@@ -286,14 +286,22 @@ export class ContractRequirementService {
     const version = this.resolveTemplateVersion(template);
     const primaryContact = await this.clientContactRepository.findOne({
       where: { clientId: client.id, isActive: true },
-      order: { isPrimary: 'DESC', fullName: 'ASC' },
+      order: { isPrimary: 'DESC', firstName: 'ASC', lastName: 'ASC' },
     });
+    const legacyFullName =
+      typeof (primaryContact as { fullName?: unknown } | null)?.fullName === 'string'
+        ? (((primaryContact as unknown as { fullName?: string }).fullName ?? '') || '').trim()
+        : '';
+    const signerFullName = [primaryContact?.firstName, primaryContact?.lastName]
+      .filter((value): value is string => Boolean(value && value.trim().length > 0))
+      .join(' ')
+      .trim();
 
     const context = {
       client_name: client.name,
       client_email: primaryContact?.email ?? client.billingEmail,
       tenant_name: client.slug,
-      signer_full_name: primaryContact?.fullName ?? client.name,
+      signer_full_name: signerFullName || legacyFullName || client.name,
       signer_email: primaryContact?.email ?? client.billingEmail,
       provider_legal_name: DEFAULT_PROVIDER_LEGAL_NAME,
       current_date: new Date().toISOString().slice(0, 10),
