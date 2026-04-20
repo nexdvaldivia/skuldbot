@@ -101,6 +101,17 @@ export class AssignUserRolesDto {
   roleIds: string[];
 }
 
+export class AddRolePermissionDto {
+  @IsUUID()
+  permissionId: string;
+}
+
+export class ReplaceRolePermissionsDto {
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  permissionIds: string[];
+}
+
 export class PermissionResponseDto {
   id: string;
   code: string;

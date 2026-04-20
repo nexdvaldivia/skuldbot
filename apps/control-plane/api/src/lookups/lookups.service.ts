@@ -3,6 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, Repository } from 'typeorm';
 import { LookupValue } from './entities/lookup-value.entity';
 import { LookupDomain } from './entities/lookup-domain.entity';
+import {
+  normalizeOptionalLowercaseString,
+  normalizeOptionalString,
+} from '../common/utils/string.util';
 
 type DomainCache = {
   expiresAt: number;
@@ -23,7 +27,12 @@ export class LookupsService {
   ) {}
 
   async assertActiveCode(domain: string, code: string, errorMessage?: string): Promise<void> {
-    const normalizedCode = code?.trim().toLowerCase();
+    const normalizedCode = normalizeOptionalLowercaseString(code);
+    if (!normalizedCode) {
+      throw new BadRequestException(
+        errorMessage ?? `Invalid value "${code}" for lookup domain "${domain}"`,
+      );
+    }
     const values = await this.getActiveValues(domain);
     if (values.some((value) => value.code.toLowerCase() === normalizedCode)) {
       return;
@@ -52,7 +61,10 @@ export class LookupsService {
   }
 
   async getMetadata(domain: string, code: string): Promise<Record<string, unknown> | null> {
-    const normalizedCode = code?.trim().toLowerCase();
+    const normalizedCode = normalizeOptionalLowercaseString(code);
+    if (!normalizedCode) {
+      return null;
+    }
     const values = await this.getActiveValues(domain);
     const found = values.find((value) => value.code.toLowerCase() === normalizedCode);
     return found?.metadata ?? null;
@@ -103,7 +115,11 @@ export class LookupsService {
       throw new BadRequestException(`Domain "${domain.code}" is read-only`);
     }
 
-    const normalizedCode = params.code.trim().toLowerCase();
+    const normalizedCode = normalizeOptionalLowercaseString(params.code);
+    const normalizedLabel = normalizeOptionalString(params.label);
+    if (!normalizedCode || !normalizedLabel) {
+      throw new BadRequestException('Lookup code and label are required');
+    }
     const existing = await this.lookupRepository.findOne({
       where: { domainId: domain.id, code: normalizedCode },
     });
@@ -111,8 +127,8 @@ export class LookupsService {
 
     value.domainId = domain.id;
     value.code = normalizedCode;
-    value.label = params.label.trim();
-    value.description = params.description?.trim() || null;
+    value.label = normalizedLabel;
+    value.description = normalizeOptionalString(params.description);
     value.sortOrder = params.sortOrder ?? value.sortOrder ?? 100;
     value.isActive = params.isActive ?? value.isActive ?? true;
     value.metadata = {
@@ -126,7 +142,10 @@ export class LookupsService {
   }
 
   private async getActiveValues(domain: string): Promise<LookupValue[]> {
-    const normalizedDomain = domain.trim().toLowerCase();
+    const normalizedDomain = normalizeOptionalLowercaseString(domain);
+    if (!normalizedDomain) {
+      throw new NotFoundException('Lookup domain is required');
+    }
     const now = Date.now();
     const cached = this.cache.get(normalizedDomain);
     if (cached && cached.expiresAt > now) {
@@ -148,7 +167,10 @@ export class LookupsService {
   }
 
   private async getDomainOrThrow(domainCode: string): Promise<LookupDomain> {
-    const normalized = domainCode.trim().toLowerCase();
+    const normalized = normalizeOptionalLowercaseString(domainCode);
+    if (!normalized) {
+      throw new NotFoundException('Lookup domain is required');
+    }
     const cached = this.domainCache.get(normalized);
     if (cached) {
       return cached;

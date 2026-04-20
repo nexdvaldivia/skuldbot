@@ -40,6 +40,16 @@ export const CP_PERMISSIONS = {
   CONTRACTS_WRITE: 'contracts:write',
   CONTRACTS_SIGN: 'contracts:sign',
   CONTRACTS_APPROVE: 'contracts:approve',
+
+  BILLING_READ: 'billing:read',
+  BILLING_WRITE: 'billing:write',
+  BILLING_APPROVE: 'billing:approve',
+
+  MCP_READ: 'mcp:read',
+  MCP_EXECUTE: 'mcp:execute',
+
+  SCHEMAS_READ: 'schemas:read',
+  SCHEMAS_WRITE: 'schemas:write',
 } as const;
 
 export type ControlPlanePermission = (typeof CP_PERMISSIONS)[keyof typeof CP_PERMISSIONS];
@@ -59,6 +69,9 @@ const ROLE_PERMISSION_MAP: Record<UserRole, string[]> = {
     CP_PERMISSIONS.LOOKUPS_READ,
     CP_PERMISSIONS.ORCHESTRATORS_READ,
     CP_PERMISSIONS.CONTRACTS_READ,
+    CP_PERMISSIONS.BILLING_READ,
+    CP_PERMISSIONS.MCP_READ,
+    CP_PERMISSIONS.SCHEMAS_READ,
   ],
   [UserRole.CLIENT_ADMIN]: [
     CP_PERMISSIONS.ROLES_READ,
@@ -77,6 +90,9 @@ const ROLE_PERMISSION_MAP: Record<UserRole, string[]> = {
     CP_PERMISSIONS.CONTRACTS_READ,
     CP_PERMISSIONS.CONTRACTS_WRITE,
     CP_PERMISSIONS.CONTRACTS_SIGN,
+    CP_PERMISSIONS.BILLING_READ,
+    CP_PERMISSIONS.MCP_READ,
+    CP_PERMISSIONS.SCHEMAS_READ,
   ],
   [UserRole.CLIENT_USER]: [CP_PERMISSIONS.CONTRACTS_READ],
 };

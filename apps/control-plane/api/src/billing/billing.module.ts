@@ -10,13 +10,17 @@ import {
 import { RevenueShareRecord, PartnerPayout } from './entities/revenue-share.entity';
 import { TenantSubscription, PaymentHistory } from './entities/subscription.entity';
 import { PaymentConfig } from './entities/payment-config.entity';
+import { PricingPlan } from './entities/pricing-plan.entity';
 import { Partner } from '../marketplace/entities/partner.entity';
+import { Client } from '../clients/entities/client.entity';
+import { SecurityAuditEvent } from '../common/audit/entities/security-audit-event.entity';
 import { BillingService } from './billing.service';
 import { BillingController } from './billing.controller';
 import { SubscriptionService } from './subscription.service';
 import { SubscriptionController } from './subscription.controller';
 import { PaymentMethodService } from './payment-method.service';
 import { IntegrationsModule } from '../integrations/integrations.module';
+import { UsageIngestApiKeyGuard } from './guards/usage-ingest-api-key.guard';
 
 /**
  * Billing Module
@@ -79,13 +83,16 @@ import { IntegrationsModule } from '../integrations/integrations.module';
       TenantSubscription,
       PaymentHistory,
       PaymentConfig,
+      PricingPlan,
       Partner,
+      Client,
+      SecurityAuditEvent,
     ]),
     ConfigModule,
     IntegrationsModule,
   ],
   controllers: [BillingController, SubscriptionController],
-  providers: [BillingService, SubscriptionService, PaymentMethodService],
+  providers: [BillingService, SubscriptionService, PaymentMethodService, UsageIngestApiKeyGuard],
   exports: [BillingService, SubscriptionService, PaymentMethodService],
 })
 export class BillingModule {}

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { License } from './entities/license.entity';
+import { LicenseAudit } from './entities/license-audit.entity';
 import { LicenseTypeFeature } from './entities/license-type-feature.entity';
 import { QuotaPolicy, UsageCounter } from './entities/quota.entity';
 import { LicenseRuntimeDecision } from './entities/license-runtime-decision.entity';
@@ -16,6 +17,7 @@ import { ContractsModule } from '../contracts/contracts.module';
   imports: [
     TypeOrmModule.forFeature([
       License,
+      LicenseAudit,
       LicenseTypeFeature,
       Tenant,
       QuotaPolicy,

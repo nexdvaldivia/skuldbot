@@ -72,6 +72,8 @@ export class PaymentModule implements NestModule, OnModuleInit {
       .forRoutes(
         { path: 'webhooks/stripe', method: RequestMethod.POST },
         { path: 'webhooks/stripe/connect', method: RequestMethod.POST },
+        { path: 'integrations/webhooks/stripe', method: RequestMethod.POST },
+        { path: 'integrations/webhooks/stripe/connect', method: RequestMethod.POST },
       );
   }
 }

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import { SecurityAuditEvent } from '../common/audit/entities/security-audit-event.entity';
 import { Client } from '../clients/entities/client.entity';
 import { User } from '../users/entities/user.entity';
 import {
@@ -30,6 +31,8 @@ export class RbacService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Client)
     private readonly clientRepository: Repository<Client>,
+    @InjectRepository(SecurityAuditEvent)
+    private readonly securityAuditRepository: Repository<SecurityAuditEvent>,
   ) {}
 
   async listPermissions(): Promise<PermissionResponseDto[]> {
@@ -152,18 +155,13 @@ export class RbacService {
     return this.toRoleResponse(loaded!, true);
   }
 
-  async updateRole(roleId: string, dto: UpdateRoleDto): Promise<RoleResponseDto> {
-    const role = await this.roleRepository.findOne({
-      where: { id: roleId },
-      relations: ['permissions', 'client'],
-    });
+  async getRole(roleId: string): Promise<RoleResponseDto> {
+    const role = await this.requireRole(roleId, ['permissions', 'client']);
+    return this.toRoleResponse(role, true);
+  }
 
-    if (!role) {
-      throw new NotFoundException({
-        code: 'ROLE_NOT_FOUND',
-        message: `Role ${roleId} was not found.`,
-      });
-    }
+  async updateRole(roleId: string, dto: UpdateRoleDto): Promise<RoleResponseDto> {
+    const role = await this.requireRole(roleId, ['permissions', 'client']);
 
     if (role.isSystem && dto.displayName) {
       throw new BadRequestException({
@@ -202,18 +200,112 @@ export class RbacService {
     return this.toRoleResponse(saved, true);
   }
 
-  async deleteRole(roleId: string): Promise<void> {
-    const role = await this.roleRepository.findOne({
-      where: { id: roleId },
-      relations: ['users'],
-    });
+  async addRolePermission(
+    roleId: string,
+    permissionId: string,
+    actor: User,
+    requestIp: string | null,
+  ): Promise<PermissionResponseDto> {
+    const role = await this.requireRole(roleId, ['permissions', 'client']);
+    if (role.isSystem) {
+      this.throwSystemRoleImmutable();
+    }
 
-    if (!role) {
+    const permission = await this.permissionRepository.findOne({ where: { id: permissionId } });
+    if (!permission) {
       throw new NotFoundException({
-        code: 'ROLE_NOT_FOUND',
-        message: `Role ${roleId} was not found.`,
+        code: 'PERMISSION_NOT_FOUND',
+        message: `Permission ${permissionId} was not found.`,
       });
     }
+
+    if ((role.permissions ?? []).some((existing) => existing.id === permission.id)) {
+      throw new ConflictException({
+        code: 'ROLE_PERMISSION_EXISTS',
+        message: 'Permission already assigned to this role.',
+      });
+    }
+
+    role.permissions = [...(role.permissions ?? []), permission];
+    await this.roleRepository.save(role);
+    await this.recordSecurityAuditEvent({
+      action: 'rbac.add_role_permission',
+      targetType: 'role',
+      targetId: role.id,
+      actor,
+      requestIp,
+      details: {
+        permissionId: permission.id,
+      },
+    });
+
+    return this.toPermissionResponse(permission);
+  }
+
+  async removeRolePermission(
+    roleId: string,
+    permissionId: string,
+    actor: User,
+    requestIp: string | null,
+  ): Promise<void> {
+    const role = await this.requireRole(roleId, ['permissions', 'client']);
+    if (role.isSystem) {
+      this.throwSystemRoleImmutable();
+    }
+
+    const nextPermissions = (role.permissions ?? []).filter(
+      (permission) => permission.id !== permissionId,
+    );
+
+    if (nextPermissions.length === (role.permissions ?? []).length) {
+      throw new NotFoundException({
+        code: 'ROLE_PERMISSION_NOT_FOUND',
+        message: `Permission ${permissionId} is not assigned to role ${roleId}.`,
+      });
+    }
+
+    role.permissions = nextPermissions;
+    await this.roleRepository.save(role);
+    await this.recordSecurityAuditEvent({
+      action: 'rbac.remove_role_permission',
+      targetType: 'role',
+      targetId: role.id,
+      actor,
+      requestIp,
+      details: {
+        permissionId,
+      },
+    });
+  }
+
+  async replaceRolePermissions(
+    roleId: string,
+    permissionIds: string[],
+    actor: User,
+    requestIp: string | null,
+  ): Promise<RoleResponseDto> {
+    const role = await this.requireRole(roleId, ['permissions', 'client']);
+    if (role.isSystem) {
+      this.throwSystemRoleImmutable();
+    }
+
+    role.permissions = await this.resolvePermissions(permissionIds);
+    const saved = await this.roleRepository.save(role);
+    await this.recordSecurityAuditEvent({
+      action: 'rbac.replace_role_permissions',
+      targetType: 'role',
+      targetId: role.id,
+      actor,
+      requestIp,
+      details: {
+        permissionIds,
+      },
+    });
+    return this.toRoleResponse(saved, true);
+  }
+
+  async deleteRole(roleId: string): Promise<void> {
+    const role = await this.requireRole(roleId, ['users']);
 
     if (role.isSystem) {
       throw new BadRequestException({
@@ -248,7 +340,12 @@ export class RbacService {
     return (user.roles ?? []).map((role) => this.toRoleResponse(role, true));
   }
 
-  async assignUserRoles(userId: string, dto: AssignUserRolesDto): Promise<RoleResponseDto[]> {
+  async assignUserRoles(
+    userId: string,
+    dto: AssignUserRolesDto,
+    actor: User,
+    requestIp: string | null,
+  ): Promise<RoleResponseDto[]> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: ['roles'],
@@ -279,6 +376,16 @@ export class RbacService {
 
     user.roles = roles;
     await this.userRepository.save(user);
+    await this.recordSecurityAuditEvent({
+      action: 'rbac.assign_user_roles',
+      targetType: 'user',
+      targetId: user.id,
+      actor,
+      requestIp,
+      details: {
+        roleIds: roles.map((role) => role.id),
+      },
+    });
 
     return roles.map((role) => this.toRoleResponse(role, true));
   }
@@ -332,6 +439,29 @@ export class RbacService {
     }
   }
 
+  private async requireRole(roleId: string, relations: string[] = []): Promise<CpRole> {
+    const role = await this.roleRepository.findOne({
+      where: { id: roleId },
+      relations,
+    });
+
+    if (!role) {
+      throw new NotFoundException({
+        code: 'ROLE_NOT_FOUND',
+        message: `Role ${roleId} was not found.`,
+      });
+    }
+
+    return role;
+  }
+
+  private throwSystemRoleImmutable(): never {
+    throw new BadRequestException({
+      code: 'SYSTEM_ROLE_IMMUTABLE',
+      message: 'System roles cannot be modified.',
+    });
+  }
+
   private toPermissionResponse(permission: CpPermission): PermissionResponseDto {
     return {
       id: permission.id,
@@ -382,5 +512,27 @@ export class RbacService {
         });
       }
     }
+  }
+
+  private async recordSecurityAuditEvent(input: {
+    action: string;
+    targetType: string;
+    targetId: string;
+    actor: User;
+    requestIp: string | null;
+    details: Record<string, unknown>;
+  }): Promise<void> {
+    await this.securityAuditRepository.save(
+      this.securityAuditRepository.create({
+        category: 'rbac',
+        action: input.action,
+        targetType: input.targetType,
+        targetId: input.targetId,
+        actorUserId: input.actor.id ?? null,
+        actorEmail: input.actor.email ?? null,
+        requestIp: input.requestIp,
+        details: input.details,
+      }),
+    );
   }
 }

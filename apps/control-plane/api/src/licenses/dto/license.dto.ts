@@ -27,6 +27,10 @@ export class CreateLicenseDto {
   @IsObject()
   @IsOptional()
   features?: Partial<LicenseFeatures>;
+
+  @IsNumber()
+  @IsOptional()
+  gracePeriodDays?: number;
 }
 
 export class UpdateLicenseDto {
@@ -42,6 +46,10 @@ export class UpdateLicenseDto {
   @IsObject()
   @IsOptional()
   features?: Partial<LicenseFeatures>;
+
+  @IsNumber()
+  @IsOptional()
+  gracePeriodDays?: number;
 }
 
 export class ValidateLicenseDto {
@@ -65,6 +73,12 @@ export class LicenseResponseDto {
 export class LicenseDetailResponseDto extends LicenseResponseDto {
   features: LicenseFeatures;
   lastValidatedAt: Date | null;
+  firstActivatedAt: Date | null;
+  validationCount: number;
+  gracePeriodDays: number;
+  gracePeriodEndsAt: Date | null;
+  signatureAlgorithm: string;
+  publicKeyId: string;
   metadata: Record<string, unknown>;
 }
 
@@ -75,6 +89,9 @@ export class LicenseValidationResponseDto {
   type: string | null;
   features: LicenseFeatures | null;
   expiresAt: Date | null;
+  gracePeriodEndsAt: Date | null;
+  signatureVerified: boolean;
+  validationCount: number | null;
   message: string;
 }
 

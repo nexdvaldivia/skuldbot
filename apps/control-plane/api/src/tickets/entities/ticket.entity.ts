@@ -7,19 +7,21 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-export enum TicketStatus {
-  OPEN = 'open',
-  IN_PROGRESS = 'in_progress',
-  RESOLVED = 'resolved',
-  CLOSED = 'closed',
-}
+export type TicketStatus = string;
+export const TicketStatus = {
+  OPEN: 'open',
+  IN_PROGRESS: 'in_progress',
+  RESOLVED: 'resolved',
+  CLOSED: 'closed',
+} as const;
 
-export enum TicketPriority {
-  LOW = 'low',
-  NORMAL = 'normal',
-  HIGH = 'high',
-  URGENT = 'urgent',
-}
+export type TicketPriority = string;
+export const TicketPriority = {
+  LOW: 'low',
+  NORMAL: 'normal',
+  HIGH: 'high',
+  URGENT: 'urgent',
+} as const;
 
 @Entity('tickets')
 @Index(['tenantId', 'status', 'createdAt'])
@@ -58,19 +60,11 @@ export class Ticket {
   @Column({ name: 'message', type: 'text', nullable: true })
   message: string | null;
 
-  @Column({
-    type: 'enum',
-    enum: TicketStatus,
-    default: TicketStatus.OPEN,
-  })
-  status: TicketStatus;
+  @Column({ type: 'varchar', length: 50, default: TicketStatus.OPEN })
+  status: string;
 
-  @Column({
-    type: 'enum',
-    enum: TicketPriority,
-    default: TicketPriority.NORMAL,
-  })
-  priority: TicketPriority;
+  @Column({ type: 'varchar', length: 50, default: TicketPriority.NORMAL })
+  priority: string;
 
   @Column({ type: 'jsonb', default: '{}' })
   metadata: Record<string, unknown>;

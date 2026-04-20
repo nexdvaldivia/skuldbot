@@ -6,9 +6,10 @@ import { CpPermission } from './entities/cp-permission.entity';
 import { CpRole } from './entities/cp-role.entity';
 import { RbacController } from './rbac.controller';
 import { RbacService } from './rbac.service';
+import { SecurityAuditEvent } from '../common/audit/entities/security-audit-event.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([CpRole, CpPermission, User, Client])],
+  imports: [TypeOrmModule.forFeature([CpRole, CpPermission, User, Client, SecurityAuditEvent])],
   controllers: [RbacController],
   providers: [RbacService],
   exports: [RbacService],

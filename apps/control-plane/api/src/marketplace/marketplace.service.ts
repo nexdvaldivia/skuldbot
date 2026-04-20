@@ -398,7 +398,7 @@ export class MarketplaceService {
     bot.rejectionReason = reason;
     await this.botRepository.save(bot);
 
-    this.logger.log(`Bot rejected: ${bot.name} (${bot.id}) - ${reason}`);
+    this.logger.log(`Bot rejected: ${bot.name} (${bot.id}) by ${rejectedBy} - ${reason}`);
 
     return bot;
   }
@@ -614,7 +614,7 @@ export class MarketplaceService {
 
     const revenue = Number(partner.lifetimeRevenue);
 
-    let newTier = RevenueShareTier.STARTER;
+    let newTier: string = RevenueShareTier.STARTER;
     if (revenue >= 1000000) {
       newTier = RevenueShareTier.PREMIER;
     } else if (revenue >= 100000) {

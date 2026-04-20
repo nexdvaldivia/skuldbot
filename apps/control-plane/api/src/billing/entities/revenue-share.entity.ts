@@ -12,11 +12,12 @@ import {
  *
  * Defines commission rates based on partner's lifetime revenue.
  */
-export enum RevenueShareTier {
-  STARTER = 'starter', // 0 - 100k: 30% commission (70% to partner)
-  ESTABLISHED = 'established', // 100k - 1M: 25% commission (75% to partner)
-  PREMIER = 'premier', // 1M+: 20% commission (80% to partner)
-}
+export type RevenueShareTier = string;
+export const RevenueShareTier = {
+  STARTER: 'starter', // 0 - 100k: 30% commission (70% to partner)
+  ESTABLISHED: 'established', // 100k - 1M: 25% commission (75% to partner)
+  PREMIER: 'premier', // 1M+: 20% commission (80% to partner)
+} as const;
 
 /**
  * Revenue Share Record Entity
@@ -46,11 +47,8 @@ export class RevenueShareRecord {
   @Column({ type: 'decimal', precision: 18, scale: 2 })
   grossRevenue: number; // Total revenue from partner's bots
 
-  @Column({
-    type: 'enum',
-    enum: RevenueShareTier,
-  })
-  tier: RevenueShareTier;
+  @Column({ type: 'varchar', length: 50 })
+  tier: string;
 
   @Column({ type: 'decimal', precision: 5, scale: 2 })
   commissionRate: number; // e.g., 0.25 for 25%

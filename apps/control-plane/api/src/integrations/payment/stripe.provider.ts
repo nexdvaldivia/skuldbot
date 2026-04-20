@@ -600,6 +600,14 @@ export class StripeProvider implements PaymentProvider {
   }
 
   /**
+   * Detach a payment method from the customer.
+   */
+  async detachPaymentMethod(paymentMethodId: string): Promise<void> {
+    this.ensureConfigured();
+    await this.stripe!.paymentMethods.detach(paymentMethodId);
+  }
+
+  /**
    * Create a subscription with ACH as the payment method.
    * ACH payments are pulled automatically on invoice due date.
    *
