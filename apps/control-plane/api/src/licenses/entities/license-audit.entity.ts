@@ -30,7 +30,7 @@ export class LicenseAudit {
   @Column({ name: 'license_id', type: 'uuid' })
   licenseId: string;
 
-  @ManyToOne(() => License, (license) => license.auditTrail, { onDelete: 'CASCADE' })
+  @ManyToOne(() => License, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'license_id' })
   license: License;
 

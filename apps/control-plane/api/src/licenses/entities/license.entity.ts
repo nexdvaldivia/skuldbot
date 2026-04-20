@@ -6,10 +6,8 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
-  OneToMany,
 } from 'typeorm';
 import { Tenant } from '../../tenants/entities/tenant.entity';
-import { LicenseAudit } from './license-audit.entity';
 
 export interface LicenseFeatures {
   maxBots: number;
@@ -90,9 +88,6 @@ export class License {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
-
-  @OneToMany(() => LicenseAudit, (audit) => audit.license)
-  auditTrail: LicenseAudit[];
 
   isValid(): boolean {
     const now = new Date();
