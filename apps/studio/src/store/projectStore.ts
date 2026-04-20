@@ -1,5 +1,5 @@
-import { create } from 'zustand';
-import { invoke } from '@tauri-apps/api/tauri';
+import { create } from "zustand";
+import { invoke } from "@tauri-apps/api/tauri";
 import {
   ProjectManifest,
   BotReference,
@@ -8,14 +8,24 @@ import {
   EnvConfig,
   EnvVariable,
   ProjectStructure,
-} from '../types/project';
-import { FlowNode, FlowEdge, BotDSL, DSLNode, isContainerNodeType } from '../types/flow';
+} from "../types/project";
+import {
+  FlowNode,
+  FlowEdge,
+  BotDSL,
+  DSLNode,
+  FlowEdgeData,
+  isContainerNodeType,
+} from "../types/flow";
 import {
   buildExpressionNormalizationIndex,
   normalizeN8nExpressionsInValue,
-} from '../utils/expressionSyntax';
-import { useToastStore } from './toastStore';
-import { useTabsStore } from './tabsStore';
+} from "../utils/expressionSyntax";
+import { reconcileContainerNodes } from "../utils/containerNodes";
+import { sanitizeFlowGraph } from "../utils/flowSanitizer";
+import { getNodeTemplate } from "../data/nodeTemplates";
+import { useToastStore } from "./toastStore";
+import { useTabsStore } from "./tabsStore";
 
 // ============================================================
 // Project Store State
@@ -49,7 +59,7 @@ interface ProjectStoreState {
   updateProjectSettings: (settings: {
     name?: string;
     description?: string;
-    defaultBrowser?: 'chromium' | 'firefox' | 'edge' | 'webkit';
+    defaultBrowser?: "chromium" | "firefox" | "edge" | "webkit";
     defaultHeadless?: boolean;
     autoSaveEnabled?: boolean;
     autoSaveInterval?: number;
@@ -102,6 +112,25 @@ function createProjectStructure(projectPath: string): ProjectStructure {
 export function dslToFlowNodes(dsl: BotDSL): { nodes: FlowNode[]; edges: FlowEdge[] } {
   const nodes: FlowNode[] = [];
   const edges: FlowEdge[] = [];
+  const edgeRoutes = dsl.ui?.edgeRoutes || {};
+  const resolveManualRoute = (edgeId: string) => {
+    const route = edgeRoutes[edgeId];
+    if (!route || route.manual !== true) {
+      return undefined;
+    }
+    if (!Number.isFinite(route.centerX) || !Number.isFinite(route.centerY)) {
+      return undefined;
+    }
+    return {
+      centerX: route.centerX,
+      centerY: route.centerY,
+      manual: true as const,
+    };
+  };
+  const buildEdgeData = (edgeType: FlowEdgeData["edgeType"], edgeId: string) => {
+    const route = resolveManualRoute(edgeId);
+    return route ? { edgeType, route } : { edgeType };
+  };
 
   // Process nodes recursively to handle container children
   function processNode(dslNode: DSLNode, index: number, parentId?: string): void {
@@ -109,7 +138,7 @@ export function dslToFlowNodes(dsl: BotDSL): { nodes: FlowNode[]; edges: FlowEdg
 
     const flowNode: FlowNode = {
       id: dslNode.id,
-      type: isContainer ? 'groupNode' : 'customNode',
+      type: isContainer ? "groupNode" : "customNode",
       position: dslNode.position || { x: 250, y: 100 + index * 150 },
       // Container nodes need explicit dimensions
       ...(isContainer && {
@@ -118,18 +147,17 @@ export function dslToFlowNodes(dsl: BotDSL): { nodes: FlowNode[]; edges: FlowEdg
       // If this node is inside a container, set parentId (parentNode is deprecated in v12)
       ...(parentId && {
         parentId: parentId,
-        extent: 'parent' as const,
+        extent: "parent" as const,
       }),
       data: {
         label: dslNode.label || dslNode.type,
         nodeType: dslNode.type,
         config: dslNode.config,
-        category: dslNode.type.split('.')[0] as any,
+        category: dslNode.type.split(".")[0] as any,
         // Track child node IDs for containers
-        ...(isContainer &&
-          dslNode.children && {
-            childNodes: dslNode.children.map((c) => c.id),
-          }),
+        ...(isContainer && dslNode.children && {
+          childNodes: dslNode.children.map(c => c.id),
+        }),
       },
     };
 
@@ -143,84 +171,91 @@ export function dslToFlowNodes(dsl: BotDSL): { nodes: FlowNode[]; edges: FlowEdg
     }
 
     // Create edges for outputs
-    if (dslNode.outputs.success !== dslNode.id && dslNode.outputs.success !== 'END') {
+    if (dslNode.outputs.success !== dslNode.id && dslNode.outputs.success !== "END") {
+      const edgeId = `${dslNode.id}-success-${dslNode.outputs.success}`;
       edges.push({
-        id: `${dslNode.id}-success-${dslNode.outputs.success}`,
+        id: edgeId,
         source: dslNode.id,
         target: dslNode.outputs.success,
-        sourceHandle: 'success',
-        type: 'animated',
-        data: { edgeType: 'success' },
+        sourceHandle: "success",
+        type: "animated",
+        data: buildEdgeData("success", edgeId),
       });
     }
-    if (dslNode.outputs.error !== dslNode.id && dslNode.outputs.error !== 'END') {
+    if (dslNode.outputs.error !== dslNode.id && dslNode.outputs.error !== "END") {
+      const edgeId = `${dslNode.id}-error-${dslNode.outputs.error}`;
       edges.push({
-        id: `${dslNode.id}-error-${dslNode.outputs.error}`,
+        id: edgeId,
         source: dslNode.id,
         target: dslNode.outputs.error,
-        sourceHandle: 'error',
-        type: 'animated',
-        data: { edgeType: 'error' },
+        sourceHandle: "error",
+        type: "animated",
+        data: buildEdgeData("error", edgeId),
       });
     }
 
     // Restore special connections (model, tools, memory, embeddings)
     if (dslNode.connections) {
       if (dslNode.connections.model) {
+        const edgeId = `${dslNode.connections.model}-model-${dslNode.id}`;
         edges.push({
-          id: `${dslNode.connections.model}-model-${dslNode.id}`,
+          id: edgeId,
           source: dslNode.connections.model,
           target: dslNode.id,
-          sourceHandle: 'model-out',
-          targetHandle: 'model',
-          type: 'animated',
-          data: { edgeType: 'model' },
+          sourceHandle: "model-out",
+          targetHandle: "model",
+          type: "animated",
+          data: buildEdgeData("model", edgeId),
         });
       }
       if (dslNode.connections.tools) {
         dslNode.connections.tools.forEach((toolId) => {
+          const edgeId = `${toolId}-tool-${dslNode.id}`;
           edges.push({
-            id: `${toolId}-tool-${dslNode.id}`,
+            id: edgeId,
             source: toolId,
             target: dslNode.id,
-            sourceHandle: 'success',
-            targetHandle: 'tools',
-            type: 'animated',
-            data: { edgeType: 'tool' },
+            sourceHandle: "success",
+            targetHandle: "tools",
+            type: "animated",
+            data: buildEdgeData("tool", edgeId),
           });
         });
       }
       if (dslNode.connections.memory) {
+        const edgeId = `${dslNode.connections.memory}-memory-${dslNode.id}`;
         edges.push({
-          id: `${dslNode.connections.memory}-memory-${dslNode.id}`,
+          id: edgeId,
           source: dslNode.connections.memory,
           target: dslNode.id,
-          sourceHandle: 'memory-out',
-          targetHandle: 'memory',
-          type: 'animated',
-          data: { edgeType: 'memory' },
+          sourceHandle: "memory-out",
+          targetHandle: "memory",
+          type: "animated",
+          data: buildEdgeData("memory", edgeId),
         });
       }
       if (dslNode.connections.embeddings) {
+        const edgeId = `${dslNode.connections.embeddings}-embeddings-${dslNode.id}`;
         edges.push({
-          id: `${dslNode.connections.embeddings}-embeddings-${dslNode.id}`,
+          id: edgeId,
           source: dslNode.connections.embeddings,
           target: dslNode.id,
-          sourceHandle: 'embeddings-out',
-          targetHandle: 'embeddings',
-          type: 'animated',
-          data: { edgeType: 'embeddings' },
+          sourceHandle: "embeddings-out",
+          targetHandle: "embeddings",
+          type: "animated",
+          data: buildEdgeData("embeddings", edgeId),
         });
       }
       if (dslNode.connections.connection) {
+        const edgeId = `${dslNode.connections.connection}-connection-${dslNode.id}`;
         edges.push({
-          id: `${dslNode.connections.connection}-connection-${dslNode.id}`,
+          id: edgeId,
           source: dslNode.connections.connection,
           target: dslNode.id,
-          sourceHandle: 'connection-out',
-          targetHandle: 'connection',
-          type: 'animated',
-          data: { edgeType: 'connection' },
+          sourceHandle: "connection-out",
+          targetHandle: "connection",
+          type: "animated",
+          data: buildEdgeData("connection", edgeId),
         });
       }
     }
@@ -231,7 +266,7 @@ export function dslToFlowNodes(dsl: BotDSL): { nodes: FlowNode[]; edges: FlowEdg
     processNode(dslNode, index);
   });
 
-  return { nodes, edges };
+  return sanitizeFlowGraph(reconcileContainerNodes(nodes), edges);
 }
 
 function flowNodesToDSL(
@@ -239,7 +274,7 @@ function flowNodesToDSL(
   botName: string,
   botDescription: string | undefined,
   nodes: FlowNode[],
-  edges: FlowEdge[],
+  edges: FlowEdge[]
 ): BotDSL {
   const expressionIndex = buildExpressionNormalizationIndex(nodes);
 
@@ -261,24 +296,46 @@ function flowNodesToDSL(
 
   // Convert a FlowNode to DSLNode recursively
   function nodeToDSL(node: FlowNode): DSLNode {
-    const successEdge = edges.find((e) => e.source === node.id && e.sourceHandle === 'success');
-    const errorEdge = edges.find((e) => e.source === node.id && e.sourceHandle === 'error');
+    const successEdge = edges.find(
+      (e) => e.source === node.id && e.sourceHandle === "success"
+    );
+    const errorEdge = edges.find(
+      (e) => e.source === node.id && e.sourceHandle === "error"
+    );
 
     const isContainer = isContainerNodeType(node.data.nodeType);
     const children = childrenByParent.get(node.id);
     const normalizedNodeConfig = normalizeN8nExpressionsInValue(
       node.data.config || {},
       expressionIndex,
-      node.id,
+      node.id
     ) as Record<string, any>;
+
+    // COMPLIANCE: Strip secret fields from config before saving to bot.json
+    // Fields marked as secret:true or type:"password" in configSchema must NOT
+    // be persisted in plaintext. They are replaced with vault references.
+    const template = getNodeTemplate(node.data.nodeType);
+    const sanitizedConfig = { ...normalizedNodeConfig };
+    if (template?.configSchema) {
+      for (const field of template.configSchema) {
+        if ((field.secret || field.type === "password") && sanitizedConfig[field.name]) {
+          const value = String(sanitizedConfig[field.name]);
+          // Keep vault references (${vault.xxx}) — they are safe
+          if (!value.startsWith("${vault.") && !value.startsWith("{{$vault.")) {
+            // Replace plaintext secret with a vault reference placeholder
+            sanitizedConfig[field.name] = `\${vault.${node.data.nodeType.replace(".", "_")}_${field.name}}`;
+          }
+        }
+      }
+    }
 
     const dslNode: DSLNode = {
       id: node.id,
       type: node.data.nodeType,
-      config: normalizedNodeConfig,
+      config: sanitizedConfig,
       outputs: {
-        success: successEdge?.target || 'END',
-        error: errorEdge?.target || 'END',
+        success: successEdge?.target || "END",
+        error: errorEdge?.target || "END",
       },
       label: node.data.label,
       position: node.position,
@@ -291,41 +348,63 @@ function flowNodesToDSL(
 
     // Save special connections (model, tools, memory, embeddings, connection) for UI persistence
     const modelEdge = edges.find(
-      (e) => e.target === node.id && e.targetHandle === 'model' && e.data?.edgeType === 'model',
+      (e) =>
+        e.target === node.id &&
+        e.targetHandle === "model" &&
+        (e.data?.edgeType === "model" || e.sourceHandle === "model-out")
     );
     const toolEdges = edges.filter(
-      (e) => e.target === node.id && e.targetHandle === 'tools' && e.data?.edgeType === 'tool',
+      (e) =>
+        e.target === node.id &&
+        e.targetHandle === "tools" &&
+        (e.data?.edgeType === "tool" || e.sourceHandle === "tool-out")
     );
     const memoryEdge = edges.find(
-      (e) => e.target === node.id && e.targetHandle === 'memory' && e.data?.edgeType === 'memory',
+      (e) =>
+        e.target === node.id &&
+        e.targetHandle === "memory" &&
+        (e.data?.edgeType === "memory" || e.sourceHandle === "memory-out")
     );
     const embeddingsEdge = edges.find(
       (e) =>
         e.target === node.id &&
-        e.targetHandle === 'embeddings' &&
-        e.data?.edgeType === 'embeddings',
+        e.targetHandle === "embeddings" &&
+        (e.data?.edgeType === "embeddings" || e.sourceHandle === "embeddings-out")
     );
     const connectionEdge = edges.find(
-      (e) =>
-        e.target === node.id &&
-        e.targetHandle === 'connection' &&
-        e.data?.edgeType === 'connection',
+      (e) => {
+        if (e.target !== node.id) return false;
+        const sourceNode = nodes.find((candidate) => candidate.id === e.source);
+        if (!sourceNode) return false;
+
+        const isServiceConnectionSource =
+          sourceNode.data.nodeType === "ms365.connection" ||
+          sourceNode.data.nodeType === "storage.provider" ||
+          sourceNode.data.nodeType.startsWith("secrets.");
+        if (!isServiceConnectionSource) return false;
+
+        if (e.targetHandle === "connection" && (e.data?.edgeType === "connection" || e.sourceHandle === "connection-out")) {
+          return true;
+        }
+        if (e.data?.edgeType === "connection") return true;
+        if (e.sourceHandle === "connection-out") return true;
+        if (!e.sourceHandle && !e.targetHandle) return true;
+
+        return false;
+      }
     );
 
     // Debug: Log edges for this node
-    const nodeEdges = edges.filter((e) => e.target === node.id || e.source === node.id);
+    const nodeEdges = edges.filter(e => e.target === node.id || e.source === node.id);
     if (nodeEdges.length > 0) {
-      console.log(
-        `[DSL] Node ${node.id} edges:`,
-        nodeEdges.map((e) => ({
-          id: e.id,
-          source: e.source,
-          target: e.target,
-          sourceHandle: e.sourceHandle,
-          targetHandle: e.targetHandle,
-          edgeType: e.data?.edgeType,
-        })),
-      );
+      console.log(`[DSL] Node ${node.id} edges:`, nodeEdges.map(e => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        sourceHandle: e.sourceHandle,
+        targetHandle: e.targetHandle,
+        edgeType: e.data?.edgeType
+      })));
     }
 
     if (modelEdge || toolEdges.length > 0 || memoryEdge || embeddingsEdge || connectionEdge) {
@@ -335,7 +414,7 @@ function flowNodesToDSL(
         console.log(`[DSL] Saving model connection for ${node.id}:`, modelEdge.source);
       }
       if (toolEdges.length > 0) {
-        dslNode.connections.tools = toolEdges.map((e) => e.source);
+        dslNode.connections.tools = toolEdges.map(e => e.source);
         console.log(`[DSL] Saving tool connections for ${node.id}:`, dslNode.connections.tools);
       }
       if (memoryEdge) {
@@ -358,8 +437,21 @@ function flowNodesToDSL(
   // Convert top-level nodes only (children are nested inside their parents)
   const dslNodes = topLevelNodes.map(nodeToDSL);
 
-  const triggerNodes = topLevelNodes.filter((node) => node.data.category === 'trigger');
+  const triggerNodes = topLevelNodes.filter((node) => node.data.category === "trigger");
   const triggerIds = triggerNodes.map((node) => node.id);
+
+  const edgeRoutes = edges.reduce<Record<string, { centerX: number; centerY: number; manual: true }>>(
+    (acc, edge) => {
+      const centerX = edge.data?.route?.centerX;
+      const centerY = edge.data?.route?.centerY;
+      const isManual = edge.data?.route?.manual === true;
+      if (isManual && Number.isFinite(centerX) && Number.isFinite(centerY)) {
+        acc[edge.id] = { centerX: centerX as number, centerY: centerY as number, manual: true };
+      }
+      return acc;
+    },
+    {}
+  );
 
   // Determinar start_node: preferir nodo trigger, sino el primer nodo
   let startNode: string | undefined;
@@ -370,7 +462,7 @@ function flowNodesToDSL(
   }
 
   return {
-    version: '1.0',
+    version: "1.0",
     bot: {
       id: botId,
       name: botName,
@@ -379,6 +471,11 @@ function flowNodesToDSL(
     nodes: dslNodes,
     triggers: triggerIds.length > 0 ? triggerIds : undefined,
     start_node: startNode,
+    ...(Object.keys(edgeRoutes).length > 0 && {
+      ui: {
+        edgeRoutes,
+      },
+    }),
   };
 }
 
@@ -407,7 +504,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     set({ isLoading: true });
 
     try {
-      const manifest = await invoke<ProjectManifest>('create_project', {
+      const manifest = await invoke<ProjectManifest>("create_project", {
         path,
         name,
         description,
@@ -424,13 +521,13 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         isLoading: false,
       });
 
-      toast.success('Project created', `${name} created successfully`);
+      toast.success("Project created", `${name} created successfully`);
 
       // Refresh recent projects
       get().loadRecentProjects();
     } catch (error) {
-      console.error('Failed to create project:', error);
-      toast.error('Error creating project', String(error));
+      console.error("Failed to create project:", error);
+      toast.error("Error creating project", String(error));
       set({ isLoading: false });
     }
   },
@@ -438,14 +535,16 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   openProject: async (path) => {
     const toast = useToastStore.getState();
     set({ isLoading: true });
-    console.log('[projectStore] openProject called with path:', path);
+    console.log("[projectStore] openProject called with path:", path);
 
     try {
-      console.log('[projectStore] Calling invoke open_project...');
-      const manifest = await invoke<ProjectManifest>('open_project', { path });
-      console.log('[projectStore] Manifest received:', manifest);
-      const projectDir = path.endsWith('.skuld') ? path.substring(0, path.lastIndexOf('/')) : path;
-      console.log('[projectStore] Project dir:', projectDir);
+      console.log("[projectStore] Calling invoke open_project...");
+      const manifest = await invoke<ProjectManifest>("open_project", { path });
+      console.log("[projectStore] Manifest received:", manifest);
+      const projectDir = path.endsWith(".skuld")
+        ? path.substring(0, path.lastIndexOf("/"))
+        : path;
+      console.log("[projectStore] Project dir:", projectDir);
       const structure = createProjectStructure(projectDir);
 
       // Load bots metadata (not full content yet)
@@ -473,7 +572,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         isLoading: false,
       });
 
-      toast.success('Project opened', manifest.project.name);
+      toast.success("Project opened", manifest.project.name);
 
       // Refresh recent projects
       get().loadRecentProjects();
@@ -481,20 +580,20 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       // Auto-select the first bot if available
       if (manifest.bots.length > 0) {
         const firstBot = manifest.bots[0];
-        console.log('[projectStore] Auto-selecting first bot:', firstBot.id);
+        console.log("[projectStore] Auto-selecting first bot:", firstBot.id);
         await get().openBot(firstBot.id);
 
         // Also open a tab for the bot so it displays in the editor
         useTabsStore.getState().openTab({
           id: `bot-${firstBot.id}`,
-          type: 'bot',
+          type: "bot",
           botId: firstBot.id,
           title: firstBot.name,
           isDirty: false,
         });
       }
     } catch (error) {
-      console.error('Failed to open project:', error);
+      console.error("Failed to open project:", error);
       set({ isLoading: false });
     }
   },
@@ -503,7 +602,9 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     // Check for unsaved changes
     const { hasUnsavedChanges } = get();
     if (hasUnsavedChanges()) {
-      const shouldClose = window.confirm('You have unsaved changes. Close the project anyway?');
+      const shouldClose = window.confirm(
+        "You have unsaved changes. Close the project anyway?"
+      );
       if (!shouldClose) {
         return;
       }
@@ -524,23 +625,23 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     const toast = useToastStore.getState();
 
     if (!project || !projectPath || !structure) {
-      toast.warning('No project', 'No project is currently open');
+      toast.warning("No project", "No project is currently open");
       return;
     }
 
     set({ isSaving: true });
 
     try {
-      await invoke('save_project_manifest', {
+      await invoke("save_project_manifest", {
         path: structure.manifestPath,
         manifest: project,
       });
 
-      toast.success('Project saved', 'All changes saved');
+      toast.success("Project saved", "All changes saved");
       set({ isSaving: false });
     } catch (error) {
-      console.error('Failed to save project:', error);
-      toast.error('Error saving project', String(error));
+      console.error("Failed to save project:", error);
+      toast.error("Error saving project", String(error));
       set({ isSaving: false });
     }
   },
@@ -550,7 +651,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     const toast = useToastStore.getState();
 
     if (!project || !projectPath || !structure) {
-      toast.warning('No project', 'No project is currently open');
+      toast.warning("No project", "No project is currently open");
       return;
     }
 
@@ -566,31 +667,29 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       settings: {
         ...project.settings,
         ...(settings.defaultBrowser !== undefined && { defaultBrowser: settings.defaultBrowser }),
-        ...(settings.defaultHeadless !== undefined && {
-          defaultHeadless: settings.defaultHeadless,
-        }),
-        ...((settings.autoSaveEnabled !== undefined || settings.autoSaveInterval !== undefined) && {
+        ...(settings.defaultHeadless !== undefined && { defaultHeadless: settings.defaultHeadless }),
+        ...(settings.autoSaveEnabled !== undefined || settings.autoSaveInterval !== undefined) && {
           autoSave: {
             enabled: settings.autoSaveEnabled ?? project.settings.autoSave?.enabled ?? true,
             intervalMs: settings.autoSaveInterval ?? project.settings.autoSave?.intervalMs ?? 5000,
           },
-        }),
+        },
       },
     };
 
     set({ isSaving: true, project: updatedProject });
 
     try {
-      await invoke('save_project_manifest', {
+      await invoke("save_project_manifest", {
         path: structure.manifestPath,
         manifest: updatedProject,
       });
 
-      toast.success('Settings saved', 'Project settings updated');
+      toast.success("Settings saved", "Project settings updated");
       set({ isSaving: false });
     } catch (error) {
-      console.error('Failed to save project settings:', error);
-      toast.error('Error saving settings', String(error));
+      console.error("Failed to save project settings:", error);
+      toast.error("Error saving settings", String(error));
       // Revert to previous state on error
       set({ isSaving: false, project });
     }
@@ -605,12 +704,12 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     const toast = useToastStore.getState();
 
     if (!project || !projectPath || !structure) {
-      toast.warning('No project', 'Open a project first');
+      toast.warning("No project", "Open a project first");
       return null;
     }
 
     try {
-      const botRef = await invoke<BotReference>('create_bot', {
+      const botRef = await invoke<BotReference>("create_bot", {
         projectPath,
         name,
         description,
@@ -645,16 +744,16 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       });
 
       // Save manifest
-      await invoke('save_project_manifest', {
+      await invoke("save_project_manifest", {
         path: structure.manifestPath,
         manifest: updatedProject,
       });
 
-      toast.success('Bot created', name);
+      toast.success("Bot created", name);
       return botRef.id;
     } catch (error) {
-      console.error('Failed to create bot:', error);
-      toast.error('Error creating bot', String(error));
+      console.error("Failed to create bot:", error);
+      toast.error("Error creating bot", String(error));
       return null;
     }
   },
@@ -665,13 +764,13 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
 
     const bot = bots.get(botId);
     if (!bot || !structure || !projectPath) {
-      toast.error('Bot not found', `Bot ${botId} not found`);
+      toast.error("Bot not found", `Bot ${botId} not found`);
       return;
     }
 
     try {
       // Load bot DSL from disk
-      const dsl = await invoke<BotDSL>('load_bot', {
+      const dsl = await invoke<BotDSL>("load_bot", {
         botPath: bot.path,
       });
 
@@ -695,7 +794,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         activeBotId: botId,
       });
     } catch (error) {
-      console.error('Failed to open bot:', error);
+      console.error("Failed to open bot:", error);
     }
   },
 
@@ -706,7 +805,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     const bot = bots.get(botId);
     if (!bot || !bot.path) {
       if (!silent) {
-        toast.error('Bot not found', `Bot ${botId} not found`);
+        toast.error("Bot not found", `Bot ${botId} not found`);
       }
       return;
     }
@@ -715,10 +814,16 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
 
     try {
       // Convert flow nodes to DSL
-      const dsl = flowNodesToDSL(bot.id, bot.name, bot.description, bot.nodes, bot.edges);
+      const dsl = flowNodesToDSL(
+        bot.id,
+        bot.name,
+        bot.description,
+        bot.nodes,
+        bot.edges
+      );
 
       // Save to disk
-      await invoke('save_bot', {
+      await invoke("save_bot", {
         botPath: bot.path,
         dsl: JSON.stringify(dsl, null, 2),
       });
@@ -736,12 +841,12 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       set({ bots: newBots, isSaving: false });
 
       if (!silent) {
-        toast.success('Bot saved', bot.name);
+        toast.success("Bot saved", bot.name);
       }
     } catch (error) {
-      console.error('Failed to save bot:', error);
+      console.error("Failed to save bot:", error);
       if (!silent) {
-        toast.error('Error saving bot', String(error));
+        toast.error("Error saving bot", String(error));
       }
       set({ isSaving: false });
     }
@@ -777,13 +882,13 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
 
     const bot = bots.get(botId);
     if (!bot || !bot.path) {
-      toast.error('Bot not found', `Bot ${botId} not found`);
+      toast.error("Bot not found", `Bot ${botId} not found`);
       return;
     }
 
     try {
       // Delete from disk
-      await invoke('delete_bot', { botPath: bot.path });
+      await invoke("delete_bot", { botPath: bot.path });
 
       // Update bots map
       const newBots = new Map(bots);
@@ -805,15 +910,15 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       });
 
       // Save manifest
-      await invoke('save_project_manifest', {
+      await invoke("save_project_manifest", {
         path: structure.manifestPath,
         manifest: updatedProject,
       });
 
-      toast.success('Bot deleted', bot.name);
+      toast.success("Bot deleted", bot.name);
     } catch (error) {
-      console.error('Failed to delete bot:', error);
-      toast.error('Error deleting bot', String(error));
+      console.error("Failed to delete bot:", error);
+      toast.error("Error deleting bot", String(error));
     }
   },
 
@@ -825,7 +930,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
 
     const bot = bots.get(botId);
     if (!bot) {
-      toast.error('Bot not found', `Bot ${botId} not found`);
+      toast.error("Bot not found", `Bot ${botId} not found`);
       return;
     }
 
@@ -843,7 +948,9 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       // Update project manifest
       const updatedProject = {
         ...project,
-        bots: project.bots.map((b) => (b.id === botId ? { ...b, name: newName } : b)),
+        bots: project.bots.map((b) =>
+          b.id === botId ? { ...b, name: newName } : b
+        ),
       };
 
       set({
@@ -853,15 +960,15 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
 
       // Save both bot and manifest
       await get().saveBot(botId);
-      await invoke('save_project_manifest', {
+      await invoke("save_project_manifest", {
         path: structure.manifestPath,
         manifest: updatedProject,
       });
 
-      toast.success('Bot renamed', newName);
+      toast.success("Bot renamed", newName);
     } catch (error) {
-      console.error('Failed to rename bot:', error);
-      toast.error('Error renaming bot', String(error));
+      console.error("Failed to rename bot:", error);
+      toast.error("Error renaming bot", String(error));
     }
   },
 
@@ -888,7 +995,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
 
     const updatedBot: BotState = {
       ...bot,
-      nodes,
+      nodes: reconcileContainerNodes(nodes),
       isDirty: true,
     };
 
@@ -938,19 +1045,19 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
 
   loadRecentProjects: async () => {
     try {
-      const recent = await invoke<RecentProject[]>('get_recent_projects');
+      const recent = await invoke<RecentProject[]>("get_recent_projects");
       set({ recentProjects: recent });
     } catch (error) {
-      console.error('Failed to load recent projects:', error);
+      console.error("Failed to load recent projects:", error);
     }
   },
 
   removeRecentProject: async (path) => {
     try {
-      await invoke('remove_recent_project', { path });
+      await invoke("remove_recent_project", { path });
       await get().loadRecentProjects();
     } catch (error) {
-      console.error('Failed to remove recent project:', error);
+      console.error("Failed to remove recent project:", error);
     }
   },
 
@@ -964,14 +1071,14 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
 
     try {
       const envPath = `${structure.configDir}/env.json`;
-      const config = await invoke<EnvConfig>('load_env_config', { path: envPath });
+      const config = await invoke<EnvConfig>("load_env_config", { path: envPath });
       set({ envConfig: config });
     } catch (error) {
       // If file doesn't exist, initialize with empty config
-      console.log('No env config found, initializing empty config');
+      console.log("No env config found, initializing empty config");
       set({
         envConfig: {
-          activeScope: 'development',
+          activeScope: "development",
           variables: [],
         },
       });
@@ -983,7 +1090,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     const toast = useToastStore.getState();
 
     if (!structure) {
-      toast.warning('No project', 'No project is currently open');
+      toast.warning("No project", "No project is currently open");
       return;
     }
 
@@ -991,15 +1098,15 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
 
     try {
       const envPath = `${structure.configDir}/env.json`;
-      await invoke('save_env_config', {
+      await invoke("save_env_config", {
         path: envPath,
         config,
       });
       set({ envConfig: config, isSaving: false });
-      toast.success('Environment saved', 'Variables saved successfully');
+      toast.success("Environment saved", "Variables saved successfully");
     } catch (error) {
-      console.error('Failed to save env config:', error);
-      toast.error('Error saving', String(error));
+      console.error("Failed to save env config:", error);
+      toast.error("Error saving", String(error));
       set({ isSaving: false });
     }
   },

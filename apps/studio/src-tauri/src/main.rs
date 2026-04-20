@@ -6,7 +6,7 @@ mod mcp;
 mod ai_planner;
 
 use std::process::Command;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::fs;
 use std::io::ErrorKind;
 use tauri::api::path::app_data_dir;
@@ -46,8 +46,26 @@ struct ExecutionResult {
     message: String,
     output: Option<String>,
     logs: Vec<String>,
+    #[serde(rename = "errorDetail", skip_serializing_if = "Option::is_none")]
+    error_detail: Option<ExecutionErrorDetail>,
     #[serde(rename = "evidencePackPath")]
     evidence_pack_path: Option<String>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ExecutionErrorDetail {
+    code: String,
+    layer: String,
+    message: String,
+    hint: Option<String>,
+    node_id: Option<String>,
+    node_type: Option<String>,
+    retryable: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    causes: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    raw: Option<String>,
 }
 
 // ============================================================
@@ -120,9 +138,10 @@ struct DebugCommandResult {
 
 // Process handles
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::Mutex as TokioMutex;
 use std::process::{Child, Stdio};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Seek, SeekFrom, Write};
 
 // Global run_bot process handle (for cancellation)
 // Store the PID so we can kill the process tree
@@ -133,12 +152,23 @@ struct LiveDebugRuntime {
     child: Child,
     session_dir: PathBuf,
     log_file: PathBuf,
-    consumed_log_lines: usize,
+    output_dir: PathBuf,
+    consumed_log_offset: u64,
+    pending_log_fragment: String,
     session: DebugSessionState,
+}
+
+#[derive(Debug, Clone)]
+struct LiveDebugControl {
+    session_dir: PathBuf,
+    pid: u32,
 }
 
 static LIVE_DEBUG_RUNTIME: Lazy<Arc<TokioMutex<Option<LiveDebugRuntime>>>> =
     Lazy::new(|| Arc::new(TokioMutex::new(None)));
+static LIVE_DEBUG_CONTROL: Lazy<Arc<TokioMutex<Option<LiveDebugControl>>>> =
+    Lazy::new(|| Arc::new(TokioMutex::new(None)));
+static LIVE_DEBUG_STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
 
 // ============================================================
 // Vault Session State
@@ -252,7 +282,7 @@ fn get_engine_path() -> PathBuf {
     // Try multiple paths to find the engine
     let possible_paths = vec![
         // Absolute path (most reliable for development)
-        PathBuf::from("/Users/dubielvaldivia/Documents/khipus/skuldbot/engine"),
+        PathBuf::from("/Users/dubielvaldivia/Documents/khipus/skuldbot/services/engine"),
         // Relative from executable
         {
             let mut path = std::env::current_exe()
@@ -263,11 +293,12 @@ fn get_engine_path() -> PathBuf {
             for _ in 0..3 {
                 path.pop();
             }
+            path.push("services");
             path.push("engine");
             path
         },
         // Relative path (development)
-        PathBuf::from("../../engine"),
+        PathBuf::from("../../../services/engine"),
     ];
 
     for path in possible_paths {
@@ -278,7 +309,7 @@ fn get_engine_path() -> PathBuf {
     }
 
     // Fallback to absolute path
-    PathBuf::from("/Users/dubielvaldivia/Documents/khipus/skuldbot/engine")
+    PathBuf::from("/Users/dubielvaldivia/Documents/khipus/skuldbot/services/engine")
 }
 
 // Get Python executable from the engine's venv
@@ -299,6 +330,19 @@ fn get_python_executable() -> String {
             "python".to_string()
         }
     }
+}
+
+fn build_engine_pythonpath(engine_path: &Path) -> String {
+    let mut entries = vec![engine_path.as_os_str().to_os_string()];
+    if let Some(existing) = std::env::var_os("PYTHONPATH") {
+        if !existing.is_empty() {
+            entries.push(existing);
+        }
+    }
+
+    std::env::join_paths(entries)
+        .map(|v| v.to_string_lossy().to_string())
+        .unwrap_or_else(|_| engine_path.to_string_lossy().to_string())
 }
 
 // Setup status for UI notification
@@ -599,13 +643,9 @@ try:
 except Exception as e:
     print(f'WARN: Evidence writer unavailable: {{e}}')
 
-# Get robot executable
-python_dir = Path(sys.executable).parent
-robot_exe = str(python_dir / "robot") if (python_dir / "robot").exists() else "robot"
-
-# Run robot and capture output (use --extension skb for SkuldBot files)
+# Run robot through python module to avoid broken script shebangs after path moves
 result = subprocess.run(
-    [robot_exe, "--extension", "skb", "--loglevel", "DEBUG", "--outputdir", str(output_path), "--consolecolors", "off", str(main_skb)],
+    [sys.executable, "-m", "robot", "--extension", "skb", "--loglevel", "DEBUG", "--outputdir", str(output_path), "--consolecolors", "off", str(main_skb)],
     capture_output=True,
     text=True,
     cwd=bot_dir
@@ -617,6 +657,37 @@ for line in result.stdout.split('\n'):
         print(line)
         if evidence_writer:
             evidence_writer.add_log('INFO', line)
+
+failure_detail = ""
+if result.returncode != 0:
+    try:
+        import xml.etree.ElementTree as ET
+
+        output_xml = output_path / "output.xml"
+        if output_xml.exists():
+            root = ET.parse(output_xml).getroot()
+            fail_messages = []
+            for status in root.findall(".//status[@status='FAIL']"):
+                text = (status.text or "").strip()
+                if text:
+                    fail_messages.append(text)
+
+            for candidate in fail_messages:
+                lower = candidate.lower()
+                if lower.startswith("main ::") and "| fail |" in lower:
+                    continue
+                failure_detail = candidate
+                break
+
+            if not failure_detail and fail_messages:
+                failure_detail = fail_messages[-1]
+    except Exception as e:
+        print(f'WARN: Could not parse output.xml failure details: {{e}}')
+
+if failure_detail:
+    print('ERROR_DETAIL:', failure_detail)
+    if evidence_writer:
+        evidence_writer.add_log('ERROR', failure_detail)
 
 print('STATUS:', 'success' if result.returncode == 0 else 'failed')
 print('SUCCESS:', result.returncode == 0)
@@ -661,6 +732,7 @@ if evidence_writer:
     let mut child = Command::new(&python_exe)
         .arg("-c")
         .arg(&python_script)
+        .env("PYTHONPATH", build_engine_pythonpath(&engine_path))
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -727,27 +799,45 @@ if evidence_writer:
         })
         .filter(|value| !value.is_empty());
 
-    println!("📝 Output: {}", stdout_content);
-    if !stderr_content.is_empty() {
-        println!("⚠️  Stderr: {}", stderr_content);
-    }
+    let stdout_lines = stdout_content.lines().count();
+    let stderr_lines = stderr_content.lines().count();
+    println!(
+        "📝 run_bot completed (success={}, stdout_lines={}, stderr_lines={})",
+        success, stdout_lines, stderr_lines
+    );
     let _ = std::fs::remove_file(&dsl_file);
+
+    let mut logs: Vec<String> = stdout_content.lines().map(|s| s.to_string()).collect();
+    if !stderr_content.is_empty() {
+        logs.extend(stderr_content.lines().map(|s| s.to_string()));
+    }
 
     if success {
         Ok(ExecutionResult {
             success: true,
             message: "Bot executed successfully".to_string(),
             output: Some(stdout_content.clone()),
-            logs: stdout_content.lines().map(|s| s.to_string()).collect(),
+            logs,
+            error_detail: None,
             evidence_pack_path,
         })
-    } else {
+    } else if stdout_content.is_empty() && stderr_content.is_empty() {
         // Check if it was cancelled
-        if stdout_content.is_empty() && stderr_content.is_empty() {
-            Err("Execution cancelled".to_string())
-        } else {
-            Err(format!("Execution error: {}\n{}", stdout_content, stderr_content))
-        }
+        Err("Execution cancelled".to_string())
+    } else {
+        let failure_message = extract_run_failure_message(&stdout_content, &stderr_content);
+        Ok(ExecutionResult {
+            success: false,
+            message: failure_message.clone(),
+            output: Some(stdout_content.clone()),
+            logs,
+            error_detail: Some(extract_execution_error_detail(
+                &stdout_content,
+                &stderr_content,
+                &failure_message,
+            )),
+            evidence_pack_path,
+        })
     }
 }
 
@@ -820,6 +910,418 @@ fn unix_now_seconds() -> f64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs_f64())
         .unwrap_or(0.0)
+}
+
+fn push_unique_error_line(lines: &mut Vec<String>, value: String) {
+    let normalized = value.trim();
+    if normalized.is_empty() {
+        return;
+    }
+    if lines.iter().any(|existing| existing == normalized) {
+        return;
+    }
+    lines.push(normalized.to_string());
+}
+
+fn sanitize_runtime_error_line(line: &str) -> Option<String> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let sanitized = if let Some(detail) = trimmed.strip_prefix("[ ERROR ]") {
+        detail.trim()
+    } else if let Some(detail) = trimmed.strip_prefix("ERROR_DETAIL:") {
+        detail.trim()
+    } else if let Some(detail) = trimmed.strip_prefix("Bot failed:") {
+        detail.trim()
+    } else if let Some(detail) = trimmed.strip_prefix("ERROR:") {
+        detail.trim()
+    } else if let Some(detail) = trimmed.strip_prefix("ERR") {
+        detail.trim()
+    } else {
+        trimmed
+    };
+
+    if sanitized.is_empty() {
+        return None;
+    }
+
+    if sanitized.starts_with("STATUS:")
+        || sanitized.starts_with("SUCCESS:")
+        || sanitized.starts_with("Output:")
+        || sanitized.starts_with("Log:")
+        || sanitized.starts_with("Report:")
+        || sanitized.starts_with("EVIDENCE_PACK_PATH:")
+    {
+        return None;
+    }
+
+    Some(sanitized.to_string())
+}
+
+fn parse_failed_node_from_line(line: &str) -> Option<(String, String)> {
+    let pattern =
+        regex::Regex::new(r"(?:\[ ERROR \]\s*)?✗?\s*Node\s+([A-Za-z0-9._:-]+)\s+failed:\s*(.+)$")
+            .ok()?;
+    let captures = pattern.captures(line.trim())?;
+    let node_id = captures.get(1)?.as_str().trim();
+    let message = captures.get(2)?.as_str().trim();
+    if node_id.is_empty() || message.is_empty() {
+        return None;
+    }
+    Some((node_id.to_string(), message.to_string()))
+}
+
+fn extract_validation_failure_details(stdout_content: &str) -> Vec<String> {
+    let lines: Vec<String> = stdout_content
+        .lines()
+        .map(|line| line.trim().to_string())
+        .filter(|line| !line.is_empty())
+        .collect();
+
+    let Some((idx, _)) = lines
+        .iter()
+        .enumerate()
+        .find(|(_, line)| line.eq_ignore_ascii_case("ERROR: Validation failed"))
+    else {
+        return Vec::new();
+    };
+
+    lines
+        .iter()
+        .skip(idx + 1)
+        .map(|line| line.trim_start_matches('-').trim().to_string())
+        .filter(|line| !line.is_empty())
+        .filter(|line| {
+            !line.starts_with("STATUS:")
+                && !line.starts_with("SUCCESS:")
+                && !line.starts_with("STDERR:")
+                && !line.starts_with("Output:")
+                && !line.starts_with("Log:")
+                && !line.starts_with("Report:")
+                && !line.starts_with("EVIDENCE_PACK_PATH:")
+        })
+        .collect()
+}
+
+fn collect_execution_error_causes(stdout_content: &str, stderr_content: &str) -> Vec<String> {
+    let mut causes: Vec<String> = Vec::new();
+    for raw in stdout_content.lines().chain(stderr_content.lines()) {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        let is_signal = trimmed.starts_with("ERROR_DETAIL:")
+            || trimmed.starts_with("Bot failed:")
+            || trimmed.starts_with("ERROR:")
+            || trimmed.starts_with("ERR")
+            || trimmed.contains("[ ERROR ]")
+            || trimmed.contains("| FAIL |")
+            || trimmed.starts_with('-');
+
+        if !is_signal {
+            continue;
+        }
+
+        if let Some(cleaned) = sanitize_runtime_error_line(trimmed) {
+            if is_unhelpful_robot_failure_summary(&cleaned) {
+                continue;
+            }
+            push_unique_error_line(&mut causes, cleaned);
+        }
+    }
+
+    causes.truncate(8);
+    causes
+}
+
+fn classify_execution_error(
+    message: &str,
+    causes: &[String],
+    node_id: &Option<String>,
+) -> (String, String, bool, Option<String>) {
+    let mut haystack = message.to_ascii_lowercase();
+    for cause in causes {
+        haystack.push('\n');
+        haystack.push_str(&cause.to_ascii_lowercase());
+    }
+
+    if haystack.contains("validation failed") {
+        return (
+            "VALIDATION_FAILED".to_string(),
+            "compiler".to_string(),
+            false,
+            Some("Fix the flow/node configuration reported by the validator and run again.".to_string()),
+        );
+    }
+
+    if haystack.contains("failed to parse agent response as json")
+        || haystack.contains("invalid json response")
+    {
+        return (
+            "AI_INVALID_JSON_RESPONSE".to_string(),
+            "ai".to_string(),
+            true,
+            Some("Force strict JSON output in the prompt and process one document/item per agent call.".to_string()),
+        );
+    }
+
+    if haystack.contains("llm call failed: 404")
+        || haystack.contains("404 page not found")
+        || haystack.contains("model not found")
+    {
+        return (
+            "AI_ENDPOINT_NOT_FOUND".to_string(),
+            "ai".to_string(),
+            false,
+            Some("Verify provider URL, model name, and credentials in the connected AI Model node.".to_string()),
+        );
+    }
+
+    if haystack.contains("variable '${") && haystack.contains("not found") {
+        return (
+            "MISSING_VARIABLE".to_string(),
+            "runtime".to_string(),
+            false,
+            Some("Ensure the variable exists in previous nodes/inputs and keep references updated after node rename/delete.".to_string()),
+        );
+    }
+
+    if haystack.contains("isadirectoryerror") || haystack.contains("is a directory") {
+        return (
+            "INVALID_TARGET_PATH".to_string(),
+            "runtime".to_string(),
+            false,
+            Some("Provide a full file key/name (not only a directory) for writer nodes.".to_string()),
+        );
+    }
+
+    if haystack.contains("module not found")
+        || haystack.contains("modulenotfounderror")
+        || haystack.contains("importing library")
+    {
+        return (
+            "DEPENDENCY_IMPORT_ERROR".to_string(),
+            "runtime".to_string(),
+            false,
+            Some("Check engine dependencies and PYTHONPATH/venv alignment before execution.".to_string()),
+        );
+    }
+
+    if haystack.contains("no files matched pattern") {
+        return (
+            "NO_FILES_MATCHED".to_string(),
+            "runtime".to_string(),
+            false,
+            Some("Review source path/prefix and glob pattern for the file listing node.".to_string()),
+        );
+    }
+
+    if node_id.is_some() {
+        return (
+            "NODE_EXECUTION_FAILED".to_string(),
+            "runtime".to_string(),
+            false,
+            Some("Inspect the failed node envelope and upstream input payload in the debugger.".to_string()),
+        );
+    }
+
+    (
+        "EXECUTION_FAILED".to_string(),
+        "runtime".to_string(),
+        false,
+        None,
+    )
+}
+
+fn extract_execution_error_detail(
+    stdout_content: &str,
+    stderr_content: &str,
+    fallback_message: &str,
+) -> ExecutionErrorDetail {
+    let mut node_id: Option<String> = None;
+    let mut node_message: Option<String> = None;
+
+    for raw in stdout_content.lines().chain(stderr_content.lines()).rev() {
+        if let Some((parsed_node_id, parsed_message)) = parse_failed_node_from_line(raw) {
+            node_id = Some(parsed_node_id);
+            node_message = Some(parsed_message);
+            break;
+        }
+    }
+
+    let validation_details = extract_validation_failure_details(stdout_content);
+    let mut causes = collect_execution_error_causes(stdout_content, stderr_content);
+    for detail in validation_details.iter() {
+        push_unique_error_line(&mut causes, detail.clone());
+    }
+
+    if let Some(message) = node_message.clone() {
+        push_unique_error_line(&mut causes, message);
+    }
+
+    let message = if !validation_details.is_empty() {
+        format!("Validation failed: {}", validation_details[0])
+    } else if let Some(node_message) = node_message {
+        node_message
+    } else {
+        fallback_message.trim().to_string()
+    };
+
+    let trimmed_message = if message.trim().is_empty() {
+        "Execution failed".to_string()
+    } else {
+        message
+    };
+    let raw = causes.first().cloned();
+
+    let inferred_node_type = if let Some(node_id_value) = node_id.as_ref() {
+        let lower_node = node_id_value.to_ascii_lowercase();
+        if lower_node.contains("agent") || trimmed_message.to_ascii_lowercase().contains("ai agent") {
+            Some("ai.agent".to_string())
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let (code, layer, retryable, hint) =
+        classify_execution_error(&trimmed_message, &causes, &node_id);
+
+    ExecutionErrorDetail {
+        code,
+        layer,
+        message: trimmed_message,
+        hint,
+        node_id,
+        node_type: inferred_node_type,
+        retryable,
+        causes,
+        raw,
+    }
+}
+
+fn extract_run_failure_message(stdout_content: &str, stderr_content: &str) -> String {
+    let lines: Vec<String> = stdout_content
+        .lines()
+        .map(|line| line.trim().to_string())
+        .filter(|line| !line.is_empty())
+        .collect();
+
+    // Surface validator details emitted after "ERROR: Validation failed".
+    // Example:
+    // ERROR: Validation failed
+    //   - Start node 'x' does not exist
+    //   - Unreachable node: y
+    if let Some((idx, _)) = lines
+        .iter()
+        .enumerate()
+        .find(|(_, line)| line.eq_ignore_ascii_case("ERROR: Validation failed"))
+    {
+        let validation_details: Vec<String> = lines
+            .iter()
+            .skip(idx + 1)
+            .map(|line| line.trim_start_matches('-').trim().to_string())
+            .filter(|line| !line.is_empty())
+            .filter(|line| {
+                !line.starts_with("STATUS:")
+                    && !line.starts_with("SUCCESS:")
+                    && !line.starts_with("STDERR:")
+                    && !line.starts_with("Output:")
+                    && !line.starts_with("Log:")
+                    && !line.starts_with("Report:")
+                    && !line.starts_with("EVIDENCE_PACK_PATH:")
+            })
+            .collect();
+        if let Some(first) = validation_details.first() {
+            return format!("Validation failed: {}", first);
+        }
+        return "Validation failed".to_string();
+    }
+
+    for line in lines.iter().rev() {
+        let trimmed = line.as_str();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        if let Some(detail) = trimmed.strip_prefix("ERROR_DETAIL:") {
+            let detail = detail.trim();
+            if !detail.is_empty() {
+                return detail.to_string();
+            }
+        }
+
+        if let Some(detail) = trimmed.strip_prefix("Bot failed:") {
+            let detail = detail.trim();
+            if !detail.is_empty() {
+                return detail.to_string();
+            }
+        }
+    }
+
+    for (idx, line) in lines.iter().enumerate().rev() {
+        let trimmed = line.as_str();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        if trimmed.contains("| FAIL |") {
+            if let Some((_, tail)) = trimmed.split_once("| FAIL |") {
+                let detail = tail.trim();
+                if !detail.is_empty() {
+                    return format!("Task failed: {}", detail);
+                }
+            }
+
+            for candidate in lines.iter().skip(idx + 1) {
+                let candidate = candidate.trim();
+                if candidate.is_empty()
+                    || candidate.contains("| FAIL |")
+                    || candidate.starts_with("STATUS:")
+                    || candidate.starts_with("SUCCESS:")
+                    || candidate.starts_with("Output:")
+                    || candidate.starts_with("Log:")
+                    || candidate.starts_with("Report:")
+                    || candidate.starts_with("EVIDENCE_PACK_PATH:")
+                {
+                    continue;
+                }
+                return candidate.to_string();
+            }
+
+            if !trimmed.to_ascii_lowercase().starts_with("main ::") {
+                return trimmed.to_string();
+            }
+            continue;
+        }
+
+        if let Some(detail) = trimmed.strip_prefix("[ ERROR ]") {
+            let detail = detail.trim();
+            if !detail.is_empty() {
+                return detail.to_string();
+            }
+        }
+
+        if let Some(detail) = trimmed.strip_prefix("ERROR:") {
+            let detail = detail.trim();
+            if !detail.is_empty() {
+                return detail.to_string();
+            }
+        }
+    }
+
+    for line in stderr_content.lines().rev() {
+        let trimmed = line.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+
+    "Bot execution failed".to_string()
 }
 
 const LIVE_DEBUG_WAIT_TIMEOUT_MIN_MS: u64 = 1_000;
@@ -945,6 +1447,232 @@ fn parse_debug_marker(log_line: &str, prefix: &str) -> Option<(String, String)> 
     Some((node_id.to_string(), node_type.to_string()))
 }
 
+fn parse_runtime_failure_message(log_line: &str) -> Option<String> {
+    let trimmed = log_line.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    if let Some(detail) = trimmed.strip_prefix("ERROR_DETAIL:") {
+        let detail = detail.trim();
+        if !detail.is_empty() {
+            return Some(detail.to_string());
+        }
+        return Some("Execution failed".to_string());
+    }
+
+    if let Some((_, tail)) = trimmed.split_once("Bot failed:") {
+        let detail = tail.trim();
+        if !detail.is_empty() {
+            return Some(detail.to_string());
+        }
+        return Some("Bot failed".to_string());
+    }
+
+    if trimmed.contains("| FAIL |") {
+        if let Some((_, tail)) = trimmed.split_once("| FAIL |") {
+            let detail = tail.trim();
+            if !detail.is_empty() {
+                return Some(format!("Task failed: {}", detail));
+            }
+        }
+        if trimmed.to_ascii_lowercase().starts_with("main ::") {
+            return None;
+        }
+        return Some(trimmed.to_string());
+    }
+
+    let lower = trimmed.to_ascii_lowercase();
+    if lower == "status: failed" || lower.starts_with("status: failed") {
+        return Some("Execution failed".to_string());
+    }
+
+    if let Some(idx) = trimmed.find("[ ERROR ]") {
+        let detail = trimmed[(idx + "[ ERROR ]".len())..].trim();
+        if !detail.is_empty() {
+            return Some(detail.to_string());
+        }
+        return Some("Execution error".to_string());
+    }
+
+    if let Some(detail) = trimmed.strip_prefix("ERROR:") {
+        let detail = detail.trim();
+        if !detail.is_empty() {
+            return Some(detail.to_string());
+        }
+        return Some("Execution error".to_string());
+    }
+
+    if let Some(detail) = trimmed.strip_prefix("ERROR:") {
+        let detail = detail.trim();
+        if !detail.is_empty() {
+            return Some(detail.to_string());
+        }
+        return Some("Execution error".to_string());
+    }
+
+    None
+}
+
+fn decode_robot_xml_text(text: &str) -> String {
+    text.replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&amp;", "&")
+        .replace("&quot;", "\"")
+        .replace("&apos;", "'")
+        .replace("&#10;", "\n")
+        .replace("&#13;", "\r")
+}
+
+fn clean_robot_xml_inner_text(text: &str) -> String {
+    let without_tags = regex::Regex::new(r"<[^>]+>")
+        .map(|re| re.replace_all(text, "").to_string())
+        .unwrap_or_else(|_| text.to_string());
+    decode_robot_xml_text(&without_tags)
+        .replace('\u{00a0}', " ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .trim()
+        .to_string()
+}
+
+fn is_unhelpful_robot_failure_summary(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    (lower.starts_with("main ::") && lower.contains("| fail |")) || lower == "execution failed"
+}
+
+fn extract_robot_failure_detail_from_output_xml(output_dir: &Path) -> Option<String> {
+    let output_xml = output_dir.join("output.xml");
+    let content = fs::read_to_string(&output_xml).ok()?;
+
+    let status_re = regex::Regex::new(r#"(?s)<status[^>]*status="FAIL"[^>]*>(.*?)</status>"#).ok()?;
+    let fail_msg_re = regex::Regex::new(r#"(?s)<msg[^>]*level="FAIL"[^>]*>(.*?)</msg>"#).ok()?;
+    let error_msg_re = regex::Regex::new(r#"(?s)<msg[^>]*level="ERROR"[^>]*>(.*?)</msg>"#).ok()?;
+
+    let mut candidates: Vec<String> = Vec::new();
+
+    for caps in status_re.captures_iter(&content) {
+        if let Some(m) = caps.get(1) {
+            let cleaned = clean_robot_xml_inner_text(m.as_str());
+            if !cleaned.is_empty() {
+                candidates.push(cleaned);
+            }
+        }
+    }
+
+    for caps in fail_msg_re.captures_iter(&content) {
+        if let Some(m) = caps.get(1) {
+            let cleaned = clean_robot_xml_inner_text(m.as_str());
+            if !cleaned.is_empty() {
+                candidates.push(cleaned);
+            }
+        }
+    }
+
+    for caps in error_msg_re.captures_iter(&content) {
+        if let Some(m) = caps.get(1) {
+            let cleaned = clean_robot_xml_inner_text(m.as_str());
+            if !cleaned.is_empty() {
+                candidates.push(cleaned);
+            }
+        }
+    }
+
+    for candidate in &candidates {
+        if !is_unhelpful_robot_failure_summary(candidate) {
+            return Some(candidate.clone());
+        }
+    }
+
+    candidates.into_iter().next()
+}
+
+fn resolve_runtime_error_node_id(session: &DebugSessionState) -> Option<String> {
+    if let Some(current) = session.current_node_id.as_ref() {
+        return Some(current.clone());
+    }
+
+    for node_id in session.execution_order.iter().rev() {
+        if let Some(entry) = session.node_executions.get(node_id) {
+            if entry.status == "running" || entry.status == "pending" {
+                return Some(node_id.clone());
+            }
+        }
+    }
+
+    for node_id in session.execution_order.iter().rev() {
+        if let Some(entry) = session.node_executions.get(node_id) {
+            if entry.status != "pending" {
+                return Some(node_id.clone());
+            }
+        }
+    }
+
+    session.execution_order.last().cloned()
+}
+
+fn mark_live_session_error(session: &mut DebugSessionState, message: &str) {
+    let detail = message.trim();
+    let error_message = if detail.is_empty() {
+        "Execution failed".to_string()
+    } else {
+        detail.to_string()
+    };
+
+    session.state = "error".to_string();
+    session.paused_at_breakpoint = false;
+
+    let target_node_id = resolve_runtime_error_node_id(session);
+    if let Some(node_id) = target_node_id {
+        session.current_node_id = Some(node_id.clone());
+        let entry = get_or_create_node_execution(session, &node_id, None);
+        if entry.start_time.is_none() {
+            entry.start_time = Some(unix_now_seconds());
+        }
+        entry.end_time = Some(unix_now_seconds());
+        entry.status = "error".to_string();
+        entry.error = Some(error_message.clone());
+        let vars = ensure_variable_object(entry);
+        vars.insert(
+            "status".to_string(),
+            serde_json::Value::String("error".to_string()),
+        );
+        vars.insert(
+            "error".to_string(),
+            serde_json::Value::String(error_message),
+        );
+    } else {
+        session.current_node_id = None;
+    }
+}
+
+fn extract_live_session_error_message(session: &DebugSessionState) -> Option<String> {
+    if let Some(node_id) = resolve_runtime_error_node_id(session) {
+        if let Some(entry) = session.node_executions.get(&node_id) {
+            if let Some(error) = entry.error.as_ref() {
+                let detail = error.trim();
+                if !detail.is_empty() {
+                    return Some(format!("{} (node: {})", detail, node_id));
+                }
+            }
+        }
+    }
+
+    if let Some(last_error) = session
+        .global_variables
+        .get("LAST_ERROR")
+        .and_then(|v| v.as_str())
+    {
+        let detail = last_error.trim();
+        if !detail.is_empty() {
+            return Some(detail.to_string());
+        }
+    }
+
+    None
+}
+
 fn get_or_create_node_execution<'a>(
     session: &'a mut DebugSessionState,
     node_id: &str,
@@ -995,16 +1723,58 @@ fn recompute_live_global_variables(session: &mut DebugSessionState) {
     session.global_variables = serde_json::Value::Object(globals);
 }
 
+fn extract_complete_log_lines(chunk: &str, pending_fragment: &str) -> (Vec<String>, String) {
+    let mut combined = String::new();
+    if !pending_fragment.is_empty() {
+        combined.push_str(pending_fragment);
+    }
+    if !chunk.is_empty() {
+        combined.push_str(chunk);
+    }
+    if combined.is_empty() {
+        return (Vec::new(), String::new());
+    }
+
+    let has_terminal_newline = combined.ends_with('\n') || combined.ends_with('\r');
+    let mut lines: Vec<String> = combined.lines().map(|s| s.to_string()).collect();
+    if has_terminal_newline {
+        return (lines, String::new());
+    }
+
+    let pending = lines.pop().unwrap_or_default();
+    (lines, pending)
+}
+
 fn read_new_runtime_log_lines(runtime: &mut LiveDebugRuntime) -> Vec<String> {
-    let content = fs::read_to_string(&runtime.log_file).unwrap_or_default();
-    let lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
-    if runtime.consumed_log_lines >= lines.len() {
-        runtime.consumed_log_lines = lines.len();
+    let mut file = match fs::File::open(&runtime.log_file) {
+        Ok(file) => file,
+        Err(_) => return Vec::new(),
+    };
+
+    let current_len = file.metadata().map(|m| m.len()).unwrap_or(0);
+    if runtime.consumed_log_offset > current_len {
+        runtime.consumed_log_offset = 0;
+        runtime.pending_log_fragment.clear();
+    }
+
+    if file
+        .seek(SeekFrom::Start(runtime.consumed_log_offset))
+        .is_err()
+    {
         return Vec::new();
     }
-    let new_lines = lines[runtime.consumed_log_lines..].to_vec();
-    runtime.consumed_log_lines = lines.len();
-    new_lines
+
+    let mut chunk = String::new();
+    if file.read_to_string(&mut chunk).is_err() {
+        return Vec::new();
+    }
+    runtime.consumed_log_offset = runtime
+        .consumed_log_offset
+        .saturating_add(chunk.as_bytes().len() as u64);
+
+    let (lines, pending_fragment) = extract_complete_log_lines(&chunk, &runtime.pending_log_fragment);
+    runtime.pending_log_fragment = pending_fragment;
+    lines
 }
 
 fn apply_live_log_lines(session: &mut DebugSessionState, lines: &[String]) {
@@ -1097,9 +1867,8 @@ fn apply_live_log_lines(session: &mut DebugSessionState, lines: &[String]) {
             continue;
         }
 
-        if line.contains("Bot failed:") {
-            session.state = "error".to_string();
-            session.paused_at_breakpoint = false;
+        if let Some(error_message) = parse_runtime_failure_message(line) {
+            mark_live_session_error(session, &error_message);
             continue;
         }
     }
@@ -1110,6 +1879,37 @@ fn apply_live_log_lines(session: &mut DebugSessionState, lines: &[String]) {
 fn write_debug_control_file(session_dir: &PathBuf, name: &str, content: &str) -> Result<(), String> {
     let file = session_dir.join(name);
     fs::write(file, content).map_err(|e| format!("Failed to write debug control file: {}", e))
+}
+
+fn write_live_breakpoints_file(session_dir: &PathBuf, breakpoints: &[String]) -> Result<(), String> {
+    let file = session_dir.join("breakpoints.json");
+    let payload = serde_json::to_string(breakpoints)
+        .map_err(|e| format!("Failed to serialize breakpoints: {}", e))?;
+    fs::write(file, payload).map_err(|e| format!("Failed to write breakpoints file: {}", e))
+}
+
+fn parse_requested_debug_session(session_state_json: &str) -> Result<DebugSessionState, String> {
+    serde_json::from_str::<DebugSessionState>(session_state_json)
+        .map_err(|e| format!("Invalid session state payload: {}", e))
+}
+
+fn kill_process_tree(pid: u32) {
+    #[cfg(unix)]
+    {
+        let _ = std::process::Command::new("pkill")
+            .args(["-P", &pid.to_string()])
+            .output();
+        let _ = std::process::Command::new("kill")
+            .args(["-9", &pid.to_string()])
+            .output();
+    }
+
+    #[cfg(windows)]
+    {
+        let _ = std::process::Command::new("taskkill")
+            .args(["/F", "/T", "/PID", &pid.to_string()])
+            .output();
+    }
 }
 
 async fn wait_for_live_debug_state(
@@ -1138,10 +1938,23 @@ async fn wait_for_live_debug_state(
             runtime.session.state = if status.success() {
                 "completed".to_string()
             } else {
+                let status_hint = extract_robot_failure_detail_from_output_xml(&runtime.output_dir)
+                    .unwrap_or_else(|| {
+                        status
+                            .code()
+                            .map(|code| format!("Robot exited with non-zero status ({})", code))
+                            .unwrap_or_else(|| "Robot terminated by signal".to_string())
+                    });
+                mark_live_session_error(
+                    &mut runtime.session,
+                    &status_hint,
+                );
                 "error".to_string()
             };
-            runtime.session.current_node_id = None;
-            runtime.session.paused_at_breakpoint = false;
+            if status.success() {
+                runtime.session.current_node_id = None;
+                runtime.session.paused_at_breakpoint = false;
+            }
             break;
         }
         if std::time::Instant::now() >= deadline {
@@ -1149,6 +1962,13 @@ async fn wait_for_live_debug_state(
             break;
         }
         tokio::time::sleep(Duration::from_millis(120)).await;
+    }
+
+    if (runtime.session.state == "completed" || runtime.session.state == "error")
+        && !runtime.pending_log_fragment.is_empty()
+    {
+        let pending_line = std::mem::take(&mut runtime.pending_log_fragment);
+        apply_live_log_lines(&mut runtime.session, &[pending_line]);
     }
 
     Ok(timed_out)
@@ -1179,14 +1999,21 @@ async fn debug_start(
         return Err("Compiled bot does not contain main.skb".to_string());
     }
 
+    LIVE_DEBUG_STOP_REQUESTED.store(false, Ordering::SeqCst);
+
     {
         let mut guard = LIVE_DEBUG_RUNTIME.lock().await;
         if let Some(mut runtime) = guard.take() {
             let _ = write_debug_control_file(&runtime.session_dir, "stop.token", "1");
+            kill_process_tree(runtime.child.id());
             let _ = runtime.child.kill();
             let _ = runtime.child.wait();
-            let _ = fs::remove_dir_all(runtime.session_dir);
+            let _ = fs::remove_dir_all(&runtime.session_dir);
         }
+    }
+    {
+        let mut control_guard = LIVE_DEBUG_CONTROL.lock().await;
+        *control_guard = None;
     }
 
     let session_id = Uuid::new_v4().to_string();
@@ -1194,6 +2021,7 @@ async fn debug_start(
     fs::create_dir_all(&session_dir)
         .map_err(|e| format!("Failed to create debug session dir: {}", e))?;
     write_debug_control_file(&session_dir, "mode", "step")?;
+    write_live_breakpoints_file(&session_dir, &breakpoints)?;
 
     let log_file = session_dir.join("run.log");
     let log_out = fs::OpenOptions::new()
@@ -1210,25 +2038,14 @@ async fn debug_start(
         .map_err(|e| format!("Failed to create debug output dir: {}", e))?;
 
     let python_exe = get_python_executable();
-    let python_path = PathBuf::from(&python_exe);
-    let robot_exe = if python_path.is_absolute() {
-        let candidate = python_path
-            .parent()
-            .map(|p| p.join("robot"))
-            .ok_or("Invalid python executable path".to_string())?;
-        if candidate.exists() {
-            candidate.to_string_lossy().to_string()
-        } else {
-            "robot".to_string()
-        }
-    } else {
-        "robot".to_string()
-    };
+    let engine_path = get_engine_path();
 
     let breakpoints_json =
         serde_json::to_string(&breakpoints).map_err(|e| format!("Breakpoints serialize error: {}", e))?;
 
-    let child = Command::new(&robot_exe)
+    let child = Command::new(&python_exe)
+        .arg("-m")
+        .arg("robot")
         .arg("--extension")
         .arg("skb")
         .arg("--loglevel")
@@ -1244,16 +2061,21 @@ async fn debug_start(
             session_dir.to_string_lossy().to_string(),
         )
         .env("SKULDBOT_DEBUG_BREAKPOINTS", breakpoints_json)
+        .env("PYTHONPATH", build_engine_pythonpath(&engine_path))
         .stdout(Stdio::from(log_out))
         .stderr(Stdio::from(log_err))
         .spawn()
         .map_err(|e| format!("Failed to spawn live debug process: {}", e))?;
 
+    let child_pid = child.id();
+
     let mut runtime = LiveDebugRuntime {
         child,
         session_dir: session_dir.clone(),
         log_file: log_file.clone(),
-        consumed_log_lines: 0,
+        output_dir: output_dir.clone(),
+        consumed_log_offset: 0,
+        pending_log_fragment: String::new(),
         session: build_live_debug_session(&dsl_json, breakpoints, &session_id),
     };
 
@@ -1261,14 +2083,29 @@ async fn debug_start(
     let timed_out = wait_for_live_debug_state(&mut runtime, timeout).await?;
 
     let session_state = runtime.session.clone();
+    let command_success = session_state.state != "error";
     {
         let mut guard = LIVE_DEBUG_RUNTIME.lock().await;
         *guard = Some(runtime);
     }
+    {
+        let mut control_guard = LIVE_DEBUG_CONTROL.lock().await;
+        if command_success && (session_state.state == "running" || session_state.state == "paused") {
+            *control_guard = Some(LiveDebugControl {
+                session_dir: session_dir.clone(),
+                pid: child_pid,
+            });
+        } else {
+            *control_guard = None;
+        }
+    }
 
     Ok(DebugCommandResult {
-        success: true,
-        message: Some(if timed_out {
+        success: command_success,
+        message: Some(if !command_success {
+            extract_live_session_error_message(&session_state)
+                .unwrap_or_else(|| "Live debug session failed to initialize".to_string())
+        } else if timed_out {
             "Live debug session started (waiting for first pause/event)".to_string()
         } else {
             "Live debug session started".to_string()
@@ -1288,38 +2125,114 @@ async fn debug_step(
     session_state_json: String,
     timeout_ms: Option<u64>,
 ) -> Result<DebugCommandResult, String> {
-    let _ = session_state_json;
     println!("🐛 Debug step (live mode)");
 
-    let mut guard = LIVE_DEBUG_RUNTIME.lock().await;
-    let Some(runtime) = guard.as_mut() else {
-        return Ok(DebugCommandResult {
-            success: false,
-            message: Some("No active live debug session".to_string()),
-            session_state: None,
-            last_event: Some(serde_json::json!({"type":"error","message":"No active session"})),
-        });
+    let requested_session = parse_requested_debug_session(&session_state_json)?;
+
+    let mut runtime = {
+        let mut guard = LIVE_DEBUG_RUNTIME.lock().await;
+        let Some(runtime) = guard.take() else {
+            return Ok(DebugCommandResult {
+                success: false,
+                message: Some("No active live debug session".to_string()),
+                session_state: None,
+                last_event: Some(serde_json::json!({"type":"error","message":"No active session"})),
+            });
+        };
+
+        if runtime.session.session_id != requested_session.session_id {
+            *guard = Some(runtime);
+            return Ok(DebugCommandResult {
+                success: false,
+                message: Some("Debug session mismatch. Restart debugging.".to_string()),
+                session_state: None,
+                last_event: Some(serde_json::json!({"type":"error","message":"Session mismatch"})),
+            });
+        }
+
+        runtime
     };
 
+    if runtime.session.state == "completed"
+        || runtime.session.state == "error"
+        || runtime.session.state == "stopped"
+    {
+        let snapshot = runtime.session.clone();
+        let mut guard = LIVE_DEBUG_RUNTIME.lock().await;
+        *guard = Some(runtime);
+        let mut control_guard = LIVE_DEBUG_CONTROL.lock().await;
+        *control_guard = None;
+        return Ok(DebugCommandResult {
+            success: false,
+            message: Some("Debug session already ended. Start a new session.".to_string()),
+            session_state: Some(snapshot.clone()),
+            last_event: Some(serde_json::json!({
+                "type": snapshot.state,
+                "nodeId": snapshot.current_node_id,
+            })),
+        });
+    }
+
+    write_live_breakpoints_file(&runtime.session_dir, &requested_session.breakpoints)?;
+    runtime.session.breakpoints = requested_session.breakpoints.clone();
     write_debug_control_file(&runtime.session_dir, "mode", "step")?;
     write_debug_control_file(&runtime.session_dir, "continue.token", "1")?;
     runtime.session.state = "running".to_string();
     runtime.session.paused_at_breakpoint = false;
 
     let timeout = resolve_live_debug_timeout(timeout_ms);
-    let timed_out = wait_for_live_debug_state(runtime, timeout).await?;
+    let timed_out = wait_for_live_debug_state(&mut runtime, timeout).await?;
+
+    let stop_requested = LIVE_DEBUG_STOP_REQUESTED.load(Ordering::SeqCst);
+    let session_snapshot = runtime.session.clone();
+    let state_after_step = session_snapshot.state.clone();
+
+    if stop_requested {
+        kill_process_tree(runtime.child.id());
+        let _ = runtime.child.kill();
+        let _ = runtime.child.wait();
+        let _ = fs::remove_dir_all(&runtime.session_dir);
+        LIVE_DEBUG_STOP_REQUESTED.store(false, Ordering::SeqCst);
+        let mut guard = LIVE_DEBUG_RUNTIME.lock().await;
+        *guard = None;
+        let mut control_guard = LIVE_DEBUG_CONTROL.lock().await;
+        *control_guard = None;
+    } else {
+        let control = LiveDebugControl {
+            session_dir: runtime.session_dir.clone(),
+            pid: runtime.child.id(),
+        };
+        let mut guard = LIVE_DEBUG_RUNTIME.lock().await;
+        *guard = Some(runtime);
+        let mut control_guard = LIVE_DEBUG_CONTROL.lock().await;
+        if state_after_step == "completed" || state_after_step == "error" {
+            *control_guard = None;
+        } else {
+            *control_guard = Some(control);
+        }
+    }
+
+    let command_success = !stop_requested && state_after_step != "error";
+    let message = if stop_requested {
+        "Debug session stopped".to_string()
+    } else if timed_out && state_after_step == "running" {
+        "Step still running (timeout window reached)".to_string()
+    } else if state_after_step == "error" {
+        extract_live_session_error_message(&session_snapshot)
+            .unwrap_or_else(|| "Execution failed".to_string())
+    } else if state_after_step == "completed" {
+        "Execution completed".to_string()
+    } else {
+        "Step executed".to_string()
+    };
 
     Ok(DebugCommandResult {
-        success: true,
-        message: Some(if timed_out && runtime.session.state == "running" {
-            "Step still running (timeout window reached)".to_string()
-        } else {
-            "Step executed".to_string()
-        }),
-        session_state: Some(runtime.session.clone()),
+        success: command_success,
+        message: Some(message),
+        session_state: Some(session_snapshot.clone()),
         last_event: Some(serde_json::json!({
-            "type": runtime.session.state,
-            "nodeId": runtime.session.current_node_id,
+            "type": session_snapshot.state,
+            "nodeId": session_snapshot.current_node_id,
         })),
     })
 }
@@ -1330,45 +2243,115 @@ async fn debug_continue(
     session_state_json: String,
     timeout_ms: Option<u64>,
 ) -> Result<DebugCommandResult, String> {
-    let _ = session_state_json;
     println!("🐛 Debug continue (live mode)");
 
-    let mut guard = LIVE_DEBUG_RUNTIME.lock().await;
-    let Some(runtime) = guard.as_mut() else {
-        return Ok(DebugCommandResult {
-            success: false,
-            message: Some("No active live debug session".to_string()),
-            session_state: None,
-            last_event: Some(serde_json::json!({"type":"error","message":"No active session"})),
-        });
+    let requested_session = parse_requested_debug_session(&session_state_json)?;
+
+    let mut runtime = {
+        let mut guard = LIVE_DEBUG_RUNTIME.lock().await;
+        let Some(runtime) = guard.take() else {
+            return Ok(DebugCommandResult {
+                success: false,
+                message: Some("No active live debug session".to_string()),
+                session_state: None,
+                last_event: Some(serde_json::json!({"type":"error","message":"No active session"})),
+            });
+        };
+
+        if runtime.session.session_id != requested_session.session_id {
+            *guard = Some(runtime);
+            return Ok(DebugCommandResult {
+                success: false,
+                message: Some("Debug session mismatch. Restart debugging.".to_string()),
+                session_state: None,
+                last_event: Some(serde_json::json!({"type":"error","message":"Session mismatch"})),
+            });
+        }
+
+        runtime
     };
 
+    if runtime.session.state == "completed"
+        || runtime.session.state == "error"
+        || runtime.session.state == "stopped"
+    {
+        let snapshot = runtime.session.clone();
+        let mut guard = LIVE_DEBUG_RUNTIME.lock().await;
+        *guard = Some(runtime);
+        let mut control_guard = LIVE_DEBUG_CONTROL.lock().await;
+        *control_guard = None;
+        return Ok(DebugCommandResult {
+            success: false,
+            message: Some("Debug session already ended. Start a new session.".to_string()),
+            session_state: Some(snapshot.clone()),
+            last_event: Some(serde_json::json!({
+                "type": snapshot.state,
+                "nodeId": snapshot.current_node_id,
+            })),
+        });
+    }
+
+    write_live_breakpoints_file(&runtime.session_dir, &requested_session.breakpoints)?;
+    runtime.session.breakpoints = requested_session.breakpoints.clone();
     write_debug_control_file(&runtime.session_dir, "mode", "continue")?;
     write_debug_control_file(&runtime.session_dir, "continue.token", "1")?;
     runtime.session.state = "running".to_string();
     runtime.session.paused_at_breakpoint = false;
 
     let timeout = resolve_live_debug_timeout(timeout_ms);
-    let timed_out = wait_for_live_debug_state(runtime, timeout).await?;
+    let timed_out = wait_for_live_debug_state(&mut runtime, timeout).await?;
 
-    let message = match runtime.session.state.as_str() {
-        "paused" => "Paused at breakpoint",
-        "completed" => "Execution completed",
-        "error" => "Execution failed",
-        _ => "Execution running",
+    let stop_requested = LIVE_DEBUG_STOP_REQUESTED.load(Ordering::SeqCst);
+    let session_snapshot = runtime.session.clone();
+    let state_after_continue = session_snapshot.state.clone();
+
+    if stop_requested {
+        kill_process_tree(runtime.child.id());
+        let _ = runtime.child.kill();
+        let _ = runtime.child.wait();
+        let _ = fs::remove_dir_all(&runtime.session_dir);
+        LIVE_DEBUG_STOP_REQUESTED.store(false, Ordering::SeqCst);
+        let mut guard = LIVE_DEBUG_RUNTIME.lock().await;
+        *guard = None;
+        let mut control_guard = LIVE_DEBUG_CONTROL.lock().await;
+        *control_guard = None;
+    } else {
+        let control = LiveDebugControl {
+            session_dir: runtime.session_dir.clone(),
+            pid: runtime.child.id(),
+        };
+        let mut guard = LIVE_DEBUG_RUNTIME.lock().await;
+        *guard = Some(runtime);
+        let mut control_guard = LIVE_DEBUG_CONTROL.lock().await;
+        if state_after_continue == "completed" || state_after_continue == "error" {
+            *control_guard = None;
+        } else {
+            *control_guard = Some(control);
+        }
+    }
+
+    let command_success = !stop_requested && state_after_continue != "error";
+    let message = if stop_requested {
+        "Debug session stopped".to_string()
+    } else if timed_out && state_after_continue == "running" {
+        "Execution still running (timeout window reached)".to_string()
+    } else {
+        match state_after_continue.as_str() {
+            "paused" => "Paused at breakpoint".to_string(),
+            "completed" => "Execution completed".to_string(),
+            "error" => extract_live_session_error_message(&session_snapshot)
+                .unwrap_or_else(|| "Execution failed".to_string()),
+            _ => "Execution running".to_string(),
+        }
     };
 
     Ok(DebugCommandResult {
-        success: true,
-        message: Some(if timed_out && runtime.session.state == "running" {
-            "Execution still running (timeout window reached)".to_string()
-        } else {
-            message.to_string()
-        }),
-        session_state: Some(runtime.session.clone()),
+        success: command_success,
+        message: Some(message),
+        session_state: Some(session_snapshot.clone()),
         last_event: Some(serde_json::json!({
-            "type": runtime.session.state,
-            "nodeId": runtime.session.current_node_id,
+            "type": session_snapshot.state,
+            "nodeId": session_snapshot.current_node_id,
         })),
     })
 }
@@ -1378,20 +2361,40 @@ async fn debug_continue(
 async fn debug_stop() -> Result<DebugCommandResult, String> {
     println!("🐛 Debug stop");
 
-    let mut guard = LIVE_DEBUG_RUNTIME.lock().await;
-    if let Some(mut runtime) = guard.take() {
-        let _ = write_debug_control_file(&runtime.session_dir, "stop.token", "1");
-        let _ = runtime.child.kill();
-        let _ = runtime.child.wait();
-        let _ = fs::remove_dir_all(runtime.session_dir);
+    LIVE_DEBUG_STOP_REQUESTED.store(true, Ordering::SeqCst);
+
+    let control = {
+        let mut control_guard = LIVE_DEBUG_CONTROL.lock().await;
+        control_guard.take()
+    };
+
+    if let Some(control) = control {
+        let _ = write_debug_control_file(&control.session_dir, "stop.token", "1");
+        kill_process_tree(control.pid);
     }
 
-    Ok(DebugCommandResult {
-        success: true,
-        message: Some("Debug session stopped".to_string()),
-        session_state: None,
-        last_event: Some(serde_json::json!({"type": "stopped"})),
-    })
+    match tokio::time::timeout(Duration::from_millis(250), LIVE_DEBUG_RUNTIME.lock()).await {
+        Ok(mut guard) => {
+            if let Some(mut runtime) = guard.take() {
+                let _ = runtime.child.kill();
+                let _ = runtime.child.wait();
+                let _ = fs::remove_dir_all(&runtime.session_dir);
+            }
+            LIVE_DEBUG_STOP_REQUESTED.store(false, Ordering::SeqCst);
+            Ok(DebugCommandResult {
+                success: true,
+                message: Some("Debug session stopped".to_string()),
+                session_state: None,
+                last_event: Some(serde_json::json!({"type": "stopped"})),
+            })
+        }
+        Err(_) => Ok(DebugCommandResult {
+            success: true,
+            message: Some("Stop requested. Waiting for current debug command to release.".to_string()),
+            session_state: None,
+            last_event: Some(serde_json::json!({"type": "stopping"})),
+        }),
+    }
 }
 
 /// Request pause for live debug session (applies at next node boundary)
@@ -1800,9 +2803,8 @@ async fn load_bot(bot_path: String) -> Result<serde_json::Value, String> {
 #[tauri::command]
 async fn save_bot(bot_path: String, dsl: String) -> Result<(), String> {
     println!("💾 Saving bot: {}", bot_path);
-    validate_dsl(dsl.clone())
-        .await
-        .map_err(|e| format!("Cannot save bot: {}", e))?;
+    serde_json::from_str::<serde_json::Value>(&dsl)
+        .map_err(|e| format!("Cannot save bot: invalid JSON payload ({})", e))?;
 
     let bot_dir = PathBuf::from(&bot_path);
 
@@ -1840,9 +2842,8 @@ async fn delete_bot(bot_path: String) -> Result<(), String> {
 #[tauri::command]
 async fn save_bot_version(bot_path: String, dsl: String, description: Option<String>) -> Result<String, String> {
     println!("📸 Saving bot version: {}", bot_path);
-    validate_dsl(dsl.clone())
-        .await
-        .map_err(|e| format!("Cannot save bot version: {}", e))?;
+    serde_json::from_str::<serde_json::Value>(&dsl)
+        .map_err(|e| format!("Cannot save bot version: invalid JSON payload ({})", e))?;
 
     let history_dir = PathBuf::from(&bot_path).join(".history");
     fs::create_dir_all(&history_dir).map_err(|e| format!("Failed to create history directory: {}", e))?;
@@ -4410,6 +5411,184 @@ mod planner_contract_tests {
     }
 }
 
+#[cfg(test)]
+mod debug_runtime_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn sample_session() -> DebugSessionState {
+        let dsl = json!({
+            "start_node": "node-1",
+            "nodes": [
+                {
+                    "id": "node-1",
+                    "type": "files.list",
+                    "label": "List Files"
+                }
+            ]
+        });
+        build_live_debug_session(&dsl, vec![], "session-test")
+    }
+
+    #[test]
+    fn parse_runtime_failure_message_handles_robot_fail_summary() {
+        let parsed = parse_runtime_failure_message("Main :: Demo | FAIL | Transfer extraction pipeline failed.");
+        assert_eq!(
+            parsed.as_deref(),
+            Some("Task failed: Transfer extraction pipeline failed.")
+        );
+    }
+
+    #[test]
+    fn parse_runtime_failure_message_handles_status_failed() {
+        let parsed = parse_runtime_failure_message("STATUS: failed");
+        assert_eq!(parsed.as_deref(), Some("Execution failed"));
+    }
+
+    #[test]
+    fn parse_runtime_failure_message_ignores_main_summary_without_detail() {
+        let parsed = parse_runtime_failure_message("Main :: New Bot Bot description | FAIL |");
+        assert!(parsed.is_none());
+    }
+
+    #[test]
+    fn parse_runtime_failure_message_handles_error_prefix() {
+        let parsed = parse_runtime_failure_message("ERROR: Validation failed");
+        assert_eq!(parsed.as_deref(), Some("Validation failed"));
+    }
+
+    #[test]
+    fn extract_run_failure_message_prefers_error_detail_line() {
+        let stdout = "\
+Main :: Bot | FAIL |\n\
+ERROR_DETAIL: Missing required variable INPUT_FOLDER\n\
+STATUS: failed\n";
+        let message = extract_run_failure_message(stdout, "");
+        assert_eq!(message, "Missing required variable INPUT_FOLDER");
+    }
+
+    #[test]
+    fn extract_run_failure_message_uses_context_after_fail_when_tail_is_empty() {
+        let stdout = "\
+Main :: Bot | FAIL |\n\
+No files matched pattern *.pdf in source folder\n\
+STATUS: failed\n";
+        let message = extract_run_failure_message(stdout, "");
+        assert_eq!(message, "No files matched pattern *.pdf in source folder");
+    }
+
+    #[test]
+    fn extract_run_failure_message_surfaces_validation_detail_after_header() {
+        let stdout = "\
+ERROR: Validation failed\n\
+  - Start node 'missing-start' does not exist\n\
+STATUS: failed\n";
+        let message = extract_run_failure_message(stdout, "");
+        assert_eq!(message, "Validation failed: Start node 'missing-start' does not exist");
+    }
+
+    #[test]
+    fn extract_execution_error_detail_parses_failed_node_context() {
+        let stdout = "\
+[ ERROR ] ✗ Node parse-agent-json failed: Evaluating expression \"...\" failed: JSONDecodeError\n\
+ERROR_DETAIL: Failed to parse agent response as JSON\n\
+STATUS: failed\n";
+        let detail =
+            extract_execution_error_detail(stdout, "", "Failed to parse agent response as JSON");
+        assert_eq!(detail.code, "AI_INVALID_JSON_RESPONSE");
+        assert_eq!(detail.layer, "ai");
+        assert_eq!(detail.node_id.as_deref(), Some("parse-agent-json"));
+        assert!(detail
+            .message
+            .contains("Evaluating expression"));
+        assert!(!detail.causes.is_empty());
+    }
+
+    #[test]
+    fn extract_execution_error_detail_classifies_validation() {
+        let stdout = "\
+ERROR: Validation failed\n\
+  - Start node 'missing-start' does not exist\n\
+STATUS: failed\n";
+        let detail = extract_execution_error_detail(
+            stdout,
+            "",
+            "Validation failed: Start node 'missing-start' does not exist",
+        );
+        assert_eq!(detail.code, "VALIDATION_FAILED");
+        assert_eq!(detail.layer, "compiler");
+        assert!(detail
+            .hint
+            .as_deref()
+            .unwrap_or("")
+            .contains("Fix the flow/node configuration"));
+    }
+
+    #[test]
+    fn extract_robot_failure_detail_from_output_xml_prefers_specific_message() {
+        let root_dir = std::env::temp_dir().join(format!("skuldbot_debug_xml_test_{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&root_dir).expect("should create temp output dir");
+        let xml_path = root_dir.join("output.xml");
+        let xml = r#"
+<robot>
+  <suite name="Main">
+    <status status="FAIL">Main :: New Bot Bot description | FAIL |</status>
+    <kw name="Compile">
+      <msg level="FAIL">Multiple errors: - TRY structure must have EXCEPT or FINALLY branch. - TRY must have closing END.</msg>
+      <status status="FAIL">Multiple errors: - TRY structure must have EXCEPT or FINALLY branch. - TRY must have closing END.</status>
+    </kw>
+  </suite>
+</robot>
+"#;
+        std::fs::write(&xml_path, xml).expect("should write output.xml");
+
+        let detail = extract_robot_failure_detail_from_output_xml(&root_dir)
+            .expect("expected failure detail");
+
+        assert!(detail.contains("TRY structure must have EXCEPT"));
+        assert!(!detail.starts_with("Main ::"));
+
+        let _ = std::fs::remove_dir_all(&root_dir);
+    }
+
+    #[test]
+    fn apply_live_log_lines_marks_current_node_as_error() {
+        let mut session = sample_session();
+        apply_live_log_lines(
+            &mut session,
+            &[
+                "DEBUG_NODE_START:node-1:files.list".to_string(),
+                "Main :: Demo | FAIL | Could not parse source PDF".to_string(),
+            ],
+        );
+
+        assert_eq!(session.state, "error");
+        assert_eq!(session.current_node_id.as_deref(), Some("node-1"));
+        let node = session
+            .node_executions
+            .get("node-1")
+            .expect("node execution should exist");
+        assert_eq!(node.status, "error");
+        assert!(
+            node.error
+                .as_deref()
+                .unwrap_or_default()
+                .contains("Could not parse source PDF")
+        );
+    }
+
+    #[test]
+    fn extract_complete_log_lines_keeps_partial_lines_between_reads() {
+        let (lines, pending) = extract_complete_log_lines("line-1\nline-2", "");
+        assert_eq!(lines, vec!["line-1".to_string()]);
+        assert_eq!(pending, "line-2".to_string());
+
+        let (lines2, pending2) = extract_complete_log_lines("\nline-3\n", &pending);
+        assert_eq!(lines2, vec!["line-2".to_string(), "line-3".to_string()]);
+        assert!(pending2.is_empty());
+    }
+}
+
 // ============================================================
 // Connections Commands (LLM Credentials Management)
 // ============================================================
@@ -6040,6 +7219,142 @@ async fn test_llm_connection_v2(
     connection_validator::test_connection(config).await
 }
 
+#[tauri::command]
+async fn test_vault_connection(
+    vault_type: String,
+    config: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    println!("🔐 Testing vault connection: {}...", vault_type);
+
+    let python_exe = get_python_executable();
+    let engine_path = get_engine_path();
+    let config_json = serde_json::to_string(&config).map_err(|e| e.to_string())?;
+
+    // SECURITY: Pass config via stdin to prevent code injection.
+    // Never embed user-provided JSON in a Python script string.
+    let script = format!(
+        r#"
+import sys, json
+sys.path.insert(0, "{engine_path}")
+
+vault_type = "{vault_type}"
+config = json.loads(sys.stdin.read())
+
+result = {{"success": False, "message": "Unknown vault type"}}
+
+try:
+    if vault_type == "local_vault":
+        from skuldbot.libs.local_vault import LocalVault
+        vault_path = config.get("vault_path", ".skuldbot")
+        vault = LocalVault(vault_path)
+        if vault.exists:
+            result = {{"success": True, "message": f"Local vault found at {{vault_path}}"}}
+        else:
+            result = {{"success": False, "message": f"No vault found at {{vault_path}}. Create one first."}}
+
+    elif vault_type == "orchestrator_vault":
+        import urllib.request
+        url = config.get("orchestrator_url", "").rstrip("/") + "/health"
+        req = urllib.request.Request(url, method="GET")
+        resp = urllib.request.urlopen(req, timeout=10)
+        if resp.status == 200:
+            result = {{"success": True, "message": f"Orchestrator reachable at {{config.get('orchestrator_url')}}"}}
+        else:
+            result = {{"success": False, "message": f"Orchestrator returned status {{resp.status}}"}}
+
+    elif vault_type == "azure_keyvault":
+        vault_url = config.get("vault_url", "")
+        if not vault_url:
+            result = {{"success": False, "message": "Vault URL is required"}}
+        else:
+            import urllib.request
+            req = urllib.request.Request(vault_url + "/secrets?api-version=7.4", method="GET")
+            try:
+                urllib.request.urlopen(req, timeout=10)
+                result = {{"success": True, "message": f"Azure Key Vault reachable at {{vault_url}}"}}
+            except urllib.error.HTTPError as e:
+                if e.code == 401:
+                    result = {{"success": True, "message": f"Azure Key Vault reachable at {{vault_url}} (auth required — expected)"}}
+                else:
+                    result = {{"success": False, "message": f"Azure Key Vault returned {{e.code}}: {{e.reason}}"}}
+
+    elif vault_type == "aws_secrets":
+        region = config.get("region", "us-east-1")
+        result = {{"success": True, "message": f"AWS Secrets Manager configured for region {{region}}. Full test requires AWS credentials at runtime."}}
+
+    elif vault_type == "gcp_secret_manager":
+        project_id = config.get("project_id", "")
+        if not project_id:
+            result = {{"success": False, "message": "GCP Project ID is required"}}
+        else:
+            result = {{"success": True, "message": f"GCP Secret Manager configured for project {{project_id}}. Full test requires credentials at runtime."}}
+
+    elif vault_type == "hashicorp_vault":
+        vault_addr = config.get("vault_addr", "")
+        if not vault_addr:
+            result = {{"success": False, "message": "Vault address is required"}}
+        else:
+            import urllib.request
+            req = urllib.request.Request(vault_addr.rstrip("/") + "/v1/sys/health", method="GET")
+            resp = urllib.request.urlopen(req, timeout=10)
+            data = json.loads(resp.read())
+            if data.get("initialized") and not data.get("sealed"):
+                result = {{"success": True, "message": f"HashiCorp Vault reachable and unsealed at {{vault_addr}}"}}
+            else:
+                result = {{"success": False, "message": f"HashiCorp Vault is sealed or uninitialized"}}
+
+    else:
+        result = {{"success": False, "message": f"Unknown vault type: {{vault_type}}"}}
+
+except Exception as e:
+    result = {{"success": False, "message": f"Connection failed: {{str(e)}}"}}
+
+print(json.dumps(result))
+"#,
+        engine_path = engine_path.display(),
+        vault_type = vault_type,
+    );
+
+    // Pass config JSON via stdin — safe from injection
+    use std::io::Write;
+    let mut child = Command::new(&python_exe)
+        .arg("-c")
+        .arg(&script)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to start Python: {}", e))?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin.write_all(config_json.as_bytes())
+            .map_err(|e| format!("Failed to write config to stdin: {}", e))?;
+    }
+
+    let output = child.wait_with_output()
+        .map_err(|e| format!("Failed to run Python: {}", e))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+
+    if !stderr.is_empty() {
+        eprintln!("⚠️  Vault test stderr: {}", stderr);
+    }
+
+    if let Ok(result) = serde_json::from_str::<serde_json::Value>(&stdout) {
+        println!(
+            "🔐 Vault test result: {}",
+            if result["success"].as_bool().unwrap_or(false) { "✅" } else { "❌" }
+        );
+        Ok(result)
+    } else {
+        Ok(serde_json::json!({
+            "success": false,
+            "message": format!("Unexpected output: {}", if stdout.is_empty() { &stderr } else { &stdout })
+        }))
+    }
+}
+
 // ==================== LLM SECRETS KEYRING FUNCTIONS ====================
 // SECURITY: LLM API keys are stored in the OS keyring, NOT in SQLite
 // SQLite only stores non-sensitive metadata
@@ -6279,6 +7594,7 @@ fn main() {
             load_connections,
             test_llm_connection,
             test_ms365_connection,
+            test_vault_connection,
             // AI Planner - LLM Connections (New)
             test_llm_connection_v2,
             save_llm_connection,

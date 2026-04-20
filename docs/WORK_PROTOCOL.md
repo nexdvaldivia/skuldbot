@@ -11,10 +11,11 @@ No se confia en memoria o buena voluntad; se confia en gates y evidencia.
 
 Si hay conflicto, el orden de prioridad es:
 
-1. Seguridad y compliance (`docs/REGULATORY_DESIGN_GUARDRAILS.md`)
-2. Quality Gate (`docs/AGENT_WORK_CONTROLS_POLICY.md`)
-3. Scope de la tarea acordada (in-scope / out-of-scope)
-4. Estilo y preferencia de implementacion
+1. Compliance-first (`docs/COMPLIANCE_FIRST_POLICY.md`) — prerequisito de todo. No se codifica nada sin compliance.
+2. Seguridad y guardrails (`docs/REGULATORY_DESIGN_GUARDRAILS.md`)
+3. Quality Gates (`docs/QUALITY_GATE_CHECKLIST.md`)
+4. Scope de la tarea acordada (in-scope / out-of-scope)
+5. Estilo y preferencia de implementacion
 
 ## 2. Handshake obligatorio antes de codificar
 
@@ -47,20 +48,30 @@ En `VERIFICATION` se reportan comandos ejecutados y resultado (`pass/fail`) con 
 - Prohibido mezclar scope no relacionado en el mismo commit.
 - Si hay cambios inesperados en el working tree, se detiene y se reporta.
 
-## 5. Quality Gates obligatorios (QG1-QG9)
+## 5. Quality Gates de sistema (QG1-QG13)
 
-Un PR solo se puede mergear si cumple todos los gates aplicables.
-No se permite marcar gates como `n/a` en PR: todos QG1..QG9 deben declararse en `pass` con evidencia.
+Un PR solo se puede mergear si cumple todos los gates activos aplicables.
+No se permite marcar gates como `n/a` en PR: todos deben declararse en `pass` con evidencia.
 
-- `QG1 Build`: `turbo run build` (o build del modulo) sin errores.
-- `QG2 Tests`: unit/integration del modulo pasan; cobertura no decrece.
-- `QG3 Contratos/E2E`: para flujos con contratos o integraciones criticas, test de flujo completo pasa.
-- `QG4 Lint + Typecheck`: 0 errores nuevos (`lint`, `typecheck`, `ruff`, `mypy` segun stack).
-- `QG5 Security Baseline`: sin runtime mocks, sin secrets hardcoded, inputs validados, consultas seguras.
-- `QG6 CI Smoke`: jobs de CI requeridos en verde.
-- `QG7 Review + DoD`: review bidireccional y DoD del modulo completo.
-- `QG8 Compliance Check`: sin defaults inseguros para secretos, vault/platform injection documentada, data minimization.
-- `QG9 Nexion Parity` (solo migraciones): paridad funcional requerida para el scope de migracion sin blockers abiertos.
+La definición completa de cada gate, con checks individuales, comandos y criterios de PASS,
+está en `docs/QUALITY_GATE_CHECKLIST.md` (fuente de verdad).
+
+### Gates activos (obligatorios ahora)
+
+- `QG1 Build`: build del módulo + monorepo completo sin errores.
+- `QG2 Tests`: unit/integration pasan; suites y count no disminuyen; happy paths presentes.
+- `QG3 Contracts/E2E`: contratos API (DTOs), routing order, HTTP status codes, error responses.
+- `QG4 Lint + Typecheck`: 0 errores de compilación, 0 TODOs, 0 console.log, TypeORM patterns limpios.
+- `QG5 Security Baseline`: 0 secrets hardcoded, input validation, SQL injection, timing-safe, file upload seguro.
+- `QG6 CI Smoke`: build y tests en worktree limpio, sin dependencias de estado local.
+- `QG7 Review + DoD`: scope respetado, funciones <100 LOC, migrations idempotentes, self-review, threads resueltos.
+- `QG8 Compliance Check`: guards + permissions en todos los endpoints, audit events, soft delete, certification-impact flag.
+- `QG9 Nexion Parity` (solo migraciones): endpoints, entities, services y comportamiento con paridad Nexion completa.
+- `QG-UI` (si toca UI): solo shadcn/ui (0 nativos browser), 0 alert/confirm/prompt, Montserrat, colores Skuld, Refactoring UI (Adam Wathan & Steve Schoger), reutilización obligatoria de componentes existentes, BlockedState vs EmptyState, responsive, accessibility, enterprise quality.
+- `QG10 Release Pipeline` (si toca release/deploy): freeze labels, signed images, tag-version match, install matrix, zero patch policy.
+- `QG11 Licensing Gate` (si toca licensing/entitlements): dual review, entitlement contract tests, error envelope, dual-key rotation.
+- `QG12 Deployer Gates` (si toca deployers): paridad multi-cloud, deployment contract, failure injection, bootstrap sequence.
+- `QG13 Runtime Contract` (si toca Runner/workers): parity Runner/API, error codes compartidos, credential guard.
 
 ## 5.1 Mandatos adicionales no negociables
 

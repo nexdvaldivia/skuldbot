@@ -279,16 +279,14 @@ register_node(NodeMapping(
 register_node(NodeMapping(
     node_type="trigger.storage_event",
     category=NodeCategory.TRIGGER,
-    keyword="Wait For Storage Event",
-    library=LIB_STORAGE,
-    description="Storage event trigger - listens for file events on any connected storage provider (S3, Azure Blob, GCS, SharePoint, local, etc.)",
+    keyword="Log",
+    library=LIB_BUILTIN,
+    description="Storage event trigger - S3/MinIO events",
     config_mapping={
-        "event": "event_type",
-        "prefix": "prefix",
-        "suffix": "suffix",
-        "timeout": "timeout",
+        "bucket": "bucket",
+        "event": "event",
     },
-    return_variable="storage_event",
+    pre_keywords=["Log    Storage event received    level=INFO"],
 ))
 
 register_node(NodeMapping(
@@ -2114,6 +2112,32 @@ register_node(NodeMapping(
     library=LIB_HTTP,
     description="Validate SSL certificate",
     config_mapping={"url": "url"},
+))
+
+
+# =============================================================================
+# MFA / AUTHENTICATION NODES (SkuldMFA Library - skuldbot.libs.mfa)
+# =============================================================================
+
+# Librería SkuldMFA con alias MFA
+LIB_SKULD_MFA = LibraryImport("skuldbot.libs.mfa.SkuldMFA", alias="MFA")
+
+register_node(NodeMapping(
+    node_type="security.totp_generate",
+    category=NodeCategory.SECURITY,
+    keyword="Generate TOTP",
+    library=LIB_SKULD_MFA,
+    description="Generate TOTP code for MFA authentication using a shared secret from KeyVault",
+    config_mapping={
+        "secret_name": "secret_name",
+        "mfa_type": "mfa_type",
+        "vault_provider": "vault_provider",
+        "digits": "digits",
+        "period": "period",
+        "algorithm": "algorithm",
+    },
+    return_variable="totp_code",
+    pre_keywords=["Log    Generating TOTP for MFA authentication [secret redacted]    console=yes"],
 ))
 
 
