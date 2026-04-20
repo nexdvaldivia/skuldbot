@@ -21,6 +21,9 @@ import { PublicLeadsModule } from './public-leads/public-leads.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { LookupsModule } from './lookups/lookups.module';
 import { RbacModule } from './rbac/rbac.module';
+import { ContractsModule } from './contracts/contracts.module';
+import { MeModule } from './me/me.module';
+import { MfaModule } from './mfa/mfa.module';
 
 enforceEnvironmentPolicy(process.env);
 
@@ -59,6 +62,9 @@ enforceEnvironmentPolicy(process.env);
     PublicLeadsModule,
     LookupsModule,
     RbacModule,
+    ContractsModule,
+    MeModule,
+    MfaModule,
 
     // MCP Module (Model Context Protocol)
     MCPModule,

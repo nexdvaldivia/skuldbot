@@ -28,6 +28,11 @@ function isPlaceholder(value: string | undefined): boolean {
 export function enforceEnvironmentPolicy(env: NodeJS.ProcessEnv): void {
   const nodeEnv = (env.NODE_ENV ?? 'development').toLowerCase();
   const allowDotenv = (env.ALLOW_DOTENV ?? 'false').toLowerCase() === 'true';
+  const complianceProfile = (env.COMPLIANCE_PROFILE ?? 'standard').toLowerCase();
+  const isRegulatedProfile = complianceProfile === 'regulated' || complianceProfile === 'strict';
+  const clientApiKeyEncryptionMode = (
+    env.CLIENT_API_KEY_ENCRYPTION_MODE ?? 'single_key'
+  ).toLowerCase();
 
   if (isLocalRuntime(nodeEnv)) {
     return;
@@ -69,6 +74,12 @@ export function enforceEnvironmentPolicy(env: NodeJS.ProcessEnv): void {
   if (insecure.length > 0) {
     throw new Error(
       `Regulated policy violation: placeholder/unsafe values detected for: ${insecure.join(', ')}`,
+    );
+  }
+
+  if (isRegulatedProfile && clientApiKeyEncryptionMode !== 'envelope_v1') {
+    throw new Error(
+      'Regulated policy violation: CLIENT_API_KEY_ENCRYPTION_MODE must be envelope_v1 for regulated/strict deployments.',
     );
   }
 }

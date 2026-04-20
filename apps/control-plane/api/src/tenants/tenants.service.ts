@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, ConflictException, Logger, NotImplementedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Tenant, TenantStatus, TenantDeploymentType } from './entities/tenant.entity';
 import { Client } from '../clients/entities/client.entity';
 import { License } from '../licenses/entities/license.entity';
+import { requireEntity } from '../common/utils/entity.util';
 import {
   CreateTenantDto,
   UpdateTenantDto,
@@ -38,40 +39,24 @@ export class TenantsService {
   }
 
   async findOne(id: string): Promise<TenantDetailResponseDto> {
-    const tenant = await this.tenantRepository.findOne({
-      where: { id },
+    const tenant = await requireEntity(this.tenantRepository, { id }, 'Tenant', {
       relations: ['licenses'],
     });
-
-    if (!tenant) {
-      throw new NotFoundException(`Tenant with ID ${id} not found`);
-    }
 
     return this.toDetailDto(tenant);
   }
 
   async findBySlug(slug: string): Promise<TenantDetailResponseDto> {
-    const tenant = await this.tenantRepository.findOne({
-      where: { slug },
+    const tenant = await requireEntity(this.tenantRepository, { slug }, 'Tenant', {
       relations: ['licenses'],
     });
-
-    if (!tenant) {
-      throw new NotFoundException(`Tenant with slug ${slug} not found`);
-    }
 
     return this.toDetailDto(tenant);
   }
 
   async create(dto: CreateTenantDto): Promise<TenantDetailResponseDto> {
     // Verify client exists
-    const client = await this.clientRepository.findOne({
-      where: { id: dto.clientId },
-    });
-
-    if (!client) {
-      throw new NotFoundException(`Client with ID ${dto.clientId} not found`);
-    }
+    const client = await requireEntity(this.clientRepository, { id: dto.clientId }, 'Client');
 
     // Check slug uniqueness
     const existing = await this.tenantRepository.findOne({
@@ -105,14 +90,9 @@ export class TenantsService {
   }
 
   async update(id: string, dto: UpdateTenantDto): Promise<TenantDetailResponseDto> {
-    const tenant = await this.tenantRepository.findOne({
-      where: { id },
+    const tenant = await requireEntity(this.tenantRepository, { id }, 'Tenant', {
       relations: ['licenses'],
     });
-
-    if (!tenant) {
-      throw new NotFoundException(`Tenant with ID ${id} not found`);
-    }
 
     Object.assign(tenant, dto);
     const saved = await this.tenantRepository.save(tenant);
@@ -120,31 +100,21 @@ export class TenantsService {
   }
 
   async delete(id: string): Promise<void> {
-    const tenant = await this.tenantRepository.findOne({
-      where: { id },
-    });
+    const tenant = await requireEntity(this.tenantRepository, { id }, 'Tenant');
 
-    if (!tenant) {
-      throw new NotFoundException(`Tenant with ID ${id} not found`);
-    }
-
-    // TODO: Clean up database if SaaS
     if (tenant.deploymentType === TenantDeploymentType.SAAS && tenant.dbName) {
-      this.logger.warn(`Should drop database ${tenant.dbName} - not implemented yet`);
+      throw new NotImplementedException(
+        `Tenant DB cleanup for ${tenant.dbName} is not implemented`,
+      );
     }
 
     await this.tenantRepository.remove(tenant);
   }
 
   async activate(id: string): Promise<TenantDetailResponseDto> {
-    const tenant = await this.tenantRepository.findOne({
-      where: { id },
+    const tenant = await requireEntity(this.tenantRepository, { id }, 'Tenant', {
       relations: ['licenses'],
     });
-
-    if (!tenant) {
-      throw new NotFoundException(`Tenant with ID ${id} not found`);
-    }
 
     tenant.status = TenantStatus.ACTIVE;
     const saved = await this.tenantRepository.save(tenant);
@@ -152,14 +122,9 @@ export class TenantsService {
   }
 
   async suspend(id: string): Promise<TenantDetailResponseDto> {
-    const tenant = await this.tenantRepository.findOne({
-      where: { id },
+    const tenant = await requireEntity(this.tenantRepository, { id }, 'Tenant', {
       relations: ['licenses'],
     });
-
-    if (!tenant) {
-      throw new NotFoundException(`Tenant with ID ${id} not found`);
-    }
 
     tenant.status = TenantStatus.SUSPENDED;
     const saved = await this.tenantRepository.save(tenant);
@@ -177,9 +142,9 @@ export class TenantsService {
     tenant.dbUser = `skuld_${tenant.slug.replace(/-/g, '_')}`;
     tenant.dbPassword = this.generatePassword();
 
-    // TODO: Actually create the database
-    // For now we just set the connection info
-    this.logger.log(`Provisioned database ${tenant.dbName} for tenant ${tenant.slug}`);
+    throw new NotImplementedException(
+      `Tenant DB provisioning for ${tenant.dbName} is not implemented`,
+    );
   }
 
   private generatePassword(): string {

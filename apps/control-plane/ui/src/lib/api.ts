@@ -234,7 +234,7 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
         ...options?.headers,
       },
     });
-  } catch (error) {
+  } catch {
     throw new Error(
       `Load failed. Could not reach Control Plane API at ${url}. Verify API is running and CORS is configured.`,
     );
@@ -724,13 +724,16 @@ export const billingApi = {
     });
   },
 
-  async setupACH(tenantId: string, data: {
-    accountHolderName: string;
-    accountHolderType: 'individual' | 'company';
-    routingNumber: string;
-    accountNumber: string;
-    accountType: 'checking' | 'savings';
-  }) {
+  async setupACH(
+    tenantId: string,
+    data: {
+      accountHolderName: string;
+      accountHolderType: 'individual' | 'company';
+      routingNumber: string;
+      accountNumber: string;
+      accountType: 'checking' | 'savings';
+    },
+  ) {
     return fetchApi<TenantSubscription>(`/api/subscriptions/${tenantId}/setup-ach`, {
       method: 'POST',
       body: JSON.stringify(data),
@@ -761,7 +764,7 @@ export const billingApi = {
   // Usage
   async getTenantUsage(tenantId: string, period?: string) {
     const query = period ? `?period=${period}` : '';
-    return fetchApi<UsageSummary>(`/api/usage/tenant/${tenantId}${query}`);
+    return fetchApi<UsageSummary>(`/api/billing/usage/tenant/${tenantId}${query}`);
   },
 
   // Revenue Share
@@ -770,18 +773,18 @@ export const billingApi = {
     if (startPeriod) params.append('startPeriod', startPeriod);
     if (endPeriod) params.append('endPeriod', endPeriod);
     const query = params.toString() ? `?${params.toString()}` : '';
-    return fetchApi<RevenueShare[]>(`/api/revenue-share/partner/${partnerId}${query}`);
+    return fetchApi<RevenueShare[]>(`/api/billing/revenue-share/partner/${partnerId}${query}`);
   },
 
   async calculateRevenueShare(partnerId: string, period: string) {
-    return fetchApi<RevenueShare>('/api/revenue-share/calculate', {
+    return fetchApi<RevenueShare>('/api/billing/revenue-share/calculate', {
       method: 'POST',
       body: JSON.stringify({ partnerId, period }),
     });
   },
 
   async approveRevenueShare(id: string, approvedBy: string) {
-    return fetchApi<RevenueShare>(`/api/revenue-share/${id}/approve`, {
+    return fetchApi<RevenueShare>(`/api/billing/revenue-share/${id}/approve`, {
       method: 'POST',
       body: JSON.stringify({ approvedBy }),
     });
@@ -790,18 +793,20 @@ export const billingApi = {
   // Payouts
   async createPayout(partnerId: string) {
     return fetchApi<{ stripeTransferId?: string; amount?: number; message?: string }>(
-      `/api/payouts/partner/${partnerId}`,
-      { method: 'POST' }
+      `/api/billing/payouts/partner/${partnerId}`,
+      { method: 'POST' },
     );
   },
 
   async getPartnerPayouts(partnerId: string) {
-    return fetchApi<Array<{
-      id: string;
-      amount: number;
-      status: string;
-      createdAt: string;
-    }>>(`/api/payouts/partner/${partnerId}`);
+    return fetchApi<
+      Array<{
+        id: string;
+        amount: number;
+        status: string;
+        createdAt: string;
+      }>
+    >(`/api/billing/payouts/partner/${partnerId}`);
   },
 };
 
@@ -957,23 +962,27 @@ export const marketplaceApi = {
 
   // Partners
   async listPartners(status?: string) {
-    const query = status ? `?status=${status}` : '';
-    return fetchApi<Partner[]>(`/api/marketplace/partners${query}`);
+    void status;
+    // TODO(S4): re-enable marketplace partners API calls when partner workflows are shipped.
+    return [] as Partner[];
   },
 
   async getPartner(id: string) {
-    return fetchApi<Partner>(`/api/marketplace/partners/${id}`);
+    void id;
+    // TODO(S4): re-enable marketplace partners API calls when partner workflows are shipped.
+    throw new Error('Partners API is disabled until Sprint 4');
   },
 
   async createPartner(data: CreatePartnerRequest) {
-    return fetchApi<Partner>('/api/marketplace/partners', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    void data;
+    // TODO(S4): re-enable marketplace partners API calls when partner workflows are shipped.
+    throw new Error('Partners API is disabled until Sprint 4');
   },
 
   async approvePartner(id: string) {
-    return fetchApi<Partner>(`/api/marketplace/partners/${id}/approve`, { method: 'POST' });
+    void id;
+    // TODO(S4): re-enable marketplace partners API calls when partner workflows are shipped.
+    throw new Error('Partners API is disabled until Sprint 4');
   },
 
   // Submissions (pending review)
@@ -982,14 +991,21 @@ export const marketplaceApi = {
   },
 
   // Analytics
-  async getAnalytics() {
-    return fetchApi<{
-      totalBots: number;
-      totalPartners: number;
-      totalInstalls: number;
-      monthlyRevenue: number;
-      topBots: Array<{ id: string; name: string; installs: number; revenue: number }>;
-    }>('/api/marketplace/analytics');
+  async getAnalytics(): Promise<{
+    totalBots: number;
+    totalPartners: number;
+    totalInstalls: number;
+    monthlyRevenue: number;
+    topBots: Array<{ id: string; name: string; installs: number; revenue: number }>;
+  }> {
+    // TODO(S4): re-enable marketplace analytics API when partner analytics backend ships.
+    return {
+      totalBots: 0,
+      totalPartners: 0,
+      totalInstalls: 0,
+      monthlyRevenue: 0,
+      topBots: [],
+    };
   },
 };
 
@@ -1060,10 +1076,7 @@ type MCPToolResponse<T> = {
   error?: string;
 };
 
-async function callMcpTool<T>(
-  name: string,
-  args: Record<string, unknown>,
-): Promise<T> {
+async function callMcpTool<T>(name: string, args: Record<string, unknown>): Promise<T> {
   const response = await fetchApi<MCPToolResponse<T>>('/api/v1/mcp/tools/call', {
     method: 'POST',
     body: JSON.stringify({

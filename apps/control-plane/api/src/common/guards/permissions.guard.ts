@@ -2,8 +2,10 @@ import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@
 import { Reflector } from '@nestjs/core';
 import { User } from '../../users/entities/user.entity';
 import {
+  PERMISSION_CONSTRAINT_KEY,
   PERMISSIONS_KEY,
   PERMISSIONS_MODE_KEY,
+  PermissionConstraint,
   PermissionMode,
 } from '../decorators/permissions.decorator';
 import { getUserGrantedPermissions, hasPermission } from '../authz/permissions';
@@ -27,6 +29,11 @@ export class PermissionsGuard implements CanActivate {
         context.getHandler(),
         context.getClass(),
       ]) || 'all';
+
+    const constraint = this.reflector.getAllAndOverride<PermissionConstraint>(
+      PERMISSION_CONSTRAINT_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     const request = context.switchToHttp().getRequest();
     const user = request.user as User | undefined;
@@ -62,6 +69,51 @@ export class PermissionsGuard implements CanActivate {
       });
     }
 
+    if (constraint && constraint.scope === 'client') {
+      this.assertClientScope(constraint, request, user);
+    }
+
     return true;
+  }
+
+  private assertClientScope(
+    constraint: PermissionConstraint,
+    request: {
+      params?: Record<string, unknown>;
+      body?: Record<string, unknown>;
+      query?: Record<string, unknown>;
+    },
+    user: User,
+  ): void {
+    if (constraint.allowSkuldBypass !== false && user.isSkuld()) {
+      return;
+    }
+
+    const sourceOrder: Array<'params' | 'body' | 'query'> = constraint.source
+      ? [constraint.source]
+      : ['params', 'body', 'query'];
+
+    let rawValue: unknown;
+    for (const source of sourceOrder) {
+      rawValue = request[source]?.[constraint.key];
+      if (typeof rawValue === 'string' && rawValue.trim().length > 0) {
+        break;
+      }
+      rawValue = undefined;
+    }
+
+    if (!rawValue || typeof rawValue !== 'string') {
+      throw new ForbiddenException({
+        code: 'RESOURCE_SCOPE_MISSING',
+        message: `Missing required scoped field "${constraint.key}" for client permission check.`,
+      });
+    }
+
+    if (!user.clientId || user.clientId !== rawValue) {
+      throw new ForbiddenException({
+        code: 'RESOURCE_SCOPE_VIOLATION',
+        message: `User is not authorized for client scope "${rawValue}".`,
+      });
+    }
   }
 }

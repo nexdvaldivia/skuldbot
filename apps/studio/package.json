@@ -1,6 +1,7 @@
 {
   "name": "skuldbot-studio",
   "private": true,
+  "packageManager": "pnpm@8.13.1",
   "version": "0.1.0",
   "type": "module",
   "scripts": {
@@ -13,9 +14,8 @@
     "smoke:compile:nodes": "bash ./scripts/smoke_compile_all_nodes.sh",
     "migrate:legacy-expr": "python3 ./scripts/migrate_legacy_expressions.py",
     "test:planner-flow": "node ./scripts/run_planner_flow_tests.mjs",
-    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
-    "typecheck": "tsc --noEmit",
-    "test": "echo \"No tests configured\"",
+    "test:edge-routing": "node ./scripts/run_edge_routing_tests.mjs",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "kill-vite": "lsof -ti:1420 | xargs kill -9 2>/dev/null || true",
     "verify": "bash ./scripts/verify_studio.sh"
   },
@@ -33,27 +33,24 @@
     "@tauri-apps/api": "^1.5.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "lucide-react": "^0.309.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "lucide-react": "^1.8.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
     "reactflow": "^11.10.4",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "zustand": "^4.5.0"
   },
-  "pnpm": {
-    "overrides": {
-      "@types/react": "^18.2.43",
-      "@types/react-dom": "^18.2.17"
-    }
-  },
   "devDependencies": {
     "@tauri-apps/cli": "^1.5.3",
-    "@types/react": "^18.2.43",
-    "@types/react-dom": "^18.2.17",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@typescript-eslint/eslint-plugin": "^6.14.0",
+    "@typescript-eslint/parser": "^6.14.0",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.16",
-    "eslint": "^9.39.4",
+    "eslint": "^8.55.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
     "postcss": "^8.4.32",
     "tailwindcss": "^3.4.0",

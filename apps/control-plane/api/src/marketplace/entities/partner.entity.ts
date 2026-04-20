@@ -10,21 +10,23 @@ import {
 /**
  * Partner status
  */
-export enum PartnerStatus {
-  PENDING = 'pending',
-  APPROVED = 'approved',
-  SUSPENDED = 'suspended',
-  TERMINATED = 'terminated',
-}
+export type PartnerStatus = string;
+export const PartnerStatus = {
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  SUSPENDED: 'suspended',
+  TERMINATED: 'terminated',
+} as const;
 
 /**
  * Revenue share tier based on lifetime revenue
  */
-export enum RevenueShareTier {
-  STARTER = 'starter', // 0 - $100k: 70% partner / 30% Skuld
-  ESTABLISHED = 'established', // $100k - $1M: 75% partner / 25% Skuld
-  PREMIER = 'premier', // $1M+: 80% partner / 20% Skuld
-}
+export type RevenueShareTier = string;
+export const RevenueShareTier = {
+  STARTER: 'starter', // 0 - $100k: 70% partner / 30% Skuld
+  ESTABLISHED: 'established', // $100k - $1M: 75% partner / 25% Skuld
+  PREMIER: 'premier', // $1M+: 80% partner / 20% Skuld
+} as const;
 
 /**
  * Partner Entity
@@ -92,12 +94,8 @@ export class Partner {
   // STATUS
   // ============================================================================
 
-  @Column({
-    type: 'enum',
-    enum: PartnerStatus,
-    default: PartnerStatus.PENDING,
-  })
-  status: PartnerStatus;
+  @Column({ type: 'varchar', length: 50, default: PartnerStatus.PENDING })
+  status: string;
 
   @Column({ type: 'varchar', nullable: true })
   approvedAt?: Date;
@@ -131,12 +129,8 @@ export class Partner {
   // REVENUE SHARE
   // ============================================================================
 
-  @Column({
-    type: 'enum',
-    enum: RevenueShareTier,
-    default: RevenueShareTier.STARTER,
-  })
-  revenueShareTier: RevenueShareTier;
+  @Column({ type: 'varchar', length: 50, default: RevenueShareTier.STARTER })
+  revenueShareTier: string;
 
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   lifetimeRevenue: number;

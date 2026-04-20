@@ -11,10 +11,17 @@ import {
   HttpStatus,
   UnauthorizedException,
   ConflictException,
+  UseGuards,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { BillingService } from './billing.service';
 import type { UsageBatchDto } from './billing.service';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { RequirePermissions } from '../common/decorators/permissions.decorator';
+import { CP_PERMISSIONS } from '../common/authz/permissions';
+import { UsageIngestApiKeyGuard } from './guards/usage-ingest-api-key.guard';
 
 /**
  * Billing Controller
@@ -33,7 +40,7 @@ import type { UsageBatchDto } from './billing.service';
  * - POST /payouts/partner/:partnerId - Create payout for partner
  * - GET /payouts/partner/:partnerId - Get partner payouts
  */
-@Controller()
+@Controller('billing')
 export class BillingController {
   constructor(private readonly billingService: BillingService) {}
 
@@ -48,6 +55,8 @@ export class BillingController {
    * Uses license key and API key for authentication.
    */
   @Post('usage/ingest')
+  @UseGuards(UsageIngestApiKeyGuard, PermissionsGuard)
+  @RequirePermissions(CP_PERMISSIONS.BILLING_WRITE)
   @HttpCode(HttpStatus.OK)
   async ingestUsage(
     @Headers('x-license-key') licenseKey: string,
@@ -120,6 +129,8 @@ export class BillingController {
    * Get usage summary for a tenant
    */
   @Get('usage/tenant/:tenantId')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @RequirePermissions(CP_PERMISSIONS.BILLING_READ)
   async getTenantUsage(
     @Param('tenantId') tenantId: string,
     @Query('period') period?: string,
@@ -139,6 +150,8 @@ export class BillingController {
    * Get revenue share records for a partner
    */
   @Get('revenue-share/partner/:partnerId')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @RequirePermissions(CP_PERMISSIONS.BILLING_READ)
   async getPartnerRevenueShare(
     @Param('partnerId') partnerId: string,
     @Query('startPeriod') startPeriod?: string,
@@ -151,6 +164,8 @@ export class BillingController {
    * Calculate revenue share for a partner (admin only)
    */
   @Post('revenue-share/calculate')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @RequirePermissions(CP_PERMISSIONS.BILLING_WRITE)
   @HttpCode(HttpStatus.CREATED)
   async calculateRevenueShare(@Body() body: { partnerId: string; period: string }) {
     return this.billingService.calculateRevenueShare(body.partnerId, body.period);
@@ -160,6 +175,8 @@ export class BillingController {
    * Approve revenue share for payout (admin only)
    */
   @Post('revenue-share/:id/approve')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @RequirePermissions(CP_PERMISSIONS.BILLING_APPROVE)
   @HttpCode(HttpStatus.OK)
   async approveRevenueShare(@Param('id') id: string, @Body() body: { approvedBy: string }) {
     return this.billingService.approveRevenueShare(id, body.approvedBy);
@@ -173,6 +190,8 @@ export class BillingController {
    * Create payout for a partner (admin only)
    */
   @Post('payouts/partner/:partnerId')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @RequirePermissions(CP_PERMISSIONS.BILLING_WRITE)
   @HttpCode(HttpStatus.CREATED)
   async createPayout(@Param('partnerId') partnerId: string) {
     const payout = await this.billingService.createPayout(partnerId);
@@ -186,6 +205,8 @@ export class BillingController {
    * Get payouts for a partner
    */
   @Get('payouts/partner/:partnerId')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @RequirePermissions(CP_PERMISSIONS.BILLING_READ)
   async getPartnerPayouts(@Param('partnerId') partnerId: string) {
     return this.billingService.getPartnerPayouts(partnerId);
   }

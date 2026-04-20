@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, In, QueryFailedError } from 'typeorm';
+import { Repository, In, QueryFailedError } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import {
   UsageRecord,
@@ -15,6 +15,10 @@ import {
 } from './entities/revenue-share.entity';
 import { Partner } from '../marketplace/entities/partner.entity';
 import { assertNoOperationalEvidencePayload } from '../common/security/evidence-boundary.util';
+import { requireEntity } from '../common/utils/entity.util';
+import { TenantSubscription, SubscriptionStatus } from './entities/subscription.entity';
+import { PAYMENT_PROVIDER } from '../integrations/payment/payment.module';
+import { PaymentProvider } from '../common/interfaces/integration.interface';
 
 /**
  * Usage Event from Orchestrator
@@ -86,6 +90,10 @@ export class BillingService {
     private readonly partnerPayoutRepository: Repository<PartnerPayout>,
     @InjectRepository(Partner)
     private readonly partnerRepository: Repository<Partner>,
+    @InjectRepository(TenantSubscription)
+    private readonly subscriptionRepository: Repository<TenantSubscription>,
+    @Inject(PAYMENT_PROVIDER)
+    private readonly paymentProvider: PaymentProvider,
   ) {}
 
   /**
@@ -97,28 +105,10 @@ export class BillingService {
     options?: { traceId?: string },
   ): Promise<UsageIngestResult> {
     const traceId = options?.traceId;
-
-    if (!batch.tenantId?.trim()) {
-      throw new BadRequestException('tenantId is required');
-    }
-
-    if (!batch.batchId?.trim()) {
-      throw new BadRequestException('batchId is required');
-    }
-
-    if (!Array.isArray(batch.events)) {
-      throw new BadRequestException('events must be an array');
-    }
-
-    const sentAt = new Date(batch.sentAt);
-    if (Number.isNaN(sentAt.getTime())) {
-      throw new BadRequestException('Invalid sentAt timestamp');
-    }
+    const sentAt = this.validateUsageBatch(batch);
 
     // Check for duplicate batch (idempotency)
-    const existingBatch = await this.usageBatchRepository.findOne({
-      where: { orchestratorId, batchId: batch.batchId },
-    });
+    const existingBatch = await this.findDuplicateBatch(orchestratorId, batch.batchId);
 
     if (existingBatch) {
       this.logger.log(
@@ -133,18 +123,7 @@ export class BillingService {
     }
 
     // Record the batch
-    const batchRecord = this.usageBatchRepository.create({
-      batchId: batch.batchId,
-      orchestratorId,
-      tenantId: batch.tenantId,
-      eventCount: batch.events.length,
-      processedCount: 0,
-      duplicateEventCount: 0,
-      traceId,
-      sentAt,
-      receivedAt: new Date(),
-      status: 'processing',
-    });
+    const batchRecord = this.createUsageBatchRecord(orchestratorId, batch, sentAt, traceId);
     await this.usageBatchRepository.save(batchRecord);
 
     const maxAttempts = this.getIngestMaxAttempts();
@@ -154,16 +133,7 @@ export class BillingService {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         const result = await this.processUsageBatchAttempt(orchestratorId, batch, traceId);
-
-        batchRecord.status = 'processed';
-        batchRecord.processedCount = result.processedCount;
-        batchRecord.duplicateEventCount = result.duplicateEventCount;
-        await this.usageBatchRepository.save(batchRecord);
-
-        this.logger.log(
-          `[trace:${traceId ?? 'n/a'}] Processed batch ${batch.batchId}: ${result.processedCount} accepted, ${result.duplicateEventCount} duplicates`,
-        );
-
+        await this.finalizeProcessedBatch(batchRecord, result, traceId);
         return {
           processedCount: result.processedCount,
           duplicateBatch: false,
@@ -185,9 +155,7 @@ export class BillingService {
     }
 
     const finalError = lastError instanceof Error ? lastError : new Error(String(lastError));
-    batchRecord.status = 'failed';
-    batchRecord.error = finalError.message;
-    await this.usageBatchRepository.save(batchRecord);
+    await this.finalizeFailedBatch(batchRecord, finalError);
 
     if (!(finalError instanceof BadRequestException)) {
       await this.recordIngestDeadLetter(orchestratorId, batch, traceId, maxAttempts, finalError);
@@ -201,7 +169,98 @@ export class BillingService {
     batch: UsageBatchDto,
     traceId?: string,
   ): Promise<{ processedCount: number; duplicateEventCount: number }> {
-    const incomingEventIds = [...new Set(batch.events.map((event) => event.id))];
+    const deduped = await this.deduplicateRecords(orchestratorId, batch.events);
+    const acceptedEvents = await this.persistUsageBatch(
+      orchestratorId,
+      batch,
+      deduped.events,
+      traceId,
+    );
+    const aggregated = this.aggregateUsageEvents(batch.tenantId, acceptedEvents);
+    const meteringResults = await this.resolveStripeMetering(aggregated);
+    await this.finalizeUsageBatch(orchestratorId, aggregated, meteringResults);
+
+    return {
+      processedCount: acceptedEvents.length,
+      duplicateEventCount: deduped.duplicateEventCount,
+    };
+  }
+
+  private validateUsageBatch(batch: UsageBatchDto): Date {
+    if (!batch.tenantId?.trim()) {
+      throw new BadRequestException('tenantId is required');
+    }
+
+    if (!batch.batchId?.trim()) {
+      throw new BadRequestException('batchId is required');
+    }
+
+    if (!Array.isArray(batch.events)) {
+      throw new BadRequestException('events must be an array');
+    }
+
+    const sentAt = new Date(batch.sentAt);
+    if (Number.isNaN(sentAt.getTime())) {
+      throw new BadRequestException('Invalid sentAt timestamp');
+    }
+
+    return sentAt;
+  }
+
+  private async findDuplicateBatch(
+    orchestratorId: string,
+    batchId: string,
+  ): Promise<UsageBatch | null> {
+    return this.usageBatchRepository.findOne({
+      where: { orchestratorId, batchId },
+    });
+  }
+
+  private createUsageBatchRecord(
+    orchestratorId: string,
+    batch: UsageBatchDto,
+    sentAt: Date,
+    traceId?: string,
+  ): UsageBatch {
+    return this.usageBatchRepository.create({
+      batchId: batch.batchId,
+      orchestratorId,
+      tenantId: batch.tenantId,
+      eventCount: batch.events.length,
+      processedCount: 0,
+      duplicateEventCount: 0,
+      traceId,
+      sentAt,
+      receivedAt: new Date(),
+      status: 'processing',
+    });
+  }
+
+  private async finalizeProcessedBatch(
+    batchRecord: UsageBatch,
+    result: { processedCount: number; duplicateEventCount: number },
+    traceId?: string,
+  ): Promise<void> {
+    batchRecord.status = 'processed';
+    batchRecord.processedCount = result.processedCount;
+    batchRecord.duplicateEventCount = result.duplicateEventCount;
+    await this.usageBatchRepository.save(batchRecord);
+    this.logger.log(
+      `[trace:${traceId ?? 'n/a'}] Processed batch ${batchRecord.batchId}: ${result.processedCount} accepted, ${result.duplicateEventCount} duplicates`,
+    );
+  }
+
+  private async finalizeFailedBatch(batchRecord: UsageBatch, error: Error): Promise<void> {
+    batchRecord.status = 'failed';
+    batchRecord.error = error.message;
+    await this.usageBatchRepository.save(batchRecord);
+  }
+
+  private async deduplicateRecords(
+    orchestratorId: string,
+    records: UsageEventDto[],
+  ): Promise<{ events: UsageEventDto[]; duplicateEventCount: number }> {
+    const incomingEventIds = [...new Set(records.map((event) => event.id))];
     const existingEvents = incomingEventIds.length
       ? await this.usageIngestEventRepository.find({
           select: ['eventId'],
@@ -211,39 +270,35 @@ export class BillingService {
           },
         })
       : [];
+
     const knownEventIds = new Set(existingEvents.map((event) => event.eventId));
     const seenInBatch = new Set<string>();
     let duplicateEventCount = 0;
-    const acceptedEvents: UsageEventDto[] = [];
+    const events: UsageEventDto[] = [];
 
-    for (const event of batch.events) {
-      if (!event.id?.trim()) {
-        throw new BadRequestException('Every usage event requires a non-empty id');
-      }
-      if (!event.metric?.trim()) {
-        throw new BadRequestException(`Usage event ${event.id} requires a non-empty metric`);
-      }
-      if (!Number.isFinite(event.quantity)) {
-        throw new BadRequestException(`Usage event ${event.id} has an invalid quantity`);
-      }
-
-      const occurredAt = new Date(event.occurredAt);
-      if (Number.isNaN(occurredAt.getTime())) {
-        throw new BadRequestException(
-          `Usage event ${event.id} has an invalid occurredAt timestamp`,
-        );
-      }
-
-      if (event.metadata !== undefined) {
-        assertNoOperationalEvidencePayload(event.metadata, `Usage event ${event.id} metadata`);
-      }
-
+    for (const event of records) {
       if (seenInBatch.has(event.id) || knownEventIds.has(event.id)) {
         duplicateEventCount++;
         continue;
       }
-
       seenInBatch.add(event.id);
+      events.push(event);
+    }
+
+    return { events, duplicateEventCount };
+  }
+
+  private async persistUsageBatch(
+    orchestratorId: string,
+    batch: UsageBatchDto,
+    records: UsageEventDto[],
+    traceId?: string,
+  ): Promise<UsageEventDto[]> {
+    const acceptedEvents: UsageEventDto[] = [];
+
+    for (const event of records) {
+      this.validateUsageEvent(event);
+      const occurredAt = new Date(event.occurredAt);
 
       try {
         const ingestEvent = this.usageIngestEventRepository.create({
@@ -264,22 +319,49 @@ export class BillingService {
           (error as QueryFailedError & { driverError?: { code?: string } }).driverError?.code ===
             '23505'
         ) {
-          duplicateEventCount++;
           continue;
         }
         throw error;
       }
     }
 
-    const period = this.getCurrentPeriod();
+    return acceptedEvents;
+  }
+
+  private validateUsageEvent(event: UsageEventDto): void {
+    if (!event.id?.trim()) {
+      throw new BadRequestException('Every usage event requires a non-empty id');
+    }
+    if (!event.metric?.trim()) {
+      throw new BadRequestException(`Usage event ${event.id} requires a non-empty metric`);
+    }
+    if (!Number.isFinite(event.quantity)) {
+      throw new BadRequestException(`Usage event ${event.id} has an invalid quantity`);
+    }
+
+    const occurredAt = new Date(event.occurredAt);
+    if (Number.isNaN(occurredAt.getTime())) {
+      throw new BadRequestException(`Usage event ${event.id} has an invalid occurredAt timestamp`);
+    }
+
+    if (event.metadata !== undefined) {
+      assertNoOperationalEvidencePayload(event.metadata, `Usage event ${event.id} metadata`);
+    }
+  }
+
+  private aggregateUsageEvents(
+    tenantId: string,
+    records: UsageEventDto[],
+  ): Map<string, { metric: string; quantity: number; installationId?: string; botId?: string }> {
     const aggregated = new Map<
       string,
-      { quantity: number; installationId?: string; botId?: string }
+      { metric: string; quantity: number; installationId?: string; botId?: string }
     >();
 
-    for (const event of acceptedEvents) {
-      const key = `${batch.tenantId}:${event.metric}:${event.installationId || 'none'}`;
+    for (const event of records) {
+      const key = `${tenantId}:${event.metric}:${event.installationId || 'none'}`;
       const existing = aggregated.get(key) || {
+        metric: event.metric,
         quantity: 0,
         installationId: event.installationId,
         botId: event.botId,
@@ -288,10 +370,98 @@ export class BillingService {
       aggregated.set(key, existing);
     }
 
+    return aggregated;
+  }
+
+  private async resolveStripeMetering(
+    aggregated: Map<
+      string,
+      { metric: string; quantity: number; installationId?: string; botId?: string }
+    >,
+  ): Promise<
+    Map<string, { stripeUsageRecordId: string; stripeSubscriptionItemId: string | null }>
+  > {
+    const meteringResults = new Map<
+      string,
+      { stripeUsageRecordId: string; stripeSubscriptionItemId: string | null }
+    >();
+
+    if (!this.paymentProvider.isConfigured()) {
+      return meteringResults;
+    }
+
+    const subscriptionCache = new Map<string, TenantSubscription | null>();
+    for (const [aggregateKey, data] of aggregated.entries()) {
+      const [tenantId] = aggregateKey.split(':');
+      if (!tenantId || data.quantity <= 0) {
+        continue;
+      }
+
+      let subscription = subscriptionCache.get(tenantId);
+      if (subscription === undefined) {
+        subscription = await this.subscriptionRepository.findOne({
+          where: { tenantId },
+        });
+        subscriptionCache.set(tenantId, subscription);
+      }
+
+      if (
+        !subscription?.stripeSubscriptionId ||
+        subscription.status === SubscriptionStatus.CANCELED ||
+        subscription.status === SubscriptionStatus.SUSPENDED
+      ) {
+        continue;
+      }
+
+      const meterId = this.resolveMeterIdForMetric(data.metric);
+      if (!meterId && !subscription.stripeSubscriptionItemId) {
+        continue;
+      }
+
+      try {
+        const usage = await this.paymentProvider.recordUsage({
+          subscriptionId: subscription.stripeSubscriptionId,
+          subscriptionItemId: subscription.stripeSubscriptionItemId,
+          meterId: meterId ?? undefined,
+          quantity: data.quantity,
+          timestamp: new Date(),
+          metadata: {
+            tenantId,
+            metric: data.metric,
+          },
+        });
+        meteringResults.set(aggregateKey, {
+          stripeUsageRecordId: usage.id,
+          stripeSubscriptionItemId: usage.subscriptionItemId || null,
+        });
+      } catch (error) {
+        this.logger.error(
+          `Failed to record Stripe usage for tenant ${tenantId}, metric ${data.metric}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
+    return meteringResults;
+  }
+
+  private async finalizeUsageBatch(
+    orchestratorId: string,
+    aggregated: Map<
+      string,
+      { metric: string; quantity: number; installationId?: string; botId?: string }
+    >,
+    meteringResults: Map<
+      string,
+      { stripeUsageRecordId: string; stripeSubscriptionItemId: string | null }
+    >,
+  ): Promise<void> {
+    const period = this.getCurrentPeriod();
+
     for (const [key, data] of aggregated) {
       const [tenantId, metric] = key.split(':');
-
-      let record = await this.usageRecordRepository.findOne({
+      const existing = await this.usageRecordRepository.findOne({
         where: {
           tenantId,
           metric,
@@ -300,11 +470,21 @@ export class BillingService {
         },
       });
 
-      if (record) {
-        record.quantity = Number(record.quantity) + data.quantity;
-        await this.usageRecordRepository.save(record);
-      } else {
-        record = this.usageRecordRepository.create({
+      if (existing) {
+        existing.quantity = Number(existing.quantity) + data.quantity;
+        const metering = meteringResults.get(key);
+        if (metering?.stripeUsageRecordId) {
+          existing.stripeUsageRecordId = metering.stripeUsageRecordId;
+        }
+        if (metering?.stripeSubscriptionItemId) {
+          existing.stripeSubscriptionItemId = metering.stripeSubscriptionItemId;
+        }
+        await this.usageRecordRepository.save(existing);
+        continue;
+      }
+
+      await this.usageRecordRepository.save(
+        this.usageRecordRepository.create({
           tenantId,
           orchestratorId,
           botId: data.botId,
@@ -312,16 +492,26 @@ export class BillingService {
           metric,
           quantity: data.quantity,
           period,
+          stripeUsageRecordId: meteringResults.get(key)?.stripeUsageRecordId,
+          stripeSubscriptionItemId: meteringResults.get(key)?.stripeSubscriptionItemId ?? undefined,
           status: 'pending',
-        });
-        await this.usageRecordRepository.save(record);
-      }
+        }),
+      );
+    }
+  }
+
+  private resolveMeterIdForMetric(metric: string): string | null {
+    const normalized = metric
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '_');
+    const fromMetric = this.configService.get<string>(`STRIPE_METER_${normalized}`);
+    if (fromMetric?.trim()) {
+      return fromMetric.trim();
     }
 
-    return {
-      processedCount: acceptedEvents.length,
-      duplicateEventCount,
-    };
+    const fallback = this.configService.get<string>('STRIPE_DEFAULT_METER_ID');
+    return fallback?.trim() ? fallback.trim() : null;
   }
 
   private getIngestMaxAttempts(): number {
@@ -469,13 +659,7 @@ export class BillingService {
    * Calculate revenue share for a partner for a given period
    */
   async calculateRevenueShare(partnerId: string, period: string): Promise<RevenueShareRecord> {
-    const partner = await this.partnerRepository.findOne({
-      where: { id: partnerId },
-    });
-
-    if (!partner) {
-      throw new NotFoundException(`Partner ${partnerId} not found`);
-    }
+    const partner = await requireEntity(this.partnerRepository, { id: partnerId }, 'Partner');
 
     // Get all usage records for partner's bots in this period
     // In production, would join with MarketplaceBot to get partner's bots
@@ -552,13 +736,11 @@ export class BillingService {
    * Approve a revenue share record for payout
    */
   async approveRevenueShare(recordId: string, approvedBy: string): Promise<RevenueShareRecord> {
-    const record = await this.revenueShareRepository.findOne({
-      where: { id: recordId },
-    });
-
-    if (!record) {
-      throw new NotFoundException(`Revenue share record ${recordId} not found`);
-    }
+    const record = await requireEntity(
+      this.revenueShareRepository,
+      { id: recordId },
+      'Revenue share record',
+    );
 
     record.status = 'approved';
     record.approvedBy = approvedBy;
@@ -571,13 +753,7 @@ export class BillingService {
    * Create payout for approved revenue share records
    */
   async createPayout(partnerId: string): Promise<PartnerPayout | null> {
-    const partner = await this.partnerRepository.findOne({
-      where: { id: partnerId },
-    });
-
-    if (!partner) {
-      throw new NotFoundException(`Partner ${partnerId} not found`);
-    }
+    const partner = await requireEntity(this.partnerRepository, { id: partnerId }, 'Partner');
 
     // Get all approved records not yet paid
     const approvedRecords = await this.revenueShareRepository.find({

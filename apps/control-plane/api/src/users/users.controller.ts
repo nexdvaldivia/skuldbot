@@ -10,9 +10,19 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { UsersService } from './users.service';
-import { CreateUserDto, UpdateUserDto, UserResponseDto } from './dto/user.dto';
+import {
+  CreateUserDto,
+  ListUsersQueryDto,
+  ResetUserPasswordDto,
+  UpdateUserDto,
+  UploadUserAvatarDto,
+  UserResponseDto,
+  UserStatsResponseDto,
+} from './dto/user.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
@@ -30,8 +40,15 @@ export class UsersController {
   @Get()
   @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
   @RequirePermissions(CP_PERMISSIONS.USERS_READ)
-  async findAll(@Query('clientId') clientId?: string): Promise<UserResponseDto[]> {
-    return this.usersService.findAll(clientId);
+  async findAll(@Query() query: ListUsersQueryDto): Promise<UserResponseDto[]> {
+    return this.usersService.findAll(query);
+  }
+
+  @Get('stats')
+  @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
+  @RequirePermissions(CP_PERMISSIONS.USERS_READ)
+  async getStats(): Promise<UserStatsResponseDto> {
+    return this.usersService.getStats();
   }
 
   @Get(':id')
@@ -71,8 +88,12 @@ export class UsersController {
   @Post(':id/activate')
   @Roles(UserRole.SKULD_ADMIN)
   @RequirePermissions(CP_PERMISSIONS.USERS_STATUS)
-  async activate(@Param('id') id: string): Promise<UserResponseDto> {
-    return this.usersService.activate(id);
+  async activate(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<UserResponseDto> {
+    return this.usersService.activate(id, currentUser, this.resolveRequestIp(request));
   }
 
   @Post(':id/suspend')
@@ -81,7 +102,68 @@ export class UsersController {
   async suspend(
     @Param('id') id: string,
     @CurrentUser() currentUser: User,
+    @Req() request: Request,
   ): Promise<UserResponseDto> {
-    return this.usersService.suspend(id, currentUser);
+    return this.usersService.suspend(id, currentUser, this.resolveRequestIp(request));
+  }
+
+  @Post(':id/toggle-active')
+  @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.USERS_STATUS)
+  async toggleActive(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<UserResponseDto> {
+    return this.usersService.toggleActive(id, currentUser, this.resolveRequestIp(request));
+  }
+
+  @Post(':id/reset-password')
+  @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.USERS_WRITE)
+  async resetPassword(
+    @Param('id') id: string,
+    @Body() dto: ResetUserPasswordDto,
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<UserResponseDto> {
+    return this.usersService.resetPassword(
+      id,
+      dto.password,
+      currentUser,
+      this.resolveRequestIp(request),
+    );
+  }
+
+  @Post(':id/avatar')
+  @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
+  @RequirePermissions(CP_PERMISSIONS.USERS_WRITE)
+  @HttpCode(HttpStatus.CREATED)
+  async uploadAvatar(
+    @Param('id') id: string,
+    @Body() dto: UploadUserAvatarDto,
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<UserResponseDto> {
+    return this.usersService.uploadAvatar(id, dto, currentUser, this.resolveRequestIp(request));
+  }
+
+  @Delete(':id/avatar')
+  @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
+  @RequirePermissions(CP_PERMISSIONS.USERS_WRITE)
+  async deleteAvatar(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<UserResponseDto> {
+    return this.usersService.deleteAvatar(id, currentUser, this.resolveRequestIp(request));
+  }
+
+  private resolveRequestIp(request: Request): string | null {
+    const forwardedFor = request.headers['x-forwarded-for'];
+    if (typeof forwardedFor === 'string') {
+      return forwardedFor.split(',')[0]?.trim() || null;
+    }
+    return request.ip || null;
   }
 }

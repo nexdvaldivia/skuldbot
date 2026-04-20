@@ -10,17 +10,19 @@ import {
 } from 'typeorm';
 import { MarketplaceBot } from './marketplace-bot.entity';
 
-export enum MarketplaceSubscriptionStatus {
-  ACTIVE = 'active',
-  CANCELED = 'canceled',
-}
+export type MarketplaceSubscriptionStatus = string;
+export const MarketplaceSubscriptionStatus = {
+  ACTIVE: 'active',
+  CANCELED: 'canceled',
+} as const;
 
-export enum MarketplaceSubscriptionPlan {
-  USAGE = 'usage',
-  PER_CALL = 'per_call',
-  MONTHLY = 'monthly',
-  HYBRID = 'hybrid',
-}
+export type MarketplaceSubscriptionPlan = string;
+export const MarketplaceSubscriptionPlan = {
+  USAGE: 'usage',
+  PER_CALL: 'per_call',
+  MONTHLY: 'monthly',
+  HYBRID: 'hybrid',
+} as const;
 
 @Entity('marketplace_subscriptions')
 @Index(['tenantId', 'marketplaceBotId'], { unique: true })
@@ -44,14 +46,14 @@ export class MarketplaceSubscription {
     length: 32,
     default: MarketplaceSubscriptionPlan.MONTHLY,
   })
-  pricingPlan: MarketplaceSubscriptionPlan;
+  pricingPlan: string;
 
   @Column({
     type: 'varchar',
     length: 32,
     default: MarketplaceSubscriptionStatus.ACTIVE,
   })
-  status: MarketplaceSubscriptionStatus;
+  status: string;
 
   @Column({ type: 'timestamptz', nullable: true })
   subscribedAt?: Date;

@@ -7,18 +7,20 @@ import {
   Index,
 } from 'typeorm';
 
-export enum PartnerStatus {
-  PENDING = 'pending',
-  APPROVED = 'approved',
-  SUSPENDED = 'suspended',
-  REJECTED = 'rejected',
-}
+export type PartnerStatus = string;
+export const PartnerStatus = {
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  SUSPENDED: 'suspended',
+  REJECTED: 'rejected',
+} as const;
 
-export enum RevenueShareTier {
-  STARTER = 'starter',
-  ESTABLISHED = 'established',
-  PREMIER = 'premier',
-}
+export type RevenueShareTier = string;
+export const RevenueShareTier = {
+  STARTER: 'starter',
+  ESTABLISHED: 'established',
+  PREMIER: 'premier',
+} as const;
 
 /**
  * Partner Entity - Publishers of bots in the SkuldBot Marketplace.
@@ -55,12 +57,8 @@ export class PartnerEntity {
   @Column({ type: 'varchar', length: 100, nullable: true })
   country: string | null;
 
-  @Column({
-    type: 'enum',
-    enum: PartnerStatus,
-    default: PartnerStatus.PENDING,
-  })
-  status: PartnerStatus;
+  @Column({ type: 'varchar', length: 50, default: PartnerStatus.PENDING })
+  status: string;
 
   @Column({ type: 'timestamp', nullable: true })
   approvedAt: Date | null;
@@ -83,12 +81,8 @@ export class PartnerEntity {
   @Column({ type: 'boolean', default: false })
   stripeDetailsSubmitted: boolean;
 
-  @Column({
-    type: 'enum',
-    enum: RevenueShareTier,
-    default: RevenueShareTier.STARTER,
-  })
-  revenueShareTier: RevenueShareTier;
+  @Column({ type: 'varchar', length: 50, default: RevenueShareTier.STARTER })
+  revenueShareTier: string;
 
   @Column({ type: 'bigint', default: 0 })
   lifetimeRevenueInCents: number;

@@ -2116,6 +2116,32 @@ register_node(NodeMapping(
 
 
 # =============================================================================
+# MFA / AUTHENTICATION NODES (SkuldMFA Library - skuldbot.libs.mfa)
+# =============================================================================
+
+# Librería SkuldMFA con alias MFA
+LIB_SKULD_MFA = LibraryImport("skuldbot.libs.mfa.SkuldMFA", alias="MFA")
+
+register_node(NodeMapping(
+    node_type="security.totp_generate",
+    category=NodeCategory.SECURITY,
+    keyword="Generate TOTP",
+    library=LIB_SKULD_MFA,
+    description="Generate TOTP code for MFA authentication using a shared secret from KeyVault",
+    config_mapping={
+        "secret_name": "secret_name",
+        "mfa_type": "mfa_type",
+        "vault_provider": "vault_provider",
+        "digits": "digits",
+        "period": "period",
+        "algorithm": "algorithm",
+    },
+    return_variable="totp_code",
+    pre_keywords=["Log    Generating TOTP for MFA authentication [secret redacted]    console=yes"],
+))
+
+
+# =============================================================================
 # HUMAN-IN-THE-LOOP NODES (SkuldHuman Library - skuldbot.libs.human)
 # =============================================================================
 

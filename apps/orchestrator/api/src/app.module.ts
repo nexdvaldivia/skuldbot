@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 
 import configuration from './config/configuration';
@@ -43,14 +43,15 @@ enforceEnvironmentPolicy(process.env);
       // Regulated environments should inject env vars from platform/vault.
       // Local dotenv loading is opt-in via ALLOW_DOTENV=true.
       ignoreEnvFile: process.env.ALLOW_DOTENV !== 'true',
-      envFilePath: process.env.ALLOW_DOTENV === 'true' ? ['.env.local', '.env'] : undefined,
+      envFilePath:
+        process.env.ALLOW_DOTENV === 'true' ? ['.env.local', '.env'] : undefined,
     }),
 
     // Database
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: () => ({
-        ...(buildTypeOrmOptions(process.env) as TypeOrmModuleOptions),
+      useFactory: (): any => ({
+        ...buildTypeOrmOptions(process.env),
         // Reduce retry attempts for faster failure
         retryAttempts: 3,
         retryDelay: 1000,

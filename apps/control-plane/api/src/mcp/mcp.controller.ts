@@ -1,9 +1,14 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
 import { LicensingServer } from './servers/licensing.server';
 import { MarketplaceServer } from './servers/marketplace.server';
 import { MeteringServer } from './servers/metering.server';
 import { BillingServer } from './servers/billing.server';
 import { ToolCallDto, MCPCapabilitiesDto } from './dto/tool-call.dto';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { RequirePermissions } from '../common/decorators/permissions.decorator';
+import { CP_PERMISSIONS } from '../common/authz/permissions';
 
 /**
  * MCP Controller for Control Plane
@@ -16,7 +21,7 @@ import { ToolCallDto, MCPCapabilitiesDto } from './dto/tool-call.dto';
  * - GET  /api/v1/mcp/resources/:uri
  * - GET  /api/v1/mcp/capabilities
  */
-@Controller('api/v1/mcp')
+@Controller('v1/mcp')
 export class MCPController {
   constructor(
     private readonly licensingServer: LicensingServer,
@@ -29,6 +34,8 @@ export class MCPController {
    * List all available tools from all servers
    */
   @Get('tools')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @RequirePermissions(CP_PERMISSIONS.MCP_READ)
   async listTools() {
     const tools = [
       ...this.licensingServer.getTools(),
@@ -47,6 +54,8 @@ export class MCPController {
    * List all available resources from all servers
    */
   @Get('resources')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @RequirePermissions(CP_PERMISSIONS.MCP_READ)
   async listResources() {
     const resources = [
       ...this.licensingServer.getResources(),
@@ -65,6 +74,8 @@ export class MCPController {
    * Call a tool
    */
   @Post('tools/call')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @RequirePermissions(CP_PERMISSIONS.MCP_EXECUTE)
   async callTool(@Body() toolCall: ToolCallDto) {
     // Route to the appropriate server based on tool name
     const toolName = toolCall.name;
@@ -121,6 +132,8 @@ export class MCPController {
    * Read a resource
    */
   @Get('resources/*')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @RequirePermissions(CP_PERMISSIONS.MCP_READ)
   async readResource(@Param('0') uri: string) {
     // Reconstruct full URI
     const fullUri = uri;
@@ -151,6 +164,8 @@ export class MCPController {
    * Get full capabilities
    */
   @Get('capabilities')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @RequirePermissions(CP_PERMISSIONS.MCP_READ)
   async getCapabilities(): Promise<MCPCapabilitiesDto> {
     const tools = await this.listTools();
     const resources = await this.listResources();
@@ -172,6 +187,7 @@ export class MCPController {
    * Health check (readiness probe)
    */
   @Get('health')
+  // PUBLIC: Kubernetes liveness/readiness probes - no auth required
   async health() {
     const checks = {
       licensing: await this.checkServerHealth(this.licensingServer),
@@ -199,6 +215,7 @@ export class MCPController {
    * Liveness probe (is the process alive?)
    */
   @Get('health/live')
+  // PUBLIC: Kubernetes liveness/readiness probes - no auth required
   async healthLive() {
     return {
       status: 'alive',
@@ -210,6 +227,7 @@ export class MCPController {
    * Startup probe (is the server ready to accept traffic?)
    */
   @Get('health/ready')
+  // PUBLIC: Kubernetes liveness/readiness probes - no auth required
   async healthReady() {
     // Check if all servers can respond
     try {

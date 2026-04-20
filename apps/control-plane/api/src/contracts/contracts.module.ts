@@ -1,0 +1,91 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ClientContact } from '../clients/entities/client-contact.entity';
+import { Client } from '../clients/entities/client.entity';
+import { SubscriptionEntity } from '../integrations/payment/entities/subscription.entity';
+import { Tenant } from '../tenants/entities/tenant.entity';
+import { ContractGateService } from './contract-gate.service';
+import { ContractLegalService } from './contract-legal.service';
+import { ContractLookupsService } from './contract-lookups.service';
+import { ContractRequirementService } from './contract-requirement.service';
+import { ContractRenewalsController } from './contract-renewals.controller';
+import { ContractRenewalsService } from './contract-renewals.service';
+import { ContractSignatoryPolicyService } from './contract-signatory-policy.service';
+import { ContractSigningService } from './contract-signing.service';
+import { ContractTemplateService } from './contract-template.service';
+import { ContractsController } from './contracts.controller';
+import { PublicSigningController } from './public-signing.controller';
+import { PublicSigningService } from './public-signing.service';
+import { SignedDocumentsController } from './signed-documents.controller';
+import { SignedDocumentsService } from './signed-documents.service';
+import { ContractsService } from './contracts.service';
+import { ContractAcceptance } from './entities/contract-acceptance.entity';
+import { ContractComplianceFrameworkLookup } from './entities/contract-compliance-framework-lookup.entity';
+import { ContractEnvelopeEvent } from './entities/contract-envelope-event.entity';
+import { ContractEnvelopeRecipient } from './entities/contract-envelope-recipient.entity';
+import { ContractEnvelope } from './entities/contract-envelope.entity';
+import { ContractJurisdictionLookup } from './entities/contract-jurisdiction-lookup.entity';
+import { ContractLegalInfo } from './entities/contract-legal-info.entity';
+import { ContractRequirement } from './entities/contract-requirement.entity';
+import { ContractRenewalRequirement } from './entities/contract-renewal-requirement.entity';
+import { ContractSignatory } from './entities/contract-signatory.entity';
+import { ContractSignatoryPolicy } from './entities/contract-signatory-policy.entity';
+import { ContractTypeLookup } from './entities/contract-type-lookup.entity';
+import { ContractEvent } from './entities/contract-event.entity';
+import { ContractSigner } from './entities/contract-signer.entity';
+import { SigningDocument } from './entities/signing-document.entity';
+import { ContractTemplateVersion } from './entities/contract-template-version.entity';
+import { ContractTemplate } from './entities/contract-template.entity';
+import { Contract } from './entities/contract.entity';
+import { PdfService } from './pdf.service';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([
+      Contract,
+      ContractSigner,
+      ContractEvent,
+      ContractTemplate,
+      ContractTemplateVersion,
+      ContractEnvelope,
+      ContractEnvelopeRecipient,
+      ContractEnvelopeEvent,
+      SigningDocument,
+      ContractAcceptance,
+      ContractRequirement,
+      ContractRenewalRequirement,
+      ContractSignatory,
+      ContractSignatoryPolicy,
+      ContractLegalInfo,
+      ContractTypeLookup,
+      ContractJurisdictionLookup,
+      ContractComplianceFrameworkLookup,
+      Client,
+      ClientContact,
+      Tenant,
+      SubscriptionEntity,
+    ]),
+  ],
+  controllers: [
+    ContractsController,
+    PublicSigningController,
+    ContractRenewalsController,
+    SignedDocumentsController,
+  ],
+  providers: [
+    ContractsService,
+    PdfService,
+    ContractTemplateService,
+    ContractSigningService,
+    ContractLookupsService,
+    ContractRequirementService,
+    ContractRenewalsService,
+    ContractLegalService,
+    ContractSignatoryPolicyService,
+    ContractGateService,
+    PublicSigningService,
+    SignedDocumentsService,
+  ],
+  exports: [ContractsService, ContractGateService, ContractRequirementService],
+})
+export class ContractsModule {}

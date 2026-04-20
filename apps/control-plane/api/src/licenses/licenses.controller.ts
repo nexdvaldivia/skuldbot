@@ -9,6 +9,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  ForbiddenException,
 } from '@nestjs/common';
 import { LicensesService } from './licenses.service';
 import {
@@ -30,10 +31,14 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { CP_PERMISSIONS } from '../common/authz/permissions';
 import { UserRole } from '../users/entities/user.entity';
+import { ContractGateService } from '../contracts/contract-gate.service';
 
 @Controller('licenses')
 export class LicensesController {
-  constructor(private readonly licensesService: LicensesService) {}
+  constructor(
+    private readonly licensesService: LicensesService,
+    private readonly contractGateService: ContractGateService,
+  ) {}
 
   // Public endpoint for license validation (used by Orchestrators)
   @Post('validate')
@@ -111,6 +116,15 @@ export class LicensesController {
   @RequirePermissions(CP_PERMISSIONS.LICENSES_WRITE)
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateLicenseDto): Promise<LicenseDetailResponseDto> {
+    const gate = await this.contractGateService.validateForLicenseCreate(dto);
+    if (!gate.allowed) {
+      throw new ForbiddenException({
+        code: 'CONTRACT_GATE_BLOCKED',
+        message: 'License issuance is blocked until required contracts are signed.',
+        missingContracts: gate.missing,
+      });
+    }
+
     return this.licensesService.create(dto);
   }
 

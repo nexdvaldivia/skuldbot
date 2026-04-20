@@ -39,6 +39,9 @@ Library           skuldbot.libs.DataLibrary
 Library           skuldbot.libs.vault    WITH NAME    SkuldVault
 Library           skuldbot.libs.local_vault    WITH NAME    LocalVault
 {% endif %}
+{% if 'security.totp' in node_types_str %}
+Library           skuldbot.libs.mfa    WITH NAME    MFA
+{% endif %}
 {% if 'voice.' in node_types_str or 'trigger.voice' in node_types_str %}
 Library           skuldbot.libs.voice    WITH NAME    SkuldVoice
 {% endif %}
@@ -2067,6 +2070,30 @@ Execute Node By ID
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Certificate valid: ${valid}, expires: ${expires}    console=yes
 
+{# ===== MFA / AUTHENTICATION ===== #}
+{% elif node.type == 'security.totp_generate' %}
+            # Generate TOTP code for MFA authentication
+            ${secret_name}=    Set Variable    {{ node.config.get('secret_name', '') | transform_vars }}
+            ${mfa_type}=    Set Variable    {{ node.config.get('mfa_type', 'google_authenticator') }}
+            ${vault_provider}=    Set Variable    {{ node.config.get('vault_provider', 'local') }}
+            ${totp_code}=    MFA.Generate TOTP
+            ...    secret_name=${secret_name}
+            ...    mfa_type=${mfa_type}
+            ...    vault_provider=${vault_provider}
+{% if node.config.get('digits') %}
+            ...    digits={{ node.config.get('digits') }}
+{% endif %}
+{% if node.config.get('period') %}
+            ...    period={{ node.config.get('period') }}
+{% endif %}
+{% if node.config.get('algorithm') %}
+            ...    algorithm={{ node.config.get('algorithm') }}
+{% endif %}
+            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${totp_code}    code=${totp_code}    secretName=${secret_name}    mfaType=${mfa_type}
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': '[TOTP_CODE_REDACTED]', 'mfa_type': '${mfa_type}'}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
+            Log    TOTP code generated for ${secret_name} (${mfa_type}) [code redacted]    console=yes
+
 {# ===== HUMAN ===== #}
 {% elif node.type == 'human.approval' %}
             # Request human approval
@@ -2397,6 +2424,20 @@ Execute Node By ID
             Log    Loaded ${result}[insertedCount] records (${result}[errorCount] errors)    console=yes
 
 {# ===== SECRETS MANAGEMENT ===== #}
+{% elif node.type == 'secrets.orchestrator_vault' %}
+            # Orchestrator Vault - Load secrets from Skuld Orchestrator
+            Log    Connecting to Orchestrator Vault: {{ node.config.get('orchestrator_url', '') | escape_newlines }}    console=yes
+            ${secrets_list}=    Evaluate    [s.strip() for s in """{{ node.config.get('secrets', '') }}""".split('\\n') if s.strip()]
+            ${result}=    SkuldVault.Init Orchestrator Vault
+            ...    orchestrator_url={{ node.config.get('orchestrator_url', '') | transform_vars }}
+            ...    auth_method={{ node.config.get('auth_method', 'runner_token') }}
+            ...    secrets=${secrets_list}
+            # Store results
+            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${result}    loaded=${result}[loaded]    secretNames=${result}[secretNames]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
+            Log    Loaded ${result}[loaded] secrets from Orchestrator Vault    console=yes
+
 {% elif node.type == 'secrets.azure_keyvault' %}
             # Azure Key Vault - Load secrets into ${vault.xxx}
             Log    Connecting to Azure Key Vault: {{ node.config.get('vault_url', '') | escape_newlines }}    console=yes
@@ -2442,6 +2483,20 @@ Execute Node By ID
             ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
             Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
             Log    Loaded ${result}[loaded] secrets from HashiCorp Vault    console=yes
+
+{% elif node.type == 'secrets.gcp_secret_manager' %}
+            # GCP Secret Manager - Load secrets into ${vault.xxx}
+            Log    Connecting to GCP Secret Manager: {{ node.config.get('project_id', '') | escape_newlines }}    console=yes
+            ${secrets_list}=    Evaluate    [s.strip() for s in """{{ node.config.get('secrets', '') }}""".split('\\n') if s.strip()]
+            ${result}=    SkuldVault.Init GCP Vault
+            ...    project_id={{ node.config.get('project_id', '') | transform_vars }}
+            ...    use_default_credentials={{ node.config.get('use_default_credentials', 'true') }}
+            ...    secrets=${secrets_list}
+            # Store results
+            Set To Dictionary    ${NODE_{{ node.id | node_id_safe }}}    output=${result}    loaded=${result}[loaded]    secretNames=${result}[secretNames]
+            ${_output_json}=    Evaluate    __import__('json').dumps({'result': $result}, default=str)
+            Log    NODE_OUTPUT:{{ node.id }}:${_output_json}    console=yes
+            Log    Loaded ${result}[loaded] secrets from GCP Secret Manager    console=yes
 
 {% elif node.type == 'secrets.local_vault' %}
             # Local Vault - Unlock and load secrets into ${vault.xxx}

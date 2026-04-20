@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import { License, LicenseFeatures } from './entities/license.entity';
+import { LicenseAudit, LicenseAuditAction } from './entities/license-audit.entity';
 import { LicenseTypeFeature } from './entities/license-type-feature.entity';
 import { QuotaPolicy, UsageCounter } from './entities/quota.entity';
 import {
@@ -44,13 +45,29 @@ export type RuntimeDecisionContext = {
   metadata?: Record<string, unknown>;
 };
 
+type LicenseEvaluation = {
+  valid: boolean;
+  inGrace: boolean;
+  message: string;
+  signatureVerified: boolean;
+  shouldStartGrace: boolean;
+  shouldEndGrace: boolean;
+};
+
 @Injectable()
 export class LicensesService {
   private readonly logger = new Logger(LicensesService.name);
+  private readonly signingPrivateKey: crypto.KeyObject;
+  private readonly signingPublicKey: crypto.KeyObject;
+  private readonly signingKeyId: string;
+  private readonly signingAlgorithm = 'ed25519';
+  private readonly defaultGracePeriodDays: number;
 
   constructor(
     @InjectRepository(License)
     private readonly licenseRepository: Repository<License>,
+    @InjectRepository(LicenseAudit)
+    private readonly licenseAuditRepository: Repository<LicenseAudit>,
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
     @InjectRepository(LicenseTypeFeature)
@@ -63,7 +80,13 @@ export class LicensesService {
     private readonly runtimeDecisionRepository: Repository<LicenseRuntimeDecision>,
     private readonly configService: ConfigService,
     private readonly lookupsService: LookupsService,
-  ) {}
+  ) {
+    const keyMaterial = this.resolveSigningMaterial();
+    this.signingPrivateKey = keyMaterial.privateKey;
+    this.signingPublicKey = keyMaterial.publicKey;
+    this.signingKeyId = keyMaterial.publicKeyId;
+    this.defaultGracePeriodDays = this.resolveDefaultGraceDays();
+  }
 
   async findAll(tenantId?: string): Promise<LicenseResponseDto[]> {
     const query = this.licenseRepository.createQueryBuilder('license');
@@ -116,20 +139,36 @@ export class LicensesService {
       'active',
     );
 
+    const gracePeriodDays = this.resolveGracePeriodDays(dto.gracePeriodDays);
+
     const license = this.licenseRepository.create({
+      id: crypto.randomUUID(),
       tenantId: dto.tenantId,
       key,
       type: licenseType,
       status: activeStatus,
       features,
+      signatureAlgorithm: this.signingAlgorithm,
+      publicKeyId: this.signingKeyId,
+      signature: '',
       validFrom: new Date(dto.validFrom),
       validUntil: new Date(dto.validUntil),
+      gracePeriodDays,
+      gracePeriodEndsAt: null,
+      firstActivatedAt: null,
+      validationCount: 0,
     });
+    this.signLicense(license);
 
     const saved = await this.licenseRepository.save(license);
+    await this.recordLicenseAudit(saved, 'issued', {
+      issuedAt: new Date().toISOString(),
+      licenseType,
+      gracePeriodDays: saved.gracePeriodDays,
+    });
     this.logger.log(`Created license ${key} for tenant ${tenant.slug}`);
 
-    return this.toDetailDto(saved);
+    return this.toDetailDto(saved, { includePlainKey: true });
   }
 
   async update(id: string, dto: UpdateLicenseDto): Promise<LicenseDetailResponseDto> {
@@ -140,6 +179,9 @@ export class LicensesService {
     if (!license) {
       throw new NotFoundException(`License with ID ${id} not found`);
     }
+
+    let featuresUpdated = false;
+    let renewed = false;
 
     if (dto.status) {
       const status = dto.status.trim().toLowerCase();
@@ -152,14 +194,35 @@ export class LicensesService {
     }
 
     if (dto.validUntil) {
-      license.validUntil = new Date(dto.validUntil);
+      const nextValidUntil = new Date(dto.validUntil);
+      renewed = nextValidUntil.getTime() > license.validUntil.getTime();
+      license.validUntil = nextValidUntil;
+      if (renewed) {
+        license.gracePeriodEndsAt = null;
+      }
     }
 
     if (dto.features) {
       license.features = { ...license.features, ...dto.features };
+      featuresUpdated = true;
     }
 
+    if (dto.gracePeriodDays !== undefined) {
+      license.gracePeriodDays = this.resolveGracePeriodDays(dto.gracePeriodDays);
+    }
+
+    this.signLicense(license);
     const saved = await this.licenseRepository.save(license);
+    if (featuresUpdated) {
+      await this.recordLicenseAudit(saved, 'features_updated', {
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    if (renewed) {
+      await this.recordLicenseAudit(saved, 'renewed', {
+        validUntil: saved.validUntil.toISOString(),
+      });
+    }
     return this.toDetailDto(saved);
   }
 
@@ -178,9 +241,26 @@ export class LicensesService {
       'Lookup value "revoked" must be active to revoke licenses',
     );
     license.status = 'revoked';
+    if (!license.gracePeriodEndsAt) {
+      const now = new Date();
+      const graceEndsAt = new Date(now);
+      graceEndsAt.setDate(
+        graceEndsAt.getDate() + this.resolveGracePeriodDays(license.gracePeriodDays),
+      );
+      license.gracePeriodEndsAt = graceEndsAt;
+      await this.recordLicenseAudit(license, 'grace_started', {
+        startedAt: now.toISOString(),
+        gracePeriodEndsAt: graceEndsAt.toISOString(),
+      });
+    }
+    this.signLicense(license);
     const saved = await this.licenseRepository.save(license);
 
     this.logger.log(`Revoked license ${license.key}`);
+    await this.recordLicenseAudit(saved, 'revoked', {
+      revokedAt: new Date().toISOString(),
+      gracePeriodEndsAt: saved.gracePeriodEndsAt?.toISOString() ?? null,
+    });
     return this.toDetailDto(saved);
   }
 
@@ -198,43 +278,84 @@ export class LicensesService {
         type: null,
         features: null,
         expiresAt: null,
+        gracePeriodEndsAt: null,
+        signatureVerified: false,
+        validationCount: null,
         message: 'License key not found',
       };
     }
 
-    // Update last validated
-    license.lastValidatedAt = new Date();
-    await this.licenseRepository.save(license);
+    const now = new Date();
+    await this.ensureLicenseSignature(license);
+    const evaluation = this.evaluateLicense(license, now);
+    let effectiveEvaluation = evaluation;
+    const shouldPersist =
+      evaluation.valid ||
+      evaluation.shouldStartGrace ||
+      evaluation.shouldEndGrace ||
+      license.lastValidatedAt === null;
 
-    if (!license.isValid()) {
-      let message = 'License is not valid';
-      if (license.status !== 'active') {
-        message = `License is ${license.status}`;
-      } else if (new Date() > license.validUntil) {
-        message = 'License has expired';
-      } else if (new Date() < license.validFrom) {
-        message = 'License is not yet active';
-      }
-
-      return {
-        valid: false,
-        tenantId: license.tenantId,
-        tenantSlug: license.tenant?.slug || null,
-        type: license.type,
-        features: null,
-        expiresAt: license.validUntil,
-        message,
+    if (evaluation.shouldStartGrace) {
+      const graceEndsAt = new Date(now);
+      graceEndsAt.setDate(
+        graceEndsAt.getDate() + this.resolveGracePeriodDays(license.gracePeriodDays),
+      );
+      license.gracePeriodEndsAt = graceEndsAt;
+      await this.recordLicenseAudit(license, 'grace_started', {
+        startedAt: now.toISOString(),
+        gracePeriodEndsAt: graceEndsAt.toISOString(),
+      });
+      effectiveEvaluation = {
+        ...evaluation,
+        valid: true,
+        inGrace: true,
+        message: `License is in grace period until ${graceEndsAt.toISOString()}`,
       };
     }
 
+    if (evaluation.shouldEndGrace) {
+      license.gracePeriodEndsAt = null;
+      await this.recordLicenseAudit(license, 'grace_ended', {
+        endedAt: now.toISOString(),
+      });
+    }
+
+    if (effectiveEvaluation.valid) {
+      license.lastValidatedAt = now;
+      if (!license.firstActivatedAt) {
+        license.firstActivatedAt = now;
+      }
+      license.validationCount = (license.validationCount ?? 0) + 1;
+      await this.recordLicenseAudit(license, 'validated', {
+        validatedAt: now.toISOString(),
+        inGrace: effectiveEvaluation.inGrace,
+      });
+    } else if (!effectiveEvaluation.signatureVerified) {
+      await this.recordLicenseAudit(license, 'signature_invalid', {
+        checkedAt: now.toISOString(),
+      });
+    } else {
+      await this.recordLicenseAudit(license, 'validation_failed', {
+        checkedAt: now.toISOString(),
+        message: effectiveEvaluation.message,
+      });
+    }
+
+    if (shouldPersist) {
+      await this.licenseRepository.save(license);
+    }
+
     return {
-      valid: true,
+      valid: effectiveEvaluation.valid,
       tenantId: license.tenantId,
       tenantSlug: license.tenant?.slug || null,
       type: license.type,
-      features: this.toRuntimeFeatures(license.features),
+      features: effectiveEvaluation.valid ? this.toRuntimeFeatures(license.features) : null,
       expiresAt: license.validUntil,
-      message: 'License is valid',
+      gracePeriodEndsAt: license.gracePeriodEndsAt,
+      signatureVerified: effectiveEvaluation.signatureVerified,
+      validationCount: license.validationCount ?? 0,
+      message: effectiveEvaluation.message,
     };
   }
 
@@ -263,14 +384,20 @@ export class LicensesService {
       };
     }
 
+    await this.ensureLicenseSignature(license);
     const now = new Date();
     const millisRemaining = license.validUntil.getTime() - now.getTime();
     const daysRemaining = Math.ceil(millisRemaining / (1000 * 60 * 60 * 24));
 
-    const isActive = license.isValid();
+    const evaluation = this.evaluateLicense(license, new Date());
+    const isActive = evaluation.valid;
     const isBlockedStatus = await this.licenseStatusBlocksUsage(license.status);
     const quotaState: string =
-      !isActive || isBlockedStatus ? 'blocked' : daysRemaining <= 7 ? 'grace' : 'normal';
+      !isActive || isBlockedStatus
+        ? 'blocked'
+        : evaluation.inGrace || daysRemaining <= 7
+          ? 'grace'
+          : 'normal';
 
     return {
       tenantId,
@@ -352,44 +479,19 @@ export class LicensesService {
     const normalizedPeriod = period ?? this.getCurrentPeriod();
     const requested = Number.isFinite(requestedAmount) ? Math.max(0, requestedAmount) : 0;
 
-    const license = await this.licenseRepository.findOne({
-      where: { tenantId },
-      order: { validUntil: 'DESC', createdAt: 'DESC' },
-    });
-
-    if (!license || !license.isValid()) {
-      const blocked = {
+    const license = await this.loadLatestTenantLicense(tenantId);
+    const evaluation = license ? this.evaluateLicense(license, new Date()) : null;
+    if (!license || !evaluation?.valid) {
+      const blocked = this.buildBlockedQuotaResponse(
         tenantId,
-        resourceType: normalizedResourceType,
-        period: normalizedPeriod,
-        limit: null,
-        currentUsage: 0,
-        requestedAmount: requested,
-        projectedUsage: requested,
-        warningThresholdPercent: 80,
-        graceThresholdPercent: 110,
-        state: 'blocked',
-        allowed: false,
-        reason: 'License missing or inactive',
-      };
-
+        normalizedResourceType,
+        normalizedPeriod,
+        requested,
+        evaluation ? evaluation.message : 'License missing or inactive',
+      );
       if (recordDecision) {
-        await this.recordRuntimeDecision({
-          tenantId,
-          decisionType: 'quota_check',
-          resourceType: normalizedResourceType,
-          requested,
-          projected: blocked.projectedUsage,
-          limit: blocked.limit,
-          period: blocked.period,
-          state: blocked.state,
-          allowed: blocked.allowed,
-          consumed: null,
-          reason: blocked.reason,
-          context,
-        });
+        await this.recordQuotaDecision(blocked, requested, context);
       }
-
       return blocked;
     }
 
@@ -436,23 +538,65 @@ export class LicensesService {
     };
 
     if (recordDecision) {
-      await this.recordRuntimeDecision({
-        tenantId,
-        decisionType: 'quota_check',
-        resourceType: normalizedResourceType,
-        requested,
-        projected: response.projectedUsage,
-        limit: response.limit,
-        period: response.period,
-        state: response.state,
-        allowed: response.allowed,
-        consumed: null,
-        reason: response.reason,
-        context,
-      });
+      await this.recordQuotaDecision(response, requested, context);
     }
 
     return response;
+  }
+
+  private async loadLatestTenantLicense(tenantId: string): Promise<License | null> {
+    const license = await this.licenseRepository.findOne({
+      where: { tenantId },
+      order: { validUntil: 'DESC', createdAt: 'DESC' },
+    });
+    if (license) {
+      await this.ensureLicenseSignature(license);
+    }
+    return license;
+  }
+
+  private buildBlockedQuotaResponse(
+    tenantId: string,
+    resourceType: string,
+    period: string,
+    requestedAmount: number,
+    reason: string,
+  ): QuotaCheckResponseDto {
+    return {
+      tenantId,
+      resourceType,
+      period,
+      limit: null,
+      currentUsage: 0,
+      requestedAmount,
+      projectedUsage: requestedAmount,
+      warningThresholdPercent: 80,
+      graceThresholdPercent: 110,
+      state: 'blocked',
+      allowed: false,
+      reason,
+    };
+  }
+
+  private async recordQuotaDecision(
+    response: QuotaCheckResponseDto,
+    requested: number,
+    context?: RuntimeDecisionContext,
+  ): Promise<void> {
+    await this.recordRuntimeDecision({
+      tenantId: response.tenantId,
+      decisionType: 'quota_check',
+      resourceType: response.resourceType,
+      requested,
+      projected: response.projectedUsage,
+      limit: response.limit,
+      period: response.period,
+      state: response.state,
+      allowed: response.allowed,
+      consumed: null,
+      reason: response.reason,
+      context,
+    });
   }
 
   async consumeQuota(
@@ -662,44 +806,337 @@ export class LicensesService {
     };
   }
 
+  private resolveSigningMaterial(): {
+    privateKey: crypto.KeyObject;
+    publicKey: crypto.KeyObject;
+    publicKeyId: string;
+  } {
+    const nodeEnv = this.configService.get<string>('NODE_ENV', 'development');
+    const privatePemRaw = this.configService.get<string>('LICENSE_SIGNING_PRIVATE_KEY_PEM');
+    const publicPemRaw = this.configService.get<string>('LICENSE_SIGNING_PUBLIC_KEY_PEM');
+    const publicKeyIdRaw = this.configService.get<string>('LICENSE_SIGNING_KEY_ID');
+
+    if (privatePemRaw && publicPemRaw && publicKeyIdRaw) {
+      return {
+        privateKey: crypto.createPrivateKey(this.normalizePem(privatePemRaw)),
+        publicKey: crypto.createPublicKey(this.normalizePem(publicPemRaw)),
+        publicKeyId: publicKeyIdRaw.trim(),
+      };
+    }
+
+    if (nodeEnv === 'production') {
+      throw new Error(
+        'LICENSE_SIGNING_PRIVATE_KEY_PEM, LICENSE_SIGNING_PUBLIC_KEY_PEM, and LICENSE_SIGNING_KEY_ID are required in production.',
+      );
+    }
+
+    const generated = crypto.generateKeyPairSync('ed25519');
+    this.logger.warn(
+      'License signing keys are not configured. Using ephemeral keys for non-production runtime only.',
+    );
+    return {
+      privateKey: generated.privateKey,
+      publicKey: generated.publicKey,
+      publicKeyId: 'ephemeral-dev-key',
+    };
+  }
+
+  private normalizePem(input: string): string {
+    const trimmed = input.trim();
+    if (trimmed.includes('BEGIN')) {
+      return trimmed;
+    }
+
+    const decoded = Buffer.from(trimmed, 'base64').toString('utf8').trim();
+    if (!decoded.includes('BEGIN')) {
+      throw new Error('Invalid PEM payload for license signing material.');
+    }
+    return decoded;
+  }
+
+  private resolveDefaultGraceDays(): number {
+    const configured = Number(this.configService.get<string>('LICENSE_GRACE_PERIOD_DAYS', '30'));
+    if (!Number.isFinite(configured)) {
+      return 30;
+    }
+    return Math.min(120, Math.max(0, Math.floor(configured)));
+  }
+
+  private resolveGracePeriodDays(input?: number): number {
+    const source = input ?? this.defaultGracePeriodDays;
+    if (!Number.isFinite(source)) {
+      return this.defaultGracePeriodDays;
+    }
+    return Math.min(120, Math.max(0, Math.floor(source)));
+  }
+
+  private signLicense(license: License): void {
+    const payload = this.serializeLicenseForSignature(license);
+    const signature = crypto.sign(null, Buffer.from(payload, 'utf8'), this.signingPrivateKey);
+    license.signatureAlgorithm = this.signingAlgorithm;
+    license.publicKeyId = this.signingKeyId;
+    license.signature = signature.toString('base64');
+  }
+
+  private verifyLicenseSignature(license: License): boolean {
+    if (
+      !license.signature ||
+      !license.publicKeyId ||
+      !license.signatureAlgorithm ||
+      license.signatureAlgorithm.toLowerCase() !== this.signingAlgorithm
+    ) {
+      return false;
+    }
+
+    const payload = this.serializeLicenseForSignature(license);
+    const signature = Buffer.from(license.signature, 'base64');
+    return crypto.verify(null, Buffer.from(payload, 'utf8'), this.signingPublicKey, signature);
+  }
+
+  private serializeLicenseForSignature(license: License): string {
+    return this.canonicalStringify({
+      id: license.id,
+      tenantId: license.tenantId,
+      key: license.key,
+      type: license.type,
+      status: license.status,
+      validFrom: license.validFrom.toISOString(),
+      validUntil: license.validUntil.toISOString(),
+      gracePeriodDays: this.resolveGracePeriodDays(license.gracePeriodDays),
+      features: license.features ?? {},
+      metadata: license.metadata ?? {},
+    });
+  }
+
+  private canonicalStringify(value: unknown): string {
+    const normalize = (input: unknown): unknown => {
+      if (Array.isArray(input)) {
+        return input.map(normalize);
+      }
+
+      if (input && typeof input === 'object') {
+        const object = input as Record<string, unknown>;
+        return Object.keys(object)
+          .sort((a, b) => a.localeCompare(b))
+          .reduce<Record<string, unknown>>((acc, key) => {
+            acc[key] = normalize(object[key]);
+            return acc;
+          }, {});
+      }
+
+      return input;
+    };
+
+    return JSON.stringify(normalize(value));
+  }
+
+  private evaluateLicense(license: License, now: Date): LicenseEvaluation {
+    const signatureVerified = this.verifyLicenseSignature(license);
+    if (!signatureVerified) {
+      return {
+        valid: false,
+        inGrace: false,
+        message: 'License signature verification failed',
+        signatureVerified,
+        shouldStartGrace: false,
+        shouldEndGrace: false,
+      };
+    }
+
+    if (license.validFrom.getTime() > now.getTime()) {
+      return {
+        valid: false,
+        inGrace: false,
+        message: 'License is not yet active',
+        signatureVerified,
+        shouldStartGrace: false,
+        shouldEndGrace: false,
+      };
+    }
+
+    const isRevoked = license.status !== 'active';
+    const isExpired = license.validUntil.getTime() < now.getTime();
+    const graceEndsAt = license.gracePeriodEndsAt;
+    const inGrace =
+      graceEndsAt !== null &&
+      graceEndsAt !== undefined &&
+      graceEndsAt.getTime() >= now.getTime() &&
+      (isRevoked || isExpired);
+
+    if (!isRevoked && !isExpired) {
+      return {
+        valid: true,
+        inGrace: false,
+        message: 'License is valid',
+        signatureVerified,
+        shouldStartGrace: false,
+        shouldEndGrace: false,
+      };
+    }
+
+    if (inGrace) {
+      return {
+        valid: true,
+        inGrace: true,
+        message: `License is in grace period until ${graceEndsAt.toISOString()}`,
+        signatureVerified,
+        shouldStartGrace: false,
+        shouldEndGrace: false,
+      };
+    }
+
+    const shouldStartGrace = (isRevoked || isExpired) && !graceEndsAt;
+    const shouldEndGrace =
+      graceEndsAt !== null && graceEndsAt !== undefined && graceEndsAt.getTime() < now.getTime();
+
+    if (isRevoked) {
+      return {
+        valid: false,
+        inGrace: false,
+        message: 'License is revoked',
+        signatureVerified,
+        shouldStartGrace,
+        shouldEndGrace,
+      };
+    }
+
+    return {
+      valid: false,
+      inGrace: false,
+      message: 'License has expired',
+      signatureVerified,
+      shouldStartGrace,
+      shouldEndGrace,
+    };
+  }
+
+  private async ensureLicenseSignature(license: License): Promise<void> {
+    if (license.signature && license.publicKeyId) {
+      return;
+    }
+
+    this.signLicense(license);
+    await this.licenseRepository.save(license);
+    await this.recordLicenseAudit(license, 'renewed', {
+      reason: 'legacy_unsigned_license_backfilled',
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  private async recordLicenseAudit(
+    license: Pick<License, 'id' | 'tenantId'>,
+    action: LicenseAuditAction,
+    details: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      const row = this.licenseAuditRepository.create({
+        licenseId: license.id,
+        tenantId: license.tenantId,
+        action,
+        ipAddress: null,
+        userAgent: null,
+        details,
+      });
+      await this.licenseAuditRepository.save(row);
+    } catch (error) {
+      this.logger.warn(
+        `Could not persist license audit action "${action}" for ${license.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
   private generateLicenseKey(): string {
     // Format: SKULD-XXXX-XXXX-XXXX-XXXX
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const random = crypto.randomBytes(16);
     const segments: string[] = [];
-
     for (let i = 0; i < 4; i++) {
-      let segment = '';
-      for (let j = 0; j < 4; j++) {
-        segment += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
+      const start = i * 4;
+      const segment = Array.from(random.subarray(start, start + 4))
+        .map((value) => chars[value % chars.length])
+        .join('');
       segments.push(segment);
     }
 
     return `SKULD-${segments.join('-')}`;
   }
 
-  private toResponseDto(license: License): LicenseResponseDto {
+  private toResponseDto(
+    license: License,
+    options?: {
+      includePlainKey?: boolean;
+    },
+  ): LicenseResponseDto {
     return {
       id: license.id,
       tenantId: license.tenantId,
-      key: license.key,
+      key: options?.includePlainKey ? license.key : this.maskLicenseKey(license.key),
       type: license.type,
       status: license.status,
       validFrom: license.validFrom,
       validUntil: license.validUntil,
-      isValid: license.isValid(),
+      isValid: this.resolveLicenseValidity(license),
       createdAt: license.createdAt,
       updatedAt: license.updatedAt,
     };
   }
 
-  private toDetailDto(license: License): LicenseDetailResponseDto {
+  private resolveLicenseValidity(
+    license: Pick<License, 'status' | 'validFrom' | 'validUntil' | 'gracePeriodEndsAt'> & {
+      isValid?: () => boolean;
+    },
+  ): boolean {
+    if (typeof license.isValid === 'function') {
+      return license.isValid();
+    }
+
+    const now = Date.now();
+    const inActiveWindow =
+      license.status === 'active' &&
+      license.validFrom.getTime() <= now &&
+      license.validUntil.getTime() >= now;
+    if (inActiveWindow) {
+      return true;
+    }
+
+    return license.gracePeriodEndsAt ? license.gracePeriodEndsAt.getTime() >= now : false;
+  }
+
+  private toDetailDto(
+    license: License,
+    options?: {
+      includePlainKey?: boolean;
+    },
+  ): LicenseDetailResponseDto {
     return {
-      ...this.toResponseDto(license),
+      ...this.toResponseDto(license, options),
       features: license.features,
       lastValidatedAt: license.lastValidatedAt,
+      firstActivatedAt: license.firstActivatedAt,
+      validationCount: license.validationCount ?? 0,
+      gracePeriodDays: license.gracePeriodDays,
+      gracePeriodEndsAt: license.gracePeriodEndsAt,
+      signatureAlgorithm: license.signatureAlgorithm,
+      publicKeyId: license.publicKeyId ?? '',
       metadata: license.metadata,
     };
+  }
+
+  private maskLicenseKey(key: string): string {
+    const normalized = key.trim();
+    if (!normalized) {
+      return normalized;
+    }
+
+    const segments = normalized.split('-');
+    if (segments.length <= 2) {
+      const visible = normalized.slice(0, Math.min(8, normalized.length));
+      return `${visible}...`;
+    }
+
+    return `${segments[0]}-${segments[1]}-...`;
   }
 
   private toRuntimeFeatures(features: LicenseFeatures): LicenseFeatures {

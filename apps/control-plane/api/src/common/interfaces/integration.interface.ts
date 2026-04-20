@@ -13,6 +13,7 @@ export enum IntegrationType {
   PAYMENT = 'payment',
   STORAGE = 'storage',
   EMAIL = 'email',
+  SMS = 'sms',
   GRAPH = 'graph',
 }
 
@@ -58,8 +59,30 @@ export interface PaymentProvider extends IntegrationProvider {
   createTransfer?(data: CreateTransferData): Promise<Transfer>;
   listTransfers?(connectedAccountId: string, options?: ListTransfersOptions): Promise<Transfer[]>;
 
+  // ACH / Bank account setup (provider-specific optional support)
+  createACHSetupIntent?(
+    customerId: string,
+    metadata?: Record<string, string>,
+  ): Promise<{
+    clientSecret: string;
+    setupIntentId: string;
+  }>;
+
   // Webhooks
   handleWebhook(payload: Buffer, signature: string): Promise<WebhookEvent>;
+  handleConnectWebhook?(payload: Buffer, signature: string): Promise<WebhookEvent>;
+
+  // Customer payment methods (optional capabilities, provider-specific)
+  getCustomerBankAccount?(customerId: string): Promise<{
+    id: string;
+    bankName: string;
+    last4: string;
+    accountType: string;
+    status: string;
+  } | null>;
+  setDefaultPaymentMethod?(customerId: string, paymentMethodId: string): Promise<void>;
+  detachPaymentMethod?(paymentMethodId: string): Promise<void>;
+  createBillingPortalSession?(customerId: string, returnUrl: string): Promise<{ url: string }>;
 }
 
 export interface CreateCustomerData {
@@ -202,6 +225,27 @@ export interface EmailAttachment {
 export interface SendEmailResult {
   messageId: string;
   success: boolean;
+}
+
+/**
+ * SMS Provider Interface
+ * Implementations: Twilio, AWS SNS, MessageBird, etc.
+ */
+export interface SmsProvider extends IntegrationProvider {
+  send(data: SendSmsData): Promise<SendSmsResult>;
+}
+
+export interface SendSmsData {
+  to: string;
+  body: string;
+  from?: string;
+  metadata?: Record<string, string>;
+}
+
+export interface SendSmsResult {
+  messageId: string;
+  success: boolean;
+  provider?: string;
 }
 
 /**

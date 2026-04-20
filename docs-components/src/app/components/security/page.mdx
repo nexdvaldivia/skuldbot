@@ -1,10 +1,18 @@
 export const metadata = {
   title: 'Security & Vault',
-  description: 'Secure credential management. Store secrets, encrypt data, and manage access.',
+  description: 'Secure credential management, vault providers, MFA authentication, encryption, and data protection.',
 }
 
 export const sections = [
+  { title: 'Vault Providers', id: 'vault-providers' },
+  { title: 'Orchestrator Vault', id: 'secrets-orchestrator_vault' },
+  { title: 'Azure Key Vault', id: 'secrets-azure_keyvault' },
+  { title: 'AWS Secrets Manager', id: 'secrets-aws_secrets' },
+  { title: 'GCP Secret Manager', id: 'secrets-gcp_secret_manager' },
+  { title: 'HashiCorp Vault', id: 'secrets-hashicorp_vault' },
+  { title: 'Local Vault', id: 'secrets-local_vault' },
   { title: 'Get Secret', id: 'security-get_secret' },
+  { title: 'TOTP Generate', id: 'security-totp_generate' },
   { title: 'Encrypt Data', id: 'security-encrypt' },
   { title: 'Decrypt Data', id: 'security-decrypt' },
   { title: 'Hash Data', id: 'security-hash' },
@@ -12,15 +20,187 @@ export const sections = [
   { title: 'Validate Certificate', id: 'security-validate_cert' },
 ]
 
-Secure credential management. Store secrets, encrypt data, and manage access. {{ className: 'lead' }}
+Secure credential management, vault providers for every cloud, MFA authentication for bots, and data protection tools. {{ className: 'lead' }}
 
 <Note>
-  The Vault uses AES-256 encryption with keys stored in your system's secure keychain (macOS Keychain, Windows Credential Manager).
+  All vault providers use AES-256-GCM encryption at rest. Secrets are resolved at runtime and held in ephemeral memory only — never stored in the bot package (.skb), logs, or Evidence Pack.
 </Note>
 
 ---
 
-<NodeHeader id="security-get_secret" icon="Key" label="Get Secret" description="Retrieve secret from vault" bgColor="#fee2e2" textColor="#991b1b" />
+## Vault Providers {{ id: 'vault-providers' }}
+
+Vault provider nodes configure where your bot resolves secrets. Drag a vault provider onto the canvas, configure it, and connect it to any node that needs secrets (TOTP Generate, Get Secret) via the purple **Vault** handle.
+
+Each vault provider has a purple **To Vault** handle at the top. Consumer nodes (TOTP Generate, Get Secret) have a purple **Vault** handle at the bottom. Connect them to establish the vault relationship.
+
+```
+┌──────────────────┐
+│  Azure Key Vault │
+│  secrets.azure   │
+│   ◆ To Vault     │  ← purple handle (top)
+└───────┬──────────┘
+        │ (purple connection)
+┌───────┴──────────┐
+│  TOTP Generate   │
+│  security.totp   │
+│   ◆ Vault        │  ← purple handle (bottom)
+└──────────────────┘
+```
+
+**Available Vault Providers:**
+
+| Provider | Best for | Authentication |
+|----------|----------|---------------|
+| Orchestrator Vault | Production bots managed by Skuld | Runner token or API key |
+| Azure Key Vault | Azure cloud deployments | Managed Identity or Service Principal |
+| AWS Secrets Manager | AWS cloud deployments | IAM Role or Access Keys |
+| GCP Secret Manager | Google Cloud deployments | Application Default Credentials or Service Account |
+| HashiCorp Vault | On-premise enterprise | Token or AppRole |
+| Local Vault | Development and standalone runners | Master password (AES-256-GCM) |
+
+---
+
+<NodeHeader id="secrets-orchestrator_vault" icon="KeyRound" label="Orchestrator Vault" description="Connect to the Skuld Orchestrator vault for production secrets" bgColor="#fee2e2" textColor="#991b1b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `secrets.orchestrator_vault`
+  </Property>
+</Properties>
+
+The default vault for production bots. Secrets are managed centrally in the Skuld Orchestrator and resolved at runtime by the BotRunner.
+
+**Configuration:**
+- **orchestrator_url** (`text`, required) — URL of the Skuld Orchestrator. Can also be set via `SKULDBOT_ORCHESTRATOR_URL` environment variable.
+- **auth_method** (`select`, default: `runner_token`) — How the runner authenticates:
+  - `runner_token` — Token from `SKULDBOT_ORCHESTRATOR_TOKEN` env var
+  - `api_key` — API key authentication
+- **secrets** (`textarea`) — Secret names to load, one per line
+
+**Output:**
+- **loaded** — Number of secrets loaded
+- **secretNames** — Names of loaded secrets
+
+---
+
+<NodeHeader id="secrets-azure_keyvault" icon="KeyRound" label="Azure Key Vault" description="Connect to Azure Key Vault" bgColor="#fee2e2" textColor="#991b1b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `secrets.azure_keyvault`
+  </Property>
+</Properties>
+
+Connect to Azure Key Vault for cloud-native secret management. Supports Managed Identity for zero-credential deployment on Azure VMs and App Services.
+
+**Configuration:**
+- **vault_url** (`text`, required) — Azure Key Vault URL (e.g., `https://myvault.vault.azure.net`)
+- **tenant_id** (`text`, required) — Azure AD Tenant ID
+- **client_id** (`text`, required) — Application (client) ID
+- **use_managed_identity** (`boolean`, default: `false`) — Use Azure Managed Identity instead of client credentials
+- **secrets** (`textarea`) — Secret names to load, one per line
+
+**Output:**
+- **loaded** — Number of secrets loaded
+- **secretNames** — Names of loaded secrets
+
+---
+
+<NodeHeader id="secrets-aws_secrets" icon="KeyRound" label="AWS Secrets Manager" description="Connect to AWS Secrets Manager" bgColor="#fee2e2" textColor="#991b1b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `secrets.aws_secrets`
+  </Property>
+</Properties>
+
+Connect to AWS Secrets Manager. Supports IAM Role authentication for EC2/ECS/Lambda deployments.
+
+**Configuration:**
+- **region** (`select`, default: `us-east-1`) — AWS region
+- **use_iam_role** (`boolean`, default: `true`) — Use IAM Role instead of access keys
+- **secrets** (`textarea`) — Secret names to load, one per line (e.g., `prod/db/password`)
+
+**Output:**
+- **loaded** — Number of secrets loaded
+- **secretNames** — Names of loaded secrets
+
+---
+
+<NodeHeader id="secrets-gcp_secret_manager" icon="KeyRound" label="GCP Secret Manager" description="Connect to Google Cloud Secret Manager" bgColor="#fee2e2" textColor="#991b1b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `secrets.gcp_secret_manager`
+  </Property>
+</Properties>
+
+Connect to Google Cloud Secret Manager. Supports Application Default Credentials for GCE/GKE/Cloud Run deployments.
+
+**Configuration:**
+- **project_id** (`text`, required) — GCP Project ID (e.g., `my-project-123`)
+- **use_default_credentials** (`boolean`, default: `true`) — Use Application Default Credentials. Disable to provide a service account key.
+- **service_account_key** (`textarea`, secret) — Service Account Key JSON. Only needed when not using default credentials.
+- **secrets** (`textarea`) — Secret resource names to load, one per line (e.g., `projects/my-project/secrets/db-password/versions/latest`)
+
+**Output:**
+- **loaded** — Number of secrets loaded
+- **secretNames** — Names of loaded secrets
+
+---
+
+<NodeHeader id="secrets-hashicorp_vault" icon="KeyRound" label="HashiCorp Vault" description="Connect to HashiCorp Vault" bgColor="#fee2e2" textColor="#991b1b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `secrets.hashicorp_vault`
+  </Property>
+</Properties>
+
+Connect to HashiCorp Vault for on-premise or cloud-hosted secret management. The industry standard for enterprise on-premise deployments.
+
+**Configuration:**
+- **vault_addr** (`text`, required) — Vault server address (e.g., `https://vault.example.com:8200`)
+- **auth_method** (`select`, default: `token`) — Authentication method:
+  - `token` — Token from `VAULT_TOKEN` env var
+  - `approle` — AppRole from `VAULT_ROLE_ID` + `VAULT_SECRET_ID` env vars
+- **mount_point** (`text`, default: `secret`) — Secrets engine mount point
+- **secrets_path** (`text`, required) — Path to secrets (e.g., `myapp/prod`)
+- **secrets** (`textarea`) — Specific keys to load (optional, loads all if empty)
+
+**Output:**
+- **loaded** — Number of secrets loaded
+- **secretNames** — Names of loaded secrets
+
+---
+
+<NodeHeader id="secrets-local_vault" icon="Lock" label="Local Vault" description="Unlock local encrypted vault (AES-256-GCM)" bgColor="#fee2e2" textColor="#991b1b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `secrets.local_vault`
+  </Property>
+</Properties>
+
+Unlock the local encrypted vault on the BotRunner. Uses AES-256-GCM encryption with PBKDF2-SHA256 key derivation (600,000 iterations). Ideal for development, standalone bots, and on-premise deployments without external vault infrastructure.
+
+**Configuration:**
+- **vault_path** (`text`, default: `.skuldbot`) — Path to vault directory
+- **secrets** (`textarea`) — Specific secrets to load (optional, loads all if empty)
+
+**Output:**
+- **unlocked** — Vault unlock status
+- **secretCount** — Number of secrets loaded
+- **secretNames** — Names of loaded secrets
+
+<Note>
+  The Local Vault master password is provided via the `SKULDBOT_VAULT_PASSWORD` environment variable. Never hardcode it in the workflow.
+</Note>
+
+---
+
+<NodeHeader id="security-get_secret" icon="Key" label="Get Secret" description="Retrieve a single secret from the connected vault" bgColor="#fee2e2" textColor="#991b1b" />
 
 <Properties>
   <Property name="type" type="string">
@@ -28,23 +208,108 @@ Secure credential management. Store secrets, encrypt data, and manage access. {{
   </Property>
 </Properties>
 
+Retrieve a single secret by name from the connected vault provider. Connect a vault provider node via the purple **Vault** handle, then specify the secret name.
+
 **Configuration:**
 - **name** (`text`, required) — Secret name
-- **vault** (`select`, default: `orchestrator`) — Vault source:
-  - `orchestrator` — Orchestrator
-  - `env` — Environment
-  - `azure` — Azure Key Vault
-  - `aws` — AWS Secrets
 
-**Using Vault Secrets:**
+**Output:** The secret value wrapped in `SecretValue` — displays as `***` in logs and UI, accessible via `.value` in runtime only.
 
-You can reference vault secrets directly in any node configuration:
+**Using Vault Secrets Inline:**
+
+You can also reference vault secrets directly in any node configuration without using the Get Secret node:
 
 ```
 ${vault.API_KEY}
 ${vault.DB_PASSWORD}
 ${vault.OAUTH_CLIENT_SECRET}
 ```
+
+---
+
+<NodeHeader id="security-totp_generate" icon="ShieldCheck" label="TOTP Generate" description="Generate MFA code for bot authentication" bgColor="#fee2e2" textColor="#991b1b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `security.totp_generate`
+  </Property>
+</Properties>
+
+Generates a TOTP (Time-based One-Time Password) code for MFA authentication. The bot generates the same 6-digit code that Google Authenticator, Microsoft Authenticator, or any TOTP-compatible app produces.
+
+Connect a vault provider node via the purple **Vault** handle to provide the shared secret.
+
+**Configuration:**
+- **secret_name** (`text`, required) — Name of the TOTP shared secret in the connected vault (e.g., `erp-sap-mfa-secret`)
+- **mfa_type** (`select`, default: `google_authenticator`) — Authenticator type:
+  - `google_authenticator` — Google Authenticator
+  - `microsoft_authenticator` — Microsoft Authenticator
+  - `authy` — Authy
+  - `duo` — Duo Security
+  - `okta_verify` — Okta Verify
+  - `custom` — Custom TOTP (shows advanced options: digits, period, algorithm)
+
+**Output:**
+- **code** (`string`) — The generated TOTP code (e.g., `847293`)
+- **expiresIn** (`number`) — Seconds until this code expires
+
+**Example — Login to SAP with MFA:**
+
+```
+[Manual Trigger]
+    |
+[Local Vault] ─── vault connection ───┐
+    |                                  |
+[Open Browser] -> https://sap.com     |
+    |                                  |
+[Fill Field] -> #username              |
+    |                                  |
+[Fill Field] -> #password              |
+    |                                  |
+[Click] -> #login-button               |
+    |                                  |
+[Wait Element] -> #mfa-code-input      |
+    |                                  |
+[TOTP Generate] <- vault connection ──┘
+    |              secret: erp-sap-mfa-secret
+    |              type: Google Authenticator
+    |
+[Fill Field] -> #mfa-code -> ${TOTP Generate.code}
+    |
+[Click] -> #verify-button
+    |
+[Wait Element] -> #dashboard  ← logged in!
+```
+
+**Setup (one-time):**
+1. Create a service account on the target system with TOTP MFA enabled
+2. When the system shows the QR code, extract the shared secret
+3. Store it in your vault under a name like `erp-sap-mfa-secret`
+4. Multiple bots can use the same secret — just reference the same name
+
+<Note>
+  The TOTP code changes every 30 seconds. The bot generates it at the exact moment it fills the MFA field. Works with any system that supports TOTP (RFC 6238) — Microsoft 365, Google Workspace, Salesforce, SAP, AWS, Okta, GitHub, and hundreds more.
+</Note>
+
+**Security:**
+- The shared secret is encrypted at rest in the vault (AES-256-GCM)
+- It lives in memory only during code generation and is scrubbed immediately after
+- The code is redacted in logs and Evidence Pack as `[TOTP_CODE_REDACTED]`
+- Access to the secret is controlled by vault policies per bot
+- Every access generates an audit event
+
+**Supported Authenticators:**
+
+| Authenticator | Supported | Standard |
+|--------------|:---------:|----------|
+| Google Authenticator | Yes | TOTP RFC 6238 |
+| Microsoft Authenticator | Yes | TOTP RFC 6238 |
+| Authy | Yes | TOTP RFC 6238 |
+| Duo Security | Yes | TOTP mode |
+| Okta Verify | Yes | TOTP RFC 6238 |
+| Any TOTP app | Yes | RFC 6238 |
+| Push notifications | No | Requires human interaction |
+| Hardware tokens (YubiKey) | No | Requires physical device |
 
 ---
 
@@ -123,27 +388,42 @@ ${vault.OAUTH_CLIENT_SECRET}
 ## Best Practices
 
 <Warning>
-  **Never hardcode credentials** in your bot configurations. Always use `${vault.SECRET_NAME}`.
+  **Never hardcode credentials** in your bot configurations. Always use a vault provider and reference secrets by name.
 </Warning>
 
-### Recommended Vault Organization
+### Vault Selection Guide
+
+| Scenario | Recommended Vault |
+|----------|------------------|
+| Local development / debugging | Local Vault |
+| Production with Skuld Orchestrator | Orchestrator Vault |
+| Azure cloud deployment | Azure Key Vault |
+| AWS cloud deployment | AWS Secrets Manager |
+| Google Cloud deployment | GCP Secret Manager |
+| On-premise with existing HashiCorp | HashiCorp Vault |
+| On-premise without vault infra | Local Vault or Orchestrator (embedded) |
+
+### Recommended Secret Organization
 
 ```
-vault.
-├── API_KEYS/
-│   ├── OPENAI_API_KEY
-│   ├── STRIPE_API_KEY
-│   └── SENDGRID_KEY
-├── DATABASE/
-│   ├── PROD_DB_PASSWORD
-│   └── DEV_DB_PASSWORD
-├── OAUTH/
-│   ├── GOOGLE_CLIENT_SECRET
-│   └── MS365_CLIENT_SECRET
-└── SERVICES/
-    ├── TWILIO_AUTH_TOKEN
-    └── AWS_SECRET_KEY
+vault/
+├── mfa/
+│   ├── erp-sap-mfa-secret
+│   ├── crm-salesforce-mfa-secret
+│   └── portal-banco-mfa-secret
+├── api-keys/
+│   ├── openai-api-key
+│   ├── stripe-api-key
+│   └── sendgrid-key
+├── database/
+│   ├── prod-db-password
+│   └── staging-db-password
+├── oauth/
+│   ├── google-client-secret
+│   └── ms365-client-secret
+└── services/
+    ├── twilio-auth-token
+    └── aws-secret-key
 ```
 
 ---
-

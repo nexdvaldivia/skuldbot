@@ -7,10 +7,11 @@ import {
   Logger,
   HttpStatus,
   BadRequestException,
+  Inject,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { StripeProvider } from './stripe.provider';
-import { WebhookEvent } from '../../common/interfaces/integration.interface';
+import { PaymentProvider, WebhookEvent } from '../../common/interfaces/integration.interface';
+import { PAYMENT_PROVIDER } from './payment.module';
 
 /**
  * WebhooksController - Handles incoming webhooks from payment providers.
@@ -31,7 +32,10 @@ import { WebhookEvent } from '../../common/interfaces/integration.interface';
 export class WebhooksController {
   private readonly logger = new Logger(WebhooksController.name);
 
-  constructor(private readonly stripeProvider: StripeProvider) {}
+  constructor(
+    @Inject(PAYMENT_PROVIDER)
+    private readonly paymentProvider: PaymentProvider,
+  ) {}
 
   /**
    * Handle Stripe webhooks for billing events.
@@ -53,7 +57,7 @@ export class WebhooksController {
     try {
       // Raw body is needed for signature verification
       const rawBody = req.body as Buffer;
-      event = await this.stripeProvider.handleWebhook(rawBody, signature);
+      event = await this.paymentProvider.handleWebhook(rawBody, signature);
     } catch (error) {
       this.logger.error(`Stripe webhook signature verification failed: ${error}`);
       res.status(HttpStatus.BAD_REQUEST).json({ error: 'Invalid signature' });
@@ -92,7 +96,12 @@ export class WebhooksController {
 
     try {
       const rawBody = req.body as Buffer;
-      event = await this.stripeProvider.handleConnectWebhook(rawBody, signature);
+      if (!this.paymentProvider.handleConnectWebhook) {
+        throw new BadRequestException(
+          `Payment provider "${this.paymentProvider.name}" does not support connect webhooks`,
+        );
+      }
+      event = await this.paymentProvider.handleConnectWebhook(rawBody, signature);
     } catch (error) {
       this.logger.error(`Stripe Connect webhook signature verification failed: ${error}`);
       res.status(HttpStatus.BAD_REQUEST).json({ error: 'Invalid signature' });
