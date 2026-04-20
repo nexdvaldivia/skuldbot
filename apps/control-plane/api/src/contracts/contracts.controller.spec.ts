@@ -1,4 +1,10 @@
 import { StreamableFile } from '@nestjs/common';
+import { ContractLegalService } from './contract-legal.service';
+import { ContractLookupsService } from './contract-lookups.service';
+import { ContractRequirementService } from './contract-requirement.service';
+import { ContractSignatoryPolicyService } from './contract-signatory-policy.service';
+import { ContractSigningService } from './contract-signing.service';
+import { ContractTemplateService } from './contract-template.service';
 import { ContractsController } from './contracts.controller';
 import { ContractsService } from './contracts.service';
 
@@ -8,7 +14,15 @@ describe('ContractsController', () => {
       generatePdf: jest.fn().mockResolvedValue({ id: 'ctr-1', pdfPath: 'contracts/x.pdf' }),
     } as unknown as ContractsService;
 
-    const controller = new ContractsController(contractsService);
+    const controller = new ContractsController(
+      contractsService,
+      {} as ContractTemplateService,
+      {} as ContractSigningService,
+      {} as ContractLookupsService,
+      {} as ContractRequirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
     const currentUser = { id: 'user-1' } as any;
 
     const result = await controller.generatePdf('ctr-1', currentUser);
@@ -24,7 +38,15 @@ describe('ContractsController', () => {
       }),
     } as unknown as ContractsService;
 
-    const controller = new ContractsController(contractsService);
+    const controller = new ContractsController(
+      contractsService,
+      {} as ContractTemplateService,
+      {} as ContractSigningService,
+      {} as ContractLookupsService,
+      {} as ContractRequirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
     const response = {
       setHeader: jest.fn(),
     } as any;
@@ -38,5 +60,306 @@ describe('ContractsController', () => {
       'Content-Disposition',
       'attachment; filename="msa.pdf"',
     );
+  });
+
+  it('delegates grouped template list to template service', async () => {
+    const contractTemplateService = {
+      listTemplatesGrouped: jest.fn().mockResolvedValue({
+        templates: [{ id: 'tpl-1', templateKey: 'msa.v1' }],
+        total: 1,
+      }),
+    } as unknown as ContractTemplateService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      contractTemplateService,
+      {} as ContractSigningService,
+      {} as ContractLookupsService,
+      {} as ContractRequirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const result = await controller.listTemplatesGrouped({ includeArchived: true });
+
+    expect(contractTemplateService.listTemplatesGrouped).toHaveBeenCalledWith(true);
+    expect(result.total).toBe(1);
+  });
+
+  it('delegates template version chain to template service', async () => {
+    const contractTemplateService = {
+      getTemplateVersionChainByTemplateKey: jest.fn().mockResolvedValue({
+        templateId: 'tpl-1',
+        templateKey: 'msa.v1',
+        title: 'Master Service Agreement',
+        versions: [],
+        integrity: {
+          hasBrokenLinks: false,
+          brokenNodeIds: [],
+          hasVersionGaps: false,
+          expectedNextVersion: 2,
+        },
+      }),
+    } as unknown as ContractTemplateService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      contractTemplateService,
+      {} as ContractSigningService,
+      {} as ContractLookupsService,
+      {} as ContractRequirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const result = await controller.getTemplateVersionChain('MSA.V1', { includeArchived: false });
+
+    expect(contractTemplateService.getTemplateVersionChainByTemplateKey).toHaveBeenCalledWith(
+      'MSA.V1',
+      false,
+    );
+    expect(result.templateId).toBe('tpl-1');
+  });
+
+  it('delegates template variables catalog to template service', async () => {
+    const contractTemplateService = {
+      getTemplateVariableCatalog: jest.fn().mockResolvedValue({
+        templateId: 'tpl-1',
+        templateKey: 'msa.v1',
+        categories: [],
+      }),
+    } as unknown as ContractTemplateService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      contractTemplateService,
+      {} as ContractSigningService,
+      {} as ContractLookupsService,
+      {} as ContractRequirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const result = await controller.getTemplateVariableCatalog('tpl-1');
+    expect(contractTemplateService.getTemplateVariableCatalog).toHaveBeenCalledWith('tpl-1');
+    expect(result.templateId).toBe('tpl-1');
+  });
+
+  it('delegates template PDF upload to template service', async () => {
+    const contractTemplateService = {
+      uploadTemplatePdf: jest.fn().mockResolvedValue({
+        templateId: 'tpl-1',
+        templateKey: 'msa.v1',
+        versionId: 'tv-1',
+        hasPdf: true,
+        contentType: 'application/pdf',
+        uploadedAt: new Date('2026-04-17T00:00:00.000Z'),
+        signedUrl: 'https://signed.example/template.pdf',
+      }),
+    } as unknown as ContractTemplateService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      contractTemplateService,
+      {} as ContractSigningService,
+      {} as ContractLookupsService,
+      {} as ContractRequirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const currentUser = { id: 'user-1' } as any;
+    const payload = { contentBase64: Buffer.from('%PDF-1.4').toString('base64') };
+    const result = await controller.uploadTemplatePdf('tpl-1', payload as any, currentUser);
+
+    expect(contractTemplateService.uploadTemplatePdf).toHaveBeenCalledWith(
+      'tpl-1',
+      payload,
+      currentUser,
+    );
+    expect(result.hasPdf).toBe(true);
+  });
+
+  it('delegates signature fields update to template service', async () => {
+    const contractTemplateService = {
+      updateTemplateSignatureFields: jest.fn().mockResolvedValue({
+        templateId: 'tpl-1',
+        templateKey: 'msa.v1',
+        versionId: 'tv-2',
+        fields: [{ id: 'sig-1', type: 'signature' }],
+      }),
+    } as unknown as ContractTemplateService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      contractTemplateService,
+      {} as ContractSigningService,
+      {} as ContractLookupsService,
+      {} as ContractRequirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const currentUser = { id: 'user-1' } as any;
+    const dto = { fields: [{ id: 'sig-1', type: 'signature' }] };
+    const result = await controller.updateTemplateSignatureFields('tpl-1', dto as any, currentUser);
+
+    expect(contractTemplateService.updateTemplateSignatureFields).toHaveBeenCalledWith(
+      'tpl-1',
+      dto,
+      currentUser,
+    );
+    expect(result.versionId).toBe('tv-2');
+  });
+
+  it('delegates subscription validation to requirement service with resolved client scope', async () => {
+    const requirementService = {
+      validateSubscriptionContracts: jest.fn().mockResolvedValue({
+        valid: false,
+        missingContractTypes: ['MSA'],
+      }),
+    } as unknown as ContractRequirementService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      {} as ContractTemplateService,
+      {} as ContractSigningService,
+      {} as ContractLookupsService,
+      requirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const dto = { clientId: 'client-1', planTier: 'enterprise' } as any;
+    const currentUser = { clientId: 'client-1', isSkuld: () => false } as any;
+    const result = await controller.validateContractsForSubscription(dto, currentUser);
+
+    expect(requirementService.validateSubscriptionContracts).toHaveBeenCalledWith(dto, 'client-1');
+    expect(result.valid).toBe(false);
+  });
+
+  it('delegates vertical required contracts query to requirement service', async () => {
+    const requirementService = {
+      getRequiredContractsForVertical: jest.fn().mockResolvedValue([{ templateId: 'tpl-1' }]),
+    } as unknown as ContractRequirementService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      {} as ContractTemplateService,
+      {} as ContractSigningService,
+      {} as ContractLookupsService,
+      requirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const query = { planTier: 'professional' } as any;
+    const result = await controller.getRequiredContractsForVertical('healthcare', query);
+    expect(requirementService.getRequiredContractsForVertical).toHaveBeenCalledWith(
+      'healthcare',
+      query,
+    );
+    expect(result).toHaveLength(1);
+  });
+
+  it('delegates client template rendering to requirement service', async () => {
+    const requirementService = {
+      renderTemplateForClient: jest.fn().mockResolvedValue({
+        templateId: 'tpl-1',
+        clientId: 'client-1',
+      }),
+    } as unknown as ContractRequirementService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      {} as ContractTemplateService,
+      {} as ContractSigningService,
+      {} as ContractLookupsService,
+      requirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const result = await controller.renderTemplateForClient('tpl-1', 'client-1');
+    expect(requirementService.renderTemplateForClient).toHaveBeenCalledWith('tpl-1', 'client-1');
+    expect(result.clientId).toBe('client-1');
+  });
+
+  it('delegates admin envelope creation to signing service', async () => {
+    const signingService = {
+      createEnvelope: jest.fn().mockResolvedValue({ id: 'env-1' }),
+    } as unknown as ContractSigningService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      {} as ContractTemplateService,
+      signingService,
+      {} as ContractLookupsService,
+      {} as ContractRequirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const dto = {
+      clientId: 'client-1',
+      subject: 'Signature request',
+      recipients: [{ email: 'a@example.com', fullName: 'A Signer' }],
+    } as any;
+    const currentUser = { id: 'user-1' } as any;
+    const result = await controller.createEnvelope(dto, currentUser);
+
+    expect(signingService.createEnvelope).toHaveBeenCalledWith(dto, currentUser);
+    expect(result.id).toBe('env-1');
+  });
+
+  it('delegates envelope resend to signing service', async () => {
+    const signingService = {
+      resendEnvelope: jest.fn().mockResolvedValue({ id: 'env-1' }),
+    } as unknown as ContractSigningService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      {} as ContractTemplateService,
+      signingService,
+      {} as ContractLookupsService,
+      {} as ContractRequirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const dto = { recipientId: 'rec-1' } as any;
+    const currentUser = { id: 'user-1' } as any;
+    const result = await controller.resendEnvelope('env-1', dto, currentUser);
+
+    expect(signingService.resendEnvelope).toHaveBeenCalledWith('env-1', dto, currentUser);
+    expect(result.id).toBe('env-1');
+  });
+
+  it('delegates envelope document update to signing service', async () => {
+    const signingService = {
+      updateEnvelopeDocument: jest.fn().mockResolvedValue({ id: 'doc-1' }),
+    } as unknown as ContractSigningService;
+
+    const controller = new ContractsController(
+      {} as ContractsService,
+      {} as ContractTemplateService,
+      signingService,
+      {} as ContractLookupsService,
+      {} as ContractRequirementService,
+      {} as ContractLegalService,
+      {} as ContractSignatoryPolicyService,
+    );
+
+    const dto = { name: 'Updated doc' } as any;
+    const currentUser = { id: 'user-1' } as any;
+    const result = await controller.updateEnvelopeDocument('env-1', 'doc-1', dto, currentUser);
+
+    expect(signingService.updateEnvelopeDocument).toHaveBeenCalledWith(
+      'env-1',
+      'doc-1',
+      dto,
+      currentUser,
+    );
+    expect(result.id).toBe('doc-1');
   });
 });

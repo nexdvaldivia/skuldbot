@@ -5,6 +5,12 @@ import { Client } from '../clients/entities/client.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { User } from '../users/entities/user.entity';
 import {
+  assertClientBoundary,
+  ensureClientExists,
+  ensureTenantBelongsToClient,
+  resolveEffectiveClientScope,
+} from './contracts-access.util';
+import {
   CancelContractDto,
   ContractResponseDto,
   ContractSignerResponseDto,
@@ -43,7 +49,7 @@ export class ContractsService {
       .createQueryBuilder('contract')
       .leftJoinAndSelect('contract.signers', 'signers');
 
-    const effectiveClientId = this.resolveEffectiveClientScope(query.clientId, currentUser);
+    const effectiveClientId = resolveEffectiveClientScope(query.clientId, currentUser);
     if (effectiveClientId) {
       qb.andWhere('contract.clientId = :clientId', { clientId: effectiveClientId });
     }
@@ -77,15 +83,15 @@ export class ContractsService {
       });
     }
 
-    this.assertClientBoundary(contract.clientId, currentUser);
+    assertClientBoundary(contract.clientId, currentUser);
 
     return this.toResponse(contract);
   }
 
   async createContract(dto: CreateContractDto, currentUser: User): Promise<ContractResponseDto> {
-    await this.ensureClientExists(dto.clientId);
-    this.assertClientBoundary(dto.clientId, currentUser);
-    await this.ensureTenantBelongsToClient(dto.tenantId, dto.clientId);
+    await ensureClientExists(this.clientRepository, dto.clientId);
+    assertClientBoundary(dto.clientId, currentUser);
+    await ensureTenantBelongsToClient(this.tenantRepository, dto.tenantId, dto.clientId);
 
     const contract = this.contractRepository.create({
       clientId: dto.clientId,
@@ -186,7 +192,7 @@ export class ContractsService {
     currentUser: User,
   ): Promise<ContractResponseDto> {
     const contract = await this.findContractForUpdate(contractId);
-    this.assertClientBoundary(contract.clientId, currentUser);
+    assertClientBoundary(contract.clientId, currentUser);
 
     if (contract.status !== ContractStatus.DRAFT) {
       throw new BadRequestException({
@@ -325,7 +331,7 @@ export class ContractsService {
 
   async generatePdf(contractId: string, currentUser: User): Promise<ContractResponseDto> {
     const contract = await this.findContractForUpdate(contractId);
-    this.assertClientBoundary(contract.clientId, currentUser);
+    assertClientBoundary(contract.clientId, currentUser);
 
     const { renderedHtml, pdfPath } = await this.pdfService.generateAndStoreContractPdf(contract);
 
@@ -347,7 +353,7 @@ export class ContractsService {
     currentUser: User,
   ): Promise<{ fileName: string; buffer: Buffer }> {
     const contract = await this.findContractForUpdate(contractId);
-    this.assertClientBoundary(contract.clientId, currentUser);
+    assertClientBoundary(contract.clientId, currentUser);
 
     if (!contract.pdfPath) {
       throw new BadRequestException({
@@ -374,75 +380,6 @@ export class ContractsService {
       });
     }
     return contract;
-  }
-
-  private resolveEffectiveClientScope(
-    requestedClientId: string | undefined,
-    currentUser: User,
-  ): string | undefined {
-    if (currentUser.isSkuld()) {
-      return requestedClientId;
-    }
-
-    if (!currentUser.clientId) {
-      throw new BadRequestException({
-        code: 'CLIENT_SCOPE_REQUIRED',
-        message: 'Current user is missing client scope.',
-      });
-    }
-
-    if (requestedClientId && requestedClientId !== currentUser.clientId) {
-      throw new BadRequestException({
-        code: 'CLIENT_SCOPE_MISMATCH',
-        message: `Requested client scope ${requestedClientId} is not allowed for current user.`,
-      });
-    }
-
-    return currentUser.clientId;
-  }
-
-  private assertClientBoundary(clientId: string, currentUser: User): void {
-    if (currentUser.isSkuld()) {
-      return;
-    }
-    if (!currentUser.clientId || currentUser.clientId !== clientId) {
-      throw new BadRequestException({
-        code: 'CLIENT_SCOPE_VIOLATION',
-        message: `Current user cannot access resources for client ${clientId}.`,
-      });
-    }
-  }
-
-  private async ensureClientExists(clientId: string): Promise<void> {
-    const exists = await this.clientRepository.exist({ where: { id: clientId } });
-    if (!exists) {
-      throw new BadRequestException({
-        code: 'CLIENT_NOT_FOUND',
-        message: `Client ${clientId} does not exist.`,
-      });
-    }
-  }
-
-  private async ensureTenantBelongsToClient(
-    tenantId: string | undefined,
-    clientId: string,
-  ): Promise<void> {
-    if (!tenantId) {
-      return;
-    }
-    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
-    if (!tenant) {
-      throw new BadRequestException({
-        code: 'TENANT_NOT_FOUND',
-        message: `Tenant ${tenantId} does not exist.`,
-      });
-    }
-    if (tenant.clientId !== clientId) {
-      throw new BadRequestException({
-        code: 'TENANT_CLIENT_MISMATCH',
-        message: `Tenant ${tenantId} is not owned by client ${clientId}.`,
-      });
-    }
   }
 
   private async recordEvent(

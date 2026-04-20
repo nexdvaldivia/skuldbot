@@ -1,7 +1,9 @@
 import { ConfigService } from '@nestjs/config';
+import { Client } from '../clients/entities/client.entity';
 import { CreateLicenseDto } from '../licenses/dto/license.dto';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { ContractGateAction, ContractGateService } from './contract-gate.service';
+import { ContractRequirementService } from './contract-requirement.service';
 import { Contract, ContractStatus } from './entities/contract.entity';
 
 type RepoMock<T> = {
@@ -20,7 +22,12 @@ describe('ContractGateService', () => {
   it('allows deploy gate when MSA is signed', async () => {
     const contractRepository = createRepoMock<Contract>();
     const tenantRepository = createRepoMock<Tenant>();
+    const clientRepository = createRepoMock<Client>();
+    const requirementService = {
+      resolveRequiredContractTypes: jest.fn(async () => []),
+    } as unknown as ContractRequirementService;
     const configService = { get: jest.fn(() => undefined) } as unknown as ConfigService;
+    clientRepository.findOne.mockResolvedValue({ id: 'client-1', plan: 'enterprise' } as Client);
 
     contractRepository.find.mockResolvedValue([
       {
@@ -37,6 +44,8 @@ describe('ContractGateService', () => {
     const service = new ContractGateService(
       contractRepository as any,
       tenantRepository as any,
+      clientRepository as any,
+      requirementService,
       configService,
     );
 
@@ -53,13 +62,20 @@ describe('ContractGateService', () => {
   it('blocks deploy gate when required contract is missing', async () => {
     const contractRepository = createRepoMock<Contract>();
     const tenantRepository = createRepoMock<Tenant>();
+    const clientRepository = createRepoMock<Client>();
+    const requirementService = {
+      resolveRequiredContractTypes: jest.fn(async () => []),
+    } as unknown as ContractRequirementService;
     const configService = { get: jest.fn(() => undefined) } as unknown as ConfigService;
+    clientRepository.findOne.mockResolvedValue({ id: 'client-1', plan: 'enterprise' } as Client);
 
     contractRepository.find.mockResolvedValue([]);
 
     const service = new ContractGateService(
       contractRepository as any,
       tenantRepository as any,
+      clientRepository as any,
+      requirementService,
       configService,
     );
 
@@ -76,23 +92,21 @@ describe('ContractGateService', () => {
   it('blocks when only expired contract exists', async () => {
     const contractRepository = createRepoMock<Contract>();
     const tenantRepository = createRepoMock<Tenant>();
+    const clientRepository = createRepoMock<Client>();
+    const requirementService = {
+      resolveRequiredContractTypes: jest.fn(async () => []),
+    } as unknown as ContractRequirementService;
     const configService = { get: jest.fn(() => undefined) } as unknown as ConfigService;
+    clientRepository.findOne.mockResolvedValue({ id: 'client-1', plan: 'enterprise' } as Client);
 
-    contractRepository.find.mockResolvedValue([
-      {
-        id: 'ctr-expired',
-        clientId: 'client-1',
-        tenantId: null,
-        title: 'Master Service Agreement',
-        templateKey: 'msa.v1',
-        status: ContractStatus.EXPIRED,
-        metadata: {},
-      } as Contract,
-    ]);
+    // Service queries only signed contracts; an expired-only set yields no signed matches.
+    contractRepository.find.mockResolvedValue([]);
 
     const service = new ContractGateService(
       contractRepository as any,
       tenantRepository as any,
+      clientRepository as any,
+      requirementService,
       configService,
     );
 
@@ -109,6 +123,10 @@ describe('ContractGateService', () => {
   it('requires BAA and DPA for license when tenant/data signals demand compliance', async () => {
     const contractRepository = createRepoMock<Contract>();
     const tenantRepository = createRepoMock<Tenant>();
+    const clientRepository = createRepoMock<Client>();
+    const requirementService = {
+      resolveRequiredContractTypes: jest.fn(async () => []),
+    } as unknown as ContractRequirementService;
     const configService = { get: jest.fn(() => undefined) } as unknown as ConfigService;
 
     tenantRepository.findOne.mockResolvedValue({
@@ -117,6 +135,11 @@ describe('ContractGateService', () => {
       settings: { compliance: ['hipaa', 'gdpr'] },
       metadata: {},
     } as unknown as Tenant);
+    clientRepository.findOne.mockResolvedValue({
+      id: 'client-1',
+      plan: 'enterprise',
+      metadata: {},
+    } as Client);
 
     contractRepository.find.mockResolvedValue([
       {
@@ -133,6 +156,8 @@ describe('ContractGateService', () => {
     const service = new ContractGateService(
       contractRepository as any,
       tenantRepository as any,
+      clientRepository as any,
+      requirementService,
       configService,
     );
 
