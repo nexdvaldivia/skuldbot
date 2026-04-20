@@ -3,10 +3,14 @@ import {
   IsEmail,
   IsOptional,
   IsNotEmpty,
+  IsInt,
+  Min,
+  Max,
   MinLength,
   MaxLength,
   Matches,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateClientDto {
   @IsString()
@@ -55,6 +59,25 @@ export class UpdateClientDto {
   status?: string;
 }
 
+export class ListClientsQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  status?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  plan?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  limit?: number;
+}
+
 export class ClientResponseDto {
   id: string;
   name: string;
@@ -70,6 +93,38 @@ export class ClientResponseDto {
 export class ClientDetailResponseDto extends ClientResponseDto {
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
+  apiKeyPrefix: string | null;
   settings: Record<string, unknown>;
   metadata: Record<string, unknown>;
+}
+
+export class RegenerateClientApiKeyResponseDto {
+  status: 'success';
+  message: string;
+  oldKeyPrefix: string | null;
+  newApiKey: string;
+}
+
+export class ClientGateStatusDto {
+  key: string;
+  passed: boolean;
+  details: string;
+}
+
+export class ClientGatesResponseDto {
+  clientId: string;
+  overallPassed: boolean;
+  gates: ClientGateStatusDto[];
+}
+
+export class ClientOverviewResponseDto {
+  clientId: string;
+  status: string;
+  plan: string;
+  tenantsTotal: number;
+  tenantsActive: number;
+  usersTotal: number;
+  activeSubscriptions: number;
+  hasApiKey: boolean;
+  hasStripeCustomer: boolean;
 }

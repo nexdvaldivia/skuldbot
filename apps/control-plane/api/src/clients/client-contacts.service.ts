@@ -1,263 +1,274 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { assertClientBoundary } from '../contracts/contracts-access.util';
+import { IsNull, Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import {
+  BulkCreateClientContactsDto,
+  ClientContactBulkResponseDto,
+  ClientContactListResponseDto,
   ClientContactResponseDto,
   CreateClientContactDto,
+  ListClientContactsQueryDto,
   UpdateClientContactDto,
 } from './dto/client-contact.dto';
 import { ClientContact } from './entities/client-contact.entity';
 import { Client } from './entities/client.entity';
+import {
+  clearPrimaryForType,
+  ensureClientAccess,
+  normalizeOptionalString,
+} from './clients-shared.util';
 
 @Injectable()
 export class ClientContactsService {
   constructor(
-    @InjectRepository(Client)
-    private readonly clientRepository: Repository<Client>,
     @InjectRepository(ClientContact)
     private readonly contactRepository: Repository<ClientContact>,
+    @InjectRepository(Client)
+    private readonly clientRepository: Repository<Client>,
   ) {}
 
-  async list(clientId: string, currentUser: User): Promise<ClientContactResponseDto[]> {
-    await this.requireClient(clientId, currentUser);
+  async listClientContacts(
+    clientId: string,
+    query: ListClientContactsQueryDto,
+    currentUser: User,
+  ): Promise<ClientContactListResponseDto> {
+    await ensureClientAccess(this.clientRepository, clientId, currentUser);
 
-    const contacts = await this.contactRepository.find({
-      where: { clientId },
-      order: {
-        isPrimary: 'DESC',
-        fullName: 'ASC',
-      },
-    });
+    const qb = this.contactRepository
+      .createQueryBuilder('contact')
+      .where('contact.client_id = :clientId', { clientId })
+      .andWhere('contact.deleted_at IS NULL');
 
-    return contacts.map((contact) => this.toResponse(contact));
+    if (query.contactType) {
+      qb.andWhere('contact.contact_type = :contactType', { contactType: query.contactType });
+    }
+    if (!query.includeInactive) {
+      qb.andWhere('contact.is_active = :isActive', { isActive: true });
+    }
+
+    const contacts = await qb
+      .orderBy('contact.contact_type', 'ASC')
+      .addOrderBy('contact.is_primary', 'DESC')
+      .addOrderBy('contact.last_name', 'ASC')
+      .addOrderBy('contact.first_name', 'ASC')
+      .getMany();
+
+    return {
+      contacts: contacts.map((contact) => this.toResponse(contact)),
+      total: contacts.length,
+    };
   }
 
-  async getById(
+  async getClientContact(
     clientId: string,
     contactId: string,
     currentUser: User,
   ): Promise<ClientContactResponseDto> {
-    await this.requireClient(clientId, currentUser);
-
-    const contact = await this.contactRepository.findOne({
-      where: {
-        id: contactId,
-        clientId,
-      },
-    });
-
-    if (!contact) {
-      throw new NotFoundException({
-        code: 'CLIENT_CONTACT_NOT_FOUND',
-        message: `Client contact ${contactId} was not found for client ${clientId}.`,
-      });
-    }
-
+    await ensureClientAccess(this.clientRepository, clientId, currentUser);
+    const contact = await this.requireContact(clientId, contactId);
     return this.toResponse(contact);
   }
 
-  async create(
+  async createClientContact(
     clientId: string,
     dto: CreateClientContactDto,
     currentUser: User,
   ): Promise<ClientContactResponseDto> {
-    await this.requireClient(clientId, currentUser);
-
-    const normalizedEmail = dto.email.trim().toLowerCase();
-    const existing = await this.contactRepository.findOne({
-      where: {
-        clientId,
-        email: normalizedEmail,
-      },
-    });
-
-    if (existing) {
-      throw new ConflictException({
-        code: 'CLIENT_CONTACT_EMAIL_EXISTS',
-        message: `A client contact with email ${normalizedEmail} already exists for client ${clientId}.`,
-      });
-    }
+    await ensureClientAccess(this.clientRepository, clientId, currentUser);
+    await this.ensureUniqueContactEmail(clientId, dto.email);
 
     if (dto.isPrimary) {
-      await this.clearExistingPrimary(clientId, null, currentUser.id);
+      await clearPrimaryForType(
+        this.contactRepository,
+        ClientContact,
+        clientId,
+        'contact_type',
+        dto.contactType,
+      );
     }
 
     const contact = await this.contactRepository.save(
       this.contactRepository.create({
         clientId,
-        fullName: dto.fullName.trim(),
-        email: normalizedEmail,
-        phone: dto.phone?.trim() || null,
-        title: dto.title?.trim() || null,
-        department: dto.department?.trim() || null,
-        roleCodes: this.normalizeRoleCodes(dto.roleCodes),
+        contactType: dto.contactType,
+        firstName: dto.firstName.trim(),
+        lastName: dto.lastName.trim(),
+        email: dto.email.trim().toLowerCase(),
+        phone: normalizeOptionalString(dto.phone),
+        mobile: normalizeOptionalString(dto.mobile),
+        jobTitle: normalizeOptionalString(dto.jobTitle),
+        department: normalizeOptionalString(dto.department),
+        linkedinUrl: normalizeOptionalString(dto.linkedinUrl),
         isPrimary: dto.isPrimary ?? false,
+        isContractSigner: dto.isContractSigner ?? false,
+        isInstaller: dto.isInstaller ?? false,
         isActive: dto.isActive ?? true,
-        createdByUserId: currentUser.id,
-        updatedByUserId: currentUser.id,
-        metadata: dto.metadata ?? {},
+        canReceiveMarketing: dto.canReceiveMarketing ?? true,
+        canReceiveUpdates: dto.canReceiveUpdates ?? true,
+        preferredLanguage: normalizeOptionalString(dto.preferredLanguage) ?? 'en',
+        notes: normalizeOptionalString(dto.notes),
+        deletedAt: null,
       }),
     );
 
     return this.toResponse(contact);
   }
 
-  async update(
+  async bulkCreateClientContacts(
+    clientId: string,
+    dto: BulkCreateClientContactsDto,
+    currentUser: User,
+  ): Promise<ClientContactBulkResponseDto> {
+    await ensureClientAccess(this.clientRepository, clientId, currentUser);
+
+    const created: ClientContactResponseDto[] = [];
+    const errors: string[] = [];
+
+    for (let index = 0; index < dto.contacts.length; index += 1) {
+      const contactInput = dto.contacts[index];
+      try {
+        const contact = await this.createClientContact(clientId, contactInput, currentUser);
+        created.push(contact);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : `Unable to create contact at index ${index}.`;
+        errors.push(`Contact ${index}: ${message}`);
+      }
+    }
+
+    return { created, errors };
+  }
+
+  async updateClientContact(
     clientId: string,
     contactId: string,
     dto: UpdateClientContactDto,
     currentUser: User,
   ): Promise<ClientContactResponseDto> {
-    await this.requireClient(clientId, currentUser);
+    await ensureClientAccess(this.clientRepository, clientId, currentUser);
+    const contact = await this.requireContact(clientId, contactId);
 
-    const contact = await this.contactRepository.findOne({
-      where: {
-        id: contactId,
+    if (dto.email && dto.email.trim().toLowerCase() !== contact.email) {
+      await this.ensureUniqueContactEmail(clientId, dto.email, contact.id);
+    }
+
+    const nextType = dto.contactType ?? contact.contactType;
+    const nextIsPrimary = dto.isPrimary ?? contact.isPrimary;
+    if (nextIsPrimary) {
+      await clearPrimaryForType(
+        this.contactRepository,
+        ClientContact,
         clientId,
-      },
-    });
-
-    if (!contact) {
-      throw new NotFoundException({
-        code: 'CLIENT_CONTACT_NOT_FOUND',
-        message: `Client contact ${contactId} was not found for client ${clientId}.`,
-      });
+        'contact_type',
+        nextType,
+        contact.id,
+      );
     }
 
-    if (dto.email !== undefined) {
-      const normalizedEmail = dto.email.trim().toLowerCase();
-      if (normalizedEmail !== contact.email) {
-        const duplicate = await this.contactRepository.findOne({
-          where: {
-            clientId,
-            email: normalizedEmail,
-          },
-        });
-        if (duplicate && duplicate.id !== contact.id) {
-          throw new ConflictException({
-            code: 'CLIENT_CONTACT_EMAIL_EXISTS',
-            message: `A client contact with email ${normalizedEmail} already exists for client ${clientId}.`,
-          });
-        }
-      }
-      contact.email = normalizedEmail;
-    }
-
-    if (dto.fullName !== undefined) {
-      const value = dto.fullName.trim();
-      if (!value) {
-        throw new BadRequestException({
-          code: 'CLIENT_CONTACT_NAME_REQUIRED',
-          message: 'Client contact full name cannot be empty.',
-        });
-      }
-      contact.fullName = value;
-    }
-
-    if (dto.phone !== undefined) {
-      contact.phone = dto.phone.trim() || null;
-    }
-
-    if (dto.title !== undefined) {
-      contact.title = dto.title.trim() || null;
-    }
-
-    if (dto.department !== undefined) {
-      contact.department = dto.department.trim() || null;
-    }
-
-    if (dto.roleCodes !== undefined) {
-      contact.roleCodes = this.normalizeRoleCodes(dto.roleCodes);
-    }
-
-    if (dto.isActive !== undefined) {
-      contact.isActive = dto.isActive;
-    }
-
-    if (dto.isPrimary !== undefined) {
-      contact.isPrimary = dto.isPrimary;
-      if (dto.isPrimary) {
-        await this.clearExistingPrimary(clientId, contact.id, currentUser.id);
-      }
-    }
-
-    if (dto.metadata !== undefined) {
-      contact.metadata = dto.metadata;
-    }
-
-    contact.updatedByUserId = currentUser.id;
+    if (dto.contactType !== undefined) contact.contactType = dto.contactType;
+    if (dto.firstName !== undefined) contact.firstName = dto.firstName.trim();
+    if (dto.lastName !== undefined) contact.lastName = dto.lastName.trim();
+    if (dto.email !== undefined) contact.email = dto.email.trim().toLowerCase();
+    if (dto.phone !== undefined) contact.phone = normalizeOptionalString(dto.phone);
+    if (dto.mobile !== undefined) contact.mobile = normalizeOptionalString(dto.mobile);
+    if (dto.jobTitle !== undefined) contact.jobTitle = normalizeOptionalString(dto.jobTitle);
+    if (dto.department !== undefined) contact.department = normalizeOptionalString(dto.department);
+    if (dto.linkedinUrl !== undefined)
+      contact.linkedinUrl = normalizeOptionalString(dto.linkedinUrl);
+    if (dto.isPrimary !== undefined) contact.isPrimary = dto.isPrimary;
+    if (dto.isContractSigner !== undefined) contact.isContractSigner = dto.isContractSigner;
+    if (dto.isInstaller !== undefined) contact.isInstaller = dto.isInstaller;
+    if (dto.isActive !== undefined) contact.isActive = dto.isActive;
+    if (dto.canReceiveMarketing !== undefined)
+      contact.canReceiveMarketing = dto.canReceiveMarketing;
+    if (dto.canReceiveUpdates !== undefined) contact.canReceiveUpdates = dto.canReceiveUpdates;
+    if (dto.preferredLanguage !== undefined)
+      contact.preferredLanguage = normalizeOptionalString(dto.preferredLanguage) ?? 'en';
+    if (dto.notes !== undefined) contact.notes = normalizeOptionalString(dto.notes);
 
     const saved = await this.contactRepository.save(contact);
     return this.toResponse(saved);
   }
 
-  async remove(clientId: string, contactId: string, currentUser: User): Promise<void> {
-    await this.requireClient(clientId, currentUser);
+  async deleteClientContact(
+    clientId: string,
+    contactId: string,
+    hardDelete: boolean,
+    currentUser: User,
+  ): Promise<void> {
+    await ensureClientAccess(this.clientRepository, clientId, currentUser);
+    const contact = await this.requireContact(clientId, contactId);
 
+    if (hardDelete) {
+      await this.contactRepository.delete({ id: contact.id });
+      return;
+    }
+
+    contact.deletedAt = new Date();
+    await this.contactRepository.save(contact);
+  }
+
+  async setClientContactPrimary(
+    clientId: string,
+    contactId: string,
+    currentUser: User,
+  ): Promise<ClientContactResponseDto> {
+    await ensureClientAccess(this.clientRepository, clientId, currentUser);
+    const contact = await this.requireContact(clientId, contactId);
+
+    await clearPrimaryForType(
+      this.contactRepository,
+      ClientContact,
+      clientId,
+      'contact_type',
+      contact.contactType,
+      contact.id,
+    );
+    contact.isPrimary = true;
+    const saved = await this.contactRepository.save(contact);
+    return this.toResponse(saved);
+  }
+
+  private async requireContact(clientId: string, contactId: string): Promise<ClientContact> {
     const contact = await this.contactRepository.findOne({
       where: {
         id: contactId,
         clientId,
+        deletedAt: IsNull(),
       },
     });
-
     if (!contact) {
       throw new NotFoundException({
         code: 'CLIENT_CONTACT_NOT_FOUND',
-        message: `Client contact ${contactId} was not found for client ${clientId}.`,
+        message: `Contact ${contactId} not found for client ${clientId}`,
       });
     }
-
-    await this.contactRepository.remove(contact);
+    return contact;
   }
 
-  private async requireClient(clientId: string, currentUser: User): Promise<void> {
-    assertClientBoundary(clientId, currentUser);
-
-    const exists = await this.clientRepository.exist({ where: { id: clientId } });
-    if (!exists) {
-      throw new NotFoundException({
-        code: 'CLIENT_NOT_FOUND',
-        message: `Client ${clientId} was not found.`,
-      });
-    }
-  }
-
-  private normalizeRoleCodes(value: string[] | undefined): string[] {
-    if (!value || value.length === 0) {
-      return [];
-    }
-    return Array.from(
-      new Set(value.map((entry) => entry.trim().toLowerCase()).filter((entry) => entry.length > 0)),
-    );
-  }
-
-  private async clearExistingPrimary(
+  private async ensureUniqueContactEmail(
     clientId: string,
-    exceptContactId: string | null,
-    actorUserId: string,
+    email: string,
+    excludeId?: string,
   ): Promise<void> {
-    const currentPrimary = await this.contactRepository.find({
-      where: {
-        clientId,
-        isPrimary: true,
-      },
-    });
+    const normalized = email.trim().toLowerCase();
+    const qb = this.contactRepository
+      .createQueryBuilder('contact')
+      .where('contact.client_id = :clientId', { clientId })
+      .andWhere('LOWER(contact.email) = :email', { email: normalized })
+      .andWhere('contact.deleted_at IS NULL');
 
-    for (const item of currentPrimary) {
-      if (exceptContactId && item.id === exceptContactId) {
-        continue;
-      }
-      item.isPrimary = false;
-      item.updatedByUserId = actorUserId;
-      await this.contactRepository.save(item);
+    if (excludeId) {
+      qb.andWhere('contact.id != :excludeId', { excludeId });
+    }
+
+    const exists = await qb.getExists();
+    if (exists) {
+      throw new ConflictException({
+        code: 'CLIENT_CONTACT_EMAIL_EXISTS',
+        message: `Contact email ${normalized} already exists for client ${clientId}`,
+      });
     }
   }
 
@@ -265,15 +276,24 @@ export class ClientContactsService {
     return {
       id: contact.id,
       clientId: contact.clientId,
-      fullName: contact.fullName,
+      contactType: contact.contactType,
+      firstName: contact.firstName,
+      lastName: contact.lastName,
+      fullName: `${contact.firstName} ${contact.lastName}`.trim(),
       email: contact.email,
       phone: contact.phone,
-      title: contact.title,
+      mobile: contact.mobile,
+      jobTitle: contact.jobTitle,
       department: contact.department,
-      roleCodes: contact.roleCodes ?? [],
+      linkedinUrl: contact.linkedinUrl,
       isPrimary: contact.isPrimary,
+      isContractSigner: contact.isContractSigner,
+      isInstaller: contact.isInstaller,
       isActive: contact.isActive,
-      metadata: contact.metadata ?? {},
+      canReceiveMarketing: contact.canReceiveMarketing,
+      canReceiveUpdates: contact.canReceiveUpdates,
+      preferredLanguage: contact.preferredLanguage,
+      notes: contact.notes,
       createdAt: contact.createdAt,
       updatedAt: contact.updatedAt,
     };
