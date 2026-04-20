@@ -16,8 +16,8 @@ import { StripeProvider } from './stripe.provider';
 import { WebhooksController } from './webhooks.controller';
 import { SubscriptionEntity } from './entities/subscription.entity';
 import { InvoiceEntity } from './entities/invoice.entity';
-import { UsageRecordEntity } from './entities/usage-record.entity';
-import { PartnerEntity } from './entities/partner.entity';
+import { UsageRecord } from '../../billing/entities/usage-record.entity';
+import { Partner } from '../../marketplace/entities/partner.entity';
 
 import { PAYMENT_PROVIDER } from './payment.constants';
 export { PAYMENT_PROVIDER }; // Re-export for backwards compatibility
@@ -41,7 +41,7 @@ export { PAYMENT_PROVIDER }; // Re-export for backwards compatibility
   imports: [
     ConfigModule,
     ProviderRuntimeModule,
-    TypeOrmModule.forFeature([SubscriptionEntity, InvoiceEntity, UsageRecordEntity, PartnerEntity]),
+    TypeOrmModule.forFeature([SubscriptionEntity, InvoiceEntity, UsageRecord, Partner]),
   ],
   controllers: [WebhooksController],
   providers: [

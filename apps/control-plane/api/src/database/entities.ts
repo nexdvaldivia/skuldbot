@@ -65,8 +65,9 @@ import { ContractRenewalRequirement } from '../contracts/entities/contract-renew
 import { SigningDocument } from '../contracts/entities/signing-document.entity';
 import { SubscriptionEntity } from '../integrations/payment/entities/subscription.entity';
 import { InvoiceEntity } from '../integrations/payment/entities/invoice.entity';
-import { UsageRecordEntity } from '../integrations/payment/entities/usage-record.entity';
-import { PartnerEntity } from '../integrations/payment/entities/partner.entity';
+// NOTE: UsageRecordEntity and PartnerEntity removed — duplicates of
+// billing/entities/usage-record.entity.ts (UsageRecord) and
+// marketplace/entities/partner.entity.ts (Partner) which share the same tables.
 import { SecurityAuditEvent } from '../common/audit/entities/security-audit-event.entity';
 
 export const databaseEntities = [
@@ -140,7 +141,5 @@ export const databaseEntities = [
   SigningDocument,
   SubscriptionEntity,
   InvoiceEntity,
-  UsageRecordEntity,
-  PartnerEntity,
   SecurityAuditEvent,
 ];
