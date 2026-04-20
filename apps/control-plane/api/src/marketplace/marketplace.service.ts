@@ -21,6 +21,7 @@ import {
   MarketplaceSubscriptionPlan,
   MarketplaceSubscriptionStatus,
 } from './entities/marketplace-subscription.entity';
+import { PartnerType } from './entities/partner-type.entity';
 import { SecurityAuditEvent } from '../common/audit/entities/security-audit-event.entity';
 import { RevenueShareRecord } from '../billing/entities/revenue-share.entity';
 
@@ -71,10 +72,55 @@ export interface CreatePartnerDto {
   name: string;
   email: string;
   company: string;
+  partnerTypeId?: string;
   website?: string;
   description?: string;
   contactName?: string;
   contactPhone?: string;
+  billingEmail?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdatePartnerDto {
+  name?: string;
+  email?: string;
+  company?: string;
+  partnerTypeId?: string | null;
+  website?: string | null;
+  description?: string | null;
+  contactName?: string | null;
+  contactPhone?: string | null;
+  billingEmail?: string | null;
+  status?: PartnerStatus;
+  verified?: boolean;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface ListPartnersFilters {
+  status?: PartnerStatus;
+  partnerTypeId?: string;
+  search?: string;
+  isVerified?: boolean;
+}
+
+export interface CreatePartnerTypeDto {
+  name: string;
+  slug: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface UpdatePartnerTypeDto {
+  name?: string;
+  slug?: string;
+  description?: string | null;
+  color?: string | null;
+  icon?: string | null;
+  sortOrder?: number;
+  isActive?: boolean;
 }
 
 export interface CatalogFilters {
@@ -133,6 +179,8 @@ export class MarketplaceService {
     private readonly versionRepository: Repository<BotVersion>,
     @InjectRepository(Partner)
     private readonly partnerRepository: Repository<Partner>,
+    @InjectRepository(PartnerType)
+    private readonly partnerTypeRepository: Repository<PartnerType>,
     @InjectRepository(MarketplaceSubscription)
     private readonly subscriptionRepository: Repository<MarketplaceSubscription>,
     @InjectRepository(SecurityAuditEvent)
@@ -293,7 +341,7 @@ export class MarketplaceService {
    * Create a new bot (draft)
    */
   async createBot(dto: CreateBotDto): Promise<MarketplaceBot> {
-    // Verify partner exists and is approved
+    // Verify partner exists and can operate in marketplace
     const partner = await this.partnerRepository.findOne({
       where: { id: dto.publisherId },
     });
@@ -302,9 +350,7 @@ export class MarketplaceService {
       throw new NotFoundException('Partner not found');
     }
 
-    if (partner.status !== PartnerStatus.APPROVED) {
-      throw new ForbiddenException('Partner is not approved');
-    }
+    this.assertPartnerOperational(partner, 'create bots');
 
     // Check slug uniqueness
     const existingBot = await this.botRepository.findOne({
@@ -342,6 +388,8 @@ export class MarketplaceService {
       throw new ForbiddenException('You do not own this bot');
     }
 
+    await this.ensurePartnerOperationalById(publisherId, 'update bots');
+
     // Can't update published bots directly (need new version)
     if (bot.status === MarketplaceBotStatus.PUBLISHED && (dto.pricing || dto.requirements)) {
       throw new BadRequestException(
@@ -364,6 +412,8 @@ export class MarketplaceService {
     if (bot.publisherId !== publisherId) {
       throw new ForbiddenException('You do not own this bot');
     }
+
+    await this.ensurePartnerOperationalById(publisherId, 'submit bots for review');
 
     if (bot.status !== MarketplaceBotStatus.DRAFT) {
       throw new BadRequestException('Only draft bots can be submitted for review');
@@ -433,6 +483,8 @@ export class MarketplaceService {
       throw new ForbiddenException('You do not own this bot');
     }
 
+    await this.ensurePartnerOperationalById(publisherId, 'publish bots');
+
     if (bot.status !== MarketplaceBotStatus.APPROVED) {
       throw new BadRequestException('Bot must be approved before publishing');
     }
@@ -459,6 +511,8 @@ export class MarketplaceService {
       throw new ForbiddenException('You do not own this bot');
     }
 
+    await this.ensurePartnerOperationalById(publisherId, 'deprecate bots');
+
     bot.status = MarketplaceBotStatus.DEPRECATED;
     bot.deprecatedAt = new Date();
     await this.botRepository.save(bot);
@@ -484,6 +538,8 @@ export class MarketplaceService {
     if (bot.publisherId !== publisherId) {
       throw new ForbiddenException('You do not own this bot');
     }
+
+    await this.ensurePartnerOperationalById(publisherId, 'add bot versions');
 
     // Check version doesn't exist
     const existingVersion = await this.versionRepository.findOne({
@@ -548,6 +604,10 @@ export class MarketplaceService {
    * Create partner application
    */
   async createPartner(dto: CreatePartnerDto, actor?: MarketplaceAuditActor): Promise<Partner> {
+    if (dto.partnerTypeId) {
+      await this.requirePartnerType(dto.partnerTypeId);
+    }
+
     // Check email uniqueness
     const existingPartner = await this.partnerRepository.findOne({
       where: { email: dto.email },
@@ -558,10 +618,26 @@ export class MarketplaceService {
     }
 
     const partner = this.partnerRepository.create({
-      ...dto,
+      ...(dto as Partial<Partner>),
       status: PartnerStatus.PENDING,
       revenueShareTier: RevenueShareTier.STARTER,
-    });
+      reviewedAt: undefined,
+      reviewedBy: undefined,
+      reviewNotes: undefined,
+      rejectedAt: undefined,
+      rejectedBy: undefined,
+      rejectionReason: undefined,
+      approvedAt: undefined,
+      approvedBy: undefined,
+      activatedAt: undefined,
+      activatedBy: undefined,
+      suspendedAt: undefined,
+      suspendedBy: undefined,
+      suspensionReason: undefined,
+      terminatedAt: undefined,
+      terminatedBy: undefined,
+      terminationReason: undefined,
+    } as Partial<Partner>);
 
     await this.partnerRepository.save(partner);
     await this.recordMarketplaceAuditEvent({
@@ -599,6 +675,12 @@ export class MarketplaceService {
     }
 
     partner.status = PartnerStatus.APPROVED;
+    partner.reviewedAt = new Date();
+    partner.reviewedBy = approvedBy;
+    partner.reviewNotes = undefined;
+    partner.rejectedAt = undefined;
+    partner.rejectedBy = undefined;
+    partner.rejectionReason = undefined;
     partner.approvedBy = approvedBy;
     partner.approvedAt = new Date();
     await this.partnerRepository.save(partner);
@@ -614,6 +696,193 @@ export class MarketplaceService {
     });
 
     this.logger.log(`Partner approved: ${partner.company} (${partner.id})`);
+
+    return partner;
+  }
+
+  async rejectPartner(
+    id: string,
+    rejectedBy: string,
+    reason: string | undefined,
+    actor?: MarketplaceAuditActor,
+  ): Promise<Partner> {
+    const partner = await this.partnerRepository.findOne({ where: { id } });
+
+    if (!partner) {
+      throw new NotFoundException('Partner not found');
+    }
+
+    if (partner.status !== PartnerStatus.PENDING) {
+      throw new BadRequestException('Only pending partners can be rejected');
+    }
+
+    partner.status = PartnerStatus.REJECTED;
+    partner.reviewedAt = new Date();
+    partner.reviewedBy = rejectedBy;
+    partner.reviewNotes = reason ?? undefined;
+    partner.rejectedAt = new Date();
+    partner.rejectedBy = rejectedBy;
+    partner.rejectionReason = reason ?? undefined;
+    partner.approvedAt = undefined;
+    partner.approvedBy = undefined;
+    await this.partnerRepository.save(partner);
+    await this.recordMarketplaceAuditEvent({
+      action: 'marketplace.partner.rejected',
+      targetType: 'partner',
+      targetId: partner.id,
+      actor,
+      details: {
+        rejectedBy,
+        reason: reason ?? null,
+        status: partner.status,
+      },
+    });
+
+    return partner;
+  }
+
+  async activatePartner(
+    id: string,
+    activatedBy: string,
+    actor?: MarketplaceAuditActor,
+  ): Promise<Partner> {
+    const partner = await this.partnerRepository.findOne({ where: { id } });
+    if (!partner) {
+      throw new NotFoundException('Partner not found');
+    }
+
+    const allowedStatusesForActivation: string[] = [
+      PartnerStatus.APPROVED,
+      PartnerStatus.SUSPENDED,
+    ];
+    if (!allowedStatusesForActivation.includes(partner.status)) {
+      throw new BadRequestException('Only approved or suspended partners can be activated');
+    }
+
+    partner.status = PartnerStatus.ACTIVE;
+    partner.activatedAt = new Date();
+    partner.activatedBy = activatedBy;
+    partner.suspendedAt = undefined;
+    partner.suspendedBy = undefined;
+    partner.suspensionReason = undefined;
+    await this.partnerRepository.save(partner);
+    await this.recordMarketplaceAuditEvent({
+      action: 'marketplace.partner.activated',
+      targetType: 'partner',
+      targetId: partner.id,
+      actor,
+      details: {
+        activatedBy,
+        status: partner.status,
+      },
+    });
+
+    return partner;
+  }
+
+  async suspendPartner(
+    id: string,
+    suspendedBy: string,
+    reason: string | undefined,
+    actor?: MarketplaceAuditActor,
+  ): Promise<Partner> {
+    const partner = await this.partnerRepository.findOne({ where: { id } });
+    if (!partner) {
+      throw new NotFoundException('Partner not found');
+    }
+
+    const allowedStatusesForSuspension: string[] = [PartnerStatus.APPROVED, PartnerStatus.ACTIVE];
+    if (!allowedStatusesForSuspension.includes(partner.status)) {
+      throw new BadRequestException('Only approved or active partners can be suspended');
+    }
+
+    partner.status = PartnerStatus.SUSPENDED;
+    partner.suspendedAt = new Date();
+    partner.suspendedBy = suspendedBy;
+    partner.suspensionReason = reason ?? undefined;
+    await this.partnerRepository.save(partner);
+    await this.recordMarketplaceAuditEvent({
+      action: 'marketplace.partner.suspended',
+      targetType: 'partner',
+      targetId: partner.id,
+      actor,
+      details: {
+        suspendedBy,
+        reason: reason ?? null,
+        status: partner.status,
+      },
+    });
+
+    return partner;
+  }
+
+  async terminatePartner(
+    id: string,
+    terminatedBy: string,
+    reason: string | undefined,
+    actor?: MarketplaceAuditActor,
+  ): Promise<Partner> {
+    const partner = await this.partnerRepository.findOne({ where: { id } });
+    if (!partner) {
+      throw new NotFoundException('Partner not found');
+    }
+
+    if (partner.status === PartnerStatus.TERMINATED) {
+      throw new BadRequestException('Partner is already terminated');
+    }
+
+    partner.status = PartnerStatus.TERMINATED;
+    partner.terminatedAt = new Date();
+    partner.terminatedBy = terminatedBy;
+    partner.terminationReason = reason ?? undefined;
+    await this.partnerRepository.save(partner);
+    await this.recordMarketplaceAuditEvent({
+      action: 'marketplace.partner.terminated',
+      targetType: 'partner',
+      targetId: partner.id,
+      actor,
+      details: {
+        terminatedBy,
+        reason: reason ?? null,
+        status: partner.status,
+      },
+    });
+
+    return partner;
+  }
+
+  async updatePartner(
+    id: string,
+    dto: UpdatePartnerDto,
+    actor?: MarketplaceAuditActor,
+  ): Promise<Partner> {
+    const partner = await this.partnerRepository.findOne({ where: { id } });
+    if (!partner) {
+      throw new NotFoundException('Partner not found');
+    }
+
+    if (dto.email && dto.email !== partner.email) {
+      const duplicateEmail = await this.partnerRepository.findOne({ where: { email: dto.email } });
+      if (duplicateEmail && duplicateEmail.id !== partner.id) {
+        throw new BadRequestException('Email already registered');
+      }
+    }
+
+    if (dto.partnerTypeId) {
+      await this.requirePartnerType(dto.partnerTypeId);
+    }
+
+    Object.assign(partner, dto);
+    await this.partnerRepository.save(partner);
+    await this.recordMarketplaceAuditEvent({
+      action: 'marketplace.partner.updated',
+      targetType: 'partner',
+      targetId: partner.id,
+      actor,
+      details: {
+        updatedFields: Object.keys(dto),
+      },
+    });
 
     return partner;
   }
@@ -641,9 +910,34 @@ export class MarketplaceService {
   /**
    * List all partners (admin)
    */
-  async listPartners(status?: PartnerStatus, actor?: MarketplaceAuditActor): Promise<Partner[]> {
-    const where = status ? { status } : {};
-    const partners = await this.partnerRepository.find({ where, order: { createdAt: 'DESC' } });
+  async listPartners(
+    filters: ListPartnersFilters = {},
+    actor?: MarketplaceAuditActor,
+  ): Promise<Partner[]> {
+    const query = this.partnerRepository.createQueryBuilder('partner');
+
+    if (filters.status) {
+      query.andWhere('partner.status = :status', { status: filters.status });
+    }
+    if (filters.partnerTypeId) {
+      query.andWhere('partner.partnerTypeId = :partnerTypeId', {
+        partnerTypeId: filters.partnerTypeId,
+      });
+    }
+    if (filters.isVerified !== undefined) {
+      query.andWhere('partner.verified = :isVerified', { isVerified: filters.isVerified });
+    }
+    if (filters.search?.trim()) {
+      query.andWhere(
+        '(partner.name ILIKE :search OR partner.company ILIKE :search OR partner.email ILIKE :search)',
+        { search: `%${filters.search.trim()}%` },
+      );
+    }
+
+    const partners = await query
+      .orderBy('partner.sortOrder', 'ASC')
+      .addOrderBy('partner.createdAt', 'DESC')
+      .getMany();
 
     await this.recordMarketplaceAuditEvent({
       action: 'marketplace.partner.listed',
@@ -651,12 +945,183 @@ export class MarketplaceService {
       targetId: 'partners',
       actor,
       details: {
-        status: status ?? null,
+        status: filters.status ?? null,
+        partnerTypeId: filters.partnerTypeId ?? null,
+        isVerified: filters.isVerified ?? null,
+        search: filters.search ?? null,
         count: partners.length,
       },
     });
 
     return partners;
+  }
+
+  async deletePartner(id: string, actor?: MarketplaceAuditActor): Promise<void> {
+    const partner = await this.partnerRepository.findOne({ where: { id } });
+    if (!partner) {
+      throw new NotFoundException('Partner not found');
+    }
+
+    await this.partnerRepository.remove(partner);
+    await this.recordMarketplaceAuditEvent({
+      action: 'marketplace.partner.deleted',
+      targetType: 'partner',
+      targetId: id,
+      actor,
+      details: {
+        company: partner.company,
+      },
+    });
+  }
+
+  async reorderPartners(partnerIds: string[], actor?: MarketplaceAuditActor): Promise<void> {
+    for (const [index, partnerId] of partnerIds.entries()) {
+      await this.partnerRepository.update({ id: partnerId }, { sortOrder: index });
+    }
+    await this.recordMarketplaceAuditEvent({
+      action: 'marketplace.partner.reordered',
+      targetType: 'marketplace',
+      targetId: 'partners',
+      actor,
+      details: {
+        count: partnerIds.length,
+      },
+    });
+  }
+
+  async listPartnerTypes(
+    filters?: {
+      isActive?: boolean;
+      search?: string;
+    },
+    actor?: MarketplaceAuditActor,
+  ): Promise<PartnerType[]> {
+    const query = this.partnerTypeRepository.createQueryBuilder('partnerType');
+    if (filters?.isActive !== undefined) {
+      query.andWhere('partnerType.isActive = :isActive', { isActive: filters.isActive });
+    }
+    if (filters?.search?.trim()) {
+      query.andWhere('(partnerType.name ILIKE :search OR partnerType.description ILIKE :search)', {
+        search: `%${filters.search.trim()}%`,
+      });
+    }
+    const partnerTypes = await query
+      .orderBy('partnerType.sortOrder', 'ASC')
+      .addOrderBy('partnerType.name', 'ASC')
+      .getMany();
+
+    await this.recordMarketplaceAuditEvent({
+      action: 'marketplace.partner_type.listed',
+      targetType: 'partner_type',
+      targetId: 'partner_types',
+      actor,
+      details: {
+        isActive: filters?.isActive ?? null,
+        search: filters?.search ?? null,
+        count: partnerTypes.length,
+      },
+    });
+
+    return partnerTypes;
+  }
+
+  async getPartnerType(id: string, actor?: MarketplaceAuditActor): Promise<PartnerType> {
+    const partnerType = await this.partnerTypeRepository.findOne({ where: { id } });
+    if (!partnerType) {
+      throw new NotFoundException('Partner type not found');
+    }
+    await this.recordMarketplaceAuditEvent({
+      action: 'marketplace.partner_type.viewed',
+      targetType: 'partner_type',
+      targetId: id,
+      actor,
+      details: {
+        slug: partnerType.slug,
+      },
+    });
+    return partnerType;
+  }
+
+  async createPartnerType(
+    dto: CreatePartnerTypeDto,
+    actor?: MarketplaceAuditActor,
+  ): Promise<PartnerType> {
+    const existing = await this.partnerTypeRepository.findOne({ where: { slug: dto.slug } });
+    if (existing) {
+      throw new BadRequestException(`Partner type with slug '${dto.slug}' already exists`);
+    }
+
+    const partnerType = this.partnerTypeRepository.create({
+      ...dto,
+      sortOrder: dto.sortOrder ?? 0,
+      isActive: dto.isActive ?? true,
+      color: dto.color ?? '#3b82f6',
+    });
+    await this.partnerTypeRepository.save(partnerType);
+    await this.recordMarketplaceAuditEvent({
+      action: 'marketplace.partner_type.created',
+      targetType: 'partner_type',
+      targetId: partnerType.id,
+      actor,
+      details: { slug: partnerType.slug },
+    });
+
+    return partnerType;
+  }
+
+  async updatePartnerType(
+    id: string,
+    dto: UpdatePartnerTypeDto,
+    actor?: MarketplaceAuditActor,
+  ): Promise<PartnerType> {
+    const partnerType = await this.partnerTypeRepository.findOne({ where: { id } });
+    if (!partnerType) {
+      throw new NotFoundException('Partner type not found');
+    }
+
+    if (dto.slug && dto.slug !== partnerType.slug) {
+      const duplicate = await this.partnerTypeRepository.findOne({ where: { slug: dto.slug } });
+      if (duplicate && duplicate.id !== partnerType.id) {
+        throw new BadRequestException(`Partner type with slug '${dto.slug}' already exists`);
+      }
+    }
+
+    Object.assign(partnerType, dto);
+    await this.partnerTypeRepository.save(partnerType);
+    await this.recordMarketplaceAuditEvent({
+      action: 'marketplace.partner_type.updated',
+      targetType: 'partner_type',
+      targetId: partnerType.id,
+      actor,
+      details: { updatedFields: Object.keys(dto) },
+    });
+
+    return partnerType;
+  }
+
+  async deletePartnerType(id: string, actor?: MarketplaceAuditActor): Promise<void> {
+    const partnerType = await this.partnerTypeRepository.findOne({ where: { id } });
+    if (!partnerType) {
+      throw new NotFoundException('Partner type not found');
+    }
+
+    const count = await this.partnerRepository.count({
+      where: { partnerTypeId: id },
+    });
+    if (count > 0) {
+      throw new BadRequestException(
+        `Cannot delete: ${count} partner(s) are using this type. Reassign them first.`,
+      );
+    }
+
+    await this.partnerTypeRepository.remove(partnerType);
+    await this.recordMarketplaceAuditEvent({
+      action: 'marketplace.partner_type.deleted',
+      targetType: 'partner_type',
+      targetId: id,
+      actor,
+      details: { slug: partnerType.slug },
+    });
   }
 
   async getMarketplaceAnalytics(
@@ -880,6 +1345,31 @@ export class MarketplaceService {
       name: row.category.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
       botCount: Number(row.count),
     }));
+  }
+
+  private async requirePartnerType(partnerTypeId: string): Promise<PartnerType> {
+    const partnerType = await this.partnerTypeRepository.findOne({ where: { id: partnerTypeId } });
+    if (!partnerType) {
+      throw new NotFoundException('Partner type not found');
+    }
+    return partnerType;
+  }
+
+  private async ensurePartnerOperationalById(partnerId: string, operation: string): Promise<void> {
+    const partner = await this.partnerRepository.findOne({ where: { id: partnerId } });
+    if (!partner) {
+      throw new NotFoundException('Partner not found');
+    }
+    this.assertPartnerOperational(partner, operation);
+  }
+
+  private assertPartnerOperational(partner: Partner, operation: string): void {
+    const operationalStatuses = new Set<string>([PartnerStatus.APPROVED, PartnerStatus.ACTIVE]);
+    if (!operationalStatuses.has(partner.status)) {
+      throw new ForbiddenException(
+        `Partner in status '${partner.status}' cannot ${operation}. Requires approved or active status.`,
+      );
+    }
   }
 
   private resolveCurrentPeriod(date = new Date()): string {

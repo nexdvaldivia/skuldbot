@@ -5,7 +5,10 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
+import { PartnerType } from './partner-type.entity';
 
 /**
  * Partner status
@@ -14,6 +17,8 @@ export type PartnerStatus = string;
 export const PartnerStatus = {
   PENDING: 'pending',
   APPROVED: 'approved',
+  ACTIVE: 'active',
+  REJECTED: 'rejected',
   SUSPENDED: 'suspended',
   TERMINATED: 'terminated',
 } as const;
@@ -68,6 +73,16 @@ export class Partner {
   @Column({ type: 'varchar', nullable: true })
   logoUrl?: string;
 
+  @Column({ type: 'uuid', nullable: true })
+  partnerTypeId?: string | null;
+
+  @ManyToOne(() => PartnerType, (partnerType) => partnerType.partners, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'partnerTypeId' })
+  partnerType?: PartnerType | null;
+
   // ============================================================================
   // CONTACT INFO
   // ============================================================================
@@ -103,11 +118,47 @@ export class Partner {
   @Column({ type: 'varchar', nullable: true })
   approvedBy?: string;
 
+  @Column({ type: 'timestamptz', nullable: true })
+  reviewedAt?: Date;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  reviewedBy?: string;
+
+  @Column({ type: 'text', nullable: true })
+  reviewNotes?: string;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  rejectedAt?: Date;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  rejectedBy?: string;
+
+  @Column({ type: 'text', nullable: true })
+  rejectionReason?: string;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  activatedAt?: Date;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  activatedBy?: string;
+
   @Column({ type: 'varchar', nullable: true })
   suspendedAt?: Date;
 
   @Column({ nullable: true, type: 'text' })
   suspensionReason?: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  suspendedBy?: string;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  terminatedAt?: Date;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  terminatedBy?: string;
+
+  @Column({ type: 'text', nullable: true })
+  terminationReason?: string;
 
   // ============================================================================
   // STRIPE CONNECT
@@ -207,6 +258,9 @@ export class Partner {
     };
     webhookUrl?: string;
   };
+
+  @Column({ type: 'integer', default: 0 })
+  sortOrder: number;
 
   // ============================================================================
   // TIMESTAMPS

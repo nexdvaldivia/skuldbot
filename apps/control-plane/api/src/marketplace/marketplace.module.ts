@@ -4,6 +4,7 @@ import { MarketplaceService } from './marketplace.service';
 import { MarketplaceController } from './marketplace.controller';
 import { MarketplaceBot, BotVersion } from './entities/marketplace-bot.entity';
 import { Partner } from './entities/partner.entity';
+import { PartnerType } from './entities/partner-type.entity';
 import { MarketplaceSubscription } from './entities/marketplace-subscription.entity';
 import { SecurityAuditEvent } from '../common/audit/entities/security-audit-event.entity';
 import { RevenueShareRecord } from '../billing/entities/revenue-share.entity';
@@ -35,6 +36,7 @@ import { RevenueShareRecord } from '../billing/entities/revenue-share.entity';
       MarketplaceBot,
       BotVersion,
       Partner,
+      PartnerType,
       MarketplaceSubscription,
       SecurityAuditEvent,
       RevenueShareRecord,

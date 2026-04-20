@@ -25,6 +25,7 @@ import { PaymentConfig } from '../billing/entities/payment-config.entity';
 import { PricingPlan } from '../billing/entities/pricing-plan.entity';
 import { MarketplaceBot, BotVersion } from '../marketplace/entities/marketplace-bot.entity';
 import { Partner } from '../marketplace/entities/partner.entity';
+import { PartnerType } from '../marketplace/entities/partner-type.entity';
 import { MarketplaceSubscription } from '../marketplace/entities/marketplace-subscription.entity';
 import { DiscoveredSchema } from '../schemas/entities/discovered-schema.entity';
 import { OrchestratorInstance } from '../orchestrators/entities/orchestrator-instance.entity';
@@ -89,6 +90,7 @@ export const databaseEntities = [
   MarketplaceBot,
   BotVersion,
   Partner,
+  PartnerType,
   MarketplaceSubscription,
   UsageRecord,
   UsageBatch,

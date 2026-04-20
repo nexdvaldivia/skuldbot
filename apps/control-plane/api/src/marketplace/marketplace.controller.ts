@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
+  Patch,
   Param,
   Post,
   Put,
@@ -27,6 +29,7 @@ import {
   PricingModel,
 } from './entities/marketplace-bot.entity';
 import { Partner, PartnerStatus } from './entities/partner.entity';
+import { PartnerType } from './entities/partner-type.entity';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
@@ -288,7 +291,7 @@ export class MarketplaceController {
 
   @Post('partners')
   @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles(UserRole.SKULD_ADMIN)
+  @Roles(UserRole.SKULD_ADMIN, UserRole.CLIENT_ADMIN)
   @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_WRITE)
   @HttpCode(HttpStatus.CREATED)
   async createPartner(
@@ -297,10 +300,13 @@ export class MarketplaceController {
       name: string;
       email: string;
       company: string;
+      partnerTypeId?: string;
       website?: string;
       description?: string;
       contactName?: string;
       contactPhone?: string;
+      billingEmail?: string;
+      metadata?: Record<string, unknown>;
     },
     @CurrentUser() currentUser: User,
     @Req() request: Request,
@@ -314,13 +320,37 @@ export class MarketplaceController {
   @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_READ)
   async listPartners(
     @Query('status') status: PartnerStatus | undefined,
+    @Query('partnerTypeId') partnerTypeId: string | undefined,
+    @Query('search') search: string | undefined,
+    @Query('isVerified') isVerified: string | undefined,
     @CurrentUser() currentUser: User,
     @Req() request: Request,
   ): Promise<Partner[]> {
     return this.marketplaceService.listPartners(
-      status,
+      {
+        status,
+        partnerTypeId,
+        search,
+        isVerified: isVerified === undefined ? undefined : isVerified === 'true',
+      },
       this.resolveAuditActor(currentUser, request),
     );
+  }
+
+  @Post('partners/reorder')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_WRITE)
+  async reorderPartners(
+    @Body() body: { partnerIds: string[] },
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<{ success: true }> {
+    await this.marketplaceService.reorderPartners(
+      body.partnerIds,
+      this.resolveAuditActor(currentUser, request),
+    );
+    return { success: true };
   }
 
   @Get('partners/:id')
@@ -349,6 +379,223 @@ export class MarketplaceController {
     return this.marketplaceService.approvePartner(
       id,
       approvedBy,
+      this.resolveAuditActor(currentUser, request),
+    );
+  }
+
+  @Post('partners/:id/reject')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_APPROVE)
+  async rejectPartner(
+    @Param('id') id: string,
+    @Body() body: { rejectedBy?: string; reason?: string },
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<Partner> {
+    const rejectedBy = body.rejectedBy ?? currentUser.email ?? currentUser.id;
+    return this.marketplaceService.rejectPartner(
+      id,
+      rejectedBy,
+      body.reason,
+      this.resolveAuditActor(currentUser, request),
+    );
+  }
+
+  @Post('partners/:id/activate')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_APPROVE)
+  async activatePartner(
+    @Param('id') id: string,
+    @Body() body: { activatedBy?: string },
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<Partner> {
+    const activatedBy = body.activatedBy ?? currentUser.email ?? currentUser.id;
+    return this.marketplaceService.activatePartner(
+      id,
+      activatedBy,
+      this.resolveAuditActor(currentUser, request),
+    );
+  }
+
+  @Post('partners/:id/suspend')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_APPROVE)
+  async suspendPartner(
+    @Param('id') id: string,
+    @Body() body: { suspendedBy?: string; reason?: string },
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<Partner> {
+    const suspendedBy = body.suspendedBy ?? currentUser.email ?? currentUser.id;
+    return this.marketplaceService.suspendPartner(
+      id,
+      suspendedBy,
+      body.reason,
+      this.resolveAuditActor(currentUser, request),
+    );
+  }
+
+  @Post('partners/:id/terminate')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_APPROVE)
+  async terminatePartner(
+    @Param('id') id: string,
+    @Body() body: { terminatedBy?: string; reason?: string },
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<Partner> {
+    const terminatedBy = body.terminatedBy ?? currentUser.email ?? currentUser.id;
+    return this.marketplaceService.terminatePartner(
+      id,
+      terminatedBy,
+      body.reason,
+      this.resolveAuditActor(currentUser, request),
+    );
+  }
+
+  @Patch('partners/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_WRITE)
+  async updatePartner(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      name?: string;
+      email?: string;
+      company?: string;
+      partnerTypeId?: string | null;
+      website?: string | null;
+      description?: string | null;
+      contactName?: string | null;
+      contactPhone?: string | null;
+      billingEmail?: string | null;
+      status?: PartnerStatus;
+      verified?: boolean;
+      metadata?: Record<string, unknown> | null;
+    },
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<Partner> {
+    return this.marketplaceService.updatePartner(
+      id,
+      body,
+      this.resolveAuditActor(currentUser, request),
+    );
+  }
+
+  @Delete('partners/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_WRITE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deletePartner(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<void> {
+    await this.marketplaceService.deletePartner(id, this.resolveAuditActor(currentUser, request));
+  }
+
+  @Get('partner-types')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_READ)
+  async listPartnerTypes(
+    @Query('isActive') isActive: string | undefined,
+    @Query('search') search: string | undefined,
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<PartnerType[]> {
+    return this.marketplaceService.listPartnerTypes(
+      {
+        isActive: isActive === undefined ? undefined : isActive === 'true',
+        search,
+      },
+      this.resolveAuditActor(currentUser, request),
+    );
+  }
+
+  @Post('partner-types')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_WRITE)
+  @HttpCode(HttpStatus.CREATED)
+  async createPartnerType(
+    @Body()
+    body: {
+      name: string;
+      slug: string;
+      description?: string;
+      color?: string;
+      icon?: string;
+      sortOrder?: number;
+      isActive?: boolean;
+    },
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<PartnerType> {
+    return this.marketplaceService.createPartnerType(
+      body,
+      this.resolveAuditActor(currentUser, request),
+    );
+  }
+
+  @Get('partner-types/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_READ)
+  async getPartnerType(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<PartnerType> {
+    return this.marketplaceService.getPartnerType(id, this.resolveAuditActor(currentUser, request));
+  }
+
+  @Patch('partner-types/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_WRITE)
+  async updatePartnerType(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      name?: string;
+      slug?: string;
+      description?: string | null;
+      color?: string | null;
+      icon?: string | null;
+      sortOrder?: number;
+      isActive?: boolean;
+    },
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<PartnerType> {
+    return this.marketplaceService.updatePartnerType(
+      id,
+      body,
+      this.resolveAuditActor(currentUser, request),
+    );
+  }
+
+  @Delete('partner-types/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_WRITE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deletePartnerType(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<void> {
+    await this.marketplaceService.deletePartnerType(
+      id,
       this.resolveAuditActor(currentUser, request),
     );
   }
