@@ -13,6 +13,7 @@ import { PaymentConfig } from './entities/payment-config.entity';
 import { PricingPlan } from './entities/pricing-plan.entity';
 import { Partner } from '../marketplace/entities/partner.entity';
 import { Client } from '../clients/entities/client.entity';
+import { SecurityAuditEvent } from '../common/audit/entities/security-audit-event.entity';
 import { BillingService } from './billing.service';
 import { BillingController } from './billing.controller';
 import { SubscriptionService } from './subscription.service';
@@ -85,6 +86,7 @@ import { UsageIngestApiKeyGuard } from './guards/usage-ingest-api-key.guard';
       PricingPlan,
       Partner,
       Client,
+      SecurityAuditEvent,
     ]),
     ConfigModule,
     IntegrationsModule,

@@ -168,7 +168,7 @@ export class LicensesService {
     });
     this.logger.log(`Created license ${key} for tenant ${tenant.slug}`);
 
-    return this.toDetailDto(saved);
+    return this.toDetailDto(saved, { includePlainKey: true });
   }
 
   async update(id: string, dto: UpdateLicenseDto): Promise<LicenseDetailResponseDto> {
@@ -479,48 +479,19 @@ export class LicensesService {
     const normalizedPeriod = period ?? this.getCurrentPeriod();
     const requested = Number.isFinite(requestedAmount) ? Math.max(0, requestedAmount) : 0;
 
-    const license = await this.licenseRepository.findOne({
-      where: { tenantId },
-      order: { validUntil: 'DESC', createdAt: 'DESC' },
-    });
-
-    if (license) {
-      await this.ensureLicenseSignature(license);
-    }
+    const license = await this.loadLatestTenantLicense(tenantId);
     const evaluation = license ? this.evaluateLicense(license, new Date()) : null;
     if (!license || !evaluation?.valid) {
-      const blocked = {
+      const blocked = this.buildBlockedQuotaResponse(
         tenantId,
-        resourceType: normalizedResourceType,
-        period: normalizedPeriod,
-        limit: null,
-        currentUsage: 0,
-        requestedAmount: requested,
-        projectedUsage: requested,
-        warningThresholdPercent: 80,
-        graceThresholdPercent: 110,
-        state: 'blocked',
-        allowed: false,
-        reason: evaluation ? evaluation.message : 'License missing or inactive',
-      };
-
+        normalizedResourceType,
+        normalizedPeriod,
+        requested,
+        evaluation ? evaluation.message : 'License missing or inactive',
+      );
       if (recordDecision) {
-        await this.recordRuntimeDecision({
-          tenantId,
-          decisionType: 'quota_check',
-          resourceType: normalizedResourceType,
-          requested,
-          projected: blocked.projectedUsage,
-          limit: blocked.limit,
-          period: blocked.period,
-          state: blocked.state,
-          allowed: blocked.allowed,
-          consumed: null,
-          reason: blocked.reason,
-          context,
-        });
+        await this.recordQuotaDecision(blocked, requested, context);
       }
-
       return blocked;
     }
 
@@ -567,23 +538,65 @@ export class LicensesService {
     };
 
     if (recordDecision) {
-      await this.recordRuntimeDecision({
-        tenantId,
-        decisionType: 'quota_check',
-        resourceType: normalizedResourceType,
-        requested,
-        projected: response.projectedUsage,
-        limit: response.limit,
-        period: response.period,
-        state: response.state,
-        allowed: response.allowed,
-        consumed: null,
-        reason: response.reason,
-        context,
-      });
+      await this.recordQuotaDecision(response, requested, context);
     }
 
     return response;
+  }
+
+  private async loadLatestTenantLicense(tenantId: string): Promise<License | null> {
+    const license = await this.licenseRepository.findOne({
+      where: { tenantId },
+      order: { validUntil: 'DESC', createdAt: 'DESC' },
+    });
+    if (license) {
+      await this.ensureLicenseSignature(license);
+    }
+    return license;
+  }
+
+  private buildBlockedQuotaResponse(
+    tenantId: string,
+    resourceType: string,
+    period: string,
+    requestedAmount: number,
+    reason: string,
+  ): QuotaCheckResponseDto {
+    return {
+      tenantId,
+      resourceType,
+      period,
+      limit: null,
+      currentUsage: 0,
+      requestedAmount,
+      projectedUsage: requestedAmount,
+      warningThresholdPercent: 80,
+      graceThresholdPercent: 110,
+      state: 'blocked',
+      allowed: false,
+      reason,
+    };
+  }
+
+  private async recordQuotaDecision(
+    response: QuotaCheckResponseDto,
+    requested: number,
+    context?: RuntimeDecisionContext,
+  ): Promise<void> {
+    await this.recordRuntimeDecision({
+      tenantId: response.tenantId,
+      decisionType: 'quota_check',
+      resourceType: response.resourceType,
+      requested,
+      projected: response.projectedUsage,
+      limit: response.limit,
+      period: response.period,
+      state: response.state,
+      allowed: response.allowed,
+      consumed: null,
+      reason: response.reason,
+      context,
+    });
   }
 
   async consumeQuota(
@@ -1050,11 +1063,16 @@ export class LicensesService {
     return `SKULD-${segments.join('-')}`;
   }
 
-  private toResponseDto(license: License): LicenseResponseDto {
+  private toResponseDto(
+    license: License,
+    options?: {
+      includePlainKey?: boolean;
+    },
+  ): LicenseResponseDto {
     return {
       id: license.id,
       tenantId: license.tenantId,
-      key: license.key,
+      key: options?.includePlainKey ? license.key : this.maskLicenseKey(license.key),
       type: license.type,
       status: license.status,
       validFrom: license.validFrom,
@@ -1086,9 +1104,14 @@ export class LicensesService {
     return license.gracePeriodEndsAt ? license.gracePeriodEndsAt.getTime() >= now : false;
   }
 
-  private toDetailDto(license: License): LicenseDetailResponseDto {
+  private toDetailDto(
+    license: License,
+    options?: {
+      includePlainKey?: boolean;
+    },
+  ): LicenseDetailResponseDto {
     return {
-      ...this.toResponseDto(license),
+      ...this.toResponseDto(license, options),
       features: license.features,
       lastValidatedAt: license.lastValidatedAt,
       firstActivatedAt: license.firstActivatedAt,
@@ -1099,6 +1122,21 @@ export class LicensesService {
       publicKeyId: license.publicKeyId ?? '',
       metadata: license.metadata,
     };
+  }
+
+  private maskLicenseKey(key: string): string {
+    const normalized = key.trim();
+    if (!normalized) {
+      return normalized;
+    }
+
+    const segments = normalized.split('-');
+    if (segments.length <= 2) {
+      const visible = normalized.slice(0, Math.min(8, normalized.length));
+      return `${visible}...`;
+    }
+
+    return `${segments[0]}-${segments[1]}-...`;
   }
 
   private toRuntimeFeatures(features: LicenseFeatures): LicenseFeatures {

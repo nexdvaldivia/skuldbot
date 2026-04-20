@@ -25,6 +25,7 @@ describe('SubscriptionService', () => {
     const subscriptionRepo = createRepoMock();
     const paymentHistoryRepo = createRepoMock();
     const pricingPlanRepo = createRepoMock();
+    const securityAuditRepo = createRepoMock();
     const paymentProvider = {
       isConfigured: jest.fn(() => false),
       createCustomer: jest.fn(),
@@ -49,6 +50,7 @@ describe('SubscriptionService', () => {
       subscriptionRepo as never,
       paymentHistoryRepo as never,
       pricingPlanRepo as never,
+      securityAuditRepo as never,
       paymentProvider as never,
     );
 
@@ -66,6 +68,7 @@ describe('SubscriptionService', () => {
     const subscriptionRepo = createRepoMock();
     const paymentHistoryRepo = createRepoMock();
     const pricingPlanRepo = createRepoMock();
+    const securityAuditRepo = createRepoMock();
     const paymentProvider = {
       isConfigured: jest.fn(() => true),
       createCustomer: jest.fn(),
@@ -112,6 +115,7 @@ describe('SubscriptionService', () => {
       subscriptionRepo as never,
       paymentHistoryRepo as never,
       pricingPlanRepo as never,
+      securityAuditRepo as never,
       paymentProvider as never,
     );
 
@@ -125,6 +129,7 @@ describe('SubscriptionService', () => {
     const subscriptionRepo = createRepoMock();
     const paymentHistoryRepo = createRepoMock();
     const pricingPlanRepo = createRepoMock();
+    const securityAuditRepo = createRepoMock();
     const paymentProvider = {
       isConfigured: jest.fn(() => true),
       createCustomer: jest.fn(),
@@ -154,6 +159,7 @@ describe('SubscriptionService', () => {
       subscriptionRepo as never,
       paymentHistoryRepo as never,
       pricingPlanRepo as never,
+      securityAuditRepo as never,
       paymentProvider as never,
     );
 

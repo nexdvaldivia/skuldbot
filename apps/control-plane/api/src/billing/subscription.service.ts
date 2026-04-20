@@ -11,6 +11,7 @@ import {
 import { DEFAULT_PRICING_PLANS, PricingPlan } from './entities/pricing-plan.entity';
 import { PAYMENT_PROVIDER } from '../integrations/payment/payment.module';
 import { PaymentProvider } from '../common/interfaces/integration.interface';
+import { SecurityAuditEvent } from '../common/audit/entities/security-audit-event.entity';
 
 /**
  * ACH Bank Account Setup DTO
@@ -47,6 +48,7 @@ export interface SetupACHDto {
 @Injectable()
 export class SubscriptionService {
   private readonly logger = new Logger(SubscriptionService.name);
+  private readonly defaultGracePeriodDays: number;
 
   constructor(
     private readonly configService: ConfigService,
@@ -56,9 +58,13 @@ export class SubscriptionService {
     private readonly paymentHistoryRepository: Repository<PaymentHistory>,
     @InjectRepository(PricingPlan)
     private readonly pricingPlanRepository: Repository<PricingPlan>,
+    @InjectRepository(SecurityAuditEvent)
+    private readonly securityAuditRepository: Repository<SecurityAuditEvent>,
     @Inject(PAYMENT_PROVIDER)
     private readonly paymentProvider: PaymentProvider,
-  ) {}
+  ) {
+    this.defaultGracePeriodDays = this.resolveDefaultGraceDays();
+  }
 
   /**
    * Create a new subscription for a tenant
@@ -97,7 +103,7 @@ export class SubscriptionService {
       status: SubscriptionStatus.TRIALING,
       trialEnd,
       botsCanRun: true, // Bots can run during trial
-      gracePeriodDays: 14, // Industry standard: 14 days grace period
+      gracePeriodDays: this.defaultGracePeriodDays,
       monthlyAmount:
         billingInterval === 'annual' ? plan.baseAnnualCents / 100 : plan.baseMonthlyCents / 100,
     });
@@ -176,6 +182,7 @@ export class SubscriptionService {
     stripePaymentIntentId: string,
     amount: number,
     invoicePeriod: string,
+    requestIp?: string | null,
   ): Promise<void> {
     const subscription = await this.subscriptionRepository.findOne({
       where: { tenantId },
@@ -183,6 +190,16 @@ export class SubscriptionService {
 
     if (!subscription) {
       this.logger.warn(`Payment received for unknown tenant ${tenantId}`);
+      await this.recordWebhookAuditEvent({
+        eventType: 'invoice.payment_succeeded',
+        tenantId,
+        status: 'failed',
+        requestIp,
+        details: {
+          reason: 'tenant_not_found',
+          stripePaymentIntentId,
+        },
+      });
       return;
     }
 
@@ -225,6 +242,17 @@ export class SubscriptionService {
     subscription.lastPaymentAttempt = new Date();
 
     await this.subscriptionRepository.save(subscription);
+    await this.recordWebhookAuditEvent({
+      eventType: 'invoice.payment_succeeded',
+      tenantId,
+      status: 'processed',
+      requestIp,
+      details: {
+        stripePaymentIntentId,
+        amount,
+        invoicePeriod,
+      },
+    });
   }
 
   /**
@@ -242,6 +270,7 @@ export class SubscriptionService {
     amount: number,
     errorCode: string,
     errorMessage: string,
+    requestIp?: string | null,
   ): Promise<void> {
     const subscription = await this.subscriptionRepository.findOne({
       where: { tenantId },
@@ -249,6 +278,17 @@ export class SubscriptionService {
 
     if (!subscription) {
       this.logger.warn(`Payment failure for unknown tenant ${tenantId}`);
+      await this.recordWebhookAuditEvent({
+        eventType: 'invoice.payment_failed',
+        tenantId,
+        status: 'failed',
+        requestIp,
+        details: {
+          reason: 'tenant_not_found',
+          stripePaymentIntentId,
+          errorCode,
+        },
+      });
       return;
     }
 
@@ -296,6 +336,17 @@ export class SubscriptionService {
     }
 
     await this.subscriptionRepository.save(subscription);
+    await this.recordWebhookAuditEvent({
+      eventType: 'invoice.payment_failed',
+      tenantId,
+      status: 'processed',
+      requestIp,
+      details: {
+        stripePaymentIntentId,
+        amount,
+        errorCode,
+      },
+    });
   }
 
   /**
@@ -472,11 +523,24 @@ export class SubscriptionService {
     stripeSubscriptionId?: string,
     periodStart?: Date,
     periodEnd?: Date,
+    requestIp?: string | null,
+    eventType: string = 'customer.subscription.updated',
   ): Promise<void> {
     const subscription = await this.subscriptionRepository.findOne({
       where: { tenantId },
     });
     if (!subscription) {
+      await this.recordWebhookAuditEvent({
+        eventType,
+        tenantId,
+        status: 'failed',
+        requestIp,
+        details: {
+          reason: 'tenant_not_found',
+          stripeSubscriptionId: stripeSubscriptionId ?? null,
+          providerStatus: status,
+        },
+      });
       return;
     }
 
@@ -509,6 +573,16 @@ export class SubscriptionService {
     }
 
     await this.subscriptionRepository.save(subscription);
+    await this.recordWebhookAuditEvent({
+      eventType,
+      tenantId,
+      status: 'processed',
+      requestIp,
+      details: {
+        stripeSubscriptionId: subscription.stripeSubscriptionId ?? null,
+        providerStatus: status,
+      },
+    });
   }
 
   /**
@@ -713,9 +787,49 @@ export class SubscriptionService {
 
   private resolveGraceDays(rawDays: number): number {
     if (!Number.isFinite(rawDays)) {
-      return 14;
+      return this.defaultGracePeriodDays;
     }
     return Math.min(120, Math.max(0, Math.floor(rawDays)));
+  }
+
+  private resolveDefaultGraceDays(): number {
+    const raw = Number(this.configService.get<string>('SUBSCRIPTION_GRACE_PERIOD_DAYS', '14'));
+    if (!Number.isFinite(raw)) {
+      return 14;
+    }
+    return Math.min(120, Math.max(0, Math.floor(raw)));
+  }
+
+  async recordWebhookAuditEvent(input: {
+    eventType: string;
+    tenantId: string | null;
+    status: 'processed' | 'failed' | 'ignored';
+    requestIp?: string | null;
+    details?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      await this.securityAuditRepository.save(
+        this.securityAuditRepository.create({
+          category: 'billing',
+          action: `stripe_webhook.${input.status}`,
+          targetType: 'stripe_webhook',
+          targetId: input.tenantId ?? 'unknown',
+          actorUserId: null,
+          actorEmail: null,
+          requestIp: input.requestIp ?? null,
+          details: {
+            eventType: input.eventType,
+            ...input.details,
+          },
+        }),
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Could not persist Stripe webhook audit event (${input.eventType}/${input.status}): ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   private async ensureStripeCustomer(
