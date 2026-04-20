@@ -4,6 +4,8 @@ import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'rea
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { toast } from '@/hooks/use-toast';
 import {
   FileText,
   Plus,
@@ -42,7 +44,7 @@ function ContractsPageContent() {
   const [contracts, setContracts] = useState<ContractGroupSummary[]>([]);
   const [acceptances, setAcceptances] = useState<ContractAcceptance[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const tabFromUrl = searchParams.get('tab') as ContractsTab | null;
   const [activeTab, setActiveTab] = useState<ContractsTab>(
@@ -82,7 +84,8 @@ function ContractsPageContent() {
         });
     } catch (err) {
       console.error('Failed to fetch contracts data:', err);
-      setError('Failed to load contracts data. Please try again.');
+      setLoadFailed(true);
+      toast({ title: 'Error', description: 'Failed to load contracts data. Please try again.', variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -110,12 +113,12 @@ function ContractsPageContent() {
     );
   }
 
-  if (error) {
+  if (loadFailed) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <AlertCircle className="w-12 h-12 text-rose-500" />
-        <p className="text-zinc-600">{error}</p>
-        <Button onClick={() => window.location.reload()}>Retry</Button>
+        <p className="text-zinc-600">Failed to load contracts data.</p>
+        <Button onClick={() => { setLoadFailed(false); fetchData(); }}>Retry</Button>
       </div>
     );
   }
@@ -173,11 +176,9 @@ function ContractsPageContent() {
         <div className="space-y-4">
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 text-sm text-zinc-600 cursor-pointer">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={includeArchived}
-                onChange={(e) => setIncludeArchived(e.target.checked)}
-                className="rounded border-zinc-300"
+                onCheckedChange={(checked) => setIncludeArchived(checked === true)}
               />
               Show archived
             </label>
