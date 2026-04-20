@@ -51,9 +51,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Panel - Dark branding */}
+      {/* Left Panel - Dark branding (50/50 split) */}
       <div
-        className="hidden lg:flex lg:w-[480px] xl:w-[520px] flex-col justify-between p-10 xl:p-12"
+        className="hidden lg:flex lg:w-1/2 flex-col justify-between p-10 xl:p-12"
         style={{ backgroundColor: '#211F22' }}
       >
         {/* Logo */}
@@ -70,18 +70,18 @@ export default function LoginPage() {
           <h1 className="text-[2.5rem] xl:text-[2.75rem] font-bold text-white leading-[1.1] tracking-tight">
             Manage your
             <br />
-            <span className="text-emerald-400">RPA infrastructure</span>
+            <span className="text-emerald-400">digital workforce</span>
           </h1>
           <p className="mt-5 text-zinc-400 text-lg leading-relaxed max-w-sm">
-            Central hub for clients, orchestrators, licenses and billing.
+            Autonomous operations platform for clients, orchestrators, licenses and billing.
           </p>
 
-          {/* Feature list - simple, no icons */}
+          {/* Feature list */}
           <ul className="mt-10 space-y-3">
             {[
               'Multi-tenant management',
               'License provisioning',
-              'Usage analytics',
+              'Autonomous operations',
               'Enterprise security',
             ].map((feature) => (
               <li key={feature} className="flex items-center gap-3 text-zinc-300">
@@ -96,8 +96,8 @@ export default function LoginPage() {
         <p className="text-zinc-600 text-sm">&copy; {new Date().getFullYear()} Skuld, LLC</p>
       </div>
 
-      {/* Right Panel - Form */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-zinc-50">
+      {/* Right Panel - Form (50/50 split) */}
+      <div className="flex-1 lg:w-1/2 flex items-center justify-center px-6 py-12 bg-zinc-50">
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3 mb-10">
