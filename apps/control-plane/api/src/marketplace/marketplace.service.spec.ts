@@ -14,7 +14,8 @@ import {
 } from './entities/marketplace-subscription.entity';
 import { MarketplaceService } from './marketplace.service';
 
-type RepoMock = {
+type RepoMock<T = unknown> = {
+  __entityType?: T;
   find: jest.Mock;
   findOne: jest.Mock;
   save: jest.Mock;
@@ -25,7 +26,7 @@ type RepoMock = {
   decrement: jest.Mock;
 };
 
-function createRepoMock(): RepoMock {
+function createRepoMock<T = unknown>(): RepoMock<T> {
   return {
     find: jest.fn(),
     findOne: jest.fn(),
@@ -48,12 +49,12 @@ describe('MarketplaceService', () => {
   let revenueShareRepository: RepoMock<RevenueShareRecord>;
 
   beforeEach(() => {
-    botRepository = createRepoMock();
-    versionRepository = createRepoMock();
-    partnerRepository = createRepoMock();
-    subscriptionRepository = createRepoMock();
-    securityAuditRepository = createRepoMock();
-    revenueShareRepository = createRepoMock();
+    botRepository = createRepoMock<MarketplaceBot>();
+    versionRepository = createRepoMock<BotVersion>();
+    partnerRepository = createRepoMock<Partner>();
+    subscriptionRepository = createRepoMock<MarketplaceSubscription>();
+    securityAuditRepository = createRepoMock<SecurityAuditEvent>();
+    revenueShareRepository = createRepoMock<RevenueShareRecord>();
 
     service = new MarketplaceService(
       botRepository as unknown as Repository<MarketplaceBot>,

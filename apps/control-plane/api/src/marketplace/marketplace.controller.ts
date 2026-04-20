@@ -122,7 +122,9 @@ export class MarketplaceController {
   }
 
   @Post('bots')
-  // @UseGuards(JwtAuthGuard, PartnerGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN, UserRole.CLIENT_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_WRITE)
   async createBot(
     @Body()
     dto: {
@@ -148,7 +150,9 @@ export class MarketplaceController {
   }
 
   @Put('bots/:id')
-  // @UseGuards(JwtAuthGuard, PartnerGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN, UserRole.CLIENT_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_WRITE)
   async updateBot(
     @Param('id') id: string,
     @Body()
@@ -172,7 +176,9 @@ export class MarketplaceController {
   }
 
   @Post('bots/:id/submit')
-  // @UseGuards(JwtAuthGuard, PartnerGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN, UserRole.CLIENT_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_WRITE)
   async submitForReview(
     @Param('id') id: string,
     @Body() body: { publisherId: string },
@@ -181,7 +187,9 @@ export class MarketplaceController {
   }
 
   @Post('bots/:id/publish')
-  // @UseGuards(JwtAuthGuard, PartnerGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN, UserRole.CLIENT_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_WRITE)
   async publishBot(
     @Param('id') id: string,
     @Body() body: { publisherId: string },
@@ -190,7 +198,9 @@ export class MarketplaceController {
   }
 
   @Post('bots/:id/deprecate')
-  // @UseGuards(JwtAuthGuard, PartnerGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN, UserRole.CLIENT_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_WRITE)
   async deprecateBot(
     @Param('id') id: string,
     @Body() body: { publisherId: string },
@@ -216,7 +226,9 @@ export class MarketplaceController {
   }
 
   @Post('bots/:id/versions')
-  // @UseGuards(JwtAuthGuard, PartnerGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN, UserRole.CLIENT_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_WRITE)
   async addVersion(
     @Param('id') id: string,
     @Body()
@@ -241,15 +253,17 @@ export class MarketplaceController {
   // ============================================================================
 
   @Get('submissions')
-  // @UseGuards(JwtAuthGuard, RolesGuard)
-  // @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_READ)
   async getPendingBots(): Promise<MarketplaceBot[]> {
     return this.marketplaceService.getPendingBots();
   }
 
   @Post('bots/:id/approve')
-  // @UseGuards(JwtAuthGuard, RolesGuard)
-  // @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_APPROVE)
   async approveBot(
     @Param('id') id: string,
     @Body() body: { approvedBy: string },
@@ -258,8 +272,9 @@ export class MarketplaceController {
   }
 
   @Post('bots/:id/reject')
-  // @UseGuards(JwtAuthGuard, RolesGuard)
-  // @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_APPROVE)
   async rejectBot(
     @Param('id') id: string,
     @Body() body: { reason: string; rejectedBy: string },
