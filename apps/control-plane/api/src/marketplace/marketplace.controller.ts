@@ -1,5 +1,23 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
-import { MarketplaceService, CatalogFilters, CatalogOptions } from './marketplace.service';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Put,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { Request } from 'express';
+import {
+  CatalogFilters,
+  CatalogOptions,
+  MarketplaceAnalyticsResponse,
+  MarketplaceService,
+} from './marketplace.service';
 import {
   MarketplaceBot,
   MarketplaceBotStatus,
@@ -9,11 +27,14 @@ import {
   PricingModel,
 } from './entities/marketplace-bot.entity';
 import { Partner, PartnerStatus } from './entities/partner.entity';
-
-// Note: In production, add proper guards for authentication/authorization
-// import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-// import { RolesGuard } from '../auth/guards/roles.guard';
-// import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { RequirePermissions } from '../common/decorators/permissions.decorator';
+import { CP_PERMISSIONS } from '../common/authz/permissions';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { User, UserRole } from '../users/entities/user.entity';
 
 /**
  * Marketplace Controller
@@ -251,6 +272,10 @@ export class MarketplaceController {
   // ============================================================================
 
   @Post('partners')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_WRITE)
+  @HttpCode(HttpStatus.CREATED)
   async createPartner(
     @Body()
     dto: {
@@ -262,29 +287,88 @@ export class MarketplaceController {
       contactName?: string;
       contactPhone?: string;
     },
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
   ): Promise<Partner> {
-    return this.marketplaceService.createPartner(dto);
+    return this.marketplaceService.createPartner(dto, this.resolveAuditActor(currentUser, request));
   }
 
   @Get('partners')
-  // @UseGuards(JwtAuthGuard, RolesGuard)
-  // @Roles('admin')
-  async listPartners(@Query('status') status?: PartnerStatus): Promise<Partner[]> {
-    return this.marketplaceService.listPartners(status);
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_READ)
+  async listPartners(
+    @Query('status') status: PartnerStatus | undefined,
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<Partner[]> {
+    return this.marketplaceService.listPartners(
+      status,
+      this.resolveAuditActor(currentUser, request),
+    );
   }
 
   @Get('partners/:id')
-  async getPartner(@Param('id') id: string): Promise<Partner> {
-    return this.marketplaceService.getPartner(id);
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_READ)
+  async getPartner(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<Partner> {
+    return this.marketplaceService.getPartner(id, this.resolveAuditActor(currentUser, request));
   }
 
   @Post('partners/:id/approve')
-  // @UseGuards(JwtAuthGuard, RolesGuard)
-  // @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_APPROVE)
   async approvePartner(
     @Param('id') id: string,
-    @Body() body: { approvedBy: string },
+    @Body() body: { approvedBy?: string },
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
   ): Promise<Partner> {
-    return this.marketplaceService.approvePartner(id, body.approvedBy);
+    const approvedBy = body.approvedBy ?? currentUser.email ?? currentUser.id;
+    return this.marketplaceService.approvePartner(
+      id,
+      approvedBy,
+      this.resolveAuditActor(currentUser, request),
+    );
+  }
+
+  @Get('analytics')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles(UserRole.SKULD_ADMIN, UserRole.SKULD_SUPPORT)
+  @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_READ)
+  async getAnalytics(
+    @CurrentUser() currentUser: User,
+    @Req() request: Request,
+  ): Promise<MarketplaceAnalyticsResponse> {
+    return this.marketplaceService.getMarketplaceAnalytics(
+      this.resolveAuditActor(currentUser, request),
+    );
+  }
+
+  private resolveAuditActor(
+    currentUser: User,
+    request: Request,
+  ): {
+    actorUserId: string | null;
+    actorEmail: string | null;
+    requestIp: string | null;
+  } {
+    const forwardedFor = request.headers['x-forwarded-for'];
+    const requestIp =
+      typeof forwardedFor === 'string'
+        ? forwardedFor.split(',')[0]?.trim() || null
+        : request.ip || null;
+
+    return {
+      actorUserId: currentUser?.id ?? null,
+      actorEmail: currentUser?.email ?? null,
+      requestIp,
+    };
   }
 }

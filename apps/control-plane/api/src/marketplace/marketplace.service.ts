@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import {
   MarketplaceBot,
   MarketplaceBotStatus,
@@ -21,6 +21,8 @@ import {
   MarketplaceSubscriptionPlan,
   MarketplaceSubscriptionStatus,
 } from './entities/marketplace-subscription.entity';
+import { SecurityAuditEvent } from '../common/audit/entities/security-audit-event.entity';
+import { RevenueShareRecord } from '../billing/entities/revenue-share.entity';
 
 // ============================================================================
 // DTOs
@@ -97,6 +99,20 @@ export interface ListBotsFilters {
   search?: string;
 }
 
+export interface MarketplaceAnalyticsResponse {
+  totalBots: number;
+  totalPartners: number;
+  totalInstalls: number;
+  monthlyRevenue: number;
+  topBots: Array<{ id: string; name: string; installs: number; revenue: number }>;
+}
+
+interface MarketplaceAuditActor {
+  actorUserId?: string | null;
+  actorEmail?: string | null;
+  requestIp?: string | null;
+}
+
 /**
  * Marketplace Service
  *
@@ -119,6 +135,10 @@ export class MarketplaceService {
     private readonly partnerRepository: Repository<Partner>,
     @InjectRepository(MarketplaceSubscription)
     private readonly subscriptionRepository: Repository<MarketplaceSubscription>,
+    @InjectRepository(SecurityAuditEvent)
+    private readonly securityAuditRepository: Repository<SecurityAuditEvent>,
+    @InjectRepository(RevenueShareRecord)
+    private readonly revenueShareRepository: Repository<RevenueShareRecord>,
   ) {}
 
   /**
@@ -527,7 +547,7 @@ export class MarketplaceService {
   /**
    * Create partner application
    */
-  async createPartner(dto: CreatePartnerDto): Promise<Partner> {
+  async createPartner(dto: CreatePartnerDto, actor?: MarketplaceAuditActor): Promise<Partner> {
     // Check email uniqueness
     const existingPartner = await this.partnerRepository.findOne({
       where: { email: dto.email },
@@ -544,6 +564,16 @@ export class MarketplaceService {
     });
 
     await this.partnerRepository.save(partner);
+    await this.recordMarketplaceAuditEvent({
+      action: 'marketplace.partner.created',
+      targetType: 'partner',
+      targetId: partner.id,
+      actor,
+      details: {
+        company: partner.company,
+        status: partner.status,
+      },
+    });
 
     this.logger.log(`Partner application created: ${partner.company} (${partner.id})`);
 
@@ -553,7 +583,11 @@ export class MarketplaceService {
   /**
    * Approve partner (Skuld admin only)
    */
-  async approvePartner(id: string, approvedBy: string): Promise<Partner> {
+  async approvePartner(
+    id: string,
+    approvedBy: string,
+    actor?: MarketplaceAuditActor,
+  ): Promise<Partner> {
     const partner = await this.partnerRepository.findOne({ where: { id } });
 
     if (!partner) {
@@ -568,6 +602,16 @@ export class MarketplaceService {
     partner.approvedBy = approvedBy;
     partner.approvedAt = new Date();
     await this.partnerRepository.save(partner);
+    await this.recordMarketplaceAuditEvent({
+      action: 'marketplace.partner.approved',
+      targetType: 'partner',
+      targetId: partner.id,
+      actor,
+      details: {
+        approvedBy,
+        status: partner.status,
+      },
+    });
 
     this.logger.log(`Partner approved: ${partner.company} (${partner.id})`);
 
@@ -577,12 +621,19 @@ export class MarketplaceService {
   /**
    * Get partner by ID
    */
-  async getPartner(id: string): Promise<Partner> {
+  async getPartner(id: string, actor?: MarketplaceAuditActor): Promise<Partner> {
     const partner = await this.partnerRepository.findOne({ where: { id } });
 
     if (!partner) {
       throw new NotFoundException('Partner not found');
     }
+
+    await this.recordMarketplaceAuditEvent({
+      action: 'marketplace.partner.viewed',
+      targetType: 'partner',
+      targetId: partner.id,
+      actor,
+    });
 
     return partner;
   }
@@ -590,9 +641,67 @@ export class MarketplaceService {
   /**
    * List all partners (admin)
    */
-  async listPartners(status?: PartnerStatus): Promise<Partner[]> {
+  async listPartners(status?: PartnerStatus, actor?: MarketplaceAuditActor): Promise<Partner[]> {
     const where = status ? { status } : {};
-    return this.partnerRepository.find({ where, order: { createdAt: 'DESC' } });
+    const partners = await this.partnerRepository.find({ where, order: { createdAt: 'DESC' } });
+
+    await this.recordMarketplaceAuditEvent({
+      action: 'marketplace.partner.listed',
+      targetType: 'marketplace',
+      targetId: 'partners',
+      actor,
+      details: {
+        status: status ?? null,
+        count: partners.length,
+      },
+    });
+
+    return partners;
+  }
+
+  async getMarketplaceAnalytics(
+    actor?: MarketplaceAuditActor,
+  ): Promise<MarketplaceAnalyticsResponse> {
+    const publishedBots = await this.botRepository.find({
+      where: { status: MarketplaceBotStatus.PUBLISHED },
+      order: { installs: 'DESC' },
+    });
+    const totalPartners = await this.partnerRepository.count();
+    const monthlyRevenueRecords = await this.revenueShareRepository.find({
+      where: {
+        period: this.resolveCurrentPeriod(),
+        status: In(['approved', 'transferred', 'paid']),
+      },
+    });
+
+    const payload: MarketplaceAnalyticsResponse = {
+      totalBots: publishedBots.length,
+      totalPartners,
+      totalInstalls: publishedBots.reduce((sum, bot) => sum + Number(bot.installs ?? 0), 0),
+      monthlyRevenue: monthlyRevenueRecords.reduce(
+        (sum, record) => sum + Number(record.grossRevenue ?? 0),
+        0,
+      ),
+      topBots: publishedBots.slice(0, 5).map((bot) => ({
+        id: bot.id,
+        name: bot.name,
+        installs: Number(bot.installs ?? 0),
+        revenue: 0,
+      })),
+    };
+
+    await this.recordMarketplaceAuditEvent({
+      action: 'marketplace.analytics.viewed',
+      targetType: 'marketplace',
+      targetId: 'analytics',
+      actor,
+      details: {
+        totalBots: payload.totalBots,
+        totalPartners: payload.totalPartners,
+      },
+    });
+
+    return payload;
   }
 
   /**
@@ -771,5 +880,37 @@ export class MarketplaceService {
       name: row.category.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
       botCount: Number(row.count),
     }));
+  }
+
+  private resolveCurrentPeriod(date = new Date()): string {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+  }
+
+  private async recordMarketplaceAuditEvent(input: {
+    action: string;
+    targetType: string;
+    targetId: string;
+    actor?: MarketplaceAuditActor;
+    details?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      await this.securityAuditRepository.save(
+        this.securityAuditRepository.create({
+          category: 'marketplace',
+          action: input.action,
+          targetType: input.targetType,
+          targetId: input.targetId,
+          actorUserId: input.actor?.actorUserId ?? null,
+          actorEmail: input.actor?.actorEmail ?? null,
+          requestIp: input.actor?.requestIp ?? null,
+          details: input.details ?? {},
+        }),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to persist marketplace audit event (${input.action}): ${message}`);
+    }
   }
 }

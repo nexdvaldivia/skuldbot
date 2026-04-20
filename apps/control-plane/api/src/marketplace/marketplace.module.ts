@@ -5,6 +5,8 @@ import { MarketplaceController } from './marketplace.controller';
 import { MarketplaceBot, BotVersion } from './entities/marketplace-bot.entity';
 import { Partner } from './entities/partner.entity';
 import { MarketplaceSubscription } from './entities/marketplace-subscription.entity';
+import { SecurityAuditEvent } from '../common/audit/entities/security-audit-event.entity';
+import { RevenueShareRecord } from '../billing/entities/revenue-share.entity';
 
 /**
  * Marketplace Module
@@ -29,7 +31,14 @@ import { MarketplaceSubscription } from './entities/marketplace-subscription.ent
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([MarketplaceBot, BotVersion, Partner, MarketplaceSubscription]),
+    TypeOrmModule.forFeature([
+      MarketplaceBot,
+      BotVersion,
+      Partner,
+      MarketplaceSubscription,
+      SecurityAuditEvent,
+      RevenueShareRecord,
+    ]),
   ],
   controllers: [MarketplaceController],
   providers: [MarketplaceService],

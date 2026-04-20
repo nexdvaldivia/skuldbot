@@ -962,27 +962,30 @@ export const marketplaceApi = {
 
   // Partners
   async listPartners(status?: string) {
-    void status;
-    // TODO(S4): re-enable marketplace partners API calls when partner workflows are shipped.
-    return [] as Partner[];
+    const params = new URLSearchParams();
+    if (status) {
+      params.append('status', status);
+    }
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return fetchApi<Partner[]>(`/api/marketplace/partners${query}`);
   },
 
   async getPartner(id: string) {
-    void id;
-    // TODO(S4): re-enable marketplace partners API calls when partner workflows are shipped.
-    throw new Error('Partners API is disabled until Sprint 4');
+    return fetchApi<Partner>(`/api/marketplace/partners/${id}`);
   },
 
   async createPartner(data: CreatePartnerRequest) {
-    void data;
-    // TODO(S4): re-enable marketplace partners API calls when partner workflows are shipped.
-    throw new Error('Partners API is disabled until Sprint 4');
+    return fetchApi<Partner>('/api/marketplace/partners', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
 
-  async approvePartner(id: string) {
-    void id;
-    // TODO(S4): re-enable marketplace partners API calls when partner workflows are shipped.
-    throw new Error('Partners API is disabled until Sprint 4');
+  async approvePartner(id: string, approvedBy?: string) {
+    return fetchApi<Partner>(`/api/marketplace/partners/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify(approvedBy ? { approvedBy } : {}),
+    });
   },
 
   // Submissions (pending review)
@@ -998,14 +1001,7 @@ export const marketplaceApi = {
     monthlyRevenue: number;
     topBots: Array<{ id: string; name: string; installs: number; revenue: number }>;
   }> {
-    // TODO(S4): re-enable marketplace analytics API when partner analytics backend ships.
-    return {
-      totalBots: 0,
-      totalPartners: 0,
-      totalInstalls: 0,
-      monthlyRevenue: 0,
-      topBots: [],
-    };
+    return fetchApi('/api/marketplace/analytics');
   },
 };
 
