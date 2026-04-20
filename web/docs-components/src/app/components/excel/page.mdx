@@ -1,0 +1,436 @@
+export const metadata = {
+  title: 'Excel & CSV',
+  description: 'Complete Excel automation. Read, write, format cells, create charts, pivot tables, and work with CSV files.',
+}
+
+export const sections = [
+  { title: 'Open Excel', id: 'excel-open' },
+  { title: 'Read Range', id: 'excel-read_range' },
+  { title: 'Write Range', id: 'excel-write_range' },
+  { title: 'Read/Write Cell', id: 'excel-cell' },
+  { title: 'Add Row', id: 'excel-add_row' },
+  { title: 'CSV Operations', id: 'excel-csv' },
+  { title: 'Sheet Operations', id: 'excel-sheets' },
+  { title: 'Formatting', id: 'excel-format' },
+  { title: 'Charts & Pivot', id: 'excel-charts' },
+  { title: 'VLOOKUP', id: 'excel-vlookup' },
+]
+
+# Excel & CSV
+
+Complete Excel automation. Read, write, format cells, create charts, pivot tables, and work with CSV files. {{ className: 'lead' }}
+
+<Note>
+  **27 components**. Uses **openpyxl** for Excel files and native Python for CSV. Works without Microsoft Excel installed. Connect a [Storage Provider](/components/storage) to read/write Excel files from S3, Azure Blob, SharePoint, or any cloud storage.
+</Note>
+
+### Storage Provider Integration
+
+All Excel nodes that read or write files (`open`, `save`, `create`, `csv_read`, `csv_write`, `export_pdf`) support the **Storage Provider** connection. Connect a Storage Provider node to your Excel nodes to access files from any backend:
+
+```
+[Storage Provider (S3)]
+       │ storage handle
+       ▼
+[Excel Open] → path: "reports/monthly.xlsx"
+       │         (resolved via S3, downloaded to temp, opened locally)
+       ▼
+[Excel Read Range] → reads data
+       ▼
+[Excel Save] → saves and uploads back to S3
+```
+
+Without a Storage Provider connected, Excel nodes use the local filesystem (Studio debug mode).
+
+## Overview
+
+| Node | Purpose |
+|------|---------|
+| **Read Range** | Read a block of cells |
+| **Write Range** | Write data to cells |
+| **Add Row** | Append data to sheet |
+| **Read/Write Cell** | Single cell operations |
+| **CSV Read/Write** | Work with CSV files |
+
+## Typical Excel Flow
+
+<FlowDiagram items={[
+  { label: "Open Excel", sublabel: "data.xlsx", type: "default" },
+  { label: "Read Range", sublabel: "A1:D100", type: "primary" },
+  { label: "Process", sublabel: "Code node", type: "warning" },
+  { label: "Write Range", sublabel: "E1:E100", type: "success" },
+  { label: "Save & Close", type: "pill" }
+]} />
+
+---
+
+<NodeHeader id="excel-open" icon="FileSpreadsheet" label="Open Excel" description="Open Excel workbook" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.open`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text" required>
+    **Path** — Excel file path (.xlsx, .xls).
+  </Property>
+  <Property name="sheet" type="text">
+    **Sheet** — Sheet name to open. Default: first sheet.
+  </Property>
+</Properties>
+
+### Output
+
+```json
+{
+  "workbook_id": "wb_abc123",
+  "path": "./data/report.xlsx",
+  "sheets": ["Sheet1", "Data", "Summary"],
+  "active_sheet": "Sheet1"
+}
+```
+
+---
+
+<NodeHeader id="excel-read_range" icon="Table" label="Read Range" description="Read cell range as data" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.read_range`
+  </Property>
+</Properties>
+
+### How It Works
+
+Reads a range of cells and returns the data as a 2D array or array of objects (if headers are present).
+
+<Diagram 
+  groups={[
+    {
+      id: "input",
+      label: "Excel: data.xlsx",
+      direction: "column",
+      nodes: [
+        { id: "headers", label: "Headers", sublabel: "Name, Email, Amount, Status", type: "default" },
+        { id: "data", label: "Data Rows", sublabel: "John, Jane, Bob...", type: "default" }
+      ]
+    },
+    {
+      id: "config",
+      label: "Config",
+      nodes: [{ id: "range", label: "excel.read", sublabel: "Range: A1:D4, Headers: true", type: "primary" }]
+    },
+    {
+      id: "output",
+      label: "Output",
+      nodes: [{ id: "json", label: "JSON Array", sublabel: "[{Name, Email, Amount...}]", type: "success" }]
+    }
+  ]}
+/>
+
+### Configuration
+
+<Properties>
+  <Property name="range" type="text" required>
+    **Range** — Cell range (e.g., `A1:D100`, `A:D` for full columns).
+  </Property>
+  <Property name="sheet" type="text">
+    **Sheet** — Sheet name. Default: active sheet.
+  </Property>
+  <Property name="headers" type="boolean">
+    **Has Headers** — First row contains column names. Default: true.
+  </Property>
+</Properties>
+
+### Output
+
+With `headers: true`:
+```json
+{
+  "data": [
+    {"Name": "John", "Email": "john@example.com", "Amount": 100},
+    {"Name": "Jane", "Email": "jane@example.com", "Amount": 200}
+  ],
+  "rows": 2,
+  "columns": 3
+}
+```
+
+With `headers: false`:
+```json
+{
+  "data": [
+    ["Name", "Email", "Amount"],
+    ["John", "john@example.com", 100],
+    ["Jane", "jane@example.com", 200]
+  ],
+  "rows": 3,
+  "columns": 3
+}
+```
+
+---
+
+<NodeHeader id="excel-write_range" icon="Table2" label="Write Range" description="Write data to cell range" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.write_range`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="range" type="text" required>
+    **Range** — Starting cell (e.g., `A1`).
+  </Property>
+  <Property name="data" type="textarea" required>
+    **Data** — 2D array or array of objects. Use `${prev.data}` for pipeline data.
+  </Property>
+  <Property name="sheet" type="text">
+    **Sheet** — Target sheet name.
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "range": "A1",
+  "data": "${prev.processed_data}",
+  "sheet": "Results"
+}
+```
+
+---
+
+<NodeHeader id="excel-cell" icon="SquareStack" label="Read/Write Cell" description="Individual cell operations" bgColor="#dcfce7" textColor="#166534" />
+
+### Read Cell
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.read_cell`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **cell** — Cell reference (e.g., `B5`).
+
+**Output:**
+```json
+{
+  "value": 150,
+  "cell": "B5",
+  "formula": null
+}
+```
+
+<NodeHeader id="excel-add_row" icon="ListPlus" label="Add Row" description="Append row to sheet" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.add_row`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="data" type="textarea" required>
+    **Data** — Array of values for the new row.
+  </Property>
+  <Property name="sheet" type="text">
+    **Sheet** — Target sheet.
+  </Property>
+</Properties>
+
+### Example: Log Each Transaction
+
+```json
+{
+  "data": ["${date.now}", "${item.id}", "${item.amount}", "Processed"]
+}
+```
+
+---
+
+<NodeHeader id="excel-csv" icon="FileSpreadsheet" label="CSV Operations" description="CSV read and write" bgColor="#dcfce7" textColor="#166534" />
+
+### Read CSV
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.csv_read`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **path** — CSV file path.
+- **delimiter** — Field separator. Default: `,`.
+- **headers** — First row has headers. Default: true.
+
+**Output:**
+```json
+{
+  "data": [
+    {"name": "John", "email": "john@example.com"},
+    {"name": "Jane", "email": "jane@example.com"}
+  ],
+  "rows": 2
+}
+```
+
+<NodeHeader id="excel-sheets" icon="Layers" label="Sheet Operations" description="Manage worksheets" bgColor="#dcfce7" textColor="#166534" />
+
+| Node | Type | Description |
+|------|------|-------------|
+| **Create Sheet** | `excel.create_sheet` | Add new worksheet |
+| **Delete Sheet** | `excel.delete_sheet` | Remove worksheet |
+| **Rename Sheet** | `excel.rename_sheet` | Rename worksheet |
+| **Get Sheets** | `excel.get_sheets` | List all worksheets |
+
+### Create Sheet Example
+
+```json
+{
+  "name": "Q1 Results",
+  "position": 0
+}
+```
+
+---
+
+<NodeHeader id="excel-format" icon="PaintBucket" label="Formatting" description="Style cells and ranges" bgColor="#dcfce7" textColor="#166534" />
+
+### Set Format
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.set_format`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **range** — Cell range to format.
+- **bold** — Make text bold.
+- **font_color** — Text color (hex).
+- **bg_color** — Background color (hex).
+- **number_format** — Number format (e.g., `#,##0.00`, `0%`).
+
+### Example: Format Header Row
+
+```json
+{
+  "range": "A1:E1",
+  "bold": true,
+  "bg_color": "#4472C4",
+  "font_color": "#FFFFFF"
+}
+```
+
+### Merge Cells
+
+```json
+{
+  "type": "excel.merge_cells",
+  "config": {
+    "range": "A1:D1"
+  }
+}
+```
+
+---
+
+<NodeHeader id="excel-charts" icon="LineChart" label="Charts & Pivot" description="Visualizations and pivot tables" bgColor="#dcfce7" textColor="#166534" />
+
+<NodeHeader id="excel-vlookup" icon="Search" label="VLOOKUP" description="Look up values in data" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `excel.vlookup`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="lookup_value" type="text" required>
+    **Lookup Value** — Value to search for.
+  </Property>
+  <Property name="range" type="text" required>
+    **Range** — Data range to search.
+  </Property>
+  <Property name="column_index" type="number" required>
+    **Column Index** — Column number to return (1-based).
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "lookup_value": "SKU-001",
+  "range": "A2:D100",
+  "column_index": 3
+}
+```
+
+**Output:**
+```json
+{
+  "value": 29.99,
+  "found": true,
+  "row": 5
+}
+```
+
+---
+
+## Complete Example: Monthly Report Generator
+
+<Diagram 
+  flow="vertical"
+  groups={[
+    {
+      id: "create",
+      label: "1. Create",
+      direction: "row",
+      nodes: [
+        { id: "create", label: "excel.create", sublabel: "report.xlsx", type: "default" },
+        { id: "headers", label: "excel.write", sublabel: "Headers A1", type: "primary" }
+      ]
+    },
+    {
+      id: "data",
+      label: "2. Data",
+      direction: "row",
+      nodes: [
+        { id: "query", label: "Database Query", sublabel: "Get sales", type: "warning" },
+        { id: "write", label: "excel.write", sublabel: "A2:E100", type: "primary" }
+      ]
+    },
+    {
+      id: "format",
+      label: "3. Format & Chart",
+      direction: "row",
+      nodes: [
+        { id: "format", label: "excel.set_format", type: "default" },
+        { id: "chart", label: "excel.create_chart", sublabel: "Line chart", type: "success" }
+      ]
+    },
+    {
+      id: "save",
+      label: "4. Save",
+      nodes: [{ id: "save", label: "excel.save & close", type: "pill" }]
+    }
+  ]}
+/>
+
+---
+

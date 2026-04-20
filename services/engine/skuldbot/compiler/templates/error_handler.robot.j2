@@ -1,0 +1,52 @@
+*** Settings ***
+Documentation     Manejo centralizado de errores
+Library           String
+Library           Collections
+
+*** Keywords ***
+Handle Bot Error
+    [Arguments]    ${error_msg}
+    [Documentation]    Maneja errores a nivel de bot
+    
+    Log    Bot Error: ${error_msg}    level=ERROR
+    
+    ${error_data}=    Create Error Data    bot    ${error_msg}
+    Log Error To File    ${error_data}
+    
+    # Aquí se puede enviar a Orchestrator
+    # Send Error To Orchestrator    ${error_data}
+
+Handle Node Error
+    [Arguments]    ${node_id}    ${error_msg}
+    [Documentation]    Maneja errores a nivel de nodo
+    
+    Log    Node Error [${node_id}]: ${error_msg}    level=ERROR
+    
+    ${error_data}=    Create Error Data    ${node_id}    ${error_msg}
+    Log Error To File    ${error_data}
+
+Create Error Data
+    [Arguments]    ${node_id}    ${error_msg}
+    [Documentation]    Crea estructura de error
+    
+    ${timestamp}=    Get Time    epoch
+    
+    ${error_data}=    Create Dictionary
+    ...    code=ERROR
+    ...    message=${error_msg}
+    ...    node_id=${node_id}
+    ...    timestamp=${timestamp}
+    ...    retryable=False
+    
+    RETURN    ${error_data}
+
+Log Error To File
+    [Arguments]    ${error_data}
+    [Documentation]    Guarda error en archivo local
+    
+    ${error_json}=    Evaluate    json.dumps($error_data, indent=2)    json
+    Log    ${error_json}
+    
+    # Escribir a archivo de errores
+    # Append To File    errors.log    ${error_json}\n
+

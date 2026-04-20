@@ -1,0 +1,257 @@
+export const metadata = {
+  title: 'Variable System',
+  description: 'Learn how to use variables to pass data between components in SkuldBot workflows.',
+}
+
+export const sections = [
+  { title: 'Node Variables', id: 'node-variables' },
+  { title: 'Global Variables', id: 'global-variables' },
+  { title: 'Error Variables', id: 'error-variables' },
+  { title: 'System Variables', id: 'system-variables' },
+  { title: 'Syntax', id: 'syntax' },
+]
+
+# Variable System
+
+The variable system allows components to share data with each other. Each component produces output variables that subsequent components can access. {{ className: 'lead' }}
+
+## Node Variables {{ id: 'node-variables' }}
+
+When a component executes, it produces output variables that are stored with the node's label. You access them using `${Node Label.variableName}`.
+
+### Example Flow
+
+```
+[Read Excel] ──success──> [Filter Data] ──success──> [Write Excel]
+     │                          │                          │
+     │ data, rowCount,          │ filtered, count          │ uses variables
+     │ columns                  │                          │ from previous nodes
+```
+
+### Accessing Node Output
+
+If you have a node labeled "Read Sales Data" that reads an Excel file:
+
+```json
+{
+  "id": "node-1",
+  "type": "excel.read_range",
+  "label": "Read Sales Data",
+  "config": { "file": "sales.xlsx" }
+}
+```
+
+You can access its output in subsequent nodes:
+
+| Variable | Description |
+|----------|-------------|
+| `${Read Sales Data.data}` | The data as a list of dictionaries |
+| `${Read Sales Data.rowCount}` | Number of rows read |
+| `${Read Sales Data.columns}` | Column names as a list |
+
+### Nested Data Access
+
+Access nested properties using dot notation or brackets:
+
+```
+${Read Sales Data.data[0].name}     // First row, name column
+${Read Sales Data.data[0]["email"]} // First row, email column
+${API Response.body.users[0].id}    // Nested JSON access
+```
+
+## Global Variables {{ id: 'global-variables' }}
+
+Global variables are defined at the workflow level and accessible everywhere:
+
+```json
+{
+  "variables": {
+    "api_url": {
+      "type": "string",
+      "value": "https://api.example.com"
+    },
+    "batch_size": {
+      "type": "number",
+      "value": 100
+    }
+  }
+}
+```
+
+Access with `${varName}`:
+
+```json
+{
+  "config": {
+    "url": "${api_url}/invoices",
+    "limit": "${batch_size}"
+  }
+}
+```
+
+### Credential Variables
+
+Sensitive data should use the `credential` type:
+
+```json
+{
+  "variables": {
+    "api_key": {
+      "type": "credential",
+      "vault": "orchestrator",
+      "key": "erp_api_key"
+    }
+  }
+}
+```
+
+<Note>
+  Credential variables are resolved at runtime by the Orchestrator.
+  They never appear in logs or the DSL file.
+</Note>
+
+## Error Variables {{ id: 'error-variables' }}
+
+When a node fails and execution flows through the error path (orange line), special error variables become available:
+
+<Properties>
+  <Property name="${LAST_ERROR}" type="string">
+    The error message from the failed node
+  </Property>
+  <Property name="${LAST_ERROR_NODE}" type="string">
+    The ID of the node that failed
+  </Property>
+  <Property name="${LAST_ERROR_TYPE}" type="string">
+    The type of the failed node (e.g., `excel.read_range`)
+  </Property>
+</Properties>
+
+### Error Handling Example
+
+```json
+{
+  "id": "error-handler",
+  "type": "logging.log_message",
+  "config": {
+    "level": "error",
+    "message": "Node ${LAST_ERROR_NODE} (${LAST_ERROR_TYPE}) failed: ${LAST_ERROR}"
+  }
+}
+```
+
+### Node-Specific Error Access
+
+You can also access the error from a specific node:
+
+```
+${Read Excel.error}   // Error message if Read Excel failed
+${Read Excel.status}  // Status: pending, success, error
+```
+
+## System Variables {{ id: 'system-variables' }}
+
+System variables are automatically available in every workflow:
+
+<Properties>
+  <Property name="${BOT_ID}" type="string">
+    Unique identifier of the bot
+  </Property>
+  <Property name="${BOT_NAME}" type="string">
+    Human-readable bot name
+  </Property>
+  <Property name="${BOT_STATUS}" type="string">
+    Current status: RUNNING, SUCCESS, FAILED
+  </Property>
+  <Property name="${EXECUTION_ID}" type="string">
+    Unique ID for this execution run
+  </Property>
+  <Property name="${TIMESTAMP}" type="string">
+    Current timestamp (ISO 8601)
+  </Property>
+</Properties>
+
+## Syntax {{ id: 'syntax' }}
+
+### Basic Syntax
+
+All variable references use `${...}`:
+
+| Syntax | Type | Example |
+|--------|------|---------|
+| `${name}` | Global variable | `${api_url}` |
+| `${Label.var}` | Node output | `${Read Excel.data}` |
+| `${UPPER_CASE}` | System/Error variable | `${LAST_ERROR}` |
+
+### Complex Expressions
+
+Variables can be embedded in strings:
+
+```json
+{
+  "message": "Processed ${Process Data.count} items from ${source_name}"
+}
+```
+
+### JSON Path Access
+
+Access nested data:
+
+```json
+{
+  "customer_name": "${API Response.body.data.customer.name}",
+  "first_item": "${Parse JSON.items[0]}",
+  "item_price": "${Parse JSON.items[0].price}"
+}
+```
+
+### Conditional Expressions
+
+In `control.if` nodes, use comparison operators:
+
+```json
+{
+  "condition": "${Invoice.amount} > 10000"
+}
+```
+
+Supported operators: `>`, `<`, `>=`, `<=`, `==`, `!=`, `and`, `or`, `not`
+
+## Variable Types by Component Category
+
+### Excel Components
+
+| Component | Output Variables |
+|-----------|------------------|
+| `excel.read_range` | `data`, `rowCount`, `columns` |
+| `excel.read_cell` | `value`, `formula` |
+| `excel.get_sheets` | `sheets`, `activeSheet` |
+
+### Web Components
+
+| Component | Output Variables |
+|-----------|------------------|
+| `web.get_text` | `text` |
+| `web.get_attribute` | `value` |
+| `web.execute_js` | `result` |
+| `web.screenshot` | `path`, `base64` |
+
+### API Components
+
+| Component | Output Variables |
+|-----------|------------------|
+| `api.http_request` | `body`, `status`, `headers` |
+| `api.graphql` | `data`, `errors` |
+
+### AI Components
+
+| Component | Output Variables |
+|-----------|------------------|
+| `ai.generate_text` | `text`, `tokensUsed` |
+| `ai.extract_structured` | `data`, `confidence` |
+| `ai.classify` | `label`, `confidence`, `scores` |
+
+<div className="not-prose">
+  <Button href="/components/trigger" variant="text" arrow="right">
+    <>Browse all components and their output variables</>
+  </Button>
+</div>

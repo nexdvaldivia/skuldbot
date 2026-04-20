@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+
+{% block title %}Logs - SkuldBot Runner{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Execution Logs</h1>
+            <p class="text-gray-500 mt-1">View real-time and historical execution logs</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <button onclick="clearLogs()" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Clear
+            </button>
+            <button onclick="exportLogs()" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">
+                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Export
+            </button>
+            <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="checkbox" id="auto-scroll" checked class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                <span class="text-sm text-gray-700">Auto-scroll</span>
+            </label>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-lg shadow p-4">
+        <div class="flex flex-wrap items-center gap-4">
+            <!-- Log Level Filter -->
+            <div class="flex items-center space-x-2">
+                <span class="text-sm font-medium text-gray-700">Level:</span>
+                <div class="flex space-x-1">
+                    <button onclick="toggleLevel('debug')" id="btn-debug" class="level-btn px-3 py-1 text-xs font-medium rounded bg-gray-100 text-gray-600 hover:bg-gray-200">
+                        DEBUG
+                    </button>
+                    <button onclick="toggleLevel('info')" id="btn-info" class="level-btn active px-3 py-1 text-xs font-medium rounded bg-blue-100 text-blue-700">
+                        INFO
+                    </button>
+                    <button onclick="toggleLevel('warn')" id="btn-warn" class="level-btn active px-3 py-1 text-xs font-medium rounded bg-yellow-100 text-yellow-700">
+                        WARN
+                    </button>
+                    <button onclick="toggleLevel('error')" id="btn-error" class="level-btn active px-3 py-1 text-xs font-medium rounded bg-red-100 text-red-700">
+                        ERROR
+                    </button>
+                </div>
+            </div>
+
+            <!-- Search -->
+            <div class="flex-1 min-w-[200px]">
+                <input type="text" id="log-search" placeholder="Search logs..."
+                       class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                       onkeyup="filterLogs()">
+            </div>
+
+            <!-- Run Filter -->
+            <div>
+                <select id="run-filter" class="rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        onchange="filterLogs()">
+                    <option value="">All Runs</option>
+                </select>
+            </div>
+
+            <!-- Time Range -->
+            <div>
+                <select id="time-range" class="rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                        onchange="loadLogs()">
+                    <option value="live">Live</option>
+                    <option value="1h">Last Hour</option>
+                    <option value="24h">Last 24 Hours</option>
+                    <option value="7d">Last 7 Days</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Viewer -->
+    <div class="bg-gray-900 rounded-lg shadow overflow-hidden">
+        <div class="px-4 py-2 bg-gray-800 border-b border-gray-700 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <span id="log-status" class="flex items-center text-sm text-green-400">
+                    <span class="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
+                    Live
+                </span>
+                <span class="text-sm text-gray-400" id="log-count">0 entries</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <button onclick="pauseLive()" id="pause-btn" class="text-gray-400 hover:text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div id="log-container" class="h-[500px] overflow-y-auto p-4 font-mono text-sm">
+            <div class="text-gray-500 text-center py-8">
+                Waiting for logs...
+            </div>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="bg-white rounded-lg shadow p-4">
+        <h3 class="text-sm font-medium text-gray-900 mb-3">Log Format</h3>
+        <div class="flex flex-wrap gap-4 text-sm">
+            <div class="flex items-center space-x-2">
+                <span class="text-gray-400">[timestamp]</span>
+                <span class="text-gray-600">Time of log entry</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="text-blue-400">[INFO]</span>
+                <span class="text-gray-600">Log level</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="text-purple-400">[node_id]</span>
+                <span class="text-gray-600">Node being executed</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="text-gray-300">message</span>
+                <span class="text-gray-600">Log content</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let allLogs = [];
+    let filteredLogs = [];
+    let isLive = true;
+    let isPaused = false;
+    let activelevels = ['info', 'warn', 'error'];
+    let eventSource = null;
+
+    // Level colors for terminal display
+    const levelColors = {
+        debug: 'text-gray-400',
+        info: 'text-blue-400',
+        warn: 'text-yellow-400',
+        error: 'text-red-400',
+    };
+
+    function toggleLevel(level) {
+        const btn = document.getElementById(`btn-${level}`);
+        const idx = activelevels.indexOf(level);
+
+        if (idx >= 0) {
+            activelevels.splice(idx, 1);
+            btn.classList.remove('active');
+            btn.classList.add('opacity-50');
+        } else {
+            activelevels.push(level);
+            btn.classList.add('active');
+            btn.classList.remove('opacity-50');
+        }
+
+        filterLogs();
+    }
+
+    function filterLogs() {
+        const search = document.getElementById('log-search').value.toLowerCase();
+        const runFilter = document.getElementById('run-filter').value;
+
+        filteredLogs = allLogs.filter(log => {
+            // Level filter
+            if (!activelevels.includes(log.level)) return false;
+
+            // Search filter
+            if (search && !log.message.toLowerCase().includes(search)) return false;
+
+            // Run filter
+            if (runFilter && log.runId !== runFilter) return false;
+
+            return true;
+        });
+
+        renderLogs();
+    }
+
+    function renderLogs() {
+        const container = document.getElementById('log-container');
+        const autoScroll = document.getElementById('auto-scroll').checked;
+
+        if (filteredLogs.length === 0) {
+            container.innerHTML = `
+                <div class="text-gray-500 text-center py-8">
+                    No logs matching filters
+                </div>
+            `;
+            document.getElementById('log-count').textContent = '0 entries';
+            return;
+        }
+
+        container.innerHTML = filteredLogs.map(log => {
+            const levelClass = levelColors[log.level] || 'text-gray-300';
+            const nodeInfo = log.nodeId ? `<span class="text-purple-400">[${log.nodeId}]</span> ` : '';
+            const runInfo = log.runId ? `<span class="text-cyan-400">[${log.runId.slice(0, 8)}]</span> ` : '';
+
+            return `
+                <div class="log-line hover:bg-gray-800 px-2 py-1 rounded">
+                    <span class="text-gray-500">[${formatTime(log.timestamp)}]</span>
+                    <span class="${levelClass}">[${log.level.toUpperCase()}]</span>
+                    ${runInfo}${nodeInfo}<span class="text-gray-300">${escapeHtml(log.message)}</span>
+                </div>
+            `;
+        }).join('');
+
+        document.getElementById('log-count').textContent = `${filteredLogs.length} entries`;
+
+        if (autoScroll) {
+            container.scrollTop = container.scrollHeight;
+        }
+    }
+
+    function formatTime(timestamp) {
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString('en-US', { hour12: false }) + '.' + String(date.getMilliseconds()).padStart(3, '0');
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    async function loadLogs() {
+        const timeRange = document.getElementById('time-range').value;
+
+        // Stop live streaming if not in live mode
+        if (timeRange !== 'live') {
+            stopLiveStream();
+            document.getElementById('log-status').innerHTML = `
+                <span class="w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
+                Historical
+            `;
+        } else {
+            startLiveStream();
+        }
+
+        try {
+            const res = await fetch(`/api/logs?range=${timeRange}`);
+            const data = await res.json();
+
+            allLogs = data.logs || [];
+
+            // Update run filter options
+            updateRunFilter();
+
+            filterLogs();
+        } catch (e) {
+            console.error('Failed to load logs:', e);
+        }
+    }
+
+    function updateRunFilter() {
+        const select = document.getElementById('run-filter');
+        const runs = [...new Set(allLogs.filter(l => l.runId).map(l => l.runId))];
+
+        // Keep current selection if possible
+        const current = select.value;
+
+        select.innerHTML = '<option value="">All Runs</option>' +
+            runs.map(runId => `<option value="${runId}">${runId.slice(0, 8)}...</option>`).join('');
+
+        if (runs.includes(current)) {
+            select.value = current;
+        }
+    }
+
+    function startLiveStream() {
+        if (eventSource) return;
+
+        isLive = true;
+        isPaused = false;
+
+        eventSource = new EventSource('/api/logs/stream');
+
+        eventSource.onmessage = (event) => {
+            if (isPaused) return;
+
+            const log = JSON.parse(event.data);
+            allLogs.push(log);
+
+            // Keep only last 1000 logs in memory
+            if (allLogs.length > 1000) {
+                allLogs = allLogs.slice(-1000);
+            }
+
+            updateRunFilter();
+            filterLogs();
+        };
+
+        eventSource.onerror = () => {
+            console.error('SSE connection error');
+            stopLiveStream();
+            // Retry after 5 seconds
+            setTimeout(() => {
+                if (document.getElementById('time-range').value === 'live') {
+                    startLiveStream();
+                }
+            }, 5000);
+        };
+
+        document.getElementById('log-status').innerHTML = `
+            <span class="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
+            Live
+        `;
+    }
+
+    function stopLiveStream() {
+        if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+        }
+        isLive = false;
+    }
+
+    function pauseLive() {
+        isPaused = !isPaused;
+        const btn = document.getElementById('pause-btn');
+        const status = document.getElementById('log-status');
+
+        if (isPaused) {
+            btn.innerHTML = `
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            `;
+            status.innerHTML = `
+                <span class="w-2 h-2 bg-yellow-400 rounded-full mr-2"></span>
+                Paused
+            `;
+        } else {
+            btn.innerHTML = `
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            `;
+            status.innerHTML = `
+                <span class="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
+                Live
+            `;
+        }
+    }
+
+    function clearLogs() {
+        if (!confirm('Clear all logs from the display?')) return;
+        allLogs = [];
+        filteredLogs = [];
+        renderLogs();
+    }
+
+    function exportLogs() {
+        const content = filteredLogs.map(log => {
+            const node = log.nodeId ? `[${log.nodeId}] ` : '';
+            const run = log.runId ? `[${log.runId}] ` : '';
+            return `[${log.timestamp}] [${log.level.toUpperCase()}] ${run}${node}${log.message}`;
+        }).join('\n');
+
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `skuldbot-logs-${new Date().toISOString().slice(0, 10)}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    // Initial load
+    loadLogs();
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+        stopLiveStream();
+    });
+</script>
+{% endblock %}

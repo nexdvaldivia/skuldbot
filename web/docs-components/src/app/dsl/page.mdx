@@ -1,0 +1,291 @@
+export const metadata = {
+  title: 'DSL Reference',
+  description: 'Complete reference for the SkuldBot DSL (Domain Specific Language) JSON format.',
+}
+
+export const sections = [
+  { title: 'Structure', id: 'structure' },
+  { title: 'Bot Metadata', id: 'bot-metadata' },
+  { title: 'Nodes', id: 'nodes' },
+  { title: 'Connections', id: 'connections' },
+  { title: 'Variables', id: 'variables' },
+]
+
+# DSL Reference
+
+The SkuldBot DSL (Domain Specific Language) is the JSON format that defines automation workflows. The Studio generates this format, and the Engine compiles it to Robot Framework. {{ className: 'lead' }}
+
+## Structure {{ id: 'structure' }}
+
+A complete DSL document has this structure:
+
+```json
+{
+  "version": "1.0",
+  "bot": {
+    "id": "bot-001",
+    "name": "My Automation",
+    "description": "Processes invoices automatically"
+  },
+  "nodes": [...],
+  "triggers": ["trigger-1"],
+  "start_node": "trigger-1",
+  "variables": {}
+}
+```
+
+<Properties>
+  <Property name="version" type="string" required>
+    DSL version, currently `"1.0"`
+  </Property>
+  <Property name="bot" type="object" required>
+    Metadata about the bot (id, name, description)
+  </Property>
+  <Property name="nodes" type="array" required>
+    Array of node definitions
+  </Property>
+  <Property name="triggers" type="array">
+    IDs of trigger nodes
+  </Property>
+  <Property name="start_node" type="string">
+    ID of the first node to execute
+  </Property>
+  <Property name="variables" type="object">
+    Global variable definitions
+  </Property>
+</Properties>
+
+## Bot Metadata {{ id: 'bot-metadata' }}
+
+The `bot` object contains identifying information:
+
+```json
+{
+  "bot": {
+    "id": "invoice-processor-v2",
+    "name": "Invoice Processor",
+    "description": "Extracts data from PDF invoices and updates the ERP system",
+    "author": "Automation Team",
+    "version": "2.1.0"
+  }
+}
+```
+
+<Properties>
+  <Property name="id" type="string" required>
+    Unique identifier for the bot (used in logging and orchestration)
+  </Property>
+  <Property name="name" type="string" required>
+    Human-readable name
+  </Property>
+  <Property name="description" type="string">
+    Description of what the bot does
+  </Property>
+  <Property name="author" type="string">
+    Author or team name
+  </Property>
+  <Property name="version" type="string">
+    Semantic version (e.g., "1.0.0")
+  </Property>
+</Properties>
+
+## Nodes {{ id: 'nodes' }}
+
+Each node in the `nodes` array has this structure:
+
+```json
+{
+  "id": "read-excel-1",
+  "type": "excel.read_range",
+  "label": "Read Sales Data",
+  "config": {
+    "file": "/data/sales.xlsx",
+    "sheet": "Q4",
+    "range": "A1:F100",
+    "header": true
+  },
+  "outputs": {
+    "success": "process-data-1",
+    "error": "error-handler-1"
+  }
+}
+```
+
+<Properties>
+  <Property name="id" type="string" required>
+    Unique identifier within the workflow
+  </Property>
+  <Property name="type" type="string" required>
+    Component type (e.g., `excel.read_range`, `web.open_browser`)
+  </Property>
+  <Property name="label" type="string">
+    Display name in the Studio (used for variable references)
+  </Property>
+  <Property name="config" type="object" required>
+    Configuration specific to this component type
+  </Property>
+  <Property name="outputs" type="object" required>
+    Connection map defining the next nodes
+  </Property>
+</Properties>
+
+### Node Types
+
+Node types follow the pattern `category.action`:
+
+| Category | Examples |
+|----------|----------|
+| `trigger.*` | `trigger.manual`, `trigger.webhook`, `trigger.schedule` |
+| `excel.*` | `excel.read_range`, `excel.write_range`, `excel.create_workbook` |
+| `web.*` | `web.open_browser`, `web.click`, `web.fill_text` |
+| `api.*` | `api.http_request`, `api.graphql`, `api.oauth2_token` |
+| `control.*` | `control.if`, `control.for_each`, `control.try_catch` |
+
+## Connections {{ id: 'connections' }}
+
+The `outputs` object defines where execution flows after a node completes:
+
+```json
+{
+  "outputs": {
+    "success": "next-node-id",
+    "error": "error-handler-id"
+  }
+}
+```
+
+<Properties>
+  <Property name="success" type="string">
+    Node ID to execute on success, or `null` to end
+  </Property>
+  <Property name="error" type="string">
+    Node ID to execute on error, or `null` to propagate
+  </Property>
+</Properties>
+
+### Control Flow Nodes
+
+Some nodes have additional output paths:
+
+```json
+{
+  "id": "check-amount",
+  "type": "control.if",
+  "config": {
+    "condition": "${Invoice.amount} > 10000"
+  },
+  "outputs": {
+    "true": "require-approval",
+    "false": "auto-process",
+    "error": "error-handler"
+  }
+}
+```
+
+## Variables {{ id: 'variables' }}
+
+### Global Variables
+
+Define global variables in the `variables` object:
+
+```json
+{
+  "variables": {
+    "api_base_url": {
+      "type": "string",
+      "value": "https://api.example.com"
+    },
+    "max_retries": {
+      "type": "number",
+      "value": 3
+    },
+    "credentials": {
+      "type": "credential",
+      "vault": "orchestrator",
+      "key": "erp_api_key"
+    }
+  }
+}
+```
+
+### Variable References
+
+Reference variables in configuration using `${...}` syntax:
+
+| Syntax | Description |
+|--------|-------------|
+| `${varName}` | Global variable |
+| `${Node Label.output}` | Output from a previous node |
+| `${Node Label.data[0].name}` | Nested data access |
+| `${LAST_ERROR}` | Last error message |
+| `${LAST_ERROR_NODE}` | Node that caused the error |
+
+## Complete Example
+
+```json
+{
+  "version": "1.0",
+  "bot": {
+    "id": "invoice-extractor",
+    "name": "Invoice Data Extractor",
+    "description": "Extracts data from PDF invoices"
+  },
+  "nodes": [
+    {
+      "id": "trigger-1",
+      "type": "trigger.manual",
+      "config": {},
+      "outputs": { "success": "read-pdf-1" }
+    },
+    {
+      "id": "read-pdf-1",
+      "type": "document.extract_pdf",
+      "label": "Extract PDF",
+      "config": {
+        "file": "/invoices/pending/invoice.pdf"
+      },
+      "outputs": {
+        "success": "parse-data-1",
+        "error": "log-error-1"
+      }
+    },
+    {
+      "id": "parse-data-1",
+      "type": "ai.extract_structured",
+      "label": "Parse Invoice",
+      "config": {
+        "text": "${Extract PDF.text}",
+        "schema": {
+          "vendor": "string",
+          "amount": "number",
+          "date": "date"
+        }
+      },
+      "outputs": {
+        "success": "log-success-1",
+        "error": "log-error-1"
+      }
+    },
+    {
+      "id": "log-success-1",
+      "type": "logging.log_message",
+      "config": {
+        "level": "info",
+        "message": "Extracted invoice: ${Parse Invoice.vendor} - $${Parse Invoice.amount}"
+      },
+      "outputs": { "success": null }
+    },
+    {
+      "id": "log-error-1",
+      "type": "logging.log_message",
+      "config": {
+        "level": "error",
+        "message": "Failed: ${LAST_ERROR}"
+      },
+      "outputs": { "success": null }
+    }
+  ],
+  "triggers": ["trigger-1"],
+  "start_node": "trigger-1"
+}
+```

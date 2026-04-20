@@ -1,0 +1,173 @@
+export const metadata = {
+  title: 'Compliance',
+  description: 'PII/PHI protection and HIPAA Safe Harbor. Protect sensitive data in your automations.',
+}
+
+export const sections = [
+  { title: 'Protect PII', id: 'compliance-protect_pii' },
+  { title: 'Protect PHI (HIPAA)', id: 'compliance-protect_phi' },
+  { title: 'Compliance Audit Log', id: 'compliance-audit_log' },
+]
+
+PII/PHI protection and HIPAA Safe Harbor. Protect sensitive data in your automations. {{ className: 'lead' }}
+
+<Note>
+  Essential for healthcare (HIPAA), finance (PCI-DSS), and privacy regulations (GDPR, CCPA).
+</Note>
+
+---
+
+<NodeHeader id="compliance-protect_pii" icon="ShieldCheck" label="Protect PII" description="Configure field-by-field PII protection with visual builder" bgColor="#fef9c3" textColor="#854d0e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `compliance.protect_pii`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **data** (`textarea`, required) — Data to process. Supports expressions like `${previous_node.records}`
+- **rules** (`protection-builder`) — Protection rules for each field
+
+**Output:**
+- **protected_data** (`object`) — Data with protected PII fields
+- **fields_processed** (`number`) — Number of fields processed
+- **audit_log** (`array`) — Audit log of all protection operations
+
+**Usage Example:**
+
+```json
+{
+  "type": "compliance.protect_pii",
+  "config": {
+    "data": "${database.customer_records}",
+    "rules": [
+      {"field": "email", "action": "mask", "pattern": "partial"},
+      {"field": "phone", "action": "mask", "pattern": "last4"},
+      {"field": "ssn", "action": "redact"}
+    ]
+  }
+}
+```
+
+---
+
+<NodeHeader id="compliance-protect_phi" icon="HeartPulse" label="Protect PHI (HIPAA)" description="Configure field-by-field PHI protection for HIPAA compliance" bgColor="#fef3c3" textColor="#854d0e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `compliance.protect_phi`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **data** (`textarea`, required) — Data to process. Supports expressions like `${previous_node.records}`
+- **rules** (`protection-builder`) — Protection rules for HIPAA identifiers
+- **strict_hipaa** (`boolean`, default: `true`) — Enable strict HIPAA mode
+
+**Output:**
+- **protected_data** (`object`) — Data with protected PHI fields
+- **hipaa_compliant** (`boolean`) — Whether result is HIPAA compliant
+- **fields_processed** (`number`) — Number of fields processed
+- **hipaa_identifiers_protected** (`array`) — List of HIPAA 18 identifiers that were protected
+- **audit_log** (`array`) — Audit log of all protection operations
+
+**HIPAA 18 Identifiers:**
+
+| Identifier | Description |
+|------------|-------------|
+| Names | Full or partial patient names |
+| Geographic data | Smaller than state (address, zip code) |
+| Dates | Related to individual (DOB, admission, discharge, death) |
+| Phone numbers | All telephone numbers |
+| Fax numbers | All fax numbers |
+| Email addresses | All email addresses |
+| Social Security numbers | SSN |
+| Medical record numbers | MRN, patient IDs |
+| Health plan numbers | Insurance IDs |
+| Account numbers | Financial account numbers |
+| Certificate/license numbers | Driver's license, professional licenses |
+| Vehicle identifiers | VIN, license plates |
+| Device identifiers | Serial numbers, implant IDs |
+| Web URLs | Patient-related URLs |
+| IP addresses | Network addresses |
+| Biometric identifiers | Fingerprints, voice prints |
+| Full-face photos | Images identifying individuals |
+| Other unique numbers | Any unique identifying number |
+
+**Usage Example:**
+
+```json
+{
+  "type": "compliance.protect_phi",
+  "config": {
+    "data": "${ehr.patient_records}",
+    "rules": [
+      {"field": "patient_name", "action": "hash"},
+      {"field": "date_of_birth", "action": "generalize", "level": "year"},
+      {"field": "mrn", "action": "pseudonymize"},
+      {"field": "ssn", "action": "redact"},
+      {"field": "address", "action": "generalize", "level": "state"}
+    ],
+    "strict_hipaa": true
+  }
+}
+```
+
+---
+
+<NodeHeader id="compliance-audit_log" icon="ClipboardList" label="Compliance Audit Log" description="Create compliance audit log entry (cannot be disabled)" bgColor="#fef9c3" textColor="#854d0e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `compliance.audit_log`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **action** (`select`, required) — Action performed:
+  - `access` — Access
+  - `modify` — Modify
+  - `delete` — Delete
+  - `export` — Export
+  - `share` — Share
+- **data_type** (`select`, default: `PHI`) — Type of data:
+  - `PHI` — PHI (Protected Health Info)
+  - `PII` — PII (Personal Info)
+- **user** (`text`, default: `${CURRENT_USER}`) — User who performed the action. Supports expressions.
+- **details** (`textarea`) — Additional details. Supports expressions.
+
+**Output:**
+- **audit_entry** (`object`) — Created audit log entry
+- **timestamp** (`string`) — Entry timestamp
+
+**Usage Example:**
+
+```json
+{
+  "type": "compliance.audit_log",
+  "config": {
+    "action": "access",
+    "data_type": "PHI",
+    "user": "${CURRENT_USER}",
+    "details": "Accessed patient record ${patient.mrn} for claim processing"
+  }
+}
+```
+
+**Audit Entry Format:**
+
+```json
+{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "bot_id": "bot_abc123",
+  "execution_id": "exec_xyz789",
+  "action": "access",
+  "data_type": "PHI",
+  "user": "system_bot",
+  "details": "Accessed patient record MRN-12345 for claim processing"
+}
+```
+
+---
+

@@ -1,0 +1,596 @@
+export const metadata = {
+  title: 'Triggers',
+  description: 'Start your bots. Manual triggers, schedules, webhooks, file watchers, and event listeners.',
+}
+
+export const sections = [
+  { title: 'Manual Trigger', id: 'trigger-manual' },
+  { title: 'File Watch', id: 'trigger-file_watch' },
+  { title: 'Email Received', id: 'trigger-email_received' },
+  { title: 'Webhook', id: 'trigger-webhook' },
+  { title: 'Queue', id: 'trigger-queue' },
+  { title: 'Form', id: 'trigger-form' },
+  { title: 'API Polling', id: 'trigger-api_polling' },
+  { title: 'Database Change', id: 'trigger-database_change' },
+  { title: 'Storage Event', id: 'trigger-storage_event' },
+  { title: 'Message Bus', id: 'trigger-message_bus' },
+  { title: 'Chat', id: 'trigger-chat' },
+]
+
+# Triggers
+
+Start your bots. Manual triggers, schedules, webhooks, file watchers, and event listeners. {{ className: 'lead' }}
+
+<Note>
+  **11 trigger types**. Every bot must have exactly **one trigger node**. This is always the first node in your workflow. If none is specified, the AI Planner automatically adds a Manual Trigger. The Storage Event trigger supports [Storage Provider](/components/storage) — react to file events in S3, Azure Blob, GCS, SharePoint, or any connected storage.
+</Note>
+
+### Choosing the Right Trigger
+
+| Trigger | Best For | Example |
+|---------|----------|---------|
+| **Manual** | Development, on-demand tasks | "Run this report now" |
+| **Schedule** | Recurring tasks (cron) | "Every day at 8 AM" |
+| **Webhook** | Real-time external events | Stripe payment received, GitHub push |
+| **File Watch** | File-based workflows | New invoice dropped in folder |
+| **Email Received** | Email-driven automation | Process incoming support emails |
+| **Form** | User input collection | Customer submits a request form |
+| **Queue** | High-volume event processing | Process 10,000 orders from a queue |
+| **API Polling** | APIs without webhooks | Check external system every 5 minutes |
+| **Database Change** | Data-driven workflows | New row inserted in orders table |
+| **Storage Event** | Cloud file events | File uploaded to S3/Azure Blob |
+| **Message Bus** | Enterprise messaging | RabbitMQ/Kafka message received |
+| **Chat** | Conversational bots | User sends message in chat widget |
+
+---
+
+<NodeHeader id="trigger-manual" icon="Play" label="Manual Trigger" description="Start workflow manually" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.manual`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Testing and debugging during development
+- On-demand data processing
+- User-initiated workflows via API
+- One-time migration tasks
+
+### Output
+
+- **triggeredAt** (`string`) — Timestamp when manually triggered
+- **triggeredBy** (`string`) — User who triggered the workflow
+
+### Example: On-Demand Report Generation
+
+<Diagram 
+  groups={[
+    {
+      id: "trigger",
+      label: "Trigger",
+      nodes: [{ id: "manual", label: "trigger.manual", sublabel: "User clicks Run", type: "primary" }]
+    },
+    {
+      id: "process",
+      label: "Process",
+      direction: "row",
+      nodes: [
+        { id: "query", label: "database.query", sublabel: "Get data", type: "warning" },
+        { id: "export", label: "excel.create", sublabel: "Generate report", type: "warning" }
+      ]
+    },
+    {
+      id: "output",
+      label: "Output",
+      nodes: [{ id: "email", label: "email.send", sublabel: "Send report", type: "success" }]
+    }
+  ]}
+/>
+
+---
+
+<NodeHeader id="trigger-file_watch" icon="FolderSearch" label="File Watch" description="Trigger when file changes" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.file_watch`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Process invoices dropped into a folder
+- Monitor log files for errors
+- Automated document ingestion
+- Sync files from external sources
+
+### Configuration
+
+- **path** (`text`, required) — Watch path (e.g., `/path/to/folder`)
+- **pattern** (`text`) — File pattern (e.g., `*.csv`, `*.pdf`)
+
+### Output
+
+- **filePath** (`string`) — Full path of the changed file
+- **fileName** (`string`) — Name of the changed file
+- **event** (`string`) — Event type: `created`, `modified`, `deleted`
+- **timestamp** (`string`) — When the event occurred
+
+### Example: Invoice Processing
+
+<Diagram 
+  groups={[
+    {
+      id: "trigger",
+      label: "Trigger",
+      nodes: [{ id: "watch", label: "trigger.file_watch", sublabel: "pattern: *.pdf", type: "primary" }]
+    },
+    {
+      id: "process",
+      label: "Process",
+      direction: "row",
+      nodes: [
+        { id: "ocr", label: "document.ocr", sublabel: "Extract text", type: "warning" },
+        { id: "ai", label: "ai.extract_data", sublabel: "Parse invoice", type: "warning" }
+      ]
+    },
+    {
+      id: "store",
+      label: "Store",
+      direction: "row",
+      nodes: [
+        { id: "db", label: "database.insert", sublabel: "Save record", type: "success" },
+        { id: "move", label: "files.move", sublabel: "Archive file", type: "success" }
+      ]
+    }
+  ]}
+/>
+
+**DSL Example:**
+
+```json
+{
+  "id": "file_watch_1",
+  "type": "trigger.file_watch",
+  "config": {
+    "path": "/data/invoices/inbox",
+    "pattern": "*.pdf"
+  }
+}
+```
+
+---
+
+<NodeHeader id="trigger-email_received" icon="MailOpen" label="Email Trigger" description="Trigger when email received" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.email_received`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Process support tickets from email
+- Automated email triage and routing
+- Extract attachments for processing
+- Order confirmations from vendors
+
+### Configuration
+
+- **folder** (`text`, default: `INBOX`) — Mail folder to monitor
+- **filter** (`text`) — Subject filter pattern (e.g., `Invoice*`)
+
+### Example: Support Ticket Triage
+
+<Diagram 
+  groups={[
+    {
+      id: "trigger",
+      label: "Trigger",
+      nodes: [{ id: "email", label: "trigger.email_received", sublabel: "filter: Support*", type: "primary" }]
+    },
+    {
+      id: "classify",
+      label: "Classify",
+      nodes: [{ id: "ai", label: "ai.classify", sublabel: "Billing/Technical/Sales", type: "warning" }]
+    },
+    {
+      id: "route",
+      label: "Route",
+      direction: "row",
+      nodes: [
+        { id: "billing", label: "email.forward", sublabel: "billing@", type: "success" },
+        { id: "tech", label: "email.forward", sublabel: "support@", type: "success" },
+        { id: "sales", label: "email.forward", sublabel: "sales@", type: "success" }
+      ]
+    }
+  ]}
+/>
+
+---
+
+<NodeHeader id="trigger-webhook" icon="Webhook" label="Webhook Trigger" description="Trigger via HTTP webhook" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.webhook`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Receive events from external services (Stripe, GitHub, etc.)
+- Integration with third-party systems
+- Real-time event processing
+- Custom API endpoints for your bots
+
+### Configuration
+
+- **path** (`text`, required) — Webhook path (e.g., `/webhook/my-trigger`)
+- **method** (`select`, default: `POST`) — HTTP method: `GET`, `POST`
+
+### Output
+
+- **body** (`object`) — Request body (JSON)
+- **headers** (`object`) — Request headers
+- **query** (`object`) — Query parameters
+
+### Example: Stripe Payment Webhook
+
+<Diagram 
+  groups={[
+    {
+      id: "trigger",
+      label: "Trigger",
+      nodes: [{ id: "webhook", label: "trigger.webhook", sublabel: "/stripe/payment", type: "primary" }]
+    },
+    {
+      id: "validate",
+      label: "Validate",
+      nodes: [{ id: "if", label: "control.if", sublabel: "event == payment.succeeded", type: "warning" }]
+    },
+    {
+      id: "process",
+      label: "Process",
+      direction: "row",
+      nodes: [
+        { id: "db", label: "database.update", sublabel: "Update order", type: "success" },
+        { id: "email", label: "email.send", sublabel: "Send receipt", type: "success" }
+      ]
+    }
+  ]}
+/>
+
+**Webhook URL after deployment:**
+
+```
+https://your-orchestrator.com/webhooks/bot/{bot_id}
+```
+
+---
+
+<NodeHeader id="trigger-queue" icon="ListOrdered" label="Queue Trigger" description="Trigger from message queue" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.queue`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Async job processing
+- Distributed task execution
+- Decouple services with message queues
+- High-volume batch processing
+
+### Configuration
+
+- **queue_name** (`text`, required) — Queue name
+
+### Output
+
+- **message** (`object`) — Message payload from queue
+- **messageId** (`string`) — Unique message identifier
+- **timestamp** (`string`) — When message was received
+
+---
+
+<NodeHeader id="trigger-form" icon="ClipboardList" label="Form Trigger" description="Start workflow when form is submitted" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.form`
+  </Property>
+</Properties>
+
+### When to Use
+
+- User data collection workflows
+- Internal request forms
+- Customer intake forms
+- Employee onboarding processes
+
+### Configuration
+
+- **formTitle** (`text`, required) — Form title
+- **formDescription** (`textarea`) — Description text
+- **submitButtonLabel** (`text`, default: `Submit`) — Submit button text
+- **fields** (`form-builder`) — Form field definitions
+
+### Output
+
+- **formData** (`object`) — All submitted form data
+- **submissionId** (`string`) — Unique submission ID
+- **submittedAt** (`string`) — Submission timestamp
+
+### Example: Employee Onboarding Form
+
+<Diagram 
+  groups={[
+    {
+      id: "trigger",
+      label: "Trigger",
+      nodes: [{ id: "form", label: "trigger.form", sublabel: "New Employee Form", type: "primary" }]
+    },
+    {
+      id: "setup",
+      label: "Setup",
+      direction: "row",
+      nodes: [
+        { id: "ad", label: "api.http_request", sublabel: "Create AD user", type: "warning" },
+        { id: "email", label: "ms365.email_send", sublabel: "Welcome email", type: "warning" }
+      ]
+    },
+    {
+      id: "notify",
+      label: "Notify",
+      nodes: [{ id: "hr", label: "logging.notification", sublabel: "Notify HR", type: "success" }]
+    }
+  ]}
+/>
+
+---
+
+<NodeHeader id="trigger-api_polling" icon="RefreshCw" label="API Polling" description="Poll an API endpoint at intervals" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.api_polling`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Monitor external APIs for changes
+- Sync data from systems without webhooks
+- Check job completion status
+- Periodic data fetching
+
+### Configuration
+
+- **url** (`text`, required) — API URL to poll
+- **method** (`select`, default: `GET`) — HTTP method: `GET`, `POST`
+- **interval** (`number`, default: `60`) — Polling interval in seconds
+- **headers** (`textarea`) — Headers as JSON
+- **condition** (`text`) — Trigger condition using JSONPath (e.g., `$.status == 'ready'`)
+
+### Output
+
+- **response** (`object`) — API response data
+- **statusCode** (`number`) — HTTP status code
+- **headers** (`object`) — Response headers
+
+### Example: Job Completion Monitor
+
+<Diagram 
+  groups={[
+    {
+      id: "trigger",
+      label: "Trigger",
+      nodes: [{ id: "poll", label: "trigger.api_polling", sublabel: "Check every 60s", type: "primary" }]
+    },
+    {
+      id: "check",
+      label: "Check Status",
+      nodes: [{ id: "if", label: "control.if", sublabel: "status == complete", type: "warning" }]
+    },
+    {
+      id: "process",
+      label: "Process",
+      nodes: [{ id: "download", label: "api.http_request", sublabel: "Download results", type: "success" }]
+    }
+  ]}
+/>
+
+---
+
+<NodeHeader id="trigger-database_change" icon="DatabaseZap" label="Database Change" description="Trigger when database records change" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.database_change`
+  </Property>
+</Properties>
+
+### When to Use
+
+- React to new orders in database
+- Sync data between systems
+- Audit trail and compliance
+- Real-time data pipelines
+
+### Configuration
+
+- **connection** (`text`, required) — Connection name
+- **table** (`text`, required) — Table name to monitor
+- **event** (`select`, default: `INSERT`) — Event type: `INSERT`, `UPDATE`, `DELETE`, `ALL`
+- **filter** (`text`) — Filter condition (e.g., `status = 'pending'`)
+
+### Output
+
+- **record** (`object`) — Changed record data
+- **event** (`string`) — Event type: INSERT, UPDATE, DELETE
+- **table** (`string`) — Table name
+- **timestamp** (`string`) — When the change occurred
+
+### Example: New Order Processing
+
+<Diagram 
+  groups={[
+    {
+      id: "trigger",
+      label: "Trigger",
+      nodes: [{ id: "db", label: "trigger.database_change", sublabel: "orders table", type: "primary" }]
+    },
+    {
+      id: "validate",
+      label: "Validate",
+      nodes: [{ id: "check", label: "control.if", sublabel: "amount > 1000", type: "warning" }]
+    },
+    {
+      id: "approve",
+      label: "Approve",
+      direction: "row",
+      nodes: [
+        { id: "auto", label: "database.update", sublabel: "Auto-approve", type: "success" },
+        { id: "manual", label: "human.approval", sublabel: "Manual review", type: "warning" }
+      ]
+    }
+  ]}
+/>
+
+---
+
+<NodeHeader id="trigger-storage_event" icon="HardDrive" label="Storage Event" description="Trigger on S3/MinIO storage events" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.storage_event`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Process files uploaded to cloud storage
+- ETL pipelines from data lakes
+- Media processing workflows
+- Backup and archival automation
+
+### Configuration
+
+- **bucket** (`text`, required) — Bucket name
+- **prefix** (`text`) — Path prefix (e.g., `uploads/`)
+- **event** (`select`, default: `ObjectCreated`) — Event type: `ObjectCreated`, `ObjectRemoved`, `ObjectModified`
+- **suffix** (`text`) — File suffix filter (e.g., `.pdf`)
+
+### Output
+
+- **bucket** (`string`) — Bucket name
+- **key** (`string`) — Object key/path
+- **event** (`string`) — Event type
+- **size** (`number`) — Object size in bytes
+- **timestamp** (`string`) — When the event occurred
+
+---
+
+<NodeHeader id="trigger-message_bus" icon="Radio" label="Message Bus" description="Trigger from Kafka/RabbitMQ/Redis" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.message_bus`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Microservices event handling
+- Real-time data streaming
+- Event-driven architectures
+- Distributed system integration
+
+### Configuration
+
+- **provider** (`select`, default: `rabbitmq`) — Provider: `rabbitmq`, `kafka`, `redis`, `sqs`
+- **connection** (`text`, required) — Connection string
+- **topic** (`text`, required) — Topic/queue name
+- **consumer_group** (`text`) — Consumer group name
+
+### Output
+
+- **message** (`object`) — Message payload
+- **messageId** (`string`) — Message identifier
+- **topic** (`string`) — Topic/queue name
+- **timestamp** (`string`) — When message was received
+
+---
+
+<NodeHeader id="trigger-chat" icon="MessageCircle" label="Chat Trigger" description="Trigger from chat message (Slack, Teams, Telegram)" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `trigger.chat`
+  </Property>
+</Properties>
+
+### When to Use
+
+- ChatOps automation
+- Slack/Teams bot commands
+- User request handling
+- IT service desk automation
+
+### Configuration
+
+- **platform** (`select`, default: `slack`) — Platform: `slack`, `teams`, `telegram`, `discord`
+- **bot_token** (`password`, required) — Bot token
+- **channel** (`text`) — Channel/Chat ID
+- **command** (`text`) — Command prefix (e.g., `/runbot`)
+
+### Example: Slack DevOps Bot
+
+<Diagram 
+  groups={[
+    {
+      id: "trigger",
+      label: "Trigger",
+      nodes: [{ id: "chat", label: "trigger.chat", sublabel: "/deploy prod", type: "primary" }]
+    },
+    {
+      id: "confirm",
+      label: "Confirm",
+      nodes: [{ id: "approval", label: "human.approval", sublabel: "Manager approval", type: "warning" }]
+    },
+    {
+      id: "deploy",
+      label: "Deploy",
+      direction: "row",
+      nodes: [
+        { id: "api", label: "api.http_request", sublabel: "Trigger CI/CD", type: "success" },
+        { id: "notify", label: "logging.notification", sublabel: "Notify team", type: "success" }
+      ]
+    }
+  ]}
+/>
+
+---
+
+## Choosing the Right Trigger
+
+| Use Case | Recommended Trigger |
+|----------|---------------------|
+| User-initiated actions | `trigger.manual` or `trigger.form` |
+| File-based workflows | `trigger.file_watch` or `trigger.storage_event` |
+| External integrations | `trigger.webhook` |
+| Scheduled tasks | Schedule in Orchestrator |
+| Email processing | `trigger.email_received` |
+| Database reactions | `trigger.database_change` |
+| Microservices | `trigger.message_bus` or `trigger.queue` |
+| ChatOps | `trigger.chat` |
+
+---
+

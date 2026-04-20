@@ -1,0 +1,43 @@
+# Production dependencies
+robotframework>=6.1.0
+rpaframework>=27.0.0
+pydantic>=2.0.0
+pyyaml>=6.0
+jinja2>=3.1.0
+
+# Security - Local Vault (AES-256-GCM encryption)
+cryptography>=41.0.0
+
+# Data Integration - Database Connectors (Pre-bundled)
+psycopg2-binary>=2.9.9       # PostgreSQL
+pymysql>=1.1.0               # MySQL / MariaDB
+pyodbc>=5.0.1                # SQL Server (requires ODBC Driver 17+)
+cx_Oracle>=8.3.0             # Oracle Database
+# ibm_db>=3.2.0              # IBM DB2 (uncomment when needed - requires system libs)
+snowflake-connector-python>=3.6.0  # Snowflake
+
+# Data Integration - Files & Cloud
+boto3>=1.34.0                # AWS S3
+paramiko>=3.4.0              # SFTP
+openpyxl>=3.1.2              # Excel files
+requests>=2.31.0             # REST APIs
+
+# Data Integration - SaaS Connectors
+simple-salesforce>=1.12.0    # Salesforce CRM
+
+# Data Integration - Cloud Data Warehouses
+google-cloud-bigquery>=3.14.0  # Google BigQuery
+
+# External Vault Providers (Enterprise Secrets Management)
+azure-identity>=1.12.0       # Azure Key Vault - Service Principal & Managed Identity
+azure-keyvault-secrets>=4.7.0  # Azure Key Vault - Secrets client
+hvac>=2.1.0                  # HashiCorp Vault
+
+# Voice & Telephony (Twilio)
+twilio>=8.10.0               # Twilio Voice SDK
+flask>=3.0.0                 # Webhook server for inbound calls
+
+# Microsoft 365 Integration (Graph API)
+msgraph-sdk>=1.2.0           # Microsoft Graph SDK
+# azure-identity already included above for Azure Key Vault
+

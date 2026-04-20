@@ -1,0 +1,149 @@
+export const metadata = {
+  title: 'Security & Vault',
+  description: 'Secure credential management. Store secrets, encrypt data, and manage access.',
+}
+
+export const sections = [
+  { title: 'Get Secret', id: 'security-get_secret' },
+  { title: 'Encrypt Data', id: 'security-encrypt' },
+  { title: 'Decrypt Data', id: 'security-decrypt' },
+  { title: 'Hash Data', id: 'security-hash' },
+  { title: 'Mask Data', id: 'security-mask_data' },
+  { title: 'Validate Certificate', id: 'security-validate_cert' },
+]
+
+Secure credential management. Store secrets, encrypt data, and manage access. {{ className: 'lead' }}
+
+<Note>
+  The Vault uses AES-256 encryption with keys stored in your system's secure keychain (macOS Keychain, Windows Credential Manager).
+</Note>
+
+---
+
+<NodeHeader id="security-get_secret" icon="Key" label="Get Secret" description="Retrieve secret from vault" bgColor="#fee2e2" textColor="#991b1b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `security.get_secret`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **name** (`text`, required) — Secret name
+- **vault** (`select`, default: `orchestrator`) — Vault source:
+  - `orchestrator` — Orchestrator
+  - `env` — Environment
+  - `azure` — Azure Key Vault
+  - `aws` — AWS Secrets
+
+**Using Vault Secrets:**
+
+You can reference vault secrets directly in any node configuration:
+
+```
+${vault.API_KEY}
+${vault.DB_PASSWORD}
+${vault.OAUTH_CLIENT_SECRET}
+```
+
+---
+
+<NodeHeader id="security-encrypt" icon="Lock" label="Encrypt Data" description="Encrypt sensitive data" bgColor="#fee2e2" textColor="#991b1b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `security.encrypt`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **data** (`textarea`, required) — Data to encrypt
+- **key** (`text`, required) — Encryption key
+
+---
+
+<NodeHeader id="security-decrypt" icon="Unlock" label="Decrypt Data" description="Decrypt encrypted data" bgColor="#fee2e2" textColor="#991b1b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `security.decrypt`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **data** (`textarea`, required) — Encrypted data
+- **key** (`text`, required) — Decryption key
+
+---
+
+<NodeHeader id="security-hash" icon="Hash" label="Hash Data" description="Create data hash" bgColor="#fee2e2" textColor="#991b1b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `security.hash`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **data** (`textarea`, required) — Data to hash
+- **algorithm** (`select`, default: `sha256`) — Hash algorithm:
+  - `sha256` — SHA-256
+  - `sha512` — SHA-512
+  - `md5` — MD5
+
+---
+
+<NodeHeader id="security-mask_data" icon="EyeOff" label="Mask Data" description="Mask sensitive data in logs" bgColor="#fee2e2" textColor="#991b1b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `security.mask_data`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **pattern** (`text`, required) — Pattern to mask
+- **mask_char** (`text`, default: `*`) — Mask character
+
+---
+
+<NodeHeader id="security-validate_cert" icon="ShieldCheck" label="Validate Certificate" description="Validate SSL certificate" bgColor="#fee2e2" textColor="#991b1b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `security.validate_cert`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **url** (`text`, required) — URL to validate
+
+---
+
+## Best Practices
+
+<Warning>
+  **Never hardcode credentials** in your bot configurations. Always use `${vault.SECRET_NAME}`.
+</Warning>
+
+### Recommended Vault Organization
+
+```
+vault.
+├── API_KEYS/
+│   ├── OPENAI_API_KEY
+│   ├── STRIPE_API_KEY
+│   └── SENDGRID_KEY
+├── DATABASE/
+│   ├── PROD_DB_PASSWORD
+│   └── DEV_DB_PASSWORD
+├── OAUTH/
+│   ├── GOOGLE_CLIENT_SECRET
+│   └── MS365_CLIENT_SECRET
+└── SERVICES/
+    ├── TWILIO_AUTH_TOKEN
+    └── AWS_SECRET_KEY
+```
+
+---
+

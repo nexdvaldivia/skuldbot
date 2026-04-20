@@ -1,0 +1,629 @@
+export const metadata = {
+  title: 'Email',
+  description: 'Complete email automation. Send, read, reply, forward emails via SMTP, IMAP, Outlook, or Gmail.',
+}
+
+export const sections = [
+  { title: 'Provider Setup', id: 'email-provider-setup' },
+  { title: 'Send Email', id: 'email-send' },
+  { title: 'Read Emails', id: 'email-read' },
+  { title: 'Reply to Email', id: 'email-reply' },
+  { title: 'Forward Email', id: 'email-forward' },
+  { title: 'Download Attachment', id: 'email-download_attachment' },
+  { title: 'Move Email', id: 'email-move' },
+  { title: 'Delete Email', id: 'email-delete' },
+  { title: 'Mark as Read', id: 'email-mark_read' },
+  { title: 'Search Emails', id: 'email-search' },
+  { title: 'Send via SMTP', id: 'email-send_smtp' },
+  { title: 'Send via Outlook', id: 'email-send_outlook' },
+  { title: 'Send via Gmail', id: 'email-send_gmail' },
+  { title: 'Read via IMAP', id: 'email-read_imap' },
+  { title: 'Create Draft', id: 'email-create_draft' },
+  { title: 'Get Folders', id: 'email-get_folders' },
+]
+
+# Email
+
+Complete email automation. Send, read, reply, forward emails via SMTP, IMAP, Outlook, or Gmail API. {{ className: 'lead' }}
+
+<Note>
+  **15 components**. For Microsoft 365 (Exchange Online) with calendar, teams, and SharePoint, see the [MS365](/components/ms365) category. Download Attachment and Send (with attachments) support [Storage Provider](/components/storage) for cloud file access.
+</Note>
+
+---
+
+## Provider Setup {{ id: 'email-provider-setup' }}
+
+SkuldBot supports multiple email providers. Choose based on your infrastructure:
+
+| Provider | Best For | Authentication |
+|----------|----------|----------------|
+| **SMTP** | Any email server, on-premise | Username + password |
+| **IMAP** | Reading from any mailbox | Username + password |
+| **Gmail API** | Google Workspace | OAuth2 / Service Account |
+| **Outlook** | Microsoft 365 | OAuth2 / App Registration |
+
+<Note>
+  **Security**: Never hardcode email credentials. Use the Vault: Vault variables for credentials. Store credentials in the Studio Vault Manager or the Orchestrator credentials store.
+</Note>
+
+---
+
+<NodeHeader id="email-send" icon="Send" label="Send Email" description="Send an email via the default provider" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.send`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="to" type="text" required>
+    Recipient email address(es). Comma-separated for multiple: `alice@co.com, bob@co.com`
+  </Property>
+  <Property name="subject" type="text" required>
+    Email subject line. Supports expressions: `Invoice ${Invoice Number.output}`
+  </Property>
+  <Property name="body" type="textarea" required>
+    Email body content. Can include HTML if `html` is enabled.
+  </Property>
+  <Property name="cc" type="text">
+    CC recipients (comma-separated).
+  </Property>
+  <Property name="bcc" type="text">
+    BCC recipients (comma-separated).
+  </Property>
+  <Property name="html" type="boolean">
+    Send as HTML email. Default: `false`.
+  </Property>
+  <Property name="attachments" type="text">
+    File paths to attach (comma-separated). E.g., `${FILE_PATH}, /tmp/report.pdf`
+  </Property>
+</Properties>
+
+### Example: Send a report email
+
+```json
+{
+  "id": "send-report",
+  "type": "email.send",
+  "config": {
+    "to": "manager@company.com",
+    "subject": "Daily Sales Report - ${BOT_NAME}",
+    "body": "Please find the daily sales report attached.\n\nTotal sales: ${Excel Read.output.rowCount} records processed.",
+    "attachments": "${Excel Export.output.filePath}",
+    "html": false
+  }
+}
+```
+
+### Output
+
+<Properties>
+  <Property name="message_id" type="string">Unique message identifier.</Property>
+  <Property name="status" type="string">Send status: `sent` or `failed`.</Property>
+</Properties>
+
+---
+
+<NodeHeader id="email-read" icon="MailOpen" label="Read Emails" description="Read emails from a mailbox folder" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.read`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="folder" type="text">
+    Mailbox folder. Default: `INBOX`. Common: `INBOX`, `Sent`, `Drafts`, `Archive`.
+  </Property>
+  <Property name="filter" type="text">
+    Subject filter (partial match). E.g., `Invoice` matches "Invoice #123".
+  </Property>
+  <Property name="unread_only" type="boolean">
+    Only fetch unread emails. Default: `true`.
+  </Property>
+  <Property name="limit" type="number">
+    Maximum emails to retrieve. Default: `10`.
+  </Property>
+  <Property name="since" type="text">
+    Only emails after this date. Format: `YYYY-MM-DD`.
+  </Property>
+</Properties>
+
+### Example: Read unread invoices
+
+```json
+{
+  "id": "read-invoices",
+  "type": "email.read",
+  "config": {
+    "folder": "INBOX",
+    "filter": "Invoice",
+    "unread_only": true,
+    "limit": 50,
+    "since": "2025-01-01"
+  }
+}
+```
+
+### Output
+
+<Properties>
+  <Property name="emails" type="array">
+    List of email objects, each containing:
+    - `message_id` — Unique message ID
+    - `from` — Sender address
+    - `to` — Recipient(s)
+    - `subject` — Subject line
+    - `body` — Plain text body
+    - `html_body` — HTML body (if available)
+    - `date` — Received date
+    - `attachments` — List of attachment names
+    - `is_read` — Read status
+  </Property>
+  <Property name="count" type="number">Number of emails retrieved.</Property>
+</Properties>
+
+---
+
+<NodeHeader id="email-reply" icon="Reply" label="Reply to Email" description="Reply to a specific email" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.reply`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="message_id" type="text" required>
+    Original message ID. Use `${Read Emails.output.emails[0].message_id}`.
+  </Property>
+  <Property name="body" type="textarea" required>
+    Reply body.
+  </Property>
+  <Property name="reply_all" type="boolean">
+    Reply to all recipients. Default: `false`.
+  </Property>
+</Properties>
+
+### Example: Auto-reply to customer emails
+
+```json
+{
+  "id": "auto-reply",
+  "type": "email.reply",
+  "config": {
+    "message_id": "${Read Emails.output.emails[0].message_id}",
+    "body": "Thank you for your email. We have received your request and will respond within 24 hours.\n\nReference: ${Read Emails.output.emails[0].subject}",
+    "reply_all": false
+  }
+}
+```
+
+---
+
+<NodeHeader id="email-forward" icon="Forward" label="Forward Email" description="Forward an email to another recipient" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.forward`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="message_id" type="text" required>
+    Original message ID.
+  </Property>
+  <Property name="to" type="text" required>
+    Forward to address(es).
+  </Property>
+  <Property name="note" type="textarea">
+    Optional note to prepend.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="email-download_attachment" icon="Paperclip" label="Download Attachment" description="Save an email attachment to disk" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.download_attachment`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="message_id" type="text" required>
+    Message ID containing the attachment.
+  </Property>
+  <Property name="attachment_name" type="text">
+    Specific attachment name. If empty, downloads all attachments.
+  </Property>
+  <Property name="save_path" type="text" required>
+    Directory to save files. E.g., `/tmp/attachments/`
+  </Property>
+</Properties>
+
+### Example: Download invoice PDFs
+
+```json
+{
+  "id": "download-pdfs",
+  "type": "email.download_attachment",
+  "config": {
+    "message_id": "${Read Emails.output.emails[0].message_id}",
+    "save_path": "/tmp/invoices/"
+  }
+}
+```
+
+### Output
+
+<Properties>
+  <Property name="files" type="array">List of downloaded file paths.</Property>
+  <Property name="count" type="number">Number of attachments downloaded.</Property>
+</Properties>
+
+---
+
+<NodeHeader id="email-move" icon="FolderInput" label="Move Email" description="Move email to a different folder" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.move`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="message_id" type="text" required>
+    Message ID to move.
+  </Property>
+  <Property name="folder" type="text" required>
+    Target folder. E.g., `Processed`, `Archive`, `Errors`.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="email-delete" icon="Trash2" label="Delete Email" description="Delete an email from the mailbox" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.delete`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="message_id" type="text" required>
+    Message ID to delete.
+  </Property>
+  <Property name="permanent" type="boolean">
+    Permanently delete (skip trash). Default: `false`.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="email-mark_read" icon="CheckCircle" label="Mark as Read" description="Mark email as read or unread" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.mark_read`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="message_id" type="text" required>
+    Message ID.
+  </Property>
+  <Property name="read" type="boolean">
+    Mark as read (`true`) or unread (`false`). Default: `true`.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="email-search" icon="Search" label="Search Emails" description="Search emails with advanced criteria" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.search`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="query" type="text" required>
+    Search query. Supports subject, sender, date range. E.g., `from:alice@co.com subject:invoice after:2025-01-01`
+  </Property>
+  <Property name="folder" type="text">
+    Folder to search. Default: `INBOX`. Use `ALL` to search all folders.
+  </Property>
+  <Property name="limit" type="number">
+    Maximum results. Default: `20`.
+  </Property>
+</Properties>
+
+### Example: Find all emails from a specific sender
+
+```json
+{
+  "id": "search-vendor",
+  "type": "email.search",
+  "config": {
+    "query": "from:billing@vendor.com subject:invoice",
+    "folder": "INBOX",
+    "limit": 100
+  }
+}
+```
+
+### Output
+
+<Properties>
+  <Property name="emails" type="array">Matching emails (same structure as Read Emails).</Property>
+  <Property name="count" type="number">Number of matches.</Property>
+</Properties>
+
+---
+
+<NodeHeader id="email-send_smtp" icon="Server" label="Send via SMTP" description="Send email through a specific SMTP server" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.send_smtp`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="smtp_host" type="text" required>
+    SMTP server address. E.g., `smtp.gmail.com`, `smtp.office365.com`, `mail.company.com`.
+  </Property>
+  <Property name="port" type="number">
+    SMTP port. Default: `587`. Common: `587` (TLS), `465` (SSL), `25` (unencrypted).
+  </Property>
+  <Property name="username" type="text" required>
+    SMTP username. Use Vault for secure storage.
+  </Property>
+  <Property name="password" type="password" required>
+    SMTP password. **Always use Vault** for passwords.
+  </Property>
+  <Property name="tls" type="boolean">
+    Use TLS encryption. Default: `true`. **Never disable in production.**
+  </Property>
+  <Property name="to" type="text" required>Recipient.</Property>
+  <Property name="from" type="text">Sender address (if different from username).</Property>
+  <Property name="subject" type="text" required>Subject.</Property>
+  <Property name="body" type="textarea" required>Body.</Property>
+</Properties>
+
+### Example: Send via corporate SMTP
+
+```json
+{
+  "id": "smtp-send",
+  "type": "email.send_smtp",
+  "config": {
+    "smtp_host": "smtp.company.com",
+    "port": 587,
+    "username": "${vault.SMTP_USER}",
+    "password": "${vault.SMTP_PASSWORD}",
+    "tls": true,
+    "to": "client@external.com",
+    "from": "automation@company.com",
+    "subject": "Automated Report",
+    "body": "Please find the attached report."
+  }
+}
+```
+
+<Note>
+  For Gmail SMTP, enable "Less secure app access" or use an App Password. For Outlook, use `smtp.office365.com:587`.
+</Note>
+
+---
+
+<NodeHeader id="email-send_outlook" icon="Mail" label="Send via Outlook" description="Send email via Microsoft Outlook / Exchange" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.send_outlook`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="to" type="text" required>Recipient.</Property>
+  <Property name="cc" type="text">CC recipients.</Property>
+  <Property name="bcc" type="text">BCC recipients.</Property>
+  <Property name="subject" type="text" required>Subject.</Property>
+  <Property name="body" type="textarea" required>Body.</Property>
+  <Property name="html" type="boolean">HTML body. Default: `false`.</Property>
+  <Property name="attachments" type="textarea">Attachment file paths (comma-separated).</Property>
+  <Property name="importance" type="select">Priority: `low`, `normal`, `high`. Default: `normal`.</Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="message_id" type="string">Outlook message ID.</Property>
+  <Property name="status" type="string">Send status.</Property>
+</Properties>
+
+---
+
+<NodeHeader id="email-send_gmail" icon="Mail" label="Send via Gmail" description="Send email via Gmail API" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.send_gmail`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="to" type="text" required>Recipient.</Property>
+  <Property name="subject" type="text" required>Subject.</Property>
+  <Property name="body" type="textarea" required>Body.</Property>
+  <Property name="html" type="boolean">HTML body. Default: `false`.</Property>
+  <Property name="labels" type="text">Gmail labels to apply (comma-separated).</Property>
+</Properties>
+
+---
+
+<NodeHeader id="email-read_imap" icon="Inbox" label="Read via IMAP" description="Read emails from any IMAP server" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.read_imap`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="imap_host" type="text" required>
+    IMAP server. E.g., `imap.gmail.com`, `outlook.office365.com`, `imap.company.com`.
+  </Property>
+  <Property name="port" type="number">
+    IMAP port. Default: `993` (SSL).
+  </Property>
+  <Property name="username" type="text" required>
+    Username. Use Vault for secure storage.
+  </Property>
+  <Property name="password" type="password" required>
+    Password. **Always use Vault** for passwords.
+  </Property>
+  <Property name="ssl" type="boolean">
+    Use SSL. Default: `true`.
+  </Property>
+  <Property name="folder" type="text">
+    Folder. Default: `INBOX`.
+  </Property>
+  <Property name="limit" type="number">
+    Max emails. Default: `10`.
+  </Property>
+  <Property name="unread_only" type="boolean">
+    Only unread. Default: `true`.
+  </Property>
+</Properties>
+
+### Example: Read from corporate IMAP
+
+```json
+{
+  "id": "read-corporate",
+  "type": "email.read_imap",
+  "config": {
+    "imap_host": "imap.company.com",
+    "port": 993,
+    "username": "${vault.IMAP_USER}",
+    "password": "${vault.IMAP_PASSWORD}",
+    "ssl": true,
+    "folder": "INBOX/Invoices",
+    "limit": 50,
+    "unread_only": true
+  }
+}
+```
+
+---
+
+<NodeHeader id="email-create_draft" icon="FileEdit" label="Create Draft" description="Create an email draft without sending" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.create_draft`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="to" type="text">Recipient (can be empty for drafts).</Property>
+  <Property name="subject" type="text">Subject.</Property>
+  <Property name="body" type="textarea">Body.</Property>
+</Properties>
+
+<Note>
+  Useful for human-in-the-loop workflows: the bot creates a draft, a human reviews and sends it.
+</Note>
+
+---
+
+<NodeHeader id="email-get_folders" icon="FolderTree" label="Get Folders" description="List all email folders in the mailbox" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `email.get_folders`
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="folders" type="array">List of folder names and their message counts.</Property>
+</Properties>
+
+---
+
+## Common Patterns
+
+### Pattern: Process invoice emails automatically
+
+<FlowDiagram items={[
+  { label: "email.read", sublabel: "Filter: Invoice", type: "default" },
+  { label: "email.download_attachment", sublabel: "Save PDFs", type: "primary" },
+  { label: "ai.extract_data", sublabel: "Extract fields", type: "warning" },
+  { label: "excel.write_range", sublabel: "Append to sheet", type: "success" },
+  { label: "email.move", sublabel: "To: Processed", type: "success" },
+  { label: "email.send", sublabel: "Notify team", type: "success" }
+]} />
+
+Reads unread invoices, downloads PDFs, extracts data with AI, saves to Excel, moves email to "Processed", and notifies accounting.
+
+### Pattern: Email monitoring with alerts
+
+<FlowDiagram items={[
+  { label: "trigger.schedule", sublabel: "Every 5 min", type: "default" },
+  { label: "email.read", sublabel: "Unread URGENT", type: "primary" },
+  { label: "ai.classify", sublabel: "critical/high/normal", type: "warning" },
+  { label: "control.if", sublabel: "Is critical?", type: "default" },
+  { label: "email.send", sublabel: "Alert on-call", type: "success" }
+]} />
+
+### Pattern: Auto-reply with AI
+
+Connect email nodes as **tools** to an AI Agent for intelligent auto-responses. The agent reads each unread email, searches the knowledge base, and drafts a contextual reply. It decides whether to respond, escalate, or skip based on content.
+
+<FlowDiagram items={[
+  { label: "ai.model", sublabel: "GPT-4o", type: "primary" },
+  { label: "ai.agent", sublabel: "Support auto-reply", type: "warning" },
+  { label: "email.read", sublabel: "Tool: read inbox", type: "default" },
+  { label: "email.reply", sublabel: "Tool: send reply", type: "success" }
+]} />
+
+---

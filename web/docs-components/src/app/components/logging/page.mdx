@@ -1,0 +1,200 @@
+export const metadata = {
+  title: 'Logging & Monitoring',
+  description: 'Monitor your bots. Logging, screenshots, alerts, and audit trails.',
+}
+
+export const sections = [
+  { title: 'Log Message', id: 'logging-log' },
+  { title: 'Log Screenshot', id: 'logging-screenshot' },
+  { title: 'Log Metric', id: 'logging-metric' },
+  { title: 'Start Timer', id: 'logging-timer_start' },
+  { title: 'Stop Timer', id: 'logging-timer_stop' },
+  { title: 'Send Notification', id: 'logging-notification' },
+  { title: 'Audit Log', id: 'logging-audit' },
+  { title: 'Export Logs', id: 'logging-export' },
+]
+
+# Logging & Monitoring
+
+Monitor your bots. Logging, screenshots, alerts, and audit trails. {{ className: 'lead' }}
+
+<Note>
+  **8 components**. All log entries are included in the Evidence Pack for audit compliance. PII/PHI in log messages is automatically redacted when compliance policies are active. Log Export supports [Storage Provider](/components/storage) for cloud log storage.
+</Note>
+
+### Best Practices
+
+- Use `INFO` for normal operations, `WARN` for recoverable issues, `ERROR` for failures
+- Use `logging.metric` to track KPIs: records processed, processing time, error rate
+- Use `logging.timer_start` / `logging.timer_stop` to measure performance of critical sections
+- Use `logging.audit` for compliance-sensitive operations (data access, decisions, approvals)
+- Use `logging.notification` to alert teams on failures or thresholds
+
+---
+
+<NodeHeader id="logging-log" icon="ScrollText" label="Log Message" description="Write log message" bgColor="#f1f5f9" textColor="#475569" />
+
+<Properties>
+  <Property name="type" type="string">
+    `logging.log`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **message** (`textarea`, required) — Log message
+- **level** (`select`, default: `INFO`) — Log level:
+  - `DEBUG` — DEBUG
+  - `INFO` — INFO
+  - `WARN` — WARN
+  - `ERROR` — ERROR
+
+**Output:**
+- **message** (`string`) — The logged message
+- **level** (`string`) — Log level used
+- **timestamp** (`string`) — Timestamp when logged
+
+---
+
+<NodeHeader id="logging-screenshot" icon="Camera" label="Log Screenshot" description="Capture screenshot to log" bgColor="#f1f5f9" textColor="#475569" />
+
+<Properties>
+  <Property name="type" type="string">
+    `logging.screenshot`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **description** (`text`) — Screenshot description
+
+---
+
+<NodeHeader id="logging-metric" icon="Variable" label="Log Metric" description="Record numeric metric" bgColor="#f1f5f9" textColor="#475569" />
+
+<Properties>
+  <Property name="type" type="string">
+    `logging.metric`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **name** (`text`, required) — Metric name
+- **value** (`number`, required) — Metric value
+- **unit** (`text`) — Unit of measurement
+
+---
+
+<NodeHeader id="logging-timer_start" icon="Timer" label="Start Timer" description="Start performance timer" bgColor="#f1f5f9" textColor="#475569" />
+
+<Properties>
+  <Property name="type" type="string">
+    `logging.timer_start`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **name** (`text`, required) — Timer name
+
+---
+
+<NodeHeader id="logging-timer_stop" icon="TimerOff" label="Stop Timer" description="Stop and log timer" bgColor="#f1f5f9" textColor="#475569" />
+
+<Properties>
+  <Property name="type" type="string">
+    `logging.timer_stop`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **name** (`text`, required) — Timer name to stop
+
+---
+
+<NodeHeader id="logging-notification" icon="Bell" label="Send Notification" description="Send alert notification" bgColor="#f1f5f9" textColor="#475569" />
+
+<Properties>
+  <Property name="type" type="string">
+    `logging.notification`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **channel** (`select`, default: `email`) — Notification channel:
+  - `email` — Email
+  - `slack` — Slack
+  - `teams` — Teams
+  - `webhook` — Webhook
+- **message** (`textarea`, required) — Notification message
+
+---
+
+<NodeHeader id="logging-audit" icon="ClipboardList" label="Audit Log" description="Create audit entry" bgColor="#f1f5f9" textColor="#475569" />
+
+<Properties>
+  <Property name="type" type="string">
+    `logging.audit`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **action** (`text`, required) — Action performed
+- **details** (`textarea`) — Additional details as JSON
+
+---
+
+<NodeHeader id="logging-export" icon="FileDown" label="Export Logs" description="Export run logs" bgColor="#f1f5f9" textColor="#475569" />
+
+<Properties>
+  <Property name="type" type="string">
+    `logging.export`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **path** (`text`, required) — Output path
+- **format** (`select`, default: `json`) — Export format:
+  - `json` — JSON
+  - `csv` — CSV
+  - `html` — HTML
+
+---
+
+## Common Patterns
+
+### Performance Monitoring
+
+Wrap critical sections with timers to track performance:
+
+<FlowDiagram items={[
+  { label: "logging.timer_start", sublabel: "api_call_time", type: "default" },
+  { label: "api.http_request", sublabel: "External API", type: "primary" },
+  { label: "logging.timer_stop", sublabel: "api_call_time", type: "default" },
+  { label: "logging.metric", sublabel: "records_processed", type: "success" }
+]} />
+
+### Error Alert Pipeline
+
+Connect error outputs to notifications for real-time alerting:
+
+<FlowDiagram items={[
+  { label: "database.query", sublabel: "Critical query", type: "primary" },
+  { label: "logging.log", sublabel: "ERROR: query failed", type: "warning" },
+  { label: "logging.notification", sublabel: "Alert: Slack + Email", type: "warning" },
+  { label: "logging.audit", sublabel: "Record failure", type: "default" }
+]} />
+
+### Compliance Audit Trail
+
+For regulated workflows, add audit entries at every decision point:
+
+<FlowDiagram items={[
+  { label: "ai.classify", sublabel: "Classify claim", type: "primary" },
+  { label: "logging.audit", sublabel: "Decision logged", type: "default" },
+  { label: "human.approval", sublabel: "Supervisor review", type: "warning" },
+  { label: "logging.audit", sublabel: "Approval logged", type: "default" },
+  { label: "logging.screenshot", sublabel: "Visual evidence", type: "default" }
+]} />
+
+Every audit entry includes: who, what, when, and the data context. Combined with the Evidence Pack, this provides a complete chain of custody for auditors.
+
+---
+

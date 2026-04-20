@@ -1,0 +1,1414 @@
+export const metadata = {
+  title: 'Data Integration',
+  description: 'Extract and load data from databases, files, and cloud services.',
+}
+
+export const sections = [
+  { title: 'Database Taps', id: 'database-taps' },
+  { title: 'File Taps', id: 'file-taps' },
+  { title: 'Cloud Taps', id: 'cloud-taps' },
+  { title: 'Database Targets', id: 'database-targets' },
+  { title: 'File Targets', id: 'file-targets' },
+  { title: 'Cloud Targets', id: 'cloud-targets' },
+]
+
+# Data Integration
+
+Extract and load data from databases, files, and cloud services. {{ className: 'lead' }}
+
+<Note>
+  **23 components** for ETL pipelines. Taps extract data FROM sources, Targets load data TO destinations. All support expressions like `${vault.password}` for secure credentials.
+</Note>
+
+## Overview
+
+| Type | Purpose | Count |
+|------|---------|-------|
+| **Taps** | Extract data FROM sources | 12 |
+| **Targets** | Load data TO destinations | 11 |
+
+<FlowDiagram items={[
+  { label: "TAP", sublabel: "Extract", type: "primary" },
+  { label: "Transform", sublabel: "Optional", type: "warning" },
+  { label: "TARGET", sublabel: "Load", type: "success" }
+]} />
+
+---
+
+## Database Taps {{ id: 'database-taps' }}
+
+<NodeHeader id="extract-sql-server" icon="Database" label="Extract SQL Server" description="Extract data from Microsoft SQL Server" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.sqlserver`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="string" required>
+    Database host. Supports `${vault.db_host}`.
+  </Property>
+  <Property name="port" type="number">
+    Default: `1433`
+  </Property>
+  <Property name="database" type="string" required>
+    Database name.
+  </Property>
+  <Property name="username" type="string" required>
+    Username. Supports `${vault.db_user}`.
+  </Property>
+  <Property name="password" type="password" required>
+    Password. **Use `${vault.db_password}`**.
+  </Property>
+  <Property name="query" type="textarea">
+    SQL Query (e.g., `SELECT * FROM customers WHERE active = 1`).
+  </Property>
+  <Property name="table" type="string">
+    Table name (if no query).
+  </Property>
+  <Property name="columns" type="string">
+    Columns (comma-separated, e.g., `id, name, email`).
+  </Property>
+  <Property name="filter" type="string">
+    WHERE clause filter (e.g., `status = 'active'`).
+  </Property>
+  <Property name="limit" type="number">
+    Row limit.
+  </Property>
+  <Property name="mode" type="select">
+    `memory` (< 50K rows), `batch` (large datasets), `stream` (direct pipe). Default: `memory`.
+  </Property>
+  <Property name="batch_size" type="number">
+    Batch size. Default: `10000`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="records" type="array">
+    Extracted records.
+  </Property>
+  <Property name="columns" type="array">
+    Column names.
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="extract-oracle" icon="Database" label="Extract Oracle" description="Extract data from Oracle Database" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.oracle`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="string" required>
+    Database host.
+  </Property>
+  <Property name="port" type="number">
+    Default: `1521`
+  </Property>
+  <Property name="database" type="string" required>
+    Service Name.
+  </Property>
+  <Property name="username" type="string" required>
+    Username.
+  </Property>
+  <Property name="password" type="password" required>
+    Password. **Use Vault.**
+  </Property>
+  <Property name="query" type="textarea">
+    SQL Query (e.g., `SELECT * FROM customers WHERE ROWNUM <= 1000`).
+  </Property>
+  <Property name="table" type="string">
+    Table name (if no query).
+  </Property>
+  <Property name="columns" type="string">
+    Columns.
+  </Property>
+  <Property name="filter" type="string">
+    WHERE clause filter.
+  </Property>
+  <Property name="limit" type="number">
+    Row limit.
+  </Property>
+  <Property name="mode" type="select">
+    `memory` or `batch`. Default: `memory`.
+  </Property>
+  <Property name="batch_size" type="number">
+    Default: `10000`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="records" type="array">
+    Extracted records.
+  </Property>
+  <Property name="columns" type="array">
+    Column names.
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="extract-postgresql" icon="Database" label="Extract PostgreSQL" description="Extract data from PostgreSQL" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.postgres`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="string" required>
+    Database host.
+  </Property>
+  <Property name="port" type="number">
+    Default: `5432`
+  </Property>
+  <Property name="database" type="string" required>
+    Database name.
+  </Property>
+  <Property name="username" type="string" required>
+    Username.
+  </Property>
+  <Property name="password" type="password" required>
+    Password. **Use Vault.**
+  </Property>
+  <Property name="query" type="textarea">
+    SQL Query (e.g., `SELECT * FROM users LIMIT 1000`).
+  </Property>
+  <Property name="table" type="string">
+    Table name (if no query).
+  </Property>
+  <Property name="columns" type="string">
+    Columns.
+  </Property>
+  <Property name="filter" type="string">
+    WHERE clause filter.
+  </Property>
+  <Property name="limit" type="number">
+    Row limit.
+  </Property>
+  <Property name="mode" type="select">
+    `memory` or `batch`. Default: `memory`.
+  </Property>
+  <Property name="batch_size" type="number">
+    Default: `10000`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="records" type="array">
+    Extracted records.
+  </Property>
+  <Property name="columns" type="array">
+    Column names.
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="extract-mysql" icon="Database" label="Extract MySQL" description="Extract data from MySQL/MariaDB" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.mysql`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="string" required>
+    Database host.
+  </Property>
+  <Property name="port" type="number">
+    Default: `3306`
+  </Property>
+  <Property name="database" type="string" required>
+    Database name.
+  </Property>
+  <Property name="username" type="string" required>
+    Username.
+  </Property>
+  <Property name="password" type="password" required>
+    Password. **Use Vault.**
+  </Property>
+  <Property name="query" type="textarea">
+    SQL Query.
+  </Property>
+  <Property name="table" type="string">
+    Table name (if no query).
+  </Property>
+  <Property name="columns" type="string">
+    Columns.
+  </Property>
+  <Property name="filter" type="string">
+    WHERE clause filter.
+  </Property>
+  <Property name="limit" type="number">
+    Row limit.
+  </Property>
+  <Property name="mode" type="select">
+    `memory` or `batch`. Default: `memory`.
+  </Property>
+  <Property name="batch_size" type="number">
+    Default: `10000`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="records" type="array">
+    Extracted records.
+  </Property>
+  <Property name="columns" type="array">
+    Column names.
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="extract-db2" icon="Database" label="Extract DB2" description="Extract data from IBM DB2" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.db2`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="string" required>
+    Database host.
+  </Property>
+  <Property name="port" type="number">
+    Default: `50000`
+  </Property>
+  <Property name="database" type="string" required>
+    Database name.
+  </Property>
+  <Property name="username" type="string" required>
+    Username.
+  </Property>
+  <Property name="password" type="password" required>
+    Password. **Use Vault.**
+  </Property>
+  <Property name="query" type="textarea">
+    SQL Query.
+  </Property>
+  <Property name="table" type="string">
+    Table name (if no query).
+  </Property>
+  <Property name="columns" type="string">
+    Columns.
+  </Property>
+  <Property name="filter" type="string">
+    WHERE clause filter.
+  </Property>
+  <Property name="limit" type="number">
+    Row limit.
+  </Property>
+  <Property name="mode" type="select">
+    `memory` or `batch`. Default: `memory`.
+  </Property>
+  <Property name="batch_size" type="number">
+    Default: `10000`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="records" type="array">
+    Extracted records.
+  </Property>
+  <Property name="columns" type="array">
+    Column names.
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="extract-snowflake" icon="Snowflake" label="Extract Snowflake" description="Extract data from Snowflake" bgColor="#e0f2fe" textColor="#0369a1" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.snowflake`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="account" type="string" required>
+    Account Identifier (e.g., `${vault.sf_account}`).
+  </Property>
+  <Property name="database" type="string" required>
+    Database name.
+  </Property>
+  <Property name="schema" type="string">
+    Schema name. Default: `PUBLIC`.
+  </Property>
+  <Property name="warehouse" type="string">
+    Warehouse name.
+  </Property>
+  <Property name="username" type="string" required>
+    Username.
+  </Property>
+  <Property name="password" type="password" required>
+    Password. **Use Vault.**
+  </Property>
+  <Property name="query" type="textarea">
+    SQL Query.
+  </Property>
+  <Property name="table" type="string">
+    Table name (if no query).
+  </Property>
+  <Property name="columns" type="string">
+    Columns.
+  </Property>
+  <Property name="filter" type="string">
+    WHERE clause filter.
+  </Property>
+  <Property name="limit" type="number">
+    Row limit.
+  </Property>
+  <Property name="mode" type="select">
+    `memory` or `batch`. Default: `memory`.
+  </Property>
+  <Property name="batch_size" type="number">
+    Default: `10000`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="records" type="array">
+    Extracted records.
+  </Property>
+  <Property name="columns" type="array">
+    Column names.
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records.
+  </Property>
+</Properties>
+
+---
+
+## File Taps {{ id: 'file-taps' }}
+
+<NodeHeader id="read-csv" icon="FileSpreadsheet" label="Read CSV" description="Extract data from CSV file" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.csv`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="string" required>
+    File path.
+  </Property>
+  <Property name="delimiter" type="string">
+    Field delimiter. Default: `,`
+  </Property>
+  <Property name="encoding" type="select">
+    `UTF-8`, `Latin-1`, `Windows-1252`. Default: `utf-8`.
+  </Property>
+  <Property name="header" type="boolean">
+    Has header row. Default: `true`.
+  </Property>
+  <Property name="columns" type="string">
+    Column names (if no header).
+  </Property>
+  <Property name="limit" type="number">
+    Row limit.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="records" type="array">
+    Extracted records.
+  </Property>
+  <Property name="columns" type="array">
+    Column names.
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="read-excel-data" icon="FileSpreadsheet" label="Read Excel (Data)" description="Extract data from Excel file for data integration" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.excel`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="string" required>
+    File path.
+  </Property>
+  <Property name="sheet" type="string">
+    Sheet name.
+  </Property>
+  <Property name="header" type="boolean">
+    Has header row. Default: `true`.
+  </Property>
+  <Property name="columns" type="string">
+    Column names (if no header).
+  </Property>
+  <Property name="limit" type="number">
+    Row limit.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="records" type="array">
+    Extracted records.
+  </Property>
+  <Property name="columns" type="array">
+    Column names.
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records.
+  </Property>
+</Properties>
+
+---
+
+## Cloud Taps {{ id: 'cloud-taps' }}
+
+<NodeHeader id="read-from-s3" icon="Cloud" label="Read from S3" description="Extract data from AWS S3" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.s3`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="bucket" type="string" required>
+    S3 bucket name.
+  </Property>
+  <Property name="key" type="string" required>
+    Object key (path), e.g., `data/customers.csv`.
+  </Property>
+  <Property name="aws_access_key" type="string" required>
+    AWS Access Key.
+  </Property>
+  <Property name="aws_secret_key" type="password" required>
+    AWS Secret Key. **Use Vault.**
+  </Property>
+  <Property name="region" type="string">
+    AWS Region. Default: `us-east-1`.
+  </Property>
+  <Property name="file_type" type="select">
+    `CSV` or `JSON`. Default: `csv`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="records" type="array">
+    Extracted records.
+  </Property>
+  <Property name="columns" type="array">
+    Column names.
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="read-from-sftp" icon="Server" label="Read from SFTP" description="Extract data from SFTP server" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.sftp`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="string" required>
+    SFTP host.
+  </Property>
+  <Property name="port" type="number">
+    Port. Default: `22`.
+  </Property>
+  <Property name="path" type="string" required>
+    File path (e.g., `/data/file.csv`).
+  </Property>
+  <Property name="username" type="string" required>
+    Username.
+  </Property>
+  <Property name="password" type="password">
+    Password. **Use Vault.**
+  </Property>
+  <Property name="private_key" type="string">
+    Private key file path.
+  </Property>
+  <Property name="file_type" type="select">
+    `CSV` or `JSON`. Default: `csv`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="records" type="array">
+    Extracted records.
+  </Property>
+  <Property name="columns" type="array">
+    Column names.
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="extract-salesforce" icon="Cloud" label="Extract Salesforce" description="Extract data from Salesforce using SOQL" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.salesforce`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="username" type="string" required>
+    Salesforce username (e.g., `user@company.com`).
+  </Property>
+  <Property name="password" type="password" required>
+    Password. **Use Vault.**
+  </Property>
+  <Property name="security_token" type="password" required>
+    Security Token. **Use Vault.**
+  </Property>
+  <Property name="query" type="textarea" required>
+    SOQL Query (e.g., `SELECT Id, Name, Email FROM Contact WHERE CreatedDate > LAST_MONTH`).
+  </Property>
+  <Property name="domain" type="select">
+    `Production (login)` or `Sandbox (test)`. Default: `login`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="records" type="array">
+    Salesforce records.
+  </Property>
+  <Property name="columns" type="array">
+    Field names.
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="extract-rest-api" icon="Globe" label="Extract REST API" description="Extract data from any REST API with pagination support" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.tap.rest_api`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="url" type="string" required>
+    API URL.
+  </Property>
+  <Property name="method" type="select">
+    `GET` or `POST`. Default: `GET`.
+  </Property>
+  <Property name="headers" type="textarea">
+    Headers as JSON (e.g., `{"Authorization": "Bearer ${token}"}`).
+  </Property>
+  <Property name="body" type="textarea">
+    Request body as JSON.
+  </Property>
+  <Property name="auth_type" type="select">
+    `None`, `Bearer Token`, or `API Key`.
+  </Property>
+  <Property name="auth_value" type="password">
+    Auth value. **Use Vault.**
+  </Property>
+  <Property name="pagination_type" type="select">
+    `None`, `Offset`, `Page Number`, or `Cursor`.
+  </Property>
+  <Property name="pagination_param" type="string">
+    Pagination parameter name.
+  </Property>
+  <Property name="data_path" type="string">
+    JSONPath to data (e.g., `$.data` or `$.results`).
+  </Property>
+  <Property name="limit" type="number">
+    Max records.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="records" type="array">
+    API response records.
+  </Property>
+  <Property name="columns" type="array">
+    Field names.
+  </Property>
+  <Property name="recordCount" type="number">
+    Number of records.
+  </Property>
+</Properties>
+
+---
+
+## Database Targets {{ id: 'database-targets' }}
+
+<NodeHeader id="load-to-sql-server" icon="Database" label="Load to SQL Server" description="Load data into Microsoft SQL Server" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.sqlserver`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="string" required>
+    Database host.
+  </Property>
+  <Property name="port" type="number">
+    Default: `1433`.
+  </Property>
+  <Property name="database" type="string" required>
+    Database name.
+  </Property>
+  <Property name="username" type="string" required>
+    Username.
+  </Property>
+  <Property name="password" type="password" required>
+    Password. **Use Vault.**
+  </Property>
+  <Property name="table" type="string" required>
+    Target table.
+  </Property>
+  <Property name="records" type="string" required>
+    Records to load (e.g., `${Extract SQL Server.records}`).
+  </Property>
+  <Property name="mode" type="select">
+    `Insert`, `Upsert`, or `Replace`. Default: `insert`.
+  </Property>
+  <Property name="batch_size" type="number">
+    Default: `5000`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records inserted.
+  </Property>
+  <Property name="updatedCount" type="number">
+    Records updated.
+  </Property>
+  <Property name="errorCount" type="number">
+    Errors.
+  </Property>
+  <Property name="errors" type="array">
+    Error details.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="load-to-oracle" icon="Database" label="Load to Oracle" description="Load data into Oracle Database" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.oracle`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="string" required>
+    Database host.
+  </Property>
+  <Property name="port" type="number">
+    Default: `1521`.
+  </Property>
+  <Property name="database" type="string" required>
+    Service Name.
+  </Property>
+  <Property name="username" type="string" required>
+    Username.
+  </Property>
+  <Property name="password" type="password" required>
+    Password. **Use Vault.**
+  </Property>
+  <Property name="table" type="string" required>
+    Target table.
+  </Property>
+  <Property name="records" type="string" required>
+    Records to load.
+  </Property>
+  <Property name="mode" type="select">
+    `Insert` or `Upsert`. Default: `insert`.
+  </Property>
+  <Property name="batch_size" type="number">
+    Default: `5000`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records inserted.
+  </Property>
+  <Property name="updatedCount" type="number">
+    Records updated.
+  </Property>
+  <Property name="errorCount" type="number">
+    Errors.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="load-to-postgresql" icon="Database" label="Load to PostgreSQL" description="Load data into PostgreSQL" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.postgres`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="string" required>
+    Database host.
+  </Property>
+  <Property name="port" type="number">
+    Default: `5432`.
+  </Property>
+  <Property name="database" type="string" required>
+    Database name.
+  </Property>
+  <Property name="username" type="string" required>
+    Username.
+  </Property>
+  <Property name="password" type="password" required>
+    Password. **Use Vault.**
+  </Property>
+  <Property name="table" type="string" required>
+    Target table.
+  </Property>
+  <Property name="records" type="string" required>
+    Records to load.
+  </Property>
+  <Property name="mode" type="select">
+    `Insert` or `Upsert`. Default: `insert`.
+  </Property>
+  <Property name="batch_size" type="number">
+    Default: `5000`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records inserted.
+  </Property>
+  <Property name="updatedCount" type="number">
+    Records updated.
+  </Property>
+  <Property name="errorCount" type="number">
+    Errors.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="load-to-mysql" icon="Database" label="Load to MySQL" description="Load data into MySQL/MariaDB" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.mysql`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="string" required>
+    Database host.
+  </Property>
+  <Property name="port" type="number">
+    Default: `3306`.
+  </Property>
+  <Property name="database" type="string" required>
+    Database name.
+  </Property>
+  <Property name="username" type="string" required>
+    Username.
+  </Property>
+  <Property name="password" type="password" required>
+    Password. **Use Vault.**
+  </Property>
+  <Property name="table" type="string" required>
+    Target table.
+  </Property>
+  <Property name="records" type="string" required>
+    Records to load.
+  </Property>
+  <Property name="mode" type="select">
+    `Insert` or `Upsert`. Default: `insert`.
+  </Property>
+  <Property name="batch_size" type="number">
+    Default: `5000`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records inserted.
+  </Property>
+  <Property name="updatedCount" type="number">
+    Records updated.
+  </Property>
+  <Property name="errorCount" type="number">
+    Errors.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="load-to-db2" icon="Database" label="Load to DB2" description="Load data into IBM DB2" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.db2`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="string" required>
+    Database host.
+  </Property>
+  <Property name="port" type="number">
+    Default: `50000`.
+  </Property>
+  <Property name="database" type="string" required>
+    Database name.
+  </Property>
+  <Property name="username" type="string" required>
+    Username.
+  </Property>
+  <Property name="password" type="password" required>
+    Password. **Use Vault.**
+  </Property>
+  <Property name="table" type="string" required>
+    Target table.
+  </Property>
+  <Property name="records" type="string" required>
+    Records to load.
+  </Property>
+  <Property name="mode" type="select">
+    `Insert`. Default: `insert`.
+  </Property>
+  <Property name="batch_size" type="number">
+    Default: `5000`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records inserted.
+  </Property>
+  <Property name="errorCount" type="number">
+    Errors.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="load-to-snowflake" icon="Snowflake" label="Load to Snowflake" description="Load data into Snowflake" bgColor="#e0f2fe" textColor="#0369a1" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.snowflake`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="account" type="string" required>
+    Account Identifier.
+  </Property>
+  <Property name="database" type="string" required>
+    Database name.
+  </Property>
+  <Property name="schema" type="string">
+    Schema name. Default: `PUBLIC`.
+  </Property>
+  <Property name="warehouse" type="string">
+    Warehouse name.
+  </Property>
+  <Property name="username" type="string" required>
+    Username.
+  </Property>
+  <Property name="password" type="password" required>
+    Password. **Use Vault.**
+  </Property>
+  <Property name="table" type="string" required>
+    Target table.
+  </Property>
+  <Property name="records" type="string" required>
+    Records to load.
+  </Property>
+  <Property name="mode" type="select">
+    `Insert` or `Upsert`. Default: `insert`.
+  </Property>
+  <Property name="batch_size" type="number">
+    Default: `5000`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records inserted.
+  </Property>
+  <Property name="updatedCount" type="number">
+    Records updated.
+  </Property>
+  <Property name="errorCount" type="number">
+    Errors.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="load-to-bigquery" icon="Database" label="Load to BigQuery" description="Load data into Google BigQuery" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.bigquery`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="project" type="string" required>
+    GCP Project ID.
+  </Property>
+  <Property name="dataset" type="string" required>
+    BigQuery Dataset.
+  </Property>
+  <Property name="table" type="string" required>
+    Table name.
+  </Property>
+  <Property name="credentials_json" type="string" required>
+    Credentials JSON file path.
+  </Property>
+  <Property name="records" type="string" required>
+    Records to load.
+  </Property>
+  <Property name="mode" type="select">
+    `Append` or `Truncate & Load`. Default: `append`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records inserted.
+  </Property>
+  <Property name="errorCount" type="number">
+    Errors.
+  </Property>
+</Properties>
+
+---
+
+## File Targets {{ id: 'file-targets' }}
+
+<NodeHeader id="write-csv" icon="FileSpreadsheet" label="Write CSV" description="Write data to CSV file" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.csv`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="string" required>
+    File path.
+  </Property>
+  <Property name="records" type="string" required>
+    Records to write.
+  </Property>
+  <Property name="delimiter" type="string">
+    Field delimiter. Default: `,`
+  </Property>
+  <Property name="encoding" type="select">
+    `UTF-8`, `Latin-1`, `Windows-1252`. Default: `utf-8`.
+  </Property>
+  <Property name="append" type="boolean">
+    Append to existing file. Default: `false`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records written.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="write-excel-data" icon="FileSpreadsheet" label="Write Excel (Data)" description="Write data to Excel file" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.excel`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="string" required>
+    File path.
+  </Property>
+  <Property name="records" type="string" required>
+    Records to write.
+  </Property>
+  <Property name="sheet" type="string">
+    Sheet name. Default: `Sheet1`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records written.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="write-qbo" icon="FileText" label="Write QBO" description="Write data to QuickBooks QBO (OFX)" bgColor="#dcfce7" textColor="#166534" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.qbo`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="target_path" type="string" required>
+    Output `.qbo` file path or key (for provider mode). Example: `exports/bank.qbo`.
+  </Property>
+  <Property name="records" type="string" required>
+    Input transaction array. Usually comes from a previous Tap (e.g., Read CSV records).
+  </Property>
+  <Property name="account_type" type="select">
+    `CHECKING`, `SAVINGS`, `MONEYMRKT`, `CREDITLINE`, `CREDITCARD`. Default: `CHECKING`.
+  </Property>
+  <Property name="account_id" type="string">
+    Account identifier (`ACCTID` in OFX/QBO).
+  </Property>
+  <Property name="bank_id" type="string">
+    Bank identifier (`BANKID` in OFX/QBO).
+  </Property>
+  <Property name="currency" type="string">
+    Currency code. Default: `USD`.
+  </Property>
+  <Property name="date_field" type="string">
+    Field name in each record for transaction date.
+  </Property>
+  <Property name="amount_field" type="string">
+    Field name in each record for amount.
+  </Property>
+  <Property name="payee_field" type="string">
+    Field name in each record for payee/name.
+  </Property>
+  <Property name="memo_field" type="string">
+    Field name in each record for memo/description.
+  </Property>
+  <Property name="fitid_field" type="string">
+    Field name for unique transaction ID (auto-generated when missing).
+  </Property>
+  <Property name="type_field" type="string">
+    Optional transaction type field (`DEBIT` / `CREDIT`). If missing, type is inferred from amount sign.
+  </Property>
+  <Property name="date_format" type="string">
+    Optional `strptime` format when dates are non-ISO (example: `%m/%d/%y`).
+  </Property>
+  <Property name="intu_bid" type="string">
+    Intuit bank ID metadata. Default: `3000`.
+  </Property>
+  <Property name="encoding" type="select">
+    `Windows-1252`, `UTF-8`, `Latin-1`. Default: `cp1252`.
+  </Property>
+</Properties>
+
+### Quick Setup (Read CSV → Write QBO)
+
+1. Connect `Read CSV` output to `Write QBO`.
+2. Drag variables from the left **Input** panel into center fields (supports text/expression fields).
+3. Set `records` to the records array from `Read CSV`.
+4. Map field names using your CSV headers.
+
+Recommended mapping for CSV headers `Date,Description,Amount`:
+
+| QBO Field | Value |
+|-----------|-------|
+| `records` | `Read CSV.records` |
+| `date_field` | `Date` |
+| `amount_field` | `Amount` |
+| `payee_field` | `Description` |
+| `memo_field` | `Description` |
+| `date_format` | `%m/%d/%y` |
+
+Important: `amount_field` must be the **column name**, not a literal numeric value.
+
+### Output
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Transactions written.
+  </Property>
+  <Property name="errorCount" type="number">
+    Transactions rejected during normalization.
+  </Property>
+  <Property name="path" type="string">
+    Final generated QBO file path.
+  </Property>
+</Properties>
+
+---
+
+## Cloud Targets {{ id: 'cloud-targets' }}
+
+<NodeHeader id="write-to-s3" icon="Cloud" label="Write to S3" description="Upload data to AWS S3" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.s3`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="bucket" type="string" required>
+    S3 bucket name.
+  </Property>
+  <Property name="key" type="string" required>
+    Object key (path).
+  </Property>
+  <Property name="records" type="string" required>
+    Records to upload.
+  </Property>
+  <Property name="aws_access_key" type="string" required>
+    AWS Access Key.
+  </Property>
+  <Property name="aws_secret_key" type="password" required>
+    AWS Secret Key. **Use Vault.**
+  </Property>
+  <Property name="region" type="string">
+    AWS Region. Default: `us-east-1`.
+  </Property>
+  <Property name="file_type" type="select">
+    `CSV` or `JSON`. Default: `csv`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records uploaded.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="write-to-sftp" icon="Server" label="Write to SFTP" description="Upload data to SFTP server" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `data.target.sftp`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="string" required>
+    SFTP host.
+  </Property>
+  <Property name="port" type="number">
+    Port. Default: `22`.
+  </Property>
+  <Property name="path" type="string" required>
+    Target file path.
+  </Property>
+  <Property name="records" type="string" required>
+    Records to upload.
+  </Property>
+  <Property name="username" type="string" required>
+    Username.
+  </Property>
+  <Property name="password" type="password">
+    Password. **Use Vault.**
+  </Property>
+  <Property name="private_key" type="string">
+    Private key file path.
+  </Property>
+  <Property name="file_type" type="select">
+    `CSV` or `JSON`. Default: `csv`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="insertedCount" type="number">
+    Records uploaded.
+  </Property>
+</Properties>
+
+---
+
+## Example Pipeline
+
+<FlowDiagram items={[
+  { label: "data.tap.postgres", sublabel: "Extract customers", type: "primary" },
+  { label: "code.python", sublabel: "Transform data", type: "warning" },
+  { label: "data.target.snowflake", sublabel: "Load to DW", type: "success" }
+]} />
+
+```json
+{
+  "nodes": [
+    {
+      "id": "tap-1",
+      "type": "data.tap.postgres",
+      "config": {
+        "host": "${vault.db_host}",
+        "database": "app_db",
+        "username": "${vault.db_user}",
+        "password": "${vault.db_password}",
+        "query": "SELECT * FROM customers WHERE updated_at > '2024-01-01'"
+      }
+    },
+    {
+      "id": "target-1",
+      "type": "data.target.snowflake",
+      "config": {
+        "account": "${vault.sf_account}",
+        "database": "ANALYTICS",
+        "schema": "RAW",
+        "warehouse": "LOAD_WH",
+        "username": "${vault.sf_user}",
+        "password": "${vault.sf_password}",
+        "table": "CUSTOMERS",
+        "records": "${tap-1.records}",
+        "mode": "upsert"
+      }
+    }
+  ],
+  "edges": [
+    { "source": "tap-1", "target": "target-1" }
+  ]
+}
+```

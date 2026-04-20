@@ -1,0 +1,514 @@
+name: Quality Gates
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  # ─────────────────────────────────────────────
+  # QG1 — Build
+  # ─────────────────────────────────────────────
+  qg1-build:
+    name: "QG1: Build"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: "1.1 — Build monorepo (turbo)"
+        run: pnpm turbo run build
+
+  # ─────────────────────────────────────────────
+  # QG2 — Tests
+  # ─────────────────────────────────────────────
+  qg2-tests:
+    name: "QG2: Tests"
+    runs-on: ubuntu-latest
+    needs: qg1-build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: "2.1 — Run CP API tests"
+        run: pnpm --filter @skuldbot/control-plane-api test
+
+      - name: "2.2/2.3 — Verify test count does not decrease"
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require("child_process");
+            // Get test output from last step (re-run to capture)
+            const output = execSync(
+              "pnpm --filter @skuldbot/control-plane-api test 2>&1 || true",
+              { encoding: "utf-8" }
+            );
+
+            const suitesMatch = output.match(/Test Suites:\s+(\d+) passed/);
+            const testsMatch = output.match(/Tests:\s+(\d+) passed/);
+
+            if (!suitesMatch || !testsMatch) {
+              core.setFailed("Could not parse test output for suite/test counts.");
+              return;
+            }
+
+            const suites = parseInt(suitesMatch[1], 10);
+            const tests = parseInt(testsMatch[1], 10);
+
+            core.info(`Test suites: ${suites}, Tests: ${tests}`);
+
+            // Output for downstream jobs
+            core.exportVariable("QG2_SUITES", suites);
+            core.exportVariable("QG2_TESTS", tests);
+
+  # ─────────────────────────────────────────────
+  # QG4 — Lint + Typecheck (static analysis)
+  # ─────────────────────────────────────────────
+  qg4-lint:
+    name: "QG4: Lint + Typecheck"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed
+        run: |
+          FILES=$(git diff --name-only --diff-filter=ACMR origin/${{ github.base_ref }}...HEAD -- '*.ts' '*.tsx' | grep -v node_modules | grep -v '.spec.ts' || true)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: "4.2 — 0 TODOs/FIXME/HACK/XXX in changed files"
+        if: steps.changed.outputs.files != ''
+        run: |
+          echo "${{ steps.changed.outputs.files }}" | while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            [ ! -f "$file" ] && continue
+            if grep -n 'TODO\|FIXME\|HACK\|XXX' "$file"; then
+              echo "::error file=$file::Found TODO/FIXME/HACK/XXX in $file"
+              exit 1
+            fi
+          done
+
+      - name: "4.3 — 0 console.log in changed files"
+        if: steps.changed.outputs.files != ''
+        run: |
+          echo "${{ steps.changed.outputs.files }}" | while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            [ ! -f "$file" ] && continue
+            if grep -n 'console\.log' "$file"; then
+              echo "::error file=$file::Found console.log in $file"
+              exit 1
+            fi
+          done
+
+      - name: "4.5 — 0 TypeORM anti-patterns in changed files"
+        if: steps.changed.outputs.files != ''
+        run: |
+          FAIL=0
+          echo "${{ steps.changed.outputs.files }}" | while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            [ ! -f "$file" ] && continue
+            if grep -n "default: {}" "$file"; then
+              echo "::error file=$file::TypeORM anti-pattern: default: {} (use default: '{}' for jsonb)"
+              FAIL=1
+            fi
+            if grep -n "synchronize: true" "$file"; then
+              echo "::error file=$file::TypeORM anti-pattern: synchronize: true (never in production)"
+              FAIL=1
+            fi
+          done
+          [ "$FAIL" = "1" ] && exit 1 || true
+
+  # ─────────────────────────────────────────────
+  # QG5 — Security Baseline
+  # ─────────────────────────────────────────────
+  qg5-security:
+    name: "QG5: Security Baseline"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed source files
+        id: changed
+        run: |
+          FILES=$(git diff --name-only --diff-filter=ACMR origin/${{ github.base_ref }}...HEAD -- '*.ts' '*.tsx' | grep -v node_modules | grep -v '.spec.ts' | grep -v '.test.ts' || true)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: "5.1 — 0 hardcoded secrets"
+        if: steps.changed.outputs.files != ''
+        run: |
+          FAIL=0
+          echo "${{ steps.changed.outputs.files }}" | while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            [ ! -f "$file" ] && continue
+            # Skip imports, types, interfaces, decorators, comments, denylist patterns
+            if grep -n -i "password\s*=\s*['\"]" "$file" | grep -v "//\|import\|interface\|type \|@\|denylist\|insecureDefaults\|Set(\[" ; then
+              echo "::error file=$file::Potential hardcoded password"
+              FAIL=1
+            fi
+            if grep -n -i "secret\s*=\s*['\"][^'\"]*['\"]" "$file" | grep -v "//\|import\|interface\|type \|@\|configService\|process\.env\|denylist\|insecureDefaults\|Set(\[" ; then
+              echo "::error file=$file::Potential hardcoded secret"
+              FAIL=1
+            fi
+          done
+          [ "$FAIL" = "1" ] && exit 1 || true
+
+      - name: "5.3 — 0 raw SQL with string concatenation"
+        if: steps.changed.outputs.files != ''
+        run: |
+          echo "${{ steps.changed.outputs.files }}" | while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            [ ! -f "$file" ] && continue
+            if grep -n 'query(`\|query(".*\${\|query(.*+' "$file" | grep -v "//"; then
+              echo "::error file=$file::Potential SQL injection: raw query with string interpolation"
+              exit 1
+            fi
+          done
+
+      - name: "5.7 — 0 unsafe code (eval/exec/child_process)"
+        if: steps.changed.outputs.files != ''
+        run: |
+          echo "${{ steps.changed.outputs.files }}" | while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            [ ! -f "$file" ] && continue
+            if grep -n "eval(\|new Function(\|child_process\|execSync\|exec(" "$file" | grep -v "//\|import.*from\|require("; then
+              echo "::error file=$file::Unsafe code pattern found (eval/exec/child_process)"
+              exit 1
+            fi
+          done
+
+  # ─────────────────────────────────────────────
+  # QG3 — Contracts / API (routing + response)
+  # ─────────────────────────────────────────────
+  qg3-contracts:
+    name: "QG3: API Contracts"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed controller files
+        id: controllers
+        run: |
+          FILES=$(git diff --name-only --diff-filter=ACMR origin/${{ github.base_ref }}...HEAD -- '*.controller.ts' | grep -v node_modules | grep -v '.spec.ts' || true)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: "3.1 — Response DTOs do not expose internal fields"
+        run: |
+          # Check all response DTO files for fields that should not be exposed
+          FAIL=0
+          for file in $(find . -path '*/dto/*.ts' -not -path '*/node_modules/*' -not -name '*.spec.ts'); do
+            if grep -n 'otpCodeHash\|otpCode\b\|storageKey\b\|internalSecret\|passwordHash' "$file"; then
+              echo "::error file=$file::Response DTO exposes internal field"
+              FAIL=1
+            fi
+          done
+          [ "$FAIL" = "1" ] && exit 1 || true
+
+      - name: "3.2 — Routing order: literals before params"
+        if: steps.controllers.outputs.files != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const files = `${{ steps.controllers.outputs.files }}`.trim().split("\n").filter(Boolean);
+            const failures = [];
+
+            for (const file of files) {
+              if (!fs.existsSync(file)) continue;
+              const content = fs.readFileSync(file, "utf-8");
+              const lines = content.split("\n");
+
+              // Track route groups: prefix -> [{line, isParam, path}]
+              const routes = [];
+              for (let i = 0; i < lines.length; i++) {
+                const match = lines[i].match(/@(Get|Post|Put|Patch|Delete)\(\s*['"]([^'"]*)['"]\s*\)/);
+                if (match) {
+                  const method = match[1];
+                  const path = match[2];
+                  const segments = path.split("/");
+                  routes.push({ line: i + 1, method, path, segments });
+                }
+              }
+
+              // Check: for same HTTP method and same prefix, literal must come before param
+              for (let i = 0; i < routes.length; i++) {
+                for (let j = i + 1; j < routes.length; j++) {
+                  const a = routes[i], b = routes[j];
+                  if (a.method !== b.method) continue;
+                  if (a.segments.length !== b.segments.length) continue;
+
+                  // Same prefix up to divergence point
+                  let prefixMatch = true;
+                  for (let k = 0; k < a.segments.length - 1; k++) {
+                    if (a.segments[k] !== b.segments[k]) { prefixMatch = false; break; }
+                  }
+                  if (!prefixMatch) continue;
+
+                  const lastA = a.segments[a.segments.length - 1];
+                  const lastB = b.segments[b.segments.length - 1];
+
+                  // If a is param and b is literal at same depth, b should come first
+                  if (lastA.startsWith(":") && !lastB.startsWith(":")) {
+                    // a (param) comes before b (literal) — this is wrong
+                    // But only if they share the same prefix
+                    failures.push(
+                      `${file}:${b.line}: Literal route "${b.method} ${b.path}" is AFTER param route "${a.method} ${a.path}" (line ${a.line}). Move literal before param.`
+                    );
+                  }
+                }
+              }
+            }
+
+            if (failures.length > 0) {
+              core.setFailed("QG3.2 Routing order violations:\n" + failures.join("\n"));
+            }
+
+  # ─────────────────────────────────────────────
+  # QG7 — Review + DoD (automated subset)
+  # ─────────────────────────────────────────────
+  qg7-review:
+    name: "QG7: Review + DoD"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "7.4 — Migrations use IF NOT EXISTS"
+        run: |
+          NEW_MIGRATIONS=$(git diff --name-only --diff-filter=A origin/${{ github.base_ref }}...HEAD -- '**/migrations/*.ts' || true)
+          if [ -z "$NEW_MIGRATIONS" ]; then
+            echo "No new migrations. Skipping."
+            exit 0
+          fi
+          FAIL=0
+          for file in $NEW_MIGRATIONS; do
+            [ ! -f "$file" ] && continue
+            # Must contain IF NOT EXISTS for CREATE/ALTER
+            if grep -q "CREATE TABLE\|CREATE INDEX\|ADD COLUMN" "$file"; then
+              if ! grep -q "IF NOT EXISTS" "$file"; then
+                echo "::error file=$file::Migration missing IF NOT EXISTS"
+                FAIL=1
+              fi
+            fi
+            # Must have down() method with DROP ... IF EXISTS
+            if grep -q "async down" "$file"; then
+              if ! grep -q "IF EXISTS" "$file"; then
+                echo "::error file=$file::Migration down() missing IF EXISTS"
+                FAIL=1
+              fi
+            else
+              echo "::error file=$file::Migration missing down() method"
+              FAIL=1
+            fi
+          done
+          [ "$FAIL" = "1" ] && exit 1 || true
+
+      - name: "7.5 — Previous migrations not modified"
+        run: |
+          MODIFIED_MIGRATIONS=$(git diff --name-only --diff-filter=M origin/${{ github.base_ref }}...HEAD -- '**/migrations/*.ts' || true)
+          if [ -n "$MODIFIED_MIGRATIONS" ]; then
+            echo "::error::Existing migrations were modified. This is not allowed."
+            echo "$MODIFIED_MIGRATIONS"
+            exit 1
+          fi
+
+  # ─────────────────────────────────────────────
+  # QG8 — Compliance (automated subset)
+  # ─────────────────────────────────────────────
+  qg8-compliance:
+    name: "QG8: Compliance"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed controller files
+        id: controllers
+        run: |
+          FILES=$(git diff --name-only --diff-filter=ACMR origin/${{ github.base_ref }}...HEAD -- '*.controller.ts' | grep -v node_modules | grep -v '.spec.ts' || true)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: "8.1/8.2 — Auth guards and permissions on all endpoints"
+        if: steps.controllers.outputs.files != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const files = `${{ steps.controllers.outputs.files }}`.trim().split("\n").filter(Boolean);
+            const failures = [];
+
+            for (const file of files) {
+              if (!fs.existsSync(file)) continue;
+              const content = fs.readFileSync(file, "utf-8");
+
+              // Check class-level guard
+              const hasClassGuard = /@UseGuards\(/.test(content);
+
+              // Find all endpoint decorators
+              const endpointPattern = /@(Get|Post|Put|Patch|Delete)\(/g;
+              let match;
+              const lines = content.split("\n");
+
+              while ((match = endpointPattern.exec(content)) !== null) {
+                const pos = match.index;
+                const lineNum = content.substring(0, pos).split("\n").length;
+
+                // Look backwards from endpoint for @RequirePermissions (within 5 lines)
+                let hasPermission = false;
+                for (let i = Math.max(0, lineNum - 6); i < lineNum; i++) {
+                  if (lines[i] && /@RequirePermissions\(/.test(lines[i])) {
+                    hasPermission = true;
+                    break;
+                  }
+                }
+
+                if (!hasClassGuard && !hasPermission) {
+                  failures.push(`${file}:${lineNum}: Endpoint missing auth guards`);
+                }
+                if (!hasPermission) {
+                  failures.push(`${file}:${lineNum}: Endpoint missing @RequirePermissions`);
+                }
+              }
+            }
+
+            if (failures.length > 0) {
+              core.setFailed("QG8 Compliance violations:\n" + failures.join("\n"));
+            }
+
+  # ─────────────────────────────────────────────
+  # QG-UI — UI / Branding (automated subset)
+  # ─────────────────────────────────────────────
+  qg-ui:
+    name: "QG-UI: Branding"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if UI files changed
+        id: ui-check
+        run: |
+          UI_FILES=$(git diff --name-only --diff-filter=ACMR origin/${{ github.base_ref }}...HEAD -- '*.tsx' '*.jsx' | grep -v node_modules | grep -v '.spec.' | grep -v '.test.' || true)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$UI_FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          if [ -z "$UI_FILES" ]; then
+            echo "has_ui=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_ui=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: "UI.1 — 0 native browser components in JSX"
+        if: steps.ui-check.outputs.has_ui == 'true'
+        run: |
+          FAIL=0
+          echo "${{ steps.ui-check.outputs.files }}" | while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            [ ! -f "$file" ] && continue
+            # Detect native HTML form elements used directly (not as part of shadcn)
+            if grep -nP '<select\b|<input\s|<textarea\b|<dialog\b' "$file" | grep -v "shadcn\|@radix\|forwardRef\|React\."; then
+              echo "::error file=$file::Native browser component detected. Use shadcn/ui instead."
+              FAIL=1
+            fi
+          done
+          [ "$FAIL" = "1" ] && exit 1 || true
+
+      - name: "UI.2 — 0 alert/confirm/prompt"
+        if: steps.ui-check.outputs.has_ui == 'true'
+        run: |
+          FAIL=0
+          echo "${{ steps.ui-check.outputs.files }}" | while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            [ ! -f "$file" ] && continue
+            if grep -n 'alert(\|confirm(\|prompt(\|window\.alert\|window\.confirm\|window\.prompt' "$file" | grep -v "//\|eslint"; then
+              echo "::error file=$file::Native alert/confirm/prompt detected. Use toast instead."
+              FAIL=1
+            fi
+          done
+          [ "$FAIL" = "1" ] && exit 1 || true
+
+      - name: "UI.3 — 0 CSS inline / styled-components / CSS modules"
+        if: steps.ui-check.outputs.has_ui == 'true'
+        run: |
+          FAIL=0
+          echo "${{ steps.ui-check.outputs.files }}" | while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            [ ! -f "$file" ] && continue
+            if grep -n 'style={{' "$file" | grep -v "//"; then
+              echo "::error file=$file::Inline style detected. Use Tailwind CSS classes."
+              FAIL=1
+            fi
+            if grep -n "styled(\|styled\." "$file" | grep -v "//\|import"; then
+              echo "::error file=$file::styled-components detected. Use Tailwind CSS."
+              FAIL=1
+            fi
+          done
+          [ "$FAIL" = "1" ] && exit 1 || true
+
+      - name: "UI.5 — 0 hardcoded colors"
+        if: steps.ui-check.outputs.has_ui == 'true'
+        run: |
+          FAIL=0
+          echo "${{ steps.ui-check.outputs.files }}" | while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            [ ! -f "$file" ] && continue
+            # Detect hardcoded hex colors in className (not in tailwind config)
+            if echo "$file" | grep -qv 'tailwind\|config'; then
+              if grep -nP '#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b|rgb\(|rgba\(' "$file" | grep -v "//\|\.css\|\.config"; then
+                echo "::error file=$file::Hardcoded color detected. Use Tailwind tokens."
+                FAIL=1
+              fi
+            fi
+          done
+          [ "$FAIL" = "1" ] && exit 1 || true

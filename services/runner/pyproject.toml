@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "skuldbot-runner"
+version = "0.1.0"
+description = "SkuldBot Runner Agent - Executes RPA bots from Orchestrator"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+    { name = "Khipus Team" }
+]
+
+dependencies = [
+    "httpx>=0.25.0",          # HTTP client for API calls
+    "pydantic>=2.0.0",        # Data validation
+    "pydantic-settings>=2.0.0", # Settings management
+    "robotframework>=7.0",    # Bot execution
+    "rpaframework>=28.0.0",   # RPA libraries
+    "python-dotenv>=1.0.0",   # Environment variables
+    "structlog>=23.0.0",      # Structured logging
+    "tenacity>=8.0.0",        # Retry logic
+    "psutil>=5.9.0",          # System info
+    # Web UI dependencies
+    "fastapi>=0.109.0",       # Web framework for local UI
+    "uvicorn>=0.27.0",        # ASGI server
+    "jinja2>=3.1.0",          # HTML templates
+    "python-multipart>=0.0.6", # Form handling
+    "sse-starlette>=1.8.0",   # Server-sent events for live logs
+]
+
+[project.optional-dependencies]
+vault = [
+    "hvac>=2.0.0",            # HashiCorp Vault client
+    "boto3>=1.34.0",          # AWS Secrets Manager
+    "azure-identity>=1.15.0", # Azure authentication
+    "azure-keyvault-secrets>=4.7.0", # Azure Key Vault
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "ruff>=0.1.0",
+]
+all = [
+    "skuldbot-runner[vault,dev]",
+]
+
+[project.scripts]
+skuldbot-runner = "skuldbot_runner.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/skuldbot_runner"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]

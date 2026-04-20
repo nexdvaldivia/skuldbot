@@ -1,0 +1,340 @@
+{
+  "version": "1.0",
+  "bot": {
+    "id": "bot-pdf-statements-to-qbo",
+    "name": "PDF Statements to QBO",
+    "description": "Process a folder of PDFs, extract transactions with AI, write CSV and QBO"
+  },
+  "nodes": [
+    {
+      "id": "pdf-input-provider",
+      "type": "storage.provider",
+      "config": {
+        "provider": "local",
+        "local_path": "/ABS/PATH/TO/INPUT_PDF_STATEMENTS",
+        "enable_audit": true,
+        "enable_checksums": true,
+        "chunk_size_mb": 8,
+        "__ui_data_masking_enabled": true
+      },
+      "outputs": {
+        "success": "END",
+        "error": "END"
+      },
+      "label": "PDF Input Provider",
+      "position": {
+        "x": 225.08000000000004,
+        "y": 26.211428571428556
+      }
+    },
+    {
+      "id": "output-provider",
+      "type": "storage.provider",
+      "config": {
+        "provider": "local",
+        "local_path": "/ABS/PATH/TO/OUTPUT_FILES",
+        "enable_audit": true,
+        "enable_checksums": true,
+        "chunk_size_mb": 8
+      },
+      "outputs": {
+        "success": "END",
+        "error": "END"
+      },
+      "label": "Output Provider",
+      "position": {
+        "x": 2040.891428571429,
+        "y": 351.0457142857142
+      }
+    },
+    {
+      "id": "list-pdf-files",
+      "type": "files.list",
+      "config": {
+        "source": ".",
+        "pattern": "*.pdf",
+        "recursive": false,
+        "max_items": 1000,
+        "fail_on_empty": true
+      },
+      "outputs": {
+        "success": "loop-statements",
+        "error": "END"
+      },
+      "label": "List Statement PDFs",
+      "position": {
+        "x": 221.15428571428583,
+        "y": -139
+      },
+      "connections": {
+        "connection": "pdf-input-provider"
+      }
+    },
+    {
+      "id": "loop-statements",
+      "type": "control.loop",
+      "config": {
+        "items": "${node:list-pdf-files|files}",
+        "item_var": "statement_pdf",
+        "accumulator_var": "all_records"
+      },
+      "outputs": {
+        "success": "filter-valid-records",
+        "error": "END"
+      },
+      "label": "For Each Statement",
+      "position": {
+        "x": 564.2281277705779,
+        "y": -419.8169746760044
+      },
+      "children": [
+        {
+          "id": "llm-extractor-model",
+          "type": "ai.model",
+          "config": {
+            "provider": "openai",
+            "model": "gpt-4o-mini",
+            "api_key": "${vault.ai_model_api_key}",
+            "temperature": 0.1,
+            "max_tokens": 4000,
+            "__ui_data_masking_enabled": true
+          },
+          "outputs": {
+            "success": "END",
+            "error": "END"
+          },
+          "label": "LLM Extractor Model",
+          "position": {
+            "x": 141.022857142857,
+            "y": 402.0342857142857
+          }
+        },
+        {
+          "id": "read-pdf",
+          "type": "document.pdf_read",
+          "config": {
+            "path": "${statement_pdf}"
+          },
+          "outputs": {
+            "success": "extract-transactions",
+            "error": "END"
+          },
+          "label": "Read PDF",
+          "position": {
+            "x": 39.97142857142853,
+            "y": 97.39428571428572
+          }
+        },
+        {
+          "id": "extract-transactions",
+          "type": "ai.extract_data",
+          "config": {
+            "input": "${node:read-pdf|text}",
+            "schema": "{\"records\":[{\"date\":\"string\",\"description\":\"string\",\"amount\":\"number\",\"memo\":\"string\",\"fitid\":\"string\",\"type\":\"string\"}]}",
+            "instructions": "Extract bank transactions from this statement. Return strict JSON only with root object containing key 'records'. Each record must include date, description, amount. Use ISO date YYYY-MM-DD when possible. Keep negative amounts for charges/debits and positive for credits/payments. If no transactions found, return {\"records\":[]}.",
+            "__ui_data_masking_enabled": true
+          },
+          "outputs": {
+            "success": "loop-transactions",
+            "error": "END"
+          },
+          "label": "Extract Transactions (LLM)",
+          "position": {
+            "x": 332.1771428571428,
+            "y": 87.82857142857142
+          },
+          "connections": {
+            "model": "llm-extractor-model"
+          }
+        },
+        {
+          "id": "loop-transactions",
+          "type": "control.loop",
+          "config": {
+            "items": "${node:extract-transactions|extracted.records}",
+            "item_var": "txn",
+            "accumulator_var": "inner_results"
+          },
+          "outputs": {
+            "success": "END",
+            "error": "END"
+          },
+          "label": "For Each Extracted Transaction",
+          "position": {
+            "x": 579.7428571428572,
+            "y": 248.4248975925582
+          },
+          "children": [
+            {
+              "id": "append-record",
+              "type": "control.append",
+              "config": {
+                "list": "all_records",
+                "item": "${txn}",
+                "__ui_data_masking_enabled": true
+              },
+              "outputs": {
+                "success": "END",
+                "error": "END"
+              },
+              "label": "Append to Master Records",
+              "position": {
+                "x": 81.01714285714297,
+                "y": 132.46857142857144
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "filter-valid-records",
+      "type": "control.filter",
+      "config": {
+        "items": "${node:loop-statements|results}",
+        "condition": "str(${item}.get(\"date\", \"\")).strip() != \"\" and str(${item}.get(\"description\", \"\")).strip() != \"\" and str(${item}.get(\"amount\", \"\")).strip() != \"\"",
+        "item_var": "item",
+        "__ui_data_masking_enabled": true
+      },
+      "outputs": {
+        "success": "normalize-records",
+        "error": "END"
+      },
+      "label": "Filter Valid Transactions",
+      "position": {
+        "x": 1843.1257142857137,
+        "y": -152.53714285714284
+      }
+    },
+    {
+      "id": "normalize-records",
+      "type": "control.map",
+      "config": {
+        "items": "${node:filter-valid-records|results}",
+        "item_var": "item",
+        "expression": "{\"date\": str(${item}.get(\"date\", \"\")).strip(), \"description\": str(${item}.get(\"description\", ${item}.get(\"memo\", \"\"))).strip(), \"amount\": float(str(${item}.get(\"amount\", \"0\")).replace(\",\", \"\")), \"memo\": str(${item}.get(\"memo\", ${item}.get(\"description\", \"\"))).strip(), \"fitid\": str(${item}.get(\"fitid\", \"\")).strip(), \"type\": str(${item}.get(\"type\", \"\")).strip()}"
+      },
+      "outputs": {
+        "success": "write-csv",
+        "error": "END"
+      },
+      "label": "Normalize Transactions",
+      "position": {
+        "x": 1849.1714285714284,
+        "y": -17.834285714285727
+      }
+    },
+    {
+      "id": "write-csv",
+      "type": "data.target.csv",
+      "config": {
+        "target_path": "transactions_extracted.csv",
+        "records": "${node:normalize-records|results}",
+        "delimiter": ",",
+        "encoding": "utf-8",
+        "append": false
+      },
+      "outputs": {
+        "success": "write-qbo",
+        "error": "END"
+      },
+      "label": "Write CSV",
+      "position": {
+        "x": 1846.8971428571424,
+        "y": 118.3485714285714
+      },
+      "connections": {
+        "connection": "output-provider"
+      }
+    },
+    {
+      "id": "write-qbo",
+      "type": "data.target.qbo",
+      "config": {
+        "target_path": "bank_transactions.qbo",
+        "records": "${node:normalize-records|results}",
+        "account_type": "CHECKING",
+        "account_id": "000000000",
+        "bank_id": "000000000",
+        "currency": "USD",
+        "date_field": "date",
+        "amount_field": "amount",
+        "payee_field": "description",
+        "memo_field": "memo",
+        "fitid_field": "fitid",
+        "type_field": "type",
+        "date_format": "%Y-%m-%d",
+        "intu_bid": "3000",
+        "encoding": "cp1252"
+      },
+      "outputs": {
+        "success": "log-success",
+        "error": "END"
+      },
+      "label": "Write QBO",
+      "position": {
+        "x": 2258.097142857143,
+        "y": 108.7828571428571
+      },
+      "connections": {
+        "connection": "output-provider"
+      }
+    },
+    {
+      "id": "log-success",
+      "type": "logging.log",
+      "config": {
+        "level": "INFO",
+        "message": "Done. PDFs processed=${node:list-pdf-files|count}, valid txns=${node:normalize-records|count}"
+      },
+      "outputs": {
+        "success": "END",
+        "error": "END"
+      },
+      "label": "Success Log",
+      "position": {
+        "x": 2553.64,
+        "y": 99.21714285714285
+      }
+    },
+    {
+      "id": "trigger.form-1776692651131",
+      "type": "trigger.form",
+      "config": {
+        "formTitle": "Claims ",
+        "formDescription": "Entra tu claim si fuistes afectado por el huracan",
+        "submitButtonLabel": "Mi Claim",
+        "fields": [
+          {
+            "id": "name",
+            "type": "text",
+            "label": "Nombre completo",
+            "required": true,
+            "placeholder": "Entra nombre y apellido"
+          },
+          {
+            "id": "email",
+            "type": "email",
+            "label": "Email",
+            "required": true,
+            "placeholder": "entra tu correo electronico"
+          }
+        ],
+        "__ui_data_masking_enabled": true
+      },
+      "outputs": {
+        "success": "list-pdf-files",
+        "error": "END"
+      },
+      "label": "Form Trigger",
+      "position": {
+        "x": -196.34758776249896,
+        "y": -131.99229302070103
+      }
+    }
+  ],
+  "triggers": [
+    "trigger.form-1776692651131"
+  ],
+  "start_node": "trigger.form-1776692651131"
+}

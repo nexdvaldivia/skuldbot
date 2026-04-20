@@ -1,0 +1,792 @@
+import { useCallback, useRef, useEffect, useState, useMemo } from "react";
+import ReactFlow, {
+  Background,
+  Controls,
+  MiniMap,
+  addEdge,
+  Connection,
+  NodeTypes,
+  EdgeTypes,
+  BackgroundVariant,
+  useReactFlow,
+  applyNodeChanges,
+  applyEdgeChanges,
+  NodeChange,
+  EdgeChange,
+  SelectionMode,
+} from "reactflow";
+import "reactflow/dist/style.css";
+
+import { useFlowStore, getDraggedNodeData, clearDraggedNodeData, getPendingNodeTemplate, clearPendingNodeTemplate } from "../store/flowStore";
+import { useValidationStore } from "../store/validationStore";
+import { useToastStore } from "../store/toastStore";
+import CustomNode from "./CustomNode";
+import GroupNode from "./GroupNode";
+import AnimatedEdge from "./AnimatedEdge";
+import EmptyState from "./EmptyState";
+import { FlowNode, FlowEdge, isContainerNodeType } from "../types/flow";
+import { getCategoryColor } from "../utils/nodeCategories";
+import { isStorageModeNodeType } from "../lib/storageMode";
+import { attachMovedNodesToContainers, reconcileContainerNodes } from "../utils/containerNodes";
+import { shiftManualEdgeRoutesForMovedContainers } from "../utils/containerEdgeRoutes";
+import { sanitizeFlowGraph } from "../utils/flowSanitizer";
+
+const nodeTypes: NodeTypes = {
+  customNode: CustomNode,
+  groupNode: GroupNode,
+};
+
+const edgeTypes: EdgeTypes = {
+  animated: AnimatedEdge,
+};
+
+// Helper to find if a position is inside a GroupNode (container)
+function findParentGroupNode(
+  position: { x: number; y: number },
+  nodes: FlowNode[]
+): FlowNode | null {
+  // Only consider GroupNodes (containers)
+  const groupNodes = nodes.filter((n) => n.type === "groupNode");
+
+  // Check each group node to see if position is inside it
+  // We need to account for the header height (~52px) when determining drop zone
+  const HEADER_HEIGHT = 52;
+
+  for (const group of groupNodes) {
+    const width = (group.style?.width as number) || 400;
+    const height = (group.style?.height as number) || 250;
+
+    // Check if position is inside the group's drop zone (below header)
+    if (
+      position.x >= group.position.x &&
+      position.x <= group.position.x + width &&
+      position.y >= group.position.y + HEADER_HEIGHT &&
+      position.y <= group.position.y + height
+    ) {
+      return group;
+    }
+  }
+  return null;
+}
+
+function detachNodeFromContainer(nodes: FlowNode[], nodeId: string): FlowNode[] {
+  const node = nodes.find((candidate) => candidate.id === nodeId);
+  if (!node) return nodes;
+
+  const parentId = node.parentId || node.parentNode;
+  if (!parentId) return nodes;
+
+  const parent = nodes.find((candidate) => candidate.id === parentId);
+  if (!parent) return nodes;
+
+  const parentWidth =
+    typeof parent.style?.width === "number" ? (parent.style.width as number) : 400;
+
+  const detachedPosition = {
+    x: parent.position.x + parentWidth + 80,
+    y: parent.position.y + Math.max(60, node.position.y),
+  };
+
+  return nodes.map((candidate) => {
+    if (candidate.id === nodeId) {
+      const { parentId: _parentId, parentNode: _parentNode, extent: _extent, ...rest } =
+        candidate as FlowNode & { parentNode?: string };
+      return {
+        ...rest,
+        position: detachedPosition,
+        zIndex: undefined,
+      };
+    }
+
+    if (candidate.id === parentId) {
+      const currentChildren = Array.isArray(candidate.data.childNodes)
+        ? candidate.data.childNodes
+        : [];
+      return {
+        ...candidate,
+        data: {
+          ...candidate.data,
+          childNodes: currentChildren.filter((childId) => childId !== nodeId),
+        },
+      };
+    }
+
+    return candidate;
+  });
+}
+
+export default function FlowEditor() {
+  const { nodes, edges, setNodes, setEdges, setSelectedNode, selectedNode } = useFlowStore();
+  const { nodes: safeNodes, edges: safeEdges } = useMemo(
+    () => sanitizeFlowGraph(nodes, edges),
+    [nodes, edges]
+  );
+  const { validate } = useValidationStore();
+  const toast = useToastStore();
+  const { screenToFlowPosition } = useReactFlow();
+  const flowWrapperRef = useRef<HTMLDivElement>(null);
+  const nodesRef = useRef(nodes);
+  const edgesRef = useRef(edges);
+  const [hasPendingNode, setHasPendingNode] = useState(false);
+
+  // Keep nodesRef in sync
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
+  useEffect(() => {
+    edgesRef.current = edges;
+  }, [edges]);
+
+  // Keep validation state in sync even when Problems panel is closed.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      validate(nodes, edges);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [nodes, edges, validate]);
+
+  // Listen for pending node changes
+  useEffect(() => {
+    const handlePendingChange = (e: CustomEvent) => {
+      setHasPendingNode(!!e.detail);
+    };
+    window.addEventListener('pendingNodeChange', handlePendingChange as EventListener);
+    return () => window.removeEventListener('pendingNodeChange', handlePendingChange as EventListener);
+  }, []);
+
+  // Native drop handler with capture phase - more reliable in WebKit/Tauri
+  // Note: Drag & drop doesn't work reliably in Tauri/WebKit, so we use click-to-place as primary method
+  useEffect(() => {
+    const wrapper = flowWrapperRef.current;
+    if (!wrapper) return;
+
+    const handleNativeDrop = (event: DragEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      // Try to get data from dataTransfer
+      let dataStr = event.dataTransfer?.getData("application/reactflow") || "";
+      if (!dataStr) dataStr = event.dataTransfer?.getData("text/plain") || "";
+      if (!dataStr) dataStr = event.dataTransfer?.getData("text") || "";
+
+      let nodeData = null;
+      if (dataStr) {
+        try {
+          nodeData = JSON.parse(dataStr);
+        } catch {
+          // Ignore parse errors
+        }
+      }
+
+      // Fallback to global variable (workaround for WebKit)
+      if (!nodeData) {
+        nodeData = getDraggedNodeData();
+      }
+
+      if (!nodeData) return;
+
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      // Use groupNode type for container nodes (Loop, While, If, Try/Catch)
+      const isContainer = isContainerNodeType(nodeData.type);
+
+      // Check if dropping inside a GroupNode (container)
+      const parentGroup = !isContainer ? findParentGroupNode(position, nodesRef.current) : null;
+
+      // Calculate position relative to parent if dropping inside a container
+      let finalPosition = position;
+      if (parentGroup) {
+        finalPosition = {
+          x: position.x - parentGroup.position.x,
+          y: position.y - parentGroup.position.y,
+        };
+      }
+
+      const newNode: FlowNode = {
+        id: `${nodeData.type}-${Date.now()}`,
+        type: isContainer ? "groupNode" : "customNode",
+        position: finalPosition,
+        // Container nodes need explicit dimensions
+        ...(isContainer && {
+          style: { width: 400, height: 250 },
+        }),
+        // Set parent if dropping inside a container
+        ...(parentGroup && {
+          parentId: parentGroup.id,
+          extent: "parent" as const,
+        }),
+        // Child nodes need higher zIndex to render edges above container
+        zIndex: parentGroup ? 1000 : undefined,
+        data: {
+          label: nodeData.label,
+          nodeType: nodeData.type,
+          config: { ...(nodeData.defaultConfig || {}) },
+          category: nodeData.category,
+          icon: nodeData.icon,
+          ...(isContainer && { childNodes: [] }),
+        },
+      };
+
+      // Update parent's childNodes list if dropping inside a container
+      let updatedNodes = [...nodesRef.current];
+      if (parentGroup) {
+        updatedNodes = nodesRef.current.map((n) =>
+          n.id === parentGroup.id
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  childNodes: [...(n.data.childNodes || []), newNode.id],
+                },
+              }
+            : n
+        );
+      }
+
+      setNodes([...updatedNodes, newNode]);
+      clearDraggedNodeData();
+    };
+
+    const handleNativeDragOver = (event: DragEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "move";
+      }
+    };
+
+    // Add listeners in capture phase (third param = true)
+    wrapper.addEventListener("drop", handleNativeDrop, true);
+    wrapper.addEventListener("dragover", handleNativeDragOver, true);
+
+    return () => {
+      wrapper.removeEventListener("drop", handleNativeDrop, true);
+      wrapper.removeEventListener("dragover", handleNativeDragOver, true);
+    };
+  }, [screenToFlowPosition, setNodes]);
+
+  // Handle delete key for nodes and edges - using native event listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+
+      // Check both target and activeElement (WebKit/Tauri can lose focus on keydown)
+      const target = e.target as HTMLElement;
+      const activeElement = document.activeElement;
+
+      // Don't delete if event originated from an input field
+      const targetTag = target?.tagName?.toLowerCase();
+      const activeTag = activeElement?.tagName?.toLowerCase();
+      const isTyping = targetTag === 'input' || targetTag === 'textarea' ||
+                       activeTag === 'input' || activeTag === 'textarea' ||
+                       target?.getAttribute("contenteditable") === "true";
+
+      // Also check if target is inside any modal/panel (not the canvas)
+      const isInModal = target?.closest('[data-properties-panel]') !== null ||
+                        activeElement?.closest('[data-properties-panel]') !== null;
+
+      if (isTyping || isInModal) return;
+
+      // Delete selected nodes
+      const selectedNodes = nodes.filter((n) => n.selected);
+      if (selectedNodes.length > 0) {
+        const selectedIds = selectedNodes.map((n) => n.id);
+        setNodes(nodes.filter((n) => !selectedIds.includes(n.id)));
+        // Also remove edges connected to deleted nodes
+        setEdges(edges.filter((e) => !selectedIds.includes(e.source) && !selectedIds.includes(e.target)));
+        setSelectedNode(null);
+      }
+
+      // Delete selected edges
+      const selectedEdges = edges.filter((e) => e.selected);
+      if (selectedEdges.length > 0) {
+        const selectedEdgeIds = selectedEdges.map((e) => e.id);
+        setEdges(edges.filter((e) => !selectedEdgeIds.includes(e.id)));
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [nodes, edges, setNodes, setEdges, setSelectedNode, selectedNode]);
+
+  // Handle explicit "detach from container" action coming from CustomNode toolbar
+  useEffect(() => {
+    const handleDetachNode = (event: Event) => {
+      const customEvent = event as CustomEvent<{ nodeId?: string }>;
+      const nodeId = customEvent.detail?.nodeId;
+      if (!nodeId) return;
+
+      const before = nodesRef.current;
+      const detached = detachNodeFromContainer(before, nodeId);
+      if (detached === before) return;
+
+      setNodes(detached);
+      toast.success("Node detached", "Node moved out of container");
+    };
+
+    window.addEventListener("detach-node-from-container", handleDetachNode as EventListener);
+    return () =>
+      window.removeEventListener("detach-node-from-container", handleDetachNode as EventListener);
+  }, [setNodes, toast]);
+
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      const beforeNodes = nodes;
+      let updatedNodes = applyNodeChanges(changes, nodes) as FlowNode[];
+
+      // Ensure child nodes always have high zIndex for proper edge rendering
+      updatedNodes = updatedNodes.map(node => {
+        if (node.parentId && (node.zIndex === undefined || node.zIndex < 1000)) {
+          return { ...node, zIndex: 1000 };
+        }
+        return node;
+      });
+
+      const movedNodeIds = Array.from(
+        new Set(
+          changes.flatMap((change) =>
+            change.type === "position" && change.dragging === false && "id" in change
+              ? [String(change.id)]
+              : []
+          )
+        )
+      );
+
+      if (movedNodeIds.length > 0) {
+        updatedNodes = attachMovedNodesToContainers(updatedNodes, movedNodeIds);
+      } else {
+        updatedNodes = reconcileContainerNodes(updatedNodes);
+      }
+
+      const shiftedRoutes = shiftManualEdgeRoutesForMovedContainers(
+        beforeNodes,
+        updatedNodes,
+        edgesRef.current,
+        movedNodeIds
+      );
+
+      setNodes(updatedNodes);
+      if (shiftedRoutes.changed) {
+        setEdges(shiftedRoutes.edges);
+      }
+    },
+    [nodes, setEdges, setNodes]
+  );
+
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      const updatedEdges = applyEdgeChanges(changes, edgesRef.current) as FlowEdge[];
+      setEdges(updatedEdges);
+    },
+    [setEdges]
+  );
+
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      // Get source node to determine color and other metadata
+      const sourceNode = connection.source
+        ? nodes.find((n) => n.id === connection.source)
+        : null;
+      const targetNode = connection.target
+        ? nodes.find((n) => n.id === connection.target)
+        : null;
+
+      let normalizedConnection = connection;
+      if (connection.sourceHandle === "connection-out") {
+        const sourceType = sourceNode?.data.nodeType ?? "";
+        const targetType = targetNode?.data.nodeType ?? "";
+
+        const isMs365Source = sourceType === "ms365.connection";
+        const isStorageSource = sourceType === "storage.provider";
+        const isVaultSource = sourceType.startsWith("secrets.");
+
+        const isMs365Target =
+          targetType === "trigger.ms365_email" || targetType.startsWith("ms365.");
+        const isStorageTarget =
+          targetType === "storage.transfer" ||
+          targetType === "storage.sync" ||
+          isStorageModeNodeType(targetType);
+        const VAULT_CONSUMER_TYPES = ["security.totp_generate", "security.get_secret"];
+        const isVaultTarget = VAULT_CONSUMER_TYPES.includes(targetType);
+
+        if (isMs365Source && !isMs365Target) return;
+        if (isStorageSource && !isStorageTarget) return;
+        if (isVaultSource && !isVaultTarget) return;
+
+        if (connection.targetHandle !== "connection") {
+          normalizedConnection = { ...connection, targetHandle: "connection" };
+        }
+      }
+
+      // Get color from source node's category
+      const sourceColor = sourceNode
+        ? getCategoryColor(sourceNode.data.category)
+        : "#6b7280"; // Default gray
+
+      // Determine edge type based on source/target handles
+      const isToolConnection =
+        normalizedConnection.sourceHandle === "tool-out" &&
+        normalizedConnection.targetHandle === "tools";
+
+      const isMemoryConnection =
+        normalizedConnection.sourceHandle === "memory-out" &&
+        normalizedConnection.targetHandle === "memory";
+
+      const isEmbeddingsConnection =
+        normalizedConnection.sourceHandle === "embeddings-out" &&
+        normalizedConnection.targetHandle === "embeddings";
+
+      const isModelConnection =
+        normalizedConnection.sourceHandle === "model-out" &&
+        normalizedConnection.targetHandle === "model";
+
+      const isConnectionConnection =
+        normalizedConnection.sourceHandle === "connection-out" &&
+        normalizedConnection.targetHandle === "connection";
+
+      // For tool connections, get label for the tool name
+      let toolName = "";
+      let toolDescription = "";
+      if (isToolConnection && sourceNode) {
+        toolName = sourceNode.data.label
+          .toLowerCase()
+          .replace(/\s+/g, "_")
+          .replace(/[^a-z0-9_]/g, "");
+        toolDescription = `Execute ${sourceNode.data.label} node`;
+      }
+
+      // For memory connections, get the memory type from the source node config
+      let memoryType: "retrieve" | "store" | "both" = "both";
+      if (isMemoryConnection && sourceNode && sourceNode.data.config?.memory_type) {
+        memoryType = sourceNode.data.config.memory_type;
+      }
+
+      // Determine edge type
+      let edgeType: "success" | "error" | "tool" | "memory" | "embeddings" | "model" | "connection";
+      if (isToolConnection) {
+        edgeType = "tool";
+      } else if (isMemoryConnection) {
+        edgeType = "memory";
+      } else if (isEmbeddingsConnection) {
+        edgeType = "embeddings";
+      } else if (isModelConnection) {
+        edgeType = "model";
+      } else if (isConnectionConnection) {
+        edgeType = "connection";
+      } else {
+        edgeType = normalizedConnection.sourceHandle as "success" | "error";
+      }
+
+      // For connection edges, get the connection type from source node
+      let connectionType = "";
+      if (isConnectionConnection && sourceNode) {
+        // Extract connection type from node type (e.g., "ms365.connection" -> "ms365")
+        connectionType = sourceNode.data.nodeType.split(".")[0];
+      }
+
+      const edge: FlowEdge = {
+        id: `${normalizedConnection.source}-${normalizedConnection.sourceHandle}-${normalizedConnection.target}`,
+        source: normalizedConnection.source!,
+        target: normalizedConnection.target!,
+        sourceHandle: normalizedConnection.sourceHandle,
+        targetHandle: normalizedConnection.targetHandle,
+        type: "animated",
+        data: {
+          edgeType,
+          sourceColor,
+          ...(isToolConnection && { toolName, toolDescription }),
+          ...(isMemoryConnection && { memoryType }),
+          ...(isConnectionConnection && { connectionType }),
+        },
+      };
+
+      const newEdges = addEdge(edge, edgesRef.current) as FlowEdge[];
+      setEdges(newEdges);
+    },
+    [nodes, setEdges]
+  );
+
+  // Single click just selects the node (React Flow handles this automatically)
+  // We don't open the config panel on single click anymore
+  const onNodeClick = useCallback(
+    () => {
+      // Don't open config panel - just let React Flow handle selection
+    },
+    []
+  );
+
+  // Double click opens the configuration panel
+  const onNodeDoubleClick = useCallback(
+    (_event: React.MouseEvent, node: FlowNode) => {
+      setSelectedNode(node);
+    },
+    [setSelectedNode]
+  );
+
+  const onPaneClick = useCallback((event: React.MouseEvent) => {
+    // Check if there's a pending node to place (click-to-place for Tauri)
+    const pendingNode = getPendingNodeTemplate();
+    if (pendingNode) {
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      // Use groupNode type for container nodes (Loop, While, If, Try/Catch)
+      const isContainer = isContainerNodeType(pendingNode.type);
+
+      // Check if clicking inside a GroupNode (container)
+      const parentGroup = !isContainer ? findParentGroupNode(position, nodes) : null;
+
+      // Calculate position relative to parent if placing inside a container
+      let finalPosition = position;
+      if (parentGroup) {
+        finalPosition = {
+          x: position.x - parentGroup.position.x,
+          y: position.y - parentGroup.position.y,
+        };
+      }
+
+      const newNode: FlowNode = {
+        id: `${pendingNode.type}-${Date.now()}`,
+        type: isContainer ? "groupNode" : "customNode",
+        position: finalPosition,
+        // Container nodes need explicit dimensions
+        ...(isContainer && {
+          style: { width: 400, height: 250 },
+        }),
+        // Set parent if placing inside a container
+        ...(parentGroup && {
+          parentId: parentGroup.id,
+          extent: "parent" as const,
+        }),
+        // Child nodes need higher zIndex to render edges above container
+        zIndex: parentGroup ? 1000 : undefined,
+        data: {
+          label: pendingNode.label,
+          nodeType: pendingNode.type,
+          config: { ...(pendingNode.defaultConfig || {}) },
+          category: pendingNode.category,
+          icon: pendingNode.icon,
+          ...(isContainer && { childNodes: [] }),
+        },
+      };
+
+      // Update parent's childNodes list if placing inside a container
+      let updatedNodes = [...nodes];
+      if (parentGroup) {
+        updatedNodes = nodes.map((n) =>
+          n.id === parentGroup.id
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  childNodes: [...(n.data.childNodes || []), newNode.id],
+                },
+              }
+            : n
+        );
+      }
+
+      setNodes([...updatedNodes, newNode]);
+      clearPendingNodeTemplate();
+      return;
+    }
+
+    setSelectedNode(null);
+  }, [setSelectedNode, screenToFlowPosition, nodes, setNodes]);
+
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      console.log("=== DROP EVENT TRIGGERED ===");
+      console.log("clientX:", event.clientX, "clientY:", event.clientY);
+
+      // Try multiple data types for better compatibility
+      let dataStr = event.dataTransfer.getData("application/reactflow");
+      console.log("dataTransfer application/reactflow:", dataStr);
+      if (!dataStr) {
+        dataStr = event.dataTransfer.getData("text/plain");
+        console.log("dataTransfer text/plain:", dataStr);
+      }
+      if (!dataStr) {
+        dataStr = event.dataTransfer.getData("text");
+        console.log("dataTransfer text:", dataStr);
+      }
+
+      let nodeData = null;
+
+      if (dataStr) {
+        try {
+          nodeData = JSON.parse(dataStr);
+          console.log("Parsed nodeData from dataTransfer:", nodeData);
+        } catch (err) {
+          console.error("Error parsing drag data:", err);
+        }
+      }
+
+      // Fallback to global variable (workaround for WebKit/Tauri)
+      if (!nodeData) {
+        nodeData = getDraggedNodeData();
+        console.log("Fallback to global draggedNodeData:", nodeData);
+      }
+
+      if (!nodeData) {
+        console.warn("No drag data found - aborting drop");
+        return;
+      }
+
+      // Get the bounds of the ReactFlow wrapper
+      const reactFlowBounds = flowWrapperRef.current?.getBoundingClientRect();
+      console.log("reactFlowBounds:", reactFlowBounds);
+      if (!reactFlowBounds) {
+        console.warn("No reactFlowBounds - aborting");
+        return;
+      }
+
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      console.log("Calculated position:", position);
+
+      // Use groupNode type for container nodes (Loop, While, If, Try/Catch)
+      const isContainer = isContainerNodeType(nodeData.type);
+
+      // Check if dropping inside a GroupNode (container)
+      // Don't allow nesting containers inside containers
+      const parentGroup = !isContainer ? findParentGroupNode(position, nodes) : null;
+
+      // Calculate position relative to parent if dropping inside a container
+      let finalPosition = position;
+      if (parentGroup) {
+        finalPosition = {
+          x: position.x - parentGroup.position.x,
+          y: position.y - parentGroup.position.y,
+        };
+        console.log("Dropping inside container:", parentGroup.id, "Relative position:", finalPosition);
+      }
+
+      const newNode: FlowNode = {
+        id: `${nodeData.type}-${Date.now()}`,
+        type: isContainer ? "groupNode" : "customNode",
+        position: finalPosition,
+        // Container nodes need explicit dimensions
+        ...(isContainer && {
+          style: { width: 400, height: 250 },
+        }),
+        // Set parent if dropping inside a container
+        ...(parentGroup && {
+          parentId: parentGroup.id,
+          extent: "parent" as const,
+        }),
+        // Child nodes need higher zIndex to render edges above container
+        zIndex: parentGroup ? 1000 : undefined,
+        data: {
+          label: nodeData.label,
+          nodeType: nodeData.type,
+          config: { ...(nodeData.defaultConfig || {}) },
+          category: nodeData.category,
+          icon: nodeData.icon,
+          ...(isContainer && { childNodes: [] }),
+        },
+      };
+      console.log("Creating new node:", newNode, parentGroup ? `(child of ${parentGroup.id})` : "(top-level)");
+
+      // Update parent's childNodes list if dropping inside a container
+      let updatedNodes = [...nodes];
+      if (parentGroup) {
+        updatedNodes = nodes.map((n) =>
+          n.id === parentGroup.id
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  childNodes: [...(n.data.childNodes || []), newNode.id],
+                },
+              }
+            : n
+        );
+      }
+
+      setNodes([...updatedNodes, newNode]);
+      console.log("Setting nodes, total count:", updatedNodes.length + 1);
+      clearDraggedNodeData();
+      console.log("=== DROP COMPLETE ===");
+    },
+    [screenToFlowPosition, nodes, setNodes]
+  );
+
+  return (
+    <div
+      ref={flowWrapperRef}
+      className={`w-full h-full relative ${hasPendingNode ? 'cursor-crosshair' : ''}`}
+      style={{ width: '100%', height: '100%', minHeight: '100%', backgroundColor: '#f1f5f9' }}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
+      <ReactFlow
+        nodes={safeNodes}
+        edges={safeEdges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        onNodeClick={onNodeClick}
+        onNodeDoubleClick={onNodeDoubleClick}
+        onPaneClick={onPaneClick}
+        onDrop={onDrop}
+        onDragOver={onDragOver}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        nodesDraggable={true}
+        nodesConnectable={true}
+        elementsSelectable={true}
+        selectionOnDrag={false}
+        selectionMode={SelectionMode.Partial}
+        selectionKeyCode="Shift"
+        multiSelectionKeyCode="Shift"
+        panOnScroll={true}
+        deleteKeyCode={null}
+        proOptions={{ hideAttribution: true }}
+        elevateEdgesOnSelect={true}
+        defaultEdgeOptions={{
+          type: "animated",
+          zIndex: 1000,
+        }}
+        connectionLineStyle={{
+          strokeWidth: 2,
+          strokeDasharray: "6 4",
+        }}
+      >
+        <Background
+          color="#cbd5e1"
+          gap={20}
+          size={1}
+          variant={BackgroundVariant.Dots}
+        />
+        <Controls
+          className="!bottom-4 !left-4 !shadow-sm !border !rounded-lg !bg-card"
+          showInteractive={false}
+        />
+        <MiniMap
+          className="!bottom-4 !right-4 !border !shadow-sm !rounded-lg !bg-white"
+          maskColor="rgba(100, 116, 139, 0.1)"
+          nodeColor="#64748b"
+        />
+      </ReactFlow>
+
+      {safeNodes.length === 0 && <EmptyState />}
+    </div>
+  );
+}

@@ -1,0 +1,320 @@
+export const metadata = {
+  title: 'Database',
+  description: 'Connect to any database. SQL queries, stored procedures, and transactions.',
+}
+
+export const sections = [
+  { title: 'Connect Database', id: 'database-connect' },
+  { title: 'Execute Query', id: 'database-query' },
+  { title: 'Insert Row', id: 'database-insert' },
+  { title: 'Update Rows', id: 'database-update' },
+  { title: 'Delete Rows', id: 'database-delete' },
+  { title: 'Call Procedure', id: 'database-call_procedure' },
+  { title: 'Transaction', id: 'database-transaction' },
+  { title: 'Commit', id: 'database-commit' },
+  { title: 'Close Connection', id: 'database-close' },
+]
+
+Connect to any database. Execute SQL queries, stored procedures, and transactions. {{ className: 'lead' }}
+
+<Note>
+  Supported databases: **PostgreSQL**, **MySQL**, **SQL Server**, **Oracle**, **SQLite**.
+</Note>
+
+---
+
+<NodeHeader id="database-connect" icon="Database" label="Connect Database" description="Connect to database using individual credentials (supports vault references)" bgColor="#fed7aa" textColor="#9a3412" />
+
+<Properties>
+  <Property name="type" type="string">
+    `database.connect`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **type** (`select`, default: `postgresql`) — Database type:
+  - `postgresql` — PostgreSQL
+  - `mysql` — MySQL
+  - `mssql` — SQL Server
+  - `oracle` — Oracle
+  - `sqlite` — SQLite
+- **host** (`text`, required) — Host. Supports expressions like `${vault.db_host}`
+- **port** (`number`, default: `5432`) — Port
+- **database** (`text`, required) — Database name
+- **username** (`text`, required) — Username. Supports expressions like `${vault.db_user}`
+- **password** (`text`, required) — Password. Supports expressions like `${vault.db_password}`
+- **ssl** (`boolean`, default: `false`) — Enable SSL
+
+**Output:**
+- **connectionId** (`string`) — Connection ID for use in other database nodes
+- **connected** (`boolean`) — Whether connection was successful
+- **serverVersion** (`string`) — Database server version
+
+**Example:**
+
+```json
+{
+  "type": "database.connect",
+  "config": {
+    "type": "postgresql",
+    "host": "${VAULT.db_host}",
+    "port": 5432,
+    "database": "myapp",
+    "username": "${VAULT.db_user}",
+    "password": "${VAULT.db_password}",
+    "ssl": true
+  }
+}
+```
+
+---
+
+<NodeHeader id="database-query" icon="Code" label="Execute Query" description="Run SQL query on connected database" bgColor="#fed7aa" textColor="#9a3412" />
+
+<Properties>
+  <Property name="type" type="string">
+    `database.query`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **connection** (`text`) — Connection reference. Supports expressions like `${Connect Database.connectionId}`
+- **query** (`textarea`, required) — SQL query. Supports expressions.
+- **params** (`textarea`) — Query parameters as JSON. Supports expressions.
+
+**Output:**
+- **records** (`array`) — Query result rows
+- **columns** (`array`) — Column names
+- **recordCount** (`number`) — Number of rows returned
+
+**Example - Parameterized Query:**
+
+```json
+{
+  "type": "database.query",
+  "config": {
+    "connection": "${Connect Database.connectionId}",
+    "query": "SELECT * FROM customers WHERE status = $1 AND created_at > $2",
+    "params": "[\"active\", \"2024-01-01\"]"
+  }
+}
+```
+
+<Warning>
+  **Always use parameterized queries** to prevent SQL injection. Never concatenate user input directly into SQL strings.
+</Warning>
+
+---
+
+<NodeHeader id="database-insert" icon="Plus" label="Insert Row" description="Insert data into table" bgColor="#fed7aa" textColor="#9a3412" />
+
+<Properties>
+  <Property name="type" type="string">
+    `database.insert`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **connection** (`text`) — Connection reference. Supports expressions like `${Connect Database.connectionId}`
+- **table** (`text`, required) — Table name. Supports expressions.
+- **data** (`textarea`, required) — Data as JSON. Supports expressions.
+
+**Output:**
+- **insertedId** (`string`) — ID of inserted row
+- **rowsAffected** (`number`) — Number of rows inserted
+
+**Example:**
+
+```json
+{
+  "type": "database.insert",
+  "config": {
+    "connection": "${Connect Database.connectionId}",
+    "table": "orders",
+    "data": "${processed_order}"
+  }
+}
+```
+
+---
+
+<NodeHeader id="database-update" icon="RefreshCw" label="Update Rows" description="Update table data" bgColor="#fed7aa" textColor="#9a3412" />
+
+<Properties>
+  <Property name="type" type="string">
+    `database.update`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **connection** (`text`) — Connection reference. Supports expressions like `${Connect Database.connectionId}`
+- **table** (`text`, required) — Table name. Supports expressions.
+- **data** (`textarea`, required) — Data to update as JSON. Supports expressions.
+- **where** (`text`, required) — WHERE clause. Supports expressions.
+
+**Output:**
+- **rowsAffected** (`number`) — Number of rows updated
+
+**Example:**
+
+```json
+{
+  "type": "database.update",
+  "config": {
+    "connection": "${Connect Database.connectionId}",
+    "table": "customers",
+    "data": "{\"status\": \"processed\", \"updated_at\": \"NOW()\"}",
+    "where": "id = ${customer.id}"
+  }
+}
+```
+
+---
+
+<NodeHeader id="database-delete" icon="Trash2" label="Delete Rows" description="Delete from table" bgColor="#fed7aa" textColor="#9a3412" />
+
+<Properties>
+  <Property name="type" type="string">
+    `database.delete`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **connection** (`text`) — Connection reference. Supports expressions like `${Connect Database.connectionId}`
+- **table** (`text`, required) — Table name. Supports expressions.
+- **where** (`text`, required) — WHERE clause. Supports expressions.
+
+**Output:**
+- **rowsAffected** (`number`) — Number of rows deleted
+
+---
+
+<NodeHeader id="database-call_procedure" icon="Play" label="Call Procedure" description="Execute stored procedure" bgColor="#fed7aa" textColor="#9a3412" />
+
+<Properties>
+  <Property name="type" type="string">
+    `database.call_procedure`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **procedure** (`text`, required) — Stored procedure name
+- **params** (`textarea`) — Parameters as JSON
+
+**Output:**
+- **result** (`object`) — Procedure return value
+- **outParams** (`object`) — Output parameters
+
+**Example:**
+
+```json
+{
+  "type": "database.call_procedure",
+  "config": {
+    "procedure": "sp_process_monthly_report",
+    "params": "{\"month\": 1, \"year\": 2024}"
+  }
+}
+```
+
+---
+
+<NodeHeader id="database-transaction" icon="GitMerge" label="Transaction" description="Start database transaction" bgColor="#fed7aa" textColor="#9a3412" />
+
+<Properties>
+  <Property name="type" type="string">
+    `database.transaction`
+  </Property>
+</Properties>
+
+Starts a new database transaction. All subsequent database operations will be part of this transaction until committed or rolled back.
+
+---
+
+<NodeHeader id="database-commit" icon="Check" label="Commit" description="Commit transaction" bgColor="#fed7aa" textColor="#9a3412" />
+
+<Properties>
+  <Property name="type" type="string">
+    `database.commit`
+  </Property>
+</Properties>
+
+Commits the current transaction, making all changes permanent.
+
+---
+
+<NodeHeader id="database-close" icon="X" label="Close Connection" description="Close database connection" bgColor="#fed7aa" textColor="#9a3412" />
+
+<Properties>
+  <Property name="type" type="string">
+    `database.close`
+  </Property>
+</Properties>
+
+Closes the database connection and releases resources.
+
+---
+
+## Common Patterns
+
+### ETL Pipeline (Extract → Transform → Load)
+
+<FlowDiagram items={[
+  { label: "database.connect", sublabel: "Source DB", type: "default" },
+  { label: "database.query", sublabel: "SELECT daily_sales", type: "primary" },
+  { label: "code.python", sublabel: "Clean & enrich", type: "warning" },
+  { label: "database.connect", sublabel: "Destination DB", type: "default" },
+  { label: "database.insert", sublabel: "Load data", type: "success" }
+]} />
+
+### Transactional Batch Insert (All-or-Nothing)
+
+<FlowDiagram items={[
+  { label: "database.connect", sublabel: "Target DB", type: "default" },
+  { label: "database.transaction", sublabel: "BEGIN", type: "primary" },
+  { label: "control.loop", sublabel: "For each record", type: "default" },
+  { label: "database.insert", sublabel: "Insert row", type: "default" },
+  { label: "database.commit", sublabel: "COMMIT", type: "success" }
+]} />
+
+If any insert fails, the entire transaction rolls back — no partial data. Connect the error output of the loop to a rollback handler.
+
+### Query + AI Analysis
+
+<FlowDiagram items={[
+  { label: "database.connect", sublabel: "Analytics DB", type: "default" },
+  { label: "database.query", sublabel: "Monthly metrics", type: "primary" },
+  { label: "ai.summarize", sublabel: "AI summary", type: "warning" },
+  { label: "email.send", sublabel: "Report email", type: "success" }
+]} />
+
+Query your database, let AI summarize the results into an executive report, and email it automatically.
+
+---
+
+## Security Best Practices
+
+| Rule | Why |
+|------|-----|
+| **Always use parameterized queries** | Prevents SQL injection — the #1 database vulnerability |
+| **Store credentials in Vault** | Never hardcode host, user, or password in config |
+| **Use SSL for remote connections** | Encrypts data in transit |
+| **Use read-only credentials for SELECT** | Principle of least privilege |
+| **Close connections when done** | Prevents connection pool exhaustion |
+| **Use transactions for multi-step writes** | Ensures data consistency on failure |
+| **Add audit logging for writes** | Compliance requires tracking who changed what |
+
+---
+
+## Connection Strings by Database
+
+| Database | Default Port | SSL Note |
+|----------|:------------:|----------|
+| **PostgreSQL** | 5432 | SSL recommended, use `sslmode=require` |
+| **MySQL** | 3306 | SSL via `ssl: true` |
+| **SQL Server** | 1433 | Encrypt via `encrypt: true` |
+| **Oracle** | 1521 | SSL via Oracle Wallet |
+| **SQLite** | N/A | Local file, no network needed |
+
+---
+

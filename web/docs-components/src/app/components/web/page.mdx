@@ -1,0 +1,1074 @@
+export const metadata = {
+  title: 'Web Automation',
+  description: 'Components for browser automation. Automate any website - click buttons, fill forms, extract data.',
+}
+
+export const sections = [
+  { title: 'Open Browser', id: 'web-open_browser' },
+  { title: 'Navigate To', id: 'web-navigate' },
+  { title: 'Click Element', id: 'web-click' },
+  { title: 'Type Text', id: 'web-type' },
+  { title: 'Select Option', id: 'web-select_option' },
+  { title: 'Get Text', id: 'web-get_text' },
+  { title: 'Get Attribute', id: 'web-get_attribute' },
+  { title: 'Screenshot', id: 'web-screenshot' },
+  { title: 'Wait for Element', id: 'web-wait_element' },
+  { title: 'Execute JavaScript', id: 'web-execute_js' },
+  { title: 'Scroll Page', id: 'web-scroll' },
+  { title: 'Handle Alert', id: 'web-handle_alert' },
+  { title: 'Switch Tab', id: 'web-switch_tab' },
+  { title: 'Close Browser', id: 'web-close_browser' },
+  { title: 'Download File', id: 'web-download_file' },
+]
+
+Components for browser automation. Automate any website - click buttons, fill forms, extract data. {{ className: 'lead' }}
+
+<Note>
+  **15 components**. See also: [API / HTTP](/components/api) · [Data Transform](/components/data) · [File Operations](/components/files). Screenshot and Download nodes support [Storage Provider](/components/storage) — save captures and downloads directly to S3, Azure Blob, or any cloud storage.
+</Note>
+
+## Selector Types
+
+All web components that interact with elements support multiple selector strategies:
+
+| Type | Description | Example |
+|------|-------------|---------|
+| **CSS Selector** | Standard CSS selectors | `#submit-btn`, `.form-input`, `div[data-id="123"]` |
+| **XPath** | XML Path expressions for complex queries | `//button[@type="submit"]`, `//div[contains(@class,"item")]` |
+| **ID** | Element ID attribute | `login-button` |
+| **Name** | Element name attribute | `username` |
+| **Class** | CSS class name | `btn-primary` |
+
+<Collapsible title="When to use XPath vs CSS">
+
+**Use XPath when:**
+- You need to select elements by text content: `//button[text()="Submit"]`
+- You need parent/ancestor traversal: `//span[@class="price"]/ancestor::div`
+- You need complex conditions: `//input[@type="text" and @required]`
+- Working with tables: `//table//tr[3]/td[2]`
+
+**Use CSS when:**
+- You have unique IDs or classes
+- You need better performance (CSS is faster)
+- You're familiar with CSS selectors from web development
+
+</Collapsible>
+
+<NodeHeader id="web-open_browser" icon="Globe" label="Open Browser" description="Open a web browser" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `web.open_browser`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Start a web scraping session
+- Begin automated testing of web applications
+- Log into web portals for data extraction
+- Open multiple browser contexts for parallel processing
+
+<Prerequisites>
+
+- Browser driver installed (automatic with SkuldBot)
+- Network access to target website
+
+</Prerequisites>
+
+### Configuration
+
+<Properties>
+  <Property name="url" type="text" required>
+    URL (e.g., `https://example.com`)
+  </Property>
+  <Property name="browser" type="select">
+    Browser Default: `chromium`
+  </Property>
+  <Property name="headless" type="boolean">
+    Headless Mode (invisible browser) Default: `false`
+  </Property>
+</Properties>
+
+### Setup Guide
+
+
+<Collapsible title="Browser Options">
+
+**Headless Mode:** Set `headless: true` to run without visible window (faster, ideal for servers)
+
+**Proxy:** Configure `proxy.server`, `proxy.username`, and `proxy.password` using vault secrets
+
+**Custom User Agent:** Set `userAgent` to a custom browser identification string
+
+</Collapsible>
+
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Open Browser.variableName}`.
+
+<Properties>
+  <Property name="title" type="string">
+    Page title
+  </Property>
+  <Property name="url" type="string">
+    Current URL
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "web.open_browser",
+  "label": "Open Browser",
+  "config": {
+    "url": "https://portal.example.com/login",
+    "browser": "chromium",
+    "headless": false
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+<NodeHeader id="web-navigate" icon="ExternalLink" label="Navigate To" description="Navigate to URL" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `web.navigate`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Navigate to specific pages within a web app
+- Follow pagination links in search results
+- Access deep links with query parameters
+- Handle multi-step checkout processes
+
+### Configuration
+
+<Properties>
+  <Property name="url" type="text" required>
+    URL (e.g., `https://example.com`)
+  </Property>
+  <Property name="wait_until" type="select">
+    Wait Until Default: `load`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Navigate To.variableName}`.
+
+<Properties>
+  <Property name="title" type="string">
+    Page title
+  </Property>
+  <Property name="url" type="string">
+    Final URL after navigation
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "web.navigate",
+  "label": "Navigate To",
+  "config": {
+    "url": "https://example.com",
+    "wait_until": "load"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+<NodeHeader id="web-click" icon="MousePointer2" label="Click Element" description="Click on an element" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `web.click`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Click login buttons after filling credentials
+- Accept cookie consent dialogs
+- Navigate through multi-page wizards
+- Download files by clicking download links
+
+### Configuration
+
+<Properties>
+  <Property name="selectorType" type="select">
+    Selector Type - Options: `css` (default), `xpath`, `id`, `name`, `class`
+  </Property>
+  <Property name="selector" type="text" required>
+    Selector value (e.g., `#button-id` for CSS, `//button[@id='submit']` for XPath)
+  </Property>
+  <Property name="timeout" type="number">
+    Timeout (ms) Default: `30000`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Click Element.variableName}`.
+
+<Properties>
+  <Property name="clicked" type="boolean">
+    Whether click was successful
+  </Property>
+</Properties>
+
+### Examples
+
+**Using CSS Selector:**
+```json
+{
+  "id": "node-1",
+  "type": "web.click",
+  "config": {
+    "selectorType": "css",
+    "selector": "#submit-btn",
+    "timeout": 30000
+  }
+}
+```
+
+**Using XPath:**
+```json
+{
+  "id": "node-2",
+  "type": "web.click",
+  "config": {
+    "selectorType": "xpath",
+    "selector": "//button[contains(@class, 'submit')]",
+    "timeout": 30000
+  }
+}
+```
+
+**Using ID:**
+```json
+{
+  "id": "node-3",
+  "type": "web.click",
+  "config": {
+    "selectorType": "id",
+    "selector": "submit-btn",
+    "timeout": 30000
+  }
+}
+```
+
+---
+
+<NodeHeader id="web-type" icon="Type" label="Type Text" description="Type text into field" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `web.type`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Fill login forms with credentials from vault
+- Enter search queries in search boxes
+- Fill out customer registration forms
+- Input data into web-based ERP systems
+
+### Configuration
+
+<Properties>
+  <Property name="selectorType" type="select">
+    Selector Type - Options: `css` (default), `xpath`, `id`, `name`, `class`
+  </Property>
+  <Property name="selector" type="text" required>
+    Selector value
+  </Property>
+  <Property name="text" type="text" required>
+    Text to Type (supports expressions like `${vault.password}`)
+  </Property>
+  <Property name="clear" type="boolean">
+    Clear Field First Default: `true`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Type Text.variableName}`.
+
+<Properties>
+  <Property name="typed" type="boolean">
+    Whether text was typed successfully
+  </Property>
+</Properties>
+
+### Examples
+
+**Using CSS Selector:**
+```json
+{
+  "id": "node-1",
+  "type": "web.type",
+  "config": {
+    "selectorType": "css",
+    "selector": "#username",
+    "text": "${vault.username}",
+    "clear": true
+  }
+}
+```
+
+**Using Name attribute:**
+```json
+{
+  "id": "node-2",
+  "type": "web.type",
+  "config": {
+    "selectorType": "name",
+    "selector": "email",
+    "text": "${vault.email}",
+    "clear": true
+  }
+}
+```
+
+**Using XPath:**
+```json
+{
+  "id": "node-3",
+  "type": "web.type",
+  "config": {
+    "selectorType": "xpath",
+    "selector": "//input[@placeholder='Enter username']",
+    "text": "${vault.username}",
+    "clear": true
+  }
+}
+```
+
+---
+
+<NodeHeader id="web-select_option" icon="ChevronDown" label="Select Option" description="Select dropdown option" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `web.select_option`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Select country from dropdown menus
+- Choose date ranges in report filters
+- Select payment methods in checkout
+- Pick categories for product listing
+
+### Configuration
+
+<Properties>
+  <Property name="selectorType" type="select">
+    Selector Type - Options: `css` (default), `xpath`, `id`, `name`, `class`
+  </Property>
+  <Property name="selector" type="text" required>
+    Selector value
+  </Property>
+  <Property name="value" type="text" required>
+    Value to select
+  </Property>
+</Properties>
+
+### Examples
+
+**Using CSS Selector:**
+```json
+{
+  "id": "node-1",
+  "type": "web.select_option",
+  "config": {
+    "selectorType": "css",
+    "selector": "#country-select",
+    "value": "US"
+  }
+}
+```
+
+**Using XPath:**
+```json
+{
+  "id": "node-2",
+  "type": "web.select_option",
+  "config": {
+    "selectorType": "xpath",
+    "selector": "//select[@name='country']",
+    "value": "US"
+  }
+}
+```
+
+---
+
+<NodeHeader id="web-get_text" icon="TextCursor" label="Get Text" description="Extract text from element" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `web.get_text`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Extract order totals from confirmation pages
+- Scrape product prices from e-commerce sites
+- Read error messages for error handling
+- Capture confirmation numbers after submissions
+
+### Configuration
+
+<Properties>
+  <Property name="selectorType" type="select">
+    Selector Type - Options: `css` (default), `xpath`, `id`, `name`, `class`
+  </Property>
+  <Property name="selector" type="text" required>
+    Selector value
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Get Text.variableName}`.
+
+<Properties>
+  <Property name="text" type="string">
+    Extracted text content
+  </Property>
+</Properties>
+
+### Examples
+
+**Using CSS Selector:**
+```json
+{
+  "id": "node-1",
+  "type": "web.get_text",
+  "config": {
+    "selectorType": "css",
+    "selector": ".invoice-total"
+  }
+}
+```
+
+**Using XPath (extract text by content):**
+```json
+{
+  "id": "node-2",
+  "type": "web.get_text",
+  "config": {
+    "selectorType": "xpath",
+    "selector": "//span[contains(@class, 'price')]/strong"
+  }
+}
+```
+
+**Using XPath (table cell):**
+```json
+{
+  "id": "node-3",
+  "type": "web.get_text",
+  "config": {
+    "selectorType": "xpath",
+    "selector": "//table[@id='orders']//tr[2]/td[3]"
+  }
+}
+```
+
+---
+
+<NodeHeader id="web-get_attribute" icon="Tag" label="Get Attribute" description="Get element attribute" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `web.get_attribute`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Get href links from anchor elements
+- Extract image URLs from src attributes
+- Read data-* attributes for hidden values
+- Get input values for validation
+
+### Configuration
+
+<Properties>
+  <Property name="selectorType" type="select">
+    Selector Type - Options: `css` (default), `xpath`, `id`, `name`, `class`
+  </Property>
+  <Property name="selector" type="text" required>
+    Selector value
+  </Property>
+  <Property name="attribute" type="text" required>
+    Attribute Name (e.g., `href`, `src`, `data-id`)
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Get Attribute.variableName}`.
+
+<Properties>
+  <Property name="value" type="string">
+    Attribute value
+  </Property>
+</Properties>
+
+### Examples
+
+**Get href using CSS:**
+```json
+{
+  "id": "node-1",
+  "type": "web.get_attribute",
+  "config": {
+    "selectorType": "css",
+    "selector": "a.download-link",
+    "attribute": "href"
+  }
+}
+```
+
+**Get data attribute using XPath:**
+```json
+{
+  "id": "node-2",
+  "type": "web.get_attribute",
+  "config": {
+    "selectorType": "xpath",
+    "selector": "//div[@class='product'][1]",
+    "attribute": "data-product-id"
+  }
+}
+```
+
+**Get image src:**
+```json
+{
+  "id": "node-3",
+  "type": "web.get_attribute",
+  "config": {
+    "selectorType": "css",
+    "selector": ".product-image img",
+    "attribute": "src"
+  }
+}
+```
+
+---
+
+<NodeHeader id="web-screenshot" icon="Camera" label="Screenshot" description="Take a screenshot" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `web.screenshot`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Capture proof of completed transactions
+- Document error states for debugging
+- Generate visual reports of dashboards
+- Create audit trail of bot actions
+
+### Configuration
+
+<Properties>
+  <Property name="path" type="text">
+    Save Path (e.g., `./screenshot.png`)
+  </Property>
+  <Property name="full_page" type="boolean">
+    Full Page Default: `false`
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Screenshot.variableName}`.
+
+<Properties>
+  <Property name="path" type="string">
+    Path to saved screenshot
+  </Property>
+  <Property name="width" type="number">
+    Screenshot width in pixels
+  </Property>
+  <Property name="height" type="number">
+    Screenshot height in pixels
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "web.screenshot",
+  "label": "Screenshot",
+  "config": {
+    "path": "/reports/screenshot.png",
+    "fullPage": true
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+<NodeHeader id="web-wait_element" icon="Clock" label="Wait for Element" description="Wait for element to appear" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `web.wait_element`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Wait for page to finish loading after navigation
+- Wait for AJAX content to appear
+- Handle slow-loading dynamic content
+- Ensure modals are fully rendered before interaction
+
+### Configuration
+
+<Properties>
+  <Property name="selectorType" type="select">
+    Selector Type - Options: `css` (default), `xpath`, `id`, `name`, `class`
+  </Property>
+  <Property name="selector" type="text" required>
+    Selector value
+  </Property>
+  <Property name="state" type="select">
+    Wait For - Options: `visible` (default), `hidden`, `attached`
+  </Property>
+  <Property name="timeout" type="number">
+    Timeout (ms) Default: `30000`
+  </Property>
+</Properties>
+
+### Examples
+
+**Wait for loading spinner to disappear:**
+```json
+{
+  "id": "node-1",
+  "type": "web.wait_element",
+  "config": {
+    "selectorType": "css",
+    "selector": ".loading-spinner",
+    "state": "hidden",
+    "timeout": 60000
+  }
+}
+```
+
+**Wait for modal to appear using XPath:**
+```json
+{
+  "id": "node-2",
+  "type": "web.wait_element",
+  "config": {
+    "selectorType": "xpath",
+    "selector": "//div[@role='dialog']",
+    "state": "visible",
+    "timeout": 30000
+  }
+}
+```
+
+**Wait for success message:**
+```json
+{
+  "id": "node-3",
+  "type": "web.wait_element",
+  "config": {
+    "selectorType": "xpath",
+    "selector": "//div[contains(text(), 'Success')]",
+    "state": "visible",
+    "timeout": 15000
+  }
+}
+```
+
+---
+
+<NodeHeader id="web-execute_js" icon="Code" label="Execute JavaScript" description="Run JavaScript in browser" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `web.execute_js`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Scroll infinite scroll pages to load more content
+- Access JavaScript variables from the page
+- Trigger client-side events programmatically
+- Bypass complex UI interactions via direct DOM manipulation
+
+### Configuration
+
+<Properties>
+  <Property name="script" type="textarea" required>
+    JavaScript Code (e.g., `return document.title;`)
+  </Property>
+</Properties>
+
+### Output Variables
+
+Access these variables in subsequent nodes using `${Execute JavaScript.variableName}`.
+
+<Properties>
+  <Property name="result" type="any">
+    Return value from JavaScript
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "web.execute_js",
+  "label": "Execute JavaScript",
+  "config": {
+    "script": "return document.title;"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+<NodeHeader id="web-scroll" icon="ArrowDown" label="Scroll Page" description="Scroll the page" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `web.scroll`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Scroll to load lazy-loaded images
+- Navigate to specific sections of long pages
+- Trigger infinite scroll pagination
+- Ensure elements are in viewport before clicking
+
+### Configuration
+
+<Properties>
+  <Property name="direction" type="select">
+    Direction - Options: `down` (default), `up`, `to_element`
+  </Property>
+  <Property name="selectorType" type="select">
+    Selector Type (if To Element) - Options: `css` (default), `xpath`, `id`, `name`, `class`
+  </Property>
+  <Property name="selector" type="text">
+    Element selector (required if direction is `to_element`)
+  </Property>
+</Properties>
+
+### Examples
+
+**Scroll down:**
+```json
+{
+  "id": "node-1",
+  "type": "web.scroll",
+  "config": {
+    "direction": "down"
+  }
+}
+```
+
+**Scroll to element using CSS:**
+```json
+{
+  "id": "node-2",
+  "type": "web.scroll",
+  "config": {
+    "direction": "to_element",
+    "selectorType": "css",
+    "selector": "#footer"
+  }
+}
+```
+
+**Scroll to element using XPath:**
+```json
+{
+  "id": "node-3",
+  "type": "web.scroll",
+  "config": {
+    "direction": "to_element",
+    "selectorType": "xpath",
+    "selector": "//section[@id='contact-form']"
+  }
+}
+```
+
+---
+
+<NodeHeader id="web-handle_alert" icon="AlertCircle" label="Handle Alert" description="Accept/dismiss alerts" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `web.handle_alert`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Accept confirmation dialogs automatically
+- Dismiss warning popups during automation
+- Handle unexpected alert boxes gracefully
+- Capture alert text for logging
+
+### Configuration
+
+<Properties>
+  <Property name="action" type="select">
+    Action Default: `accept`
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "web.handle_alert",
+  "label": "Handle Alert",
+  "config": {
+    "action": "accept"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+<NodeHeader id="web-switch_tab" icon="PanelLeft" label="Switch Tab" description="Switch browser tab" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `web.switch_tab`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Handle links that open in new tabs
+- Switch between multiple application windows
+- Close advertisement tabs automatically
+- Manage popup windows from third-party auth
+
+### Configuration
+
+<Properties>
+  <Property name="tab_index" type="number">
+    Tab Index Default: `0`
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "web.switch_tab",
+  "label": "Switch Tab",
+  "config": {
+    "tab_index": "0"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+<NodeHeader id="web-close_browser" icon="X" label="Close Browser" description="Close the browser" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `web.close_browser`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Clean up after workflow completion
+- Release browser resources
+- End session and logout implicitly
+- Prevent memory leaks in long-running bots
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "web.close_browser",
+  "label": "Close Browser",
+  "config": {
+    // No configuration required
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+<NodeHeader id="web-download_file" icon="Download" label="Download File" description="Download a file" bgColor="#dbeafe" textColor="#1d4ed8" />
+
+<Properties>
+  <Property name="type" type="string">
+    `web.download_file`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Download reports from web portals
+- Fetch invoices from supplier portals
+- Download attachments from web email
+- Get CSV exports from analytics platforms
+
+### Configuration
+
+<Properties>
+  <Property name="url" type="text" required>
+    URL
+  </Property>
+  <Property name="path" type="text" required>
+    Save Path
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "id": "node-1",
+  "type": "web.download_file",
+  "label": "Download File",
+  "config": {
+    "url": "your-url",
+    "path": "your-path"
+  },
+  "outputs": {
+    "success": "next-node",
+    "error": "error-handler"
+  }
+}
+```
+
+---
+
+## XPath Quick Reference
+
+Common XPath patterns for web automation:
+
+### Basic Selection
+
+| XPath | Description |
+|-------|-------------|
+| `//div` | All div elements |
+| `//div[@id='main']` | Div with id="main" |
+| `//div[@class='item']` | Div with class="item" |
+| `//input[@type='text']` | Text input fields |
+| `//a[@href]` | All links with href |
+
+### Text-Based Selection
+
+| XPath | Description |
+|-------|-------------|
+| `//button[text()='Submit']` | Button with exact text |
+| `//span[contains(text(),'Price')]` | Element containing text |
+| `//label[starts-with(text(),'Name')]` | Element starting with text |
+| `//*[normalize-space()='Login']` | Element with normalized text |
+
+### Attribute Conditions
+
+| XPath | Description |
+|-------|-------------|
+| `//div[contains(@class,'active')]` | Class contains "active" |
+| `//input[@name='email']` | Input by name |
+| `//div[@data-testid='modal']` | By data attribute |
+| `//a[contains(@href,'download')]` | Link containing "download" |
+
+### Position & Index
+
+| XPath | Description |
+|-------|-------------|
+| `//ul/li[1]` | First li element |
+| `//ul/li[last()]` | Last li element |
+| `//table//tr[2]/td[3]` | Row 2, Column 3 |
+| `(//div[@class='item'])[1]` | First matching div |
+
+### Traversal
+
+| XPath | Description |
+|-------|-------------|
+| `//span[@class='price']/..` | Parent of element |
+| `//div[@id='form']//input` | Descendant inputs |
+| `//label/following-sibling::input` | Input after label |
+| `//td/preceding-sibling::td[1]` | Previous cell |
+
+### Multiple Conditions
+
+| XPath | Description |
+|-------|-------------|
+| `//input[@type='text' and @required]` | Text AND required |
+| `//button[@type='submit' or @class='primary']` | Submit OR primary |
+| `//div[not(@hidden)]` | Not hidden divs |
+
+<Note>
+  **Tip:** Use browser DevTools (F12) → Elements → Right-click element → "Copy XPath" to get the XPath of any element.
+</Note>
+

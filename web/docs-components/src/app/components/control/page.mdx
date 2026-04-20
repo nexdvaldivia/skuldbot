@@ -1,0 +1,714 @@
+export const metadata = {
+  title: 'Control Flow',
+  description: 'Control your bot logic. Conditions, loops, switches, error handling, and flow control.',
+}
+
+export const sections = [
+  { title: 'If Condition', id: 'control-if' },
+  { title: 'Switch', id: 'control-switch' },
+  { title: 'For Each', id: 'control-loop' },
+  { title: 'While Loop', id: 'control-while' },
+  { title: 'Wait', id: 'control-wait' },
+  { title: 'Set Variable', id: 'control-set_variable' },
+  { title: 'Try/Catch', id: 'control-try_catch' },
+  { title: 'Parallel', id: 'control-parallel' },
+  { title: 'Stop Bot', id: 'control-stop' },
+  { title: 'Go To', id: 'control-goto' },
+  { title: 'Map/Transform', id: 'control-map' },
+  { title: 'Append to List', id: 'control-append' },
+  { title: 'Filter List', id: 'control-filter' },
+  { title: 'Reduce/Aggregate', id: 'control-reduce' },
+]
+
+Control your bot logic. Conditions, loops, switches, error handling, and flow control. {{ className: 'lead' }}
+
+<Note>
+  Container nodes (`control.if`, `control.loop`, `control.while`, `control.try_catch`) allow you to drag nodes inside them to create nested logic.
+</Note>
+
+---
+
+## Branching Logic
+
+<NodeHeader id="control-if" icon="GitBranch" label="If Condition" description="Container: branch based on condition" bgColor="#e0f2fe" textColor="#0369a1" />
+
+<Properties>
+  <Property name="type" type="string">
+    `control.if`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Route orders based on total amount
+- Skip processing for invalid records
+- Different handling for VIP vs regular customers
+- Conditional notifications
+
+### Configuration
+
+- **condition** (`text`, required) — Condition to evaluate
+
+### Output
+
+- **result** (`boolean`) — Condition evaluation result
+
+### Condition Syntax
+
+```javascript
+// Comparisons
+"${order.total} > 100"
+"${status} == 'approved'"
+"${items.length} >= 5"
+
+// Logical operators
+"${age} > 18 && ${country} == 'US'"
+"${status} == 'pending' || ${priority} == 'high'"
+
+// String methods
+"${email}.includes('@company.com')"
+"${name}.startsWith('Dr.')"
+
+// Null checks
+"${customer.address} != null"
+"${phone} !== undefined"
+```
+
+### Example: Order Routing
+
+<Diagram 
+  groups={[
+    {
+      id: "input",
+      label: "Input",
+      nodes: [{ id: "order", label: "Order Data", sublabel: "total: $1500", type: "default" }]
+    },
+    {
+      id: "check",
+      label: "Check Amount",
+      nodes: [{ id: "if", label: "control.if", sublabel: "total > 1000", type: "primary" }]
+    },
+    {
+      id: "routes",
+      label: "Routes",
+      direction: "row",
+      nodes: [
+        { id: "high", label: "Manager Approval", sublabel: "High value", type: "warning" },
+        { id: "low", label: "Auto Approve", sublabel: "Standard", type: "success" }
+      ]
+    }
+  ]}
+/>
+
+---
+
+<NodeHeader id="control-switch" icon="Route" label="Switch" description="Multi-way branch" bgColor="#e0f2fe" textColor="#0369a1" />
+
+<Properties>
+  <Property name="type" type="string">
+    `control.switch`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Route tickets by category
+- Handle multiple status values
+- Department-based routing
+- Multi-language processing
+
+### Configuration
+
+- **expression** (`text`, required) — Expression to evaluate
+- **cases** (`textarea`, required) — Cases as JSON array
+
+### Output
+
+- **matched_case** (`string`) — Which case was matched
+
+### Example: Ticket Routing
+
+<Diagram 
+  groups={[
+    {
+      id: "input",
+      label: "Input",
+      nodes: [{ id: "ticket", label: "Support Ticket", sublabel: "category: billing", type: "default" }]
+    },
+    {
+      id: "switch",
+      label: "Switch",
+      nodes: [{ id: "sw", label: "control.switch", sublabel: "${ticket.category}", type: "primary" }]
+    },
+    {
+      id: "routes",
+      label: "Routes",
+      direction: "row",
+      nodes: [
+        { id: "billing", label: "Billing Team", type: "success" },
+        { id: "tech", label: "Tech Support", type: "success" },
+        { id: "sales", label: "Sales Team", type: "success" },
+        { id: "default", label: "General Queue", type: "warning" }
+      ]
+    }
+  ]}
+/>
+
+**DSL Example:**
+
+```json
+{
+  "id": "switch_1",
+  "type": "control.switch",
+  "config": {
+    "expression": "${ticket.category}",
+    "cases": "[\"billing\", \"technical\", \"sales\", \"default\"]"
+  }
+}
+```
+
+---
+
+## Loops
+
+<NodeHeader id="control-loop" icon="Repeat" label="For Each" description="Container: iterate over a collection" bgColor="#e0f2fe" textColor="#0369a1" />
+
+<Properties>
+  <Property name="type" type="string">
+    `control.loop`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Process each row in a database query
+- Send emails to a list of recipients
+- Transform multiple files
+- Batch API calls
+
+### Configuration
+
+- **items** (`text`, required) — Items array (e.g., `${Query.records}`)
+- **item_var** (`text`, default: `item`) — Variable name for current item
+- **accumulator_var** (`text`, default: `results`) — Accumulator variable
+
+### Output
+
+- **index** (`number`) — Current iteration index (0-based)
+- **total** (`number`) — Total number of items
+- **isFirst** (`boolean`) — True if first iteration
+- **isLast** (`boolean`) — True if last iteration
+
+### Example: Process Orders
+
+<Diagram 
+  groups={[
+    {
+      id: "query",
+      label: "Query",
+      nodes: [{ id: "db", label: "database.query", sublabel: "Get pending orders", type: "default" }]
+    },
+    {
+      id: "loop",
+      label: "For Each Order",
+      nodes: [{ id: "loop", label: "control.loop", sublabel: "${Query.records}", type: "primary" }]
+    },
+    {
+      id: "inside",
+      label: "Inside Loop",
+      direction: "row",
+      nodes: [
+        { id: "validate", label: "Validate", sublabel: "${order}", type: "warning" },
+        { id: "process", label: "Process", sublabel: "${order}", type: "warning" },
+        { id: "append", label: "control.append", sublabel: "Add to results", type: "success" }
+      ]
+    },
+    {
+      id: "after",
+      label: "After Loop",
+      nodes: [{ id: "report", label: "Generate Report", sublabel: "${results}", type: "success" }]
+    }
+  ]}
+/>
+
+**DSL Example:**
+
+```json
+{
+  "id": "loop_1",
+  "type": "control.loop",
+  "config": {
+    "items": "${database.orders}",
+    "item_var": "order",
+    "accumulator_var": "processed_orders"
+  }
+}
+```
+
+---
+
+<NodeHeader id="control-while" icon="RefreshCw" label="While Loop" description="Container: loop while condition is true" bgColor="#e0f2fe" textColor="#0369a1" />
+
+<Properties>
+  <Property name="type" type="string">
+    `control.while`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Paginated API calls
+- Retry until success
+- Poll for completion
+- Process until queue empty
+
+### Configuration
+
+- **condition** (`text`, required) — Condition to evaluate
+- **max_iterations** (`number`, default: `100`) — Safety limit
+- **accumulator_var** (`text`, default: `results`) — Accumulator variable
+
+### Output
+
+- **iteration** (`number`) — Current iteration number (1-based)
+- **total_iterations** (`number`) — Total iterations executed
+- **results** (`array`) — Accumulated results
+- **exit_reason** (`string`) — Why loop exited: `condition_false`, `max_iterations`, `break`
+
+### Example: Paginated API
+
+<Diagram 
+  groups={[
+    {
+      id: "init",
+      label: "Initialize",
+      nodes: [{ id: "set", label: "control.set_variable", sublabel: "hasMore = true", type: "default" }]
+    },
+    {
+      id: "while",
+      label: "While hasMore",
+      nodes: [{ id: "while", label: "control.while", sublabel: "hasMore == true", type: "primary" }]
+    },
+    {
+      id: "inside",
+      label: "Inside Loop",
+      direction: "row",
+      nodes: [
+        { id: "api", label: "api.http_request", sublabel: "Fetch page", type: "warning" },
+        { id: "append", label: "control.append", sublabel: "Add results", type: "warning" },
+        { id: "check", label: "control.set_variable", sublabel: "hasMore = nextPage?", type: "warning" }
+      ]
+    }
+  ]}
+/>
+
+---
+
+## Variables
+
+<NodeHeader id="control-set_variable" icon="Variable" label="Set Variable" description="Define or update a variable" bgColor="#e0f2fe" textColor="#0369a1" />
+
+<Properties>
+  <Property name="type" type="string">
+    `control.set_variable`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Store intermediate results
+- Counter management
+- Flag handling
+- Accumulator initialization
+
+### Configuration
+
+- **name** (`text`, required) — Variable name
+- **value** (`textarea`, required) — Value to set
+- **scope** (`select`, default: `global`) — Scope: `global`, `local`
+
+### Output
+
+- **value** (`any`) — The value that was set
+
+### Example: Counter
+
+```json
+{
+  "id": "set_var_1",
+  "type": "control.set_variable",
+  "config": {
+    "name": "processedCount",
+    "value": "${processedCount} + 1",
+    "scope": "global"
+  }
+}
+```
+
+---
+
+<NodeHeader id="control-wait" icon="Clock" label="Wait" description="Pause execution" bgColor="#e0e7ff" textColor="#4338ca" />
+
+<Properties>
+  <Property name="type" type="string">
+    `control.wait`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Rate limiting API calls
+- Wait for external processes
+- Debounce operations
+- Scheduled delays
+
+### Configuration
+
+- **seconds** (`number`, required, default: `1`) — Seconds to wait
+
+---
+
+## Error Handling
+
+<NodeHeader id="control-try_catch" icon="ShieldAlert" label="Try/Catch" description="Container: handle errors gracefully" bgColor="#e0f2fe" textColor="#0369a1" />
+
+<Properties>
+  <Property name="type" type="string">
+    `control.try_catch`
+  </Property>
+</Properties>
+
+### When to Use
+
+- API calls that might fail
+- File operations with permissions issues
+- Database operations with constraints
+- External service integrations
+
+### Configuration
+
+- **retry_count** (`number`, default: `0`) — Number of retry attempts
+- **retry_delay** (`number`, default: `1`) — Retry delay in seconds
+
+### Output
+
+- **success** (`boolean`) — True if executed without errors
+- **error_message** (`string`) — Error message if failed
+- **retry_attempts** (`number`) — Number of retry attempts made
+
+### Example: API with Retry
+
+<Diagram 
+  groups={[
+    {
+      id: "try",
+      label: "Try/Catch Block",
+      nodes: [{ id: "try", label: "control.try_catch", sublabel: "retry: 3, delay: 5s", type: "primary" }]
+    },
+    {
+      id: "inside",
+      label: "Inside Try",
+      nodes: [{ id: "api", label: "api.http_request", sublabel: "External API", type: "warning" }]
+    },
+    {
+      id: "results",
+      label: "Results",
+      direction: "row",
+      nodes: [
+        { id: "success", label: "Continue", sublabel: "On success", type: "success" },
+        { id: "error", label: "Alert Team", sublabel: "On failure", type: "error" }
+      ]
+    }
+  ]}
+/>
+
+---
+
+<NodeHeader id="control-parallel" icon="GitBranch" label="Parallel" description="Run branches in parallel" bgColor="#e0f2fe" textColor="#0369a1" />
+
+<Properties>
+  <Property name="type" type="string">
+    `control.parallel`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Independent API calls
+- Parallel data processing
+- Multiple notifications
+- Speed optimization
+
+### Configuration
+
+- **branches** (`number`, default: `2`) — Number of parallel branches
+
+### Example: Parallel Notifications
+
+<Diagram 
+  groups={[
+    {
+      id: "trigger",
+      label: "Trigger",
+      nodes: [{ id: "order", label: "New Order", type: "default" }]
+    },
+    {
+      id: "parallel",
+      label: "Parallel",
+      nodes: [{ id: "par", label: "control.parallel", sublabel: "3 branches", type: "primary" }]
+    },
+    {
+      id: "branches",
+      label: "Branches",
+      direction: "row",
+      nodes: [
+        { id: "email", label: "email.send", sublabel: "Customer", type: "success" },
+        { id: "slack", label: "logging.notification", sublabel: "Sales team", type: "success" },
+        { id: "db", label: "database.insert", sublabel: "Audit log", type: "success" }
+      ]
+    }
+  ]}
+/>
+
+---
+
+## Flow Control
+
+<NodeHeader id="control-stop" icon="StopCircle" label="Stop Bot" description="Stop execution" bgColor="#fee2e2" textColor="#991b1b" />
+
+<Properties>
+  <Property name="type" type="string">
+    `control.stop`
+  </Property>
+</Properties>
+
+### Configuration
+
+- **status** (`select`, default: `success`) — Exit status: `success`, `error`
+
+---
+
+<NodeHeader id="control-goto" icon="CornerRightDown" label="Go To" description="Jump to node" bgColor="#e0f2fe" textColor="#0369a1" />
+
+<Properties>
+  <Property name="type" type="string">
+    `control.goto`
+  </Property>
+</Properties>
+
+### Configuration
+
+- **target_node** (`text`, required) — Target node ID to jump to
+
+---
+
+## Data Transformation
+
+<NodeHeader id="control-map" icon="Shuffle" label="Map/Transform" description="Transform each item in a collection" bgColor="#e0f2fe" textColor="#0369a1" />
+
+<Properties>
+  <Property name="type" type="string">
+    `control.map`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Rename fields in records
+- Calculate derived values
+- Format data for API calls
+- Prepare data for reports
+
+### Configuration
+
+- **items** (`text`, required) — Input array
+- **expression** (`textarea`, required) — Transform expression
+- **item_var** (`text`, default: `item`) — Item variable name
+
+### Output
+
+- **results** (`array`) — Transformed array
+- **count** (`number`) — Number of items transformed
+
+### Example: Format Names
+
+```json
+{
+  "id": "map_1",
+  "type": "control.map",
+  "config": {
+    "items": "${users}",
+    "expression": "{ id: ${item.id}, fullName: ${item.first} + ' ' + ${item.last}, email: ${item.email}.toLowerCase() }",
+    "item_var": "item"
+  }
+}
+```
+
+---
+
+<NodeHeader id="control-filter" icon="Filter" label="Filter List" description="Filter items that match a condition" bgColor="#e0f2fe" textColor="#0369a1" />
+
+<Properties>
+  <Property name="type" type="string">
+    `control.filter`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Get only active records
+- Exclude invalid data
+- Segment lists
+- Pre-process before loops
+
+### Configuration
+
+- **items** (`text`, required) — Input array
+- **condition** (`text`, required) — Filter condition
+- **item_var** (`text`, default: `item`) — Item variable name
+
+### Output
+
+- **results** (`array`) — Filtered array (matching items)
+- **rejected** (`array`) — Rejected array (non-matching items)
+- **count** (`number`) — Number of matching items
+
+### Example: Active Users Only
+
+```json
+{
+  "id": "filter_1",
+  "type": "control.filter",
+  "config": {
+    "items": "${users}",
+    "condition": "${item.status} == 'active' && ${item.email} != null",
+    "item_var": "item"
+  }
+}
+```
+
+---
+
+<NodeHeader id="control-append" icon="ListPlus" label="Append to List" description="Add an item to the end of a list" bgColor="#e0f2fe" textColor="#0369a1" />
+
+<Properties>
+  <Property name="type" type="string">
+    `control.append`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Collect results inside loops
+- Build arrays dynamically
+- Aggregate processed items
+- Create audit trails
+
+### Configuration
+
+- **list** (`text`, required) — Target list variable name
+- **item** (`textarea`, required) — Item to append
+
+### Output
+
+- **length** (`number`) — New length of the list
+- **list** (`array`) — Updated list reference
+
+---
+
+<NodeHeader id="control-reduce" icon="Combine" label="Reduce/Aggregate" description="Reduce array to a single value" bgColor="#e0f2fe" textColor="#0369a1" />
+
+<Properties>
+  <Property name="type" type="string">
+    `control.reduce`
+  </Property>
+</Properties>
+
+### When to Use
+
+- Calculate totals
+- Count items by criteria
+- Find min/max values
+- Aggregate statistics
+
+### Configuration
+
+- **items** (`text`, required) — Input array
+- **expression** (`textarea`, required) — Reduce expression
+- **initial** (`text`, default: `0`) — Initial accumulator value
+- **item_var** (`text`, default: `item`) — Item variable name
+- **acc_var** (`text`, default: `acc`) — Accumulator variable name
+
+### Output
+
+- **result** (`any`) — Final reduced value
+- **count** (`number`) — Number of items processed
+
+### Example: Sum Order Totals
+
+```json
+{
+  "id": "reduce_1",
+  "type": "control.reduce",
+  "config": {
+    "items": "${orders}",
+    "expression": "${acc} + ${item.total}",
+    "initial": "0",
+    "item_var": "item",
+    "acc_var": "acc"
+  }
+}
+```
+
+**Output:** `{ "result": 15750.50, "count": 45 }`
+
+---
+
+## Complete Example: ETL Pipeline
+
+<Diagram 
+  flow="vertical"
+  groups={[
+    {
+      id: "extract",
+      label: "Extract",
+      nodes: [{ id: "query", label: "database.query", sublabel: "Get raw data", type: "default" }]
+    },
+    {
+      id: "transform",
+      label: "Transform",
+      direction: "row",
+      nodes: [
+        { id: "filter", label: "control.filter", sublabel: "Active only", type: "warning" },
+        { id: "map", label: "control.map", sublabel: "Format fields", type: "warning" }
+      ]
+    },
+    {
+      id: "validate",
+      label: "Validate",
+      nodes: [{ id: "loop", label: "control.loop", sublabel: "For each record", type: "primary" }]
+    },
+    {
+      id: "inside",
+      label: "Inside Loop",
+      direction: "row",
+      nodes: [
+        { id: "try", label: "control.try_catch", type: "warning" },
+        { id: "if", label: "control.if", sublabel: "Is valid?", type: "warning" },
+        { id: "append", label: "control.append", type: "success" }
+      ]
+    },
+    {
+      id: "load",
+      label: "Load",
+      direction: "row",
+      nodes: [
+        { id: "insert", label: "database.insert", sublabel: "Save valid", type: "success" },
+        { id: "reduce", label: "control.reduce", sublabel: "Count totals", type: "success" }
+      ]
+    }
+  ]}
+/>
+
+---
+

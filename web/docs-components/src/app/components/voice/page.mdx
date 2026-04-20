@@ -1,0 +1,197 @@
+export const metadata = {
+  title: 'Voice & Telephony',
+  description: 'Voice automation with Azure Speech and Twilio. Text-to-speech, speech-to-text, and phone calls.',
+}
+
+export const sections = [
+  { title: 'Speak', id: 'voice-speak' },
+  { title: 'Listen', id: 'voice-listen' },
+  { title: 'Call', id: 'voice-call' },
+  { title: 'Conversation', id: 'voice-conversation' },
+]
+
+# Voice & Telephony
+
+Voice automation with Azure Speech and Twilio. Text-to-speech, speech-to-text, phone calls, and voice-driven workflows. {{ className: 'lead' }}
+
+<Note>
+  **9 components**. Requires **Azure Speech Services** for TTS/STT and **Twilio** for phone calls. Store all credentials in the Vault. Combine with [Insurance](/components/insurance) nodes for voice-driven FNOL processing. Speak and Listen nodes support [Storage Provider](/components/storage) for cloud audio file storage.
+</Note>
+
+### Use Cases
+
+| Scenario | Components |
+|----------|-----------|
+| **Voice FNOL** | Call → Listen → AI Extract → FNOL Record |
+| **IVR automation** | Call → Speak (menu) → Listen (choice) → Route |
+| **Call transcription** | Call → Get Recording → Get Transcript → AI Summarize |
+| **Outbound notifications** | Call → Speak (message) → Hangup |
+| **Voice agent** | AI Agent with Speak + Listen as tools |
+
+<NodeHeader id="voice-speak" icon="Volume2" label="Speak" description="Convert text to speech" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `voice.speak`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="text" type="textarea" required>
+    **Text** — Text to convert to speech.
+  </Property>
+  <Property name="voice" type="select">
+    **Voice** — Voice to use (e.g., `en-US-JennyNeural`).
+  </Property>
+  <Property name="output_path" type="text">
+    **Output Path** — Save audio to file. Leave empty to play directly.
+  </Property>
+  <Property name="azure_speech_key" type="text" required>
+    **Azure Key** — Use `${vault.AZURE_SPEECH_KEY}`.
+  </Property>
+  <Property name="azure_region" type="text">
+    **Azure Region** — Azure region (e.g., `eastus`).
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "text": "Hello ${customer.name}, your order has been shipped!",
+  "voice": "en-US-JennyNeural",
+  "output_path": "./audio/notification.mp3"
+}
+```
+
+---
+
+<NodeHeader id="voice-listen" icon="Mic" label="Listen" description="Convert speech to text" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `voice.listen`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="audio_path" type="text" required>
+    **Audio Path** — Path to audio file to transcribe.
+  </Property>
+  <Property name="language" type="text">
+    **Language** — Language code (e.g., `en-US`, `es-ES`). Default: `en-US`.
+  </Property>
+  <Property name="azure_speech_key" type="text" required>
+    **Azure Key** — Use `${vault.AZURE_SPEECH_KEY}`.
+  </Property>
+</Properties>
+
+### Output
+
+```json
+{
+  "text": "Hello, I'd like to check on my order status please.",
+  "confidence": 0.95,
+  "language": "en-US"
+}
+```
+
+---
+
+<NodeHeader id="voice-call" icon="PhoneOutgoing" label="Call" description="Make a phone call via Twilio" bgColor="#ccfbf1" textColor="#0f766e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `voice.call`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="to" type="text" required>
+    **To** — Phone number to call (E.164 format).
+  </Property>
+  <Property name="from" type="text" required>
+    **From** — Your Twilio phone number.
+  </Property>
+  <Property name="message" type="textarea">
+    **Message** — Text to speak when call connects.
+  </Property>
+  <Property name="twilio_sid" type="text" required>
+    **Twilio SID** — Use `${vault.TWILIO_SID}`.
+  </Property>
+  <Property name="twilio_token" type="text" required>
+    **Twilio Token** — Use `${vault.TWILIO_TOKEN}`.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="voice-conversation" icon="MessageCircle" label="Conversation" description="Manage voice conversations" bgColor="#fce7f3" textColor="#9d174d" />
+
+### Add Turn
+
+<Properties>
+  <Property name="type" type="string">
+    `voice.add_turn`
+  </Property>
+</Properties>
+
+Adds a turn to a voice conversation (for IVR flows).
+
+### Set Context
+
+<Properties>
+  <Property name="type" type="string">
+    `voice.set_context`
+  </Property>
+</Properties>
+
+Sets context variables for the voice conversation.
+
+---
+
+## Complete Example: Voice IVR
+
+<Diagram 
+  flow="vertical"
+  groups={[
+    {
+      id: "trigger",
+      label: "1. Trigger",
+      nodes: [{ id: "call", label: "Incoming Call", sublabel: "Twilio webhook", type: "default" }]
+    },
+    {
+      id: "ivr",
+      label: "2. IVR Flow",
+      direction: "row",
+      nodes: [
+        { id: "speak", label: "voice.speak", sublabel: "Welcome...", type: "primary" },
+        { id: "listen", label: "voice.listen", sublabel: "Speech/DTMF", type: "primary" }
+      ]
+    },
+    {
+      id: "classify",
+      label: "3. Classify Intent",
+      nodes: [{ id: "ai", label: "ai.classify", sublabel: "Route by intent", type: "warning" }]
+    },
+    {
+      id: "routes",
+      label: "4. Routes",
+      direction: "row",
+      nodes: [
+        { id: "orders", label: "Orders Flow", type: "success" },
+        { id: "support", label: "Support Flow", type: "success" },
+        { id: "transfer", label: "Transfer", type: "success" }
+      ]
+    }
+  ]}
+/>
+
+---
+

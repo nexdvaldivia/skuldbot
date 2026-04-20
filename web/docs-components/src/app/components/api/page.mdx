@@ -1,0 +1,551 @@
+export const metadata = {
+  title: 'API & HTTP',
+  description: 'Make HTTP requests to any API. REST, GraphQL, SOAP, OAuth, and JSON processing.',
+}
+
+export const sections = [
+  { title: 'HTTP Request', id: 'api-http-request' },
+  { title: 'REST GET', id: 'api-rest-get' },
+  { title: 'REST POST', id: 'api-rest-post' },
+  { title: 'GraphQL Query', id: 'api-graphql' },
+  { title: 'SOAP Request', id: 'api-soap' },
+  { title: 'OAuth Token', id: 'api-oauth-token' },
+  { title: 'Parse JSON', id: 'api-parse-json' },
+  { title: 'JSONPath Query', id: 'api-json-path' },
+  { title: 'FTP Upload', id: 'api-ftp-upload' },
+]
+
+# API & HTTP
+
+Make HTTP requests to any API. REST, GraphQL, SOAP, OAuth, and JSON processing. {{ className: 'lead' }}
+
+<Note>
+  **9 components**. All API nodes support Vault expressions for secure credentials. Never hardcode API keys in configuration.
+</Note>
+
+---
+
+<NodeHeader id="api-http-request" icon="Globe" label="HTTP Request" description="Make any HTTP request with full control" bgColor="#e0e7ff" textColor="#3730a3" />
+
+<Properties>
+  <Property name="type" type="string">
+    `api.http_request`
+  </Property>
+</Properties>
+
+The most versatile API node. Use this when you need full control over method, headers, body, authentication, and response handling.
+
+### Configuration
+
+<Properties>
+  <Property name="method" type="select" required>
+    HTTP Method: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`. Default: `GET`.
+  </Property>
+  <Property name="url" type="text" required>
+    Full URL. Supports variable expressions for dynamic URLs.
+  </Property>
+  <Property name="headers" type="textarea">
+    Request headers as JSON object. Include authentication tokens from Vault.
+  </Property>
+  <Property name="body" type="textarea">
+    Request body (JSON). Only for POST, PUT, PATCH.
+  </Property>
+  <Property name="timeout" type="number">
+    Timeout in seconds. Default: `30`.
+  </Property>
+  <Property name="follow_redirects" type="boolean">
+    Follow HTTP redirects. Default: `true`.
+  </Property>
+  <Property name="verify_ssl" type="boolean">
+    Verify SSL certificates. Default: `true`. **Only disable for development.**
+  </Property>
+</Properties>
+
+### Example: Call a REST API with Bearer auth
+
+```json
+{
+  "id": "get-customers",
+  "type": "api.http_request",
+  "config": {
+    "method": "GET",
+    "url": "https://api.crm.com/v2/customers?status=active&limit=100",
+    "headers": "{\"Authorization\": \"Bearer ${vault.CRM_TOKEN}\", \"Accept\": \"application/json\"}",
+    "timeout": 30
+  }
+}
+```
+
+### Example: POST data to a webhook
+
+```json
+{
+  "id": "notify-webhook",
+  "type": "api.http_request",
+  "config": {
+    "method": "POST",
+    "url": "https://hooks.slack.com/services/T00000000/B00000000/XXXX",
+    "headers": "{\"Content-Type\": \"application/json\"}",
+    "body": "{\"text\": \"Bot completed: ${BOT_NAME} processed ${Excel Read.output.rowCount} records\"}"
+  }
+}
+```
+
+### Output
+
+<Properties>
+  <Property name="statusCode" type="number">HTTP status code (200, 201, 404, 500, etc.).</Property>
+  <Property name="body" type="object">Response body (automatically parsed if JSON).</Property>
+  <Property name="headers" type="object">Response headers.</Property>
+  <Property name="ok" type="boolean">`true` if status is 2xx.</Property>
+  <Property name="elapsed" type="number">Response time in milliseconds.</Property>
+</Properties>
+
+<Collapsible title="Common status codes and what they mean">
+
+| Code | Meaning | Action |
+|------|---------|--------|
+| **200** | Success | Process the response |
+| **201** | Created | Resource was created successfully |
+| **204** | No Content | Success but no body returned |
+| **400** | Bad Request | Check your request body/params |
+| **401** | Unauthorized | Check API key / token |
+| **403** | Forbidden | You don't have permission |
+| **404** | Not Found | Resource doesn't exist |
+| **429** | Rate Limited | Wait and retry (use control.wait) |
+| **500** | Server Error | External API has issues, retry later |
+
+Connect the **error** (orange) output to handle non-2xx responses gracefully.
+
+</Collapsible>
+
+---
+
+<NodeHeader id="api-rest-get" icon="ArrowDownToLine" label="REST GET" description="Simplified GET request" bgColor="#e0e7ff" textColor="#3730a3" />
+
+<Properties>
+  <Property name="type" type="string">
+    `api.rest_get`
+  </Property>
+</Properties>
+
+Simplified GET request — fewer options than HTTP Request, faster to configure.
+
+### Configuration
+
+<Properties>
+  <Property name="url" type="text" required>
+    URL. Supports expressions.
+  </Property>
+  <Property name="headers" type="textarea">
+    Headers (JSON).
+  </Property>
+</Properties>
+
+### Example: Fetch user data
+
+```json
+{
+  "id": "fetch-user",
+  "type": "api.rest_get",
+  "config": {
+    "url": "https://api.example.com/users/${USER_ID}",
+    "headers": "{\"Authorization\": \"Bearer ${vault.API_KEY}\"}"
+  }
+}
+```
+
+### Output
+
+Same as HTTP Request: `statusCode`, `body`, `headers`, `ok`.
+
+---
+
+<NodeHeader id="api-rest-post" icon="ArrowUpToLine" label="REST POST" description="Simplified POST request" bgColor="#e0e7ff" textColor="#3730a3" />
+
+<Properties>
+  <Property name="type" type="string">
+    `api.rest_post`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="url" type="text" required>URL.</Property>
+  <Property name="body" type="textarea" required>
+    Request body as JSON. Supports variable expressions for dynamic values.
+  </Property>
+  <Property name="headers" type="textarea">Headers (JSON).</Property>
+</Properties>
+
+### Example: Create a record in an external system
+
+```json
+{
+  "id": "create-ticket",
+  "type": "api.rest_post",
+  "config": {
+    "url": "https://api.helpdesk.com/v1/tickets",
+    "headers": "{\"Authorization\": \"Bearer ${vault.HELPDESK_KEY}\", \"Content-Type\": \"application/json\"}",
+    "body": "{\"subject\": \"${Email Read.output.emails[0].subject}\", \"description\": \"${Email Read.output.emails[0].body}\", \"priority\": \"high\"}"
+  }
+}
+```
+
+---
+
+<NodeHeader id="api-graphql" icon="Braces" label="GraphQL Query" description="Execute GraphQL queries and mutations" bgColor="#e0e7ff" textColor="#3730a3" />
+
+<Properties>
+  <Property name="type" type="string">
+    `api.graphql`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="endpoint" type="text" required>
+    GraphQL endpoint URL.
+  </Property>
+  <Property name="query" type="textarea" required>
+    GraphQL query or mutation.
+  </Property>
+  <Property name="variables" type="textarea">
+    Variables (JSON object).
+  </Property>
+  <Property name="headers" type="textarea">
+    Headers (JSON). Include auth here.
+  </Property>
+</Properties>
+
+### Example: Query a GraphQL API
+
+```json
+{
+  "id": "graphql-orders",
+  "type": "api.graphql",
+  "config": {
+    "endpoint": "https://api.store.com/graphql",
+    "query": "query GetOrders($status: String!, $limit: Int) { orders(status: $status, first: $limit) { id customerName total createdAt items { name quantity } } }",
+    "variables": "{\"status\": \"pending\", \"limit\": 50}",
+    "headers": "{\"Authorization\": \"Bearer ${vault.STORE_TOKEN}\"}"
+  }
+}
+```
+
+### Output
+
+<Properties>
+  <Property name="data" type="object">GraphQL response data.</Property>
+  <Property name="errors" type="array">GraphQL errors (if any).</Property>
+</Properties>
+
+---
+
+<NodeHeader id="api-soap" icon="FileCode" label="SOAP Request" description="Call SOAP/XML web services" bgColor="#e0e7ff" textColor="#3730a3" />
+
+<Properties>
+  <Property name="type" type="string">
+    `api.soap`
+  </Property>
+</Properties>
+
+For legacy systems that use SOAP/XML web services (common in healthcare, insurance, and government).
+
+### Configuration
+
+<Properties>
+  <Property name="wsdl" type="text" required>
+    WSDL URL. The service definition.
+  </Property>
+  <Property name="operation" type="text" required>
+    SOAP operation name. E.g., `GetClaimStatus`, `SubmitApplication`.
+  </Property>
+  <Property name="body" type="textarea">
+    SOAP body XML. If empty, a minimal request is generated from the WSDL.
+  </Property>
+  <Property name="headers" type="textarea">
+    Additional HTTP headers (JSON).
+  </Property>
+</Properties>
+
+### Example: Query a claims system
+
+```json
+{
+  "id": "get-claim",
+  "type": "api.soap",
+  "config": {
+    "wsdl": "https://claims.insurance.com/ws/claims.wsdl",
+    "operation": "GetClaimStatus",
+    "body": "<ClaimNumber>${CLAIM_ID}</ClaimNumber>"
+  }
+}
+```
+
+### Output
+
+<Properties>
+  <Property name="response" type="object">Parsed SOAP response as JSON.</Property>
+  <Property name="raw_xml" type="string">Raw XML response.</Property>
+</Properties>
+
+---
+
+<NodeHeader id="api-oauth-token" icon="Key" label="OAuth Token" description="Get an OAuth 2.0 access token" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `api.oauth_token`
+  </Property>
+</Properties>
+
+Authenticate with OAuth 2.0 before calling protected APIs. The token output is available for subsequent requests via variable expressions.
+
+### Configuration
+
+<Properties>
+  <Property name="token_url" type="text" required>
+    Token endpoint URL. E.g., `https://auth.example.com/oauth/token`
+  </Property>
+  <Property name="client_id" type="text" required>
+    OAuth Client ID. Use Vault for secure storage.
+  </Property>
+  <Property name="client_secret" type="text" required>
+    OAuth Client Secret. **Always use Vault** for secrets.
+  </Property>
+  <Property name="grant_type" type="select">
+    Grant type: `client_credentials` (server-to-server), `password` (user login). Default: `client_credentials`.
+  </Property>
+  <Property name="scope" type="text">
+    OAuth scopes (space-separated). E.g., `read:users write:orders`.
+  </Property>
+  <Property name="username" type="text">
+    Username (only for `password` grant).
+  </Property>
+  <Property name="password" type="password">
+    Password (only for `password` grant). Use Vault.
+  </Property>
+</Properties>
+
+### Example: OAuth + API call flow
+
+```json
+[
+  {
+    "id": "auth",
+    "type": "api.oauth_token",
+    "config": {
+      "token_url": "https://auth.salesforce.com/services/oauth2/token",
+      "client_id": "${vault.SF_CLIENT_ID}",
+      "client_secret": "${vault.SF_CLIENT_SECRET}",
+      "grant_type": "client_credentials"
+    },
+    "outputs": { "success": "fetch-data" }
+  },
+  {
+    "id": "fetch-data",
+    "type": "api.rest_get",
+    "config": {
+      "url": "https://api.salesforce.com/v2/accounts",
+      "headers": "{\"Authorization\": \"Bearer ${OAuth Token.output.access_token}\"}"
+    }
+  }
+]
+```
+
+### Output
+
+<Properties>
+  <Property name="access_token" type="string">The access token.</Property>
+  <Property name="token_type" type="string">Token type (usually `Bearer`).</Property>
+  <Property name="expires_in" type="number">Token lifetime in seconds.</Property>
+</Properties>
+
+---
+
+<NodeHeader id="api-parse-json" icon="Braces" label="Parse JSON" description="Parse a JSON string into a structured object" bgColor="#e0e7ff" textColor="#3730a3" />
+
+<Properties>
+  <Property name="type" type="string">
+    `api.parse_json`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="input" type="textarea" required>
+    JSON string to parse. Use the output of an HTTP Request node if the response was returned as a string.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="parsed" type="object">Parsed JSON object, accessible via dot notation.</Property>
+</Properties>
+
+---
+
+<NodeHeader id="api-json-path" icon="GitBranch" label="JSONPath Query" description="Extract specific data from JSON using JSONPath expressions" bgColor="#e0e7ff" textColor="#3730a3" />
+
+<Properties>
+  <Property name="type" type="string">
+    `api.json_path`
+  </Property>
+</Properties>
+
+Use JSONPath to extract exactly the data you need from complex API responses.
+
+### Configuration
+
+<Properties>
+  <Property name="json" type="textarea" required>
+    JSON data to query. Pass the output from an HTTP Request or Parse JSON node.
+  </Property>
+  <Property name="path" type="text" required>
+    JSONPath expression.
+  </Property>
+</Properties>
+
+### Common JSONPath expressions
+
+| Expression | Extracts |
+|-----------|----------|
+| `$.data` | The `data` field |
+| `$.data[0]` | First item in `data` array |
+| `$.data[*].name` | All `name` fields from `data` array |
+| `$.data[?(@.status=='active')]` | Items where status is 'active' |
+| `$.data[0:5]` | First 5 items |
+| `$..email` | All `email` fields at any depth |
+
+### Example: Extract active customers from API response
+
+```json
+{
+  "id": "extract-active",
+  "type": "api.json_path",
+  "config": {
+    "json": "${HTTP Request.output.body}",
+    "path": "$.customers[?(@.status=='active')].email"
+  }
+}
+```
+
+### Output
+
+<Properties>
+  <Property name="result" type="any">Extracted data (type depends on the query).</Property>
+  <Property name="count" type="number">Number of matches.</Property>
+</Properties>
+
+---
+
+<NodeHeader id="api-ftp-upload" icon="Upload" label="FTP Upload" description="Upload a file to an FTP server" bgColor="#e0e7ff" textColor="#3730a3" />
+
+<Properties>
+  <Property name="type" type="string">
+    `api.ftp_upload`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="host" type="text" required>FTP server hostname.</Property>
+  <Property name="port" type="number">FTP port. Default: `21`. Use `22` for SFTP.</Property>
+  <Property name="username" type="text" required>Username. Use Vault for secure storage.</Property>
+  <Property name="password" type="password" required>Password. **Always use Vault** for passwords.</Property>
+  <Property name="local_path" type="text" required>Local file to upload.</Property>
+  <Property name="remote_path" type="text" required>Remote destination path.</Property>
+  <Property name="secure" type="boolean">Use FTPS (FTP over TLS). Default: `false`.</Property>
+</Properties>
+
+### Example: Upload report to SFTP
+
+```json
+{
+  "id": "upload-report",
+  "type": "api.ftp_upload",
+  "config": {
+    "host": "sftp.partner.com",
+    "port": 22,
+    "username": "${vault.SFTP_USER}",
+    "password": "${vault.SFTP_PASSWORD}",
+    "local_path": "${Excel Export.output.filePath}",
+    "remote_path": "/incoming/reports/daily_${BOT_NAME}_report.xlsx",
+    "secure": true
+  }
+}
+```
+
+---
+
+## Common Patterns
+
+<Collapsible title="Pattern: API pagination (fetch all pages)">
+
+```
+[Set Variable] → page = 1, all_results = []
+    ↓
+[Loop While] → condition: has_more == true
+    ↓
+    [REST GET] → url: /api/data?page=${page}&limit=100
+        ↓
+    [JSONPath] → extract $.data
+        ↓
+    [Set Variable] → all_results.concat(results), page++, has_more = results.length == 100
+    ↓ (loop back)
+[Log] → "Fetched ${all_results.length} total records"
+```
+
+</Collapsible>
+
+<Collapsible title="Pattern: OAuth + retry on 401">
+
+```
+[OAuth Token] → get initial token
+    ↓ success
+[HTTP Request] → call protected API
+    ↓ error (status 401)
+[OAuth Token] → refresh token
+    ↓ success
+[HTTP Request] → retry with new token
+```
+
+Use the error (orange) output to handle expired tokens and retry automatically.
+
+</Collapsible>
+
+<Collapsible title="Pattern: Aggregate data from multiple APIs">
+
+```
+[Parallel]
+    ├── [REST GET] → CRM API → customers
+    ├── [REST GET] → Billing API → invoices
+    └── [REST GET] → Support API → tickets
+    ↓ all complete
+[Code: JavaScript] → merge and correlate data
+    ↓
+[Excel Write] → combined report
+```
+
+Use `control.parallel` to call multiple APIs simultaneously and combine the results.
+
+</Collapsible>
+
+---
+
+## Example Pipeline
+
+<FlowDiagram items={[
+  { label: "api.oauth_token", sublabel: "Authenticate", type: "default" },
+  { label: "api.rest_get", sublabel: "Fetch /api/data", type: "primary" },
+  { label: "api.json_path", sublabel: "Extract $.results", type: "success" },
+  { label: "excel.write_range", sublabel: "Save to Excel", type: "success" }
+]} />
+
+---

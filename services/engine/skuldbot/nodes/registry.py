@@ -1,0 +1,4352 @@
+"""
+Node Registry - Mapeo de nodos DSL a keywords Robot Framework
+
+Este archivo define el mapeo completo entre los tipos de nodos del Studio
+y sus correspondientes keywords de Robot Framework / rpaframework.
+"""
+
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Any, Callable
+from enum import Enum
+
+
+class NodeCategory(str, Enum):
+    """Categorias de nodos"""
+    TRIGGER = "trigger"
+    BOT = "bot"  # Bot Subprocess (Call other bots)
+    WEB = "web"
+    DESKTOP = "desktop"
+    STORAGE = "storage"  # Multi-provider storage (S3, Azure, GCS, SharePoint, etc.)
+    FILES = "files"
+    EXCEL = "excel"
+    EMAIL = "email"
+    API = "api"
+    DATABASE = "database"
+    DOCUMENT = "document"
+    AI = "ai"
+    CODE = "code"
+    PYTHON = "python"
+    CONTROL = "control"
+    LOGGING = "logging"
+    SECURITY = "security"
+    HUMAN = "human"
+    COMPLIANCE = "compliance"
+    DATAQUALITY = "dataquality"
+    VOICE = "voice"
+    INSURANCE = "insurance"
+    VECTORDB = "vectordb"
+    MS365 = "ms365"
+    DATA = "data"
+
+
+@dataclass
+class LibraryImport:
+    """Representa un import de libreria Robot Framework"""
+    name: str
+    alias: Optional[str] = None
+    args: List[str] = field(default_factory=list)
+
+    def to_robot(self) -> str:
+        """Genera linea de import para Robot Framework"""
+        line = f"Library    {self.name}"
+        if self.args:
+            line += "    " + "    ".join(self.args)
+        if self.alias:
+            line += f"    WITH NAME    {self.alias}"
+        return line
+
+
+@dataclass
+class NodeMapping:
+    """Mapeo de un nodo DSL a Robot Framework"""
+    node_type: str
+    category: NodeCategory
+    keyword: str
+    library: LibraryImport
+    description: str
+    config_mapping: Dict[str, str] = field(default_factory=dict)
+    pre_keywords: List[str] = field(default_factory=list)
+    post_keywords: List[str] = field(default_factory=list)
+    return_variable: Optional[str] = None
+    error_handler: Optional[str] = None
+
+    def generate_robot_code(self, config: Dict[str, Any], node_id: str) -> str:
+        """
+        Genera el codigo Robot Framework para este nodo.
+
+        Args:
+            config: Configuracion del nodo desde el DSL
+            node_id: ID del nodo para logging/error handling
+
+        Returns:
+            Codigo Robot Framework como string
+        """
+        lines = []
+
+        # Pre-keywords
+        for pre in self.pre_keywords:
+            lines.append(f"    {pre}")
+
+        # Keyword principal con argumentos
+        arg_values: Dict[str, Any] = {}
+        for config_key, rf_arg in self.config_mapping.items():
+            if config_key in config:
+                value = config[config_key]
+                if isinstance(value, bool):
+                    value = str(value).lower()
+                elif isinstance(value, str) and " " in value:
+                    value = f"'{value}'"
+                # Allow alias keys mapping to the same Robot arg; last non-empty wins.
+                arg_values[rf_arg] = value
+
+        args = [f"{rf_arg}={value}" for rf_arg, value in arg_values.items()]
+
+        keyword_line = f"    {self.keyword}"
+        if args:
+            keyword_line += "    " + "    ".join(args)
+
+        if self.return_variable:
+            keyword_line = f"    ${{{self.return_variable}}}=    " + self.keyword
+            if args:
+                keyword_line += "    " + "    ".join(args)
+
+        lines.append(keyword_line)
+
+        # Post-keywords
+        for post in self.post_keywords:
+            lines.append(f"    {post}")
+
+        return "\n".join(lines)
+
+
+# =============================================================================
+# REGISTRY DE NODOS
+# =============================================================================
+
+NODE_REGISTRY: Dict[str, NodeMapping] = {}
+
+
+def register_node(mapping: NodeMapping) -> None:
+    """Registra un mapeo de nodo"""
+    NODE_REGISTRY[mapping.node_type] = mapping
+
+
+def get_node_mapping(node_type: str) -> Optional[NodeMapping]:
+    """Obtiene el mapeo para un tipo de nodo"""
+    return NODE_REGISTRY.get(node_type)
+
+
+def get_required_libraries(node_types: List[str]) -> List[LibraryImport]:
+    """Obtiene las librerias requeridas para un conjunto de nodos"""
+    libraries = {}
+    for node_type in node_types:
+        mapping = get_node_mapping(node_type)
+        if mapping:
+            lib = mapping.library
+            if lib.name not in libraries:
+                libraries[lib.name] = lib
+    return list(libraries.values())
+
+
+# =============================================================================
+# LIBRERIAS COMUNES
+# =============================================================================
+
+LIB_BROWSER_PLAYWRIGHT = LibraryImport("RPA.Browser.Playwright")
+LIB_BROWSER_SELENIUM = LibraryImport("RPA.Browser.Selenium")
+LIB_DESKTOP = LibraryImport("RPA.Desktop")
+LIB_WINDOWS = LibraryImport("RPA.Windows")
+LIB_FILESYSTEM = LibraryImport("RPA.FileSystem")
+LIB_ARCHIVE = LibraryImport("RPA.Archive")
+LIB_EXCEL_FILES = LibraryImport("RPA.Excel.Files")
+LIB_EXCEL_APP = LibraryImport("RPA.Excel.Application")
+LIB_TABLES = LibraryImport("RPA.Tables")
+LIB_EMAIL_IMAP = LibraryImport("RPA.Email.ImapSmtp")
+LIB_EMAIL_EXCHANGE = LibraryImport("RPA.Email.Exchange")
+LIB_HTTP = LibraryImport("RPA.HTTP")
+LIB_JSON = LibraryImport("RPA.JSON")
+LIB_FTP = LibraryImport("RPA.FTP")
+LIB_DATABASE = LibraryImport("RPA.Database")
+LIB_PDF = LibraryImport("RPA.PDF")
+LIB_IMAGES = LibraryImport("RPA.Images")
+LIB_RECOGNITION = LibraryImport("RPA.recognition")
+LIB_BUILTIN = LibraryImport("BuiltIn")
+LIB_COLLECTIONS = LibraryImport("Collections")
+LIB_STRING = LibraryImport("String")
+LIB_DATETIME = LibraryImport("DateTime")
+LIB_PROCESS = LibraryImport("Process")
+LIB_OPERATINGSYSTEM = LibraryImport("OperatingSystem")
+
+
+# =============================================================================
+# TRIGGER NODES
+# =============================================================================
+
+register_node(NodeMapping(
+    node_type="trigger.manual",
+    category=NodeCategory.TRIGGER,
+    keyword="Log",
+    library=LIB_BUILTIN,
+    description="Manual trigger - marks start of execution",
+    config_mapping={},
+    pre_keywords=["Log    Bot execution started    level=INFO"],
+))
+
+register_node(NodeMapping(
+    node_type="trigger.schedule",
+    category=NodeCategory.TRIGGER,
+    keyword="Log",
+    library=LIB_BUILTIN,
+    description="Schedule trigger - handled by Orchestrator",
+    config_mapping={"cron": "message"},
+    pre_keywords=["Log    Scheduled execution triggered    level=INFO"],
+))
+
+register_node(NodeMapping(
+    node_type="trigger.webhook",
+    category=NodeCategory.TRIGGER,
+    keyword="Log",
+    library=LIB_BUILTIN,
+    description="Webhook trigger - handled by Orchestrator",
+    config_mapping={},
+    pre_keywords=["Log    Webhook execution triggered    level=INFO"],
+))
+
+register_node(NodeMapping(
+    node_type="trigger.file_watch",
+    category=NodeCategory.TRIGGER,
+    keyword="Wait Until Created",
+    library=LIB_FILESYSTEM,
+    description="File watch trigger",
+    config_mapping={"path": "path", "pattern": "pattern"},
+))
+
+register_node(NodeMapping(
+    node_type="trigger.email_received",
+    category=NodeCategory.TRIGGER,
+    keyword="Wait For Message",
+    library=LIB_EMAIL_IMAP,
+    description="Email trigger",
+    config_mapping={"folder": "folder", "filter": "criterion"},
+))
+
+register_node(NodeMapping(
+    node_type="trigger.queue",
+    category=NodeCategory.TRIGGER,
+    keyword="Log",
+    library=LIB_BUILTIN,
+    description="Queue trigger - handled by Orchestrator",
+    config_mapping={},
+))
+
+register_node(NodeMapping(
+    node_type="trigger.form",
+    category=NodeCategory.TRIGGER,
+    keyword="Log",
+    library=LIB_BUILTIN,
+    description="Form trigger - starts when form is submitted",
+    config_mapping={
+        "formTitle": "form_title",
+        "formDescription": "form_description",
+    },
+    pre_keywords=["Log    Form submission received    level=INFO"],
+))
+
+register_node(NodeMapping(
+    node_type="trigger.api_polling",
+    category=NodeCategory.TRIGGER,
+    keyword="Log",
+    library=LIB_BUILTIN,
+    description="API Polling trigger - polls endpoint at intervals",
+    config_mapping={
+        "url": "url",
+        "interval": "interval",
+        "method": "method",
+    },
+    pre_keywords=["Log    API polling condition met    level=INFO"],
+))
+
+register_node(NodeMapping(
+    node_type="trigger.database_change",
+    category=NodeCategory.TRIGGER,
+    keyword="Log",
+    library=LIB_BUILTIN,
+    description="Database change trigger - CDC events",
+    config_mapping={
+        "table": "table",
+        "event": "event",
+    },
+    pre_keywords=["Log    Database change detected    level=INFO"],
+))
+
+register_node(NodeMapping(
+    node_type="trigger.storage_event",
+    category=NodeCategory.TRIGGER,
+    keyword="Log",
+    library=LIB_BUILTIN,
+    description="Storage event trigger - S3/MinIO events",
+    config_mapping={
+        "bucket": "bucket",
+        "event": "event",
+    },
+    pre_keywords=["Log    Storage event received    level=INFO"],
+))
+
+register_node(NodeMapping(
+    node_type="trigger.message_bus",
+    category=NodeCategory.TRIGGER,
+    keyword="Log",
+    library=LIB_BUILTIN,
+    description="Message bus trigger - Kafka/RabbitMQ/Redis",
+    config_mapping={
+        "provider": "provider",
+        "topic": "topic",
+    },
+    pre_keywords=["Log    Message received from bus    level=INFO"],
+))
+
+register_node(NodeMapping(
+    node_type="trigger.chat",
+    category=NodeCategory.TRIGGER,
+    keyword="Log",
+    library=LIB_BUILTIN,
+    description="Chat trigger - Slack/Teams/Telegram",
+    config_mapping={
+        "platform": "platform",
+        "channel": "channel",
+        "command": "command",
+    },
+    pre_keywords=["Log    Chat message trigger activated    level=INFO"],
+))
+
+
+# =============================================================================
+# WEB NODES (Browser Automation)
+# =============================================================================
+
+register_node(NodeMapping(
+    node_type="web.open_browser",
+    category=NodeCategory.WEB,
+    keyword="New Browser",
+    library=LIB_BROWSER_PLAYWRIGHT,
+    description="Open a web browser",
+    config_mapping={
+        "browser": "browser",
+        "headless": "headless",
+    },
+    post_keywords=["New Page    ${config}[url]"],
+))
+
+register_node(NodeMapping(
+    node_type="web.navigate",
+    category=NodeCategory.WEB,
+    keyword="Go To",
+    library=LIB_BROWSER_PLAYWRIGHT,
+    description="Navigate to URL",
+    config_mapping={"url": "url"},
+))
+
+register_node(NodeMapping(
+    node_type="web.click",
+    category=NodeCategory.WEB,
+    keyword="Click",
+    library=LIB_BROWSER_PLAYWRIGHT,
+    description="Click on element",
+    config_mapping={"selector": "selector"},
+))
+
+register_node(NodeMapping(
+    node_type="web.type",
+    category=NodeCategory.WEB,
+    keyword="Fill Text",
+    library=LIB_BROWSER_PLAYWRIGHT,
+    description="Type text into field",
+    config_mapping={
+        "selector": "selector",
+        "text": "txt",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="web.select_option",
+    category=NodeCategory.WEB,
+    keyword="Select Options By",
+    library=LIB_BROWSER_PLAYWRIGHT,
+    description="Select dropdown option",
+    config_mapping={
+        "selector": "selector",
+        "value": "value",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="web.get_text",
+    category=NodeCategory.WEB,
+    keyword="Get Text",
+    library=LIB_BROWSER_PLAYWRIGHT,
+    description="Extract text from element",
+    config_mapping={"selector": "selector"},
+    return_variable="extracted_text",
+))
+
+register_node(NodeMapping(
+    node_type="web.get_attribute",
+    category=NodeCategory.WEB,
+    keyword="Get Attribute",
+    library=LIB_BROWSER_PLAYWRIGHT,
+    description="Get element attribute",
+    config_mapping={
+        "selector": "selector",
+        "attribute": "attribute",
+    },
+    return_variable="attribute_value",
+))
+
+register_node(NodeMapping(
+    node_type="web.screenshot",
+    category=NodeCategory.WEB,
+    keyword="Take Screenshot",
+    library=LIB_BROWSER_PLAYWRIGHT,
+    description="Take a screenshot",
+    config_mapping={
+        "path": "filename",
+        "full_page": "fullPage",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="web.wait_element",
+    category=NodeCategory.WEB,
+    keyword="Wait For Elements State",
+    library=LIB_BROWSER_PLAYWRIGHT,
+    description="Wait for element state",
+    config_mapping={
+        "selector": "selector",
+        "state": "state",
+        "timeout": "timeout",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="web.execute_js",
+    category=NodeCategory.WEB,
+    keyword="Evaluate JavaScript",
+    library=LIB_BROWSER_PLAYWRIGHT,
+    description="Execute JavaScript",
+    config_mapping={"script": "expression"},
+    return_variable="js_result",
+))
+
+register_node(NodeMapping(
+    node_type="web.scroll",
+    category=NodeCategory.WEB,
+    keyword="Scroll To Element",
+    library=LIB_BROWSER_PLAYWRIGHT,
+    description="Scroll page",
+    config_mapping={"selector": "selector"},
+))
+
+register_node(NodeMapping(
+    node_type="web.handle_alert",
+    category=NodeCategory.WEB,
+    keyword="Handle Future Dialogs",
+    library=LIB_BROWSER_PLAYWRIGHT,
+    description="Handle browser alerts",
+    config_mapping={"action": "action"},
+))
+
+register_node(NodeMapping(
+    node_type="web.switch_tab",
+    category=NodeCategory.WEB,
+    keyword="Switch Page",
+    library=LIB_BROWSER_PLAYWRIGHT,
+    description="Switch browser tab",
+    config_mapping={"tab_index": "index"},
+))
+
+register_node(NodeMapping(
+    node_type="web.close_browser",
+    category=NodeCategory.WEB,
+    keyword="Close Browser",
+    library=LIB_BROWSER_PLAYWRIGHT,
+    description="Close browser",
+    config_mapping={},
+))
+
+register_node(NodeMapping(
+    node_type="web.download_file",
+    category=NodeCategory.WEB,
+    keyword="Download",
+    library=LIB_HTTP,
+    description="Download file from URL",
+    config_mapping={
+        "url": "url",
+        "path": "target_file",
+    },
+))
+
+
+# =============================================================================
+# DESKTOP NODES
+# =============================================================================
+
+register_node(NodeMapping(
+    node_type="desktop.open_app",
+    category=NodeCategory.DESKTOP,
+    keyword="Open Application",
+    library=LIB_DESKTOP,
+    description="Launch application",
+    config_mapping={
+        "path": "application",
+        "args": "args",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="desktop.click",
+    category=NodeCategory.DESKTOP,
+    keyword="Click",
+    library=LIB_DESKTOP,
+    description="Desktop click",
+    config_mapping={
+        "locator": "locator",
+        "x": "x",
+        "y": "y",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="desktop.type_text",
+    category=NodeCategory.DESKTOP,
+    keyword="Type Text",
+    library=LIB_DESKTOP,
+    description="Type with keyboard",
+    config_mapping={
+        "text": "text",
+        "interval": "interval",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="desktop.hotkey",
+    category=NodeCategory.DESKTOP,
+    keyword="Press Keys",
+    library=LIB_DESKTOP,
+    description="Press keyboard shortcut",
+    config_mapping={"keys": "keys"},
+))
+
+register_node(NodeMapping(
+    node_type="desktop.get_window",
+    category=NodeCategory.DESKTOP,
+    keyword="Get Window List",
+    library=LIB_DESKTOP,
+    description="Find window",
+    config_mapping={"title": "title"},
+    return_variable="windows",
+    post_keywords=["Set Focus    ${windows}[0]"],
+))
+
+register_node(NodeMapping(
+    node_type="desktop.minimize",
+    category=NodeCategory.DESKTOP,
+    keyword="Minimize Window",
+    library=LIB_DESKTOP,
+    description="Minimize window",
+    config_mapping={},
+))
+
+register_node(NodeMapping(
+    node_type="desktop.maximize",
+    category=NodeCategory.DESKTOP,
+    keyword="Maximize Window",
+    library=LIB_DESKTOP,
+    description="Maximize window",
+    config_mapping={},
+))
+
+register_node(NodeMapping(
+    node_type="desktop.close_window",
+    category=NodeCategory.DESKTOP,
+    keyword="Close Window",
+    library=LIB_DESKTOP,
+    description="Close window",
+    config_mapping={},
+))
+
+register_node(NodeMapping(
+    node_type="desktop.screenshot",
+    category=NodeCategory.DESKTOP,
+    keyword="Take Screenshot",
+    library=LIB_DESKTOP,
+    description="Desktop screenshot",
+    config_mapping={
+        "path": "filename",
+        "region": "region",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="desktop.image_click",
+    category=NodeCategory.DESKTOP,
+    keyword="Click Image",
+    library=LIB_IMAGES,
+    description="Click on image",
+    config_mapping={
+        "image_path": "image",
+        "confidence": "confidence",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="desktop.wait_image",
+    category=NodeCategory.DESKTOP,
+    keyword="Wait For Image",
+    library=LIB_IMAGES,
+    description="Wait for image",
+    config_mapping={
+        "image_path": "image",
+        "timeout": "timeout",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="desktop.clipboard_copy",
+    category=NodeCategory.DESKTOP,
+    keyword="Copy To Clipboard",
+    library=LIB_DESKTOP,
+    description="Copy to clipboard",
+    config_mapping={"text": "text"},
+))
+
+
+# =============================================================================
+# STORAGE NODES - Multi-Provider Storage (S3, Azure, GCS, SharePoint, etc.)
+# =============================================================================
+
+LIB_STORAGE = LibraryImport("skuldbot.libs.storage", alias="SkuldStorage")
+
+register_node(NodeMapping(
+    node_type="storage.provider",
+    category=NodeCategory.STORAGE,
+    keyword="Configure Storage Provider",
+    library=LIB_STORAGE,
+    description="Configure multi-provider storage backend",
+    config_mapping={
+        "provider": "provider",
+        "name": "name",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="storage.transfer",
+    category=NodeCategory.STORAGE,
+    keyword="Transfer Between Providers",
+    library=LIB_STORAGE,
+    description="Transfer files between storage providers",
+    config_mapping={
+        "source_provider": "source_provider",
+        "source_path": "source_path",
+        "source": "source_path",
+        "dest_provider": "dest_provider",
+        "destination_provider": "dest_provider",
+        "dest_path": "dest_path",
+        "destination": "dest_path",
+        "dest": "dest_path",
+        "verify_checksum": "verify_checksum",
+    },
+    return_variable="transfer_result",
+))
+
+register_node(NodeMapping(
+    node_type="storage.sync",
+    category=NodeCategory.STORAGE,
+    keyword="Sync Directories Between Providers",
+    library=LIB_STORAGE,
+    description="Synchronize directories between storage providers",
+    config_mapping={
+        "source_provider": "source_provider",
+        "source_path": "source_path",
+        "source": "source_path",
+        "dest_provider": "dest_provider",
+        "destination_provider": "dest_provider",
+        "dest_path": "dest_path",
+        "destination": "dest_path",
+        "dest": "dest_path",
+        "delete_extra": "delete_extra",
+    },
+    return_variable="sync_result",
+))
+
+
+# =============================================================================
+# BOT SUBPROCESS NODES (Enterprise)
+# =============================================================================
+
+# Library for subprocess execution
+LIB_SUBPROCESS = LibraryImport("SkuldSubprocess")
+
+register_node(NodeMapping(
+    node_type="bot.call",
+    category=NodeCategory.BOT,
+    keyword="Call Bot",
+    library=LIB_SUBPROCESS,
+    description="Invoke another bot as a subprocess with parameters",
+    config_mapping={
+        "bot_id": "bot_id",
+        "parameters": "parameters",
+        "wait_for_completion": "wait",
+        "timeout_seconds": "timeout",
+        "retry_count": "retries",
+        "retry_delay_seconds": "retry_delay",
+        "fail_on_error": "fail_on_error",
+        "run_id_prefix": "run_id_prefix",
+        "inherit_context": "inherit_context",
+    },
+    return_variable="subbot_result",
+))
+
+register_node(NodeMapping(
+    node_type="bot.input",
+    category=NodeCategory.BOT,
+    keyword="Bot Input Parameters",
+    library=LIB_SUBPROCESS,
+    description="Define input parameters for this bot when called as subprocess",
+    config_mapping={
+        "parameters": "parameter_schema",
+        "validate_inputs": "validate",
+        "fail_on_invalid": "fail_on_invalid",
+    },
+    return_variable="input_params",
+))
+
+register_node(NodeMapping(
+    node_type="bot.output",
+    category=NodeCategory.BOT,
+    keyword="Bot Output Return",
+    library=LIB_SUBPROCESS,
+    description="Define return value for this bot when called as subprocess",
+    config_mapping={
+        "return_value": "return_value",
+        "status": "status",
+        "message": "message",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="bot.queue",
+    category=NodeCategory.BOT,
+    keyword="Queue Bot Calls",
+    library=LIB_SUBPROCESS,
+    description="Queue multiple bot calls for parallel/batch execution",
+    config_mapping={
+        "bot_id": "bot_id",
+        "items": "items",
+        "parameter_mapping": "parameter_mapping",
+        "concurrency": "concurrency",
+        "fail_fast": "fail_fast",
+        "collect_results": "collect_results",
+        "timeout_per_item": "timeout_per_item",
+    },
+    return_variable="queue_results",
+))
+
+
+# =============================================================================
+# FILES NODES
+# =============================================================================
+
+register_node(NodeMapping(
+    node_type="files.read",
+    category=NodeCategory.FILES,
+    keyword="Read File",
+    library=LIB_FILESYSTEM,
+    description="Read file contents",
+    config_mapping={
+        "source": "path",
+        "path": "path",
+        "encoding": "encoding",
+    },
+    return_variable="file_content",
+))
+
+register_node(NodeMapping(
+    node_type="files.write",
+    category=NodeCategory.FILES,
+    keyword="Create File",
+    library=LIB_FILESYSTEM,
+    description="Write to file",
+    config_mapping={
+        "destination": "path",
+        "target": "path",
+        "path": "path",
+        "content": "content",
+        "append": "append",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="files.copy",
+    category=NodeCategory.FILES,
+    keyword="Copy File",
+    library=LIB_FILESYSTEM,
+    description="Copy file",
+    config_mapping={
+        "source": "source",
+        "destination": "destination",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="files.move",
+    category=NodeCategory.FILES,
+    keyword="Move File",
+    library=LIB_FILESYSTEM,
+    description="Move file",
+    config_mapping={
+        "source": "source",
+        "destination": "destination",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="files.delete",
+    category=NodeCategory.FILES,
+    keyword="Remove File",
+    library=LIB_FILESYSTEM,
+    description="Delete file",
+    config_mapping={
+        "target": "path",
+        "path": "path",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="files.create_folder",
+    category=NodeCategory.FILES,
+    keyword="Create Directory",
+    library=LIB_FILESYSTEM,
+    description="Create folder",
+    config_mapping={
+        "target": "path",
+        "path": "path",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="files.list",
+    category=NodeCategory.FILES,
+    keyword="List Files In Directory",
+    library=LIB_FILESYSTEM,
+    description="List files",
+    config_mapping={
+        "path": "path",
+        "source": "path",
+        "pattern": "pattern",
+    },
+    return_variable="file_list",
+))
+
+register_node(NodeMapping(
+    node_type="files.exists",
+    category=NodeCategory.FILES,
+    keyword="Does File Exist",
+    library=LIB_FILESYSTEM,
+    description="Check if file exists",
+    config_mapping={
+        "source": "path",
+        "path": "path",
+    },
+    return_variable="file_exists",
+))
+
+register_node(NodeMapping(
+    node_type="files.zip",
+    category=NodeCategory.FILES,
+    keyword="Create Archive",
+    library=LIB_ARCHIVE,
+    description="Create ZIP",
+    config_mapping={
+        "source": "folder",
+        "destination": "archive",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="files.unzip",
+    category=NodeCategory.FILES,
+    keyword="Extract Archive",
+    library=LIB_ARCHIVE,
+    description="Extract ZIP",
+    config_mapping={
+        "source": "archive",
+        "destination": "folder",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="files.get_info",
+    category=NodeCategory.FILES,
+    keyword="Get File Info",
+    library=LIB_FILESYSTEM,
+    description="Get file metadata",
+    config_mapping={
+        "source": "path",
+        "path": "path",
+    },
+    return_variable="file_info",
+))
+
+register_node(NodeMapping(
+    node_type="files.watch",
+    category=NodeCategory.FILES,
+    keyword="Wait Until Created",
+    library=LIB_FILESYSTEM,
+    description="Watch folder",
+    config_mapping={
+        "source": "path",
+        "path": "path",
+        "pattern": "pattern",
+    },
+))
+
+
+# =============================================================================
+# EXCEL NODES
+# =============================================================================
+
+register_node(NodeMapping(
+    node_type="excel.open",
+    category=NodeCategory.EXCEL,
+    keyword="Open Workbook",
+    library=LIB_EXCEL_FILES,
+    description="Open Excel workbook",
+    config_mapping={"path": "path"},
+))
+
+register_node(NodeMapping(
+    node_type="excel.read_range",
+    category=NodeCategory.EXCEL,
+    keyword="Read Worksheet As Table",
+    library=LIB_EXCEL_FILES,
+    description="Read Excel range",
+    config_mapping={
+        "sheet": "name",
+        "header": "header",
+    },
+    return_variable="excel_data",
+))
+
+register_node(NodeMapping(
+    node_type="excel.write_range",
+    category=NodeCategory.EXCEL,
+    keyword="Set Worksheet Value",
+    library=LIB_EXCEL_FILES,
+    description="Write to Excel",
+    config_mapping={
+        "range": "row",
+        "sheet": "name",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="excel.read_cell",
+    category=NodeCategory.EXCEL,
+    keyword="Get Cell Value",
+    library=LIB_EXCEL_FILES,
+    description="Read Excel cell",
+    config_mapping={
+        "cell": "cell",
+        "sheet": "name",
+    },
+    return_variable="cell_value",
+))
+
+register_node(NodeMapping(
+    node_type="excel.write_cell",
+    category=NodeCategory.EXCEL,
+    keyword="Set Cell Value",
+    library=LIB_EXCEL_FILES,
+    description="Write Excel cell",
+    config_mapping={
+        "cell": "row",
+        "value": "value",
+        "sheet": "name",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="excel.add_row",
+    category=NodeCategory.EXCEL,
+    keyword="Append Rows To Worksheet",
+    library=LIB_EXCEL_FILES,
+    description="Add row to Excel",
+    config_mapping={
+        "data": "content",
+        "sheet": "name",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="excel.filter",
+    category=NodeCategory.EXCEL,
+    keyword="Filter Table By Column",
+    library=LIB_TABLES,
+    description="Filter Excel data",
+    config_mapping={
+        "column": "column",
+        "condition": "operator",
+    },
+    return_variable="filtered_data",
+))
+
+register_node(NodeMapping(
+    node_type="excel.save",
+    category=NodeCategory.EXCEL,
+    keyword="Save Workbook",
+    library=LIB_EXCEL_FILES,
+    description="Save Excel",
+    config_mapping={"path": "path"},
+))
+
+register_node(NodeMapping(
+    node_type="excel.close",
+    category=NodeCategory.EXCEL,
+    keyword="Close Workbook",
+    library=LIB_EXCEL_FILES,
+    description="Close Excel",
+    config_mapping={},
+))
+
+register_node(NodeMapping(
+    node_type="excel.csv_read",
+    category=NodeCategory.EXCEL,
+    keyword="Read Table From Csv",
+    library=LIB_TABLES,
+    description="Read CSV file",
+    config_mapping={
+        "path": "path",
+        "delimiter": "delimiters",
+        "header": "header",
+    },
+    return_variable="csv_data",
+))
+
+register_node(NodeMapping(
+    node_type="excel.csv_write",
+    category=NodeCategory.EXCEL,
+    keyword="Write Table To Csv",
+    library=LIB_TABLES,
+    description="Write CSV file",
+    config_mapping={
+        "path": "path",
+        "delimiter": "delimiter",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="excel.pivot",
+    category=NodeCategory.EXCEL,
+    keyword="Group Table By Column",
+    library=LIB_TABLES,
+    description="Create pivot table",
+    config_mapping={"rows": "column"},
+    return_variable="pivot_data",
+))
+
+
+# =============================================================================
+# EMAIL NODES
+# =============================================================================
+
+register_node(NodeMapping(
+    node_type="email.send",
+    category=NodeCategory.EMAIL,
+    keyword="Send Message",
+    library=LIB_EMAIL_IMAP,
+    description="Send email",
+    config_mapping={
+        "to": "recipients",
+        "subject": "subject",
+        "body": "body",
+        "html": "html",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="email.read",
+    category=NodeCategory.EMAIL,
+    keyword="List Messages",
+    library=LIB_EMAIL_IMAP,
+    description="Read emails",
+    config_mapping={
+        "folder": "folder",
+        "filter": "criterion",
+        "limit": "count",
+    },
+    return_variable="emails",
+))
+
+register_node(NodeMapping(
+    node_type="email.reply",
+    category=NodeCategory.EMAIL,
+    keyword="Send Message",
+    library=LIB_EMAIL_IMAP,
+    description="Reply to email",
+    config_mapping={
+        "body": "body",
+        "message_id": "in_reply_to",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="email.forward",
+    category=NodeCategory.EMAIL,
+    keyword="Send Message",
+    library=LIB_EMAIL_IMAP,
+    description="Forward email",
+    config_mapping={"to": "recipients"},
+))
+
+register_node(NodeMapping(
+    node_type="email.download_attachment",
+    category=NodeCategory.EMAIL,
+    keyword="Save Attachments",
+    library=LIB_EMAIL_IMAP,
+    description="Download attachment",
+    config_mapping={
+        "save_path": "target_folder",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="email.move",
+    category=NodeCategory.EMAIL,
+    keyword="Move Messages",
+    library=LIB_EMAIL_IMAP,
+    description="Move email",
+    config_mapping={"folder": "target_folder"},
+))
+
+register_node(NodeMapping(
+    node_type="email.delete",
+    category=NodeCategory.EMAIL,
+    keyword="Delete Messages",
+    library=LIB_EMAIL_IMAP,
+    description="Delete email",
+    config_mapping={},
+))
+
+register_node(NodeMapping(
+    node_type="email.mark_read",
+    category=NodeCategory.EMAIL,
+    keyword="Mark As Read",
+    library=LIB_EMAIL_IMAP,
+    description="Mark email as read",
+    config_mapping={},
+))
+
+register_node(NodeMapping(
+    node_type="email.search",
+    category=NodeCategory.EMAIL,
+    keyword="List Messages",
+    library=LIB_EMAIL_IMAP,
+    description="Search emails",
+    config_mapping={
+        "query": "criterion",
+        "folder": "folder",
+    },
+    return_variable="search_results",
+))
+
+
+# =============================================================================
+# API NODES
+# =============================================================================
+
+register_node(NodeMapping(
+    node_type="api.http_request",
+    category=NodeCategory.API,
+    keyword="HTTP Request",
+    library=LIB_HTTP,
+    description="HTTP request",
+    config_mapping={
+        "method": "method",
+        "url": "url",
+        "headers": "headers",
+        "body": "body",
+    },
+    return_variable="response",
+))
+
+register_node(NodeMapping(
+    node_type="api.graphql",
+    category=NodeCategory.API,
+    keyword="HTTP Request",
+    library=LIB_HTTP,
+    description="GraphQL query",
+    config_mapping={
+        "endpoint": "url",
+        "query": "body",
+    },
+    return_variable="graphql_response",
+    pre_keywords=["${method}=    Set Variable    POST"],
+))
+
+register_node(NodeMapping(
+    node_type="api.rest_get",
+    category=NodeCategory.API,
+    keyword="GET",
+    library=LIB_HTTP,
+    description="REST GET",
+    config_mapping={
+        "url": "url",
+        "headers": "headers",
+    },
+    return_variable="get_response",
+))
+
+register_node(NodeMapping(
+    node_type="api.rest_post",
+    category=NodeCategory.API,
+    keyword="POST",
+    library=LIB_HTTP,
+    description="REST POST",
+    config_mapping={
+        "url": "url",
+        "body": "data",
+        "headers": "headers",
+    },
+    return_variable="post_response",
+))
+
+register_node(NodeMapping(
+    node_type="api.soap",
+    category=NodeCategory.API,
+    keyword="POST",
+    library=LIB_HTTP,
+    description="SOAP request",
+    config_mapping={
+        "wsdl": "url",
+        "body": "data",
+    },
+    return_variable="soap_response",
+))
+
+register_node(NodeMapping(
+    node_type="api.oauth_token",
+    category=NodeCategory.API,
+    keyword="POST",
+    library=LIB_HTTP,
+    description="Get OAuth token",
+    config_mapping={
+        "token_url": "url",
+    },
+    return_variable="oauth_token",
+))
+
+register_node(NodeMapping(
+    node_type="api.parse_json",
+    category=NodeCategory.API,
+    keyword="Convert String To Json",
+    library=LIB_JSON,
+    description="Parse JSON",
+    config_mapping={"input": "json_string"},
+    return_variable="parsed_json",
+))
+
+register_node(NodeMapping(
+    node_type="api.json_path",
+    category=NodeCategory.API,
+    keyword="Get Value From Json",
+    library=LIB_JSON,
+    description="JSONPath query",
+    config_mapping={
+        "json": "json_object",
+        "path": "json_path",
+    },
+    return_variable="json_value",
+))
+
+register_node(NodeMapping(
+    node_type="api.ftp_upload",
+    category=NodeCategory.API,
+    keyword="Upload File",
+    library=LIB_FTP,
+    description="FTP upload",
+    config_mapping={
+        "local_path": "local_path",
+        "remote_path": "remote_path",
+    },
+    pre_keywords=["Connect    ${config}[host]    ${config}[username]    ${config}[password]"],
+    post_keywords=["Close Connection"],
+))
+
+
+# =============================================================================
+# DATABASE NODES
+# =============================================================================
+
+register_node(NodeMapping(
+    node_type="database.connect",
+    category=NodeCategory.DATABASE,
+    keyword="Connect To Database",
+    library=LIB_DATABASE,
+    description="Connect to database",
+    config_mapping={
+        "type": "dbapiModuleName",
+        "connection_string": "dbConfigFile",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="database.query",
+    category=NodeCategory.DATABASE,
+    keyword="Query",
+    library=LIB_DATABASE,
+    description="Execute SQL query",
+    config_mapping={"query": "selectStatement"},
+    return_variable="query_results",
+))
+
+register_node(NodeMapping(
+    node_type="database.insert",
+    category=NodeCategory.DATABASE,
+    keyword="Execute Sql String",
+    library=LIB_DATABASE,
+    description="Insert row",
+    config_mapping={},
+    pre_keywords=["${sql}=    Set Variable    INSERT INTO ${config}[table] VALUES (${config}[data])"],
+))
+
+register_node(NodeMapping(
+    node_type="database.update",
+    category=NodeCategory.DATABASE,
+    keyword="Execute Sql String",
+    library=LIB_DATABASE,
+    description="Update rows",
+    config_mapping={},
+))
+
+register_node(NodeMapping(
+    node_type="database.delete",
+    category=NodeCategory.DATABASE,
+    keyword="Execute Sql String",
+    library=LIB_DATABASE,
+    description="Delete rows",
+    config_mapping={},
+))
+
+register_node(NodeMapping(
+    node_type="database.call_procedure",
+    category=NodeCategory.DATABASE,
+    keyword="Call Stored Procedure",
+    library=LIB_DATABASE,
+    description="Call stored procedure",
+    config_mapping={
+        "procedure": "spName",
+        "params": "spParams",
+    },
+    return_variable="procedure_result",
+))
+
+register_node(NodeMapping(
+    node_type="database.transaction",
+    category=NodeCategory.DATABASE,
+    keyword="Set Auto Commit",
+    library=LIB_DATABASE,
+    description="Start transaction",
+    config_mapping={},
+    pre_keywords=["Set Auto Commit    False"],
+))
+
+register_node(NodeMapping(
+    node_type="database.commit",
+    category=NodeCategory.DATABASE,
+    keyword="Commit",
+    library=LIB_DATABASE,
+    description="Commit transaction",
+    config_mapping={},
+))
+
+register_node(NodeMapping(
+    node_type="database.close",
+    category=NodeCategory.DATABASE,
+    keyword="Disconnect From Database",
+    library=LIB_DATABASE,
+    description="Close database",
+    config_mapping={},
+))
+
+
+# =============================================================================
+# DOCUMENT NODES
+# =============================================================================
+
+register_node(NodeMapping(
+    node_type="document.pdf_read",
+    category=NodeCategory.DOCUMENT,
+    keyword="Get Text From Pdf",
+    library=LIB_PDF,
+    description="Read PDF text",
+    config_mapping={
+        "path": "source_path",
+        "pages": "pages",
+    },
+    return_variable="pdf_text",
+))
+
+register_node(NodeMapping(
+    node_type="document.pdf_merge",
+    category=NodeCategory.DOCUMENT,
+    keyword="Add Files To Pdf",
+    library=LIB_PDF,
+    description="Merge PDFs",
+    config_mapping={
+        "files": "files",
+        "output": "target_document",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="document.pdf_split",
+    category=NodeCategory.DOCUMENT,
+    keyword="Save Pdf Pages",
+    library=LIB_PDF,
+    description="Split PDF",
+    config_mapping={
+        "path": "source_path",
+        "pages": "pages",
+        "output": "target_path",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="document.pdf_to_image",
+    category=NodeCategory.DOCUMENT,
+    keyword="Convert Pdf To Images",
+    library=LIB_PDF,
+    description="PDF to images",
+    config_mapping={
+        "path": "source_path",
+        "output_dir": "output_dir",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="document.ocr",
+    category=NodeCategory.DOCUMENT,
+    keyword="Read Text From Image",
+    library=LIB_RECOGNITION,
+    description="OCR extraction",
+    config_mapping={
+        "path": "image",
+        "language": "language",
+    },
+    return_variable="ocr_text",
+))
+
+register_node(NodeMapping(
+    node_type="document.word_read",
+    category=NodeCategory.DOCUMENT,
+    keyword="Get Text From Document",
+    library=LibraryImport("RPA.Word.Application"),
+    description="Read Word document",
+    config_mapping={"path": "filename"},
+    return_variable="word_text",
+))
+
+register_node(NodeMapping(
+    node_type="document.word_write",
+    category=NodeCategory.DOCUMENT,
+    keyword="Create Document",
+    library=LibraryImport("RPA.Word.Application"),
+    description="Write Word document",
+    config_mapping={
+        "path": "filename",
+        "content": "text",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="document.html_to_pdf",
+    category=NodeCategory.DOCUMENT,
+    keyword="Html To Pdf",
+    library=LIB_PDF,
+    description="HTML to PDF",
+    config_mapping={
+        "html": "content",
+        "output": "output_path",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="document.pdf_fill_form",
+    category=NodeCategory.DOCUMENT,
+    keyword="Set Field Value",
+    library=LIB_PDF,
+    description="Fill PDF form",
+    config_mapping={
+        "path": "source_path",
+        "output": "output_path",
+    },
+))
+
+
+# =============================================================================
+# CONTROL NODES (Robot Framework Built-in)
+# =============================================================================
+
+register_node(NodeMapping(
+    node_type="control.if",
+    category=NodeCategory.CONTROL,
+    keyword="IF",
+    library=LIB_BUILTIN,
+    description="Conditional branch",
+    config_mapping={"condition": "condition"},
+))
+
+register_node(NodeMapping(
+    node_type="control.switch",
+    category=NodeCategory.CONTROL,
+    keyword="IF",
+    library=LIB_BUILTIN,
+    description="Multi-way branch",
+    config_mapping={"expression": "condition"},
+))
+
+register_node(NodeMapping(
+    node_type="control.loop",
+    category=NodeCategory.CONTROL,
+    keyword="FOR",
+    library=LIB_BUILTIN,
+    description="For loop",
+    config_mapping={
+        "items": "items",
+        "item_var": "item",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="control.while",
+    category=NodeCategory.CONTROL,
+    keyword="WHILE",
+    library=LIB_BUILTIN,
+    description="While loop",
+    config_mapping={
+        "condition": "condition",
+        "max_iterations": "limit",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="control.wait",
+    category=NodeCategory.CONTROL,
+    keyword="Sleep",
+    library=LIB_BUILTIN,
+    description="Wait/delay",
+    config_mapping={"seconds": "time"},
+))
+
+register_node(NodeMapping(
+    node_type="control.set_variable",
+    category=NodeCategory.CONTROL,
+    keyword="Set Variable",
+    library=LIB_BUILTIN,
+    description="Set variable",
+    config_mapping={
+        "name": "name",
+        "value": "value",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="control.try_catch",
+    category=NodeCategory.CONTROL,
+    keyword="TRY",
+    library=LIB_BUILTIN,
+    description="Error handling",
+    config_mapping={},
+))
+
+register_node(NodeMapping(
+    node_type="control.parallel",
+    category=NodeCategory.CONTROL,
+    keyword="Log",
+    library=LIB_BUILTIN,
+    description="Parallel execution (requires pabot)",
+    config_mapping={},
+    pre_keywords=["Log    Parallel execution started    level=INFO"],
+))
+
+register_node(NodeMapping(
+    node_type="control.stop",
+    category=NodeCategory.CONTROL,
+    keyword="Fatal Error",
+    library=LIB_BUILTIN,
+    description="Stop execution",
+    config_mapping={"status": "msg"},
+))
+
+register_node(NodeMapping(
+    node_type="control.goto",
+    category=NodeCategory.CONTROL,
+    keyword="Log",
+    library=LIB_BUILTIN,
+    description="Jump to node (not recommended)",
+    config_mapping={"target_node": "message"},
+    pre_keywords=["Log    GOTO is not recommended - use proper flow control    level=WARN"],
+))
+
+
+# =============================================================================
+# LOGGING NODES
+# =============================================================================
+
+register_node(NodeMapping(
+    node_type="logging.log",
+    category=NodeCategory.LOGGING,
+    keyword="Log",
+    library=LIB_BUILTIN,
+    description="Log message",
+    config_mapping={
+        "message": "message",
+        "level": "level",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="logging.screenshot",
+    category=NodeCategory.LOGGING,
+    keyword="Take Screenshot",
+    library=LIB_DESKTOP,
+    description="Log screenshot",
+    config_mapping={"description": "filename"},
+))
+
+register_node(NodeMapping(
+    node_type="logging.metric",
+    category=NodeCategory.LOGGING,
+    keyword="Log",
+    library=LIB_BUILTIN,
+    description="Log metric",
+    config_mapping={},
+    pre_keywords=["${metric}=    Create Dictionary    name=${config}[name]    value=${config}[value]"],
+))
+
+register_node(NodeMapping(
+    node_type="logging.timer_start",
+    category=NodeCategory.LOGGING,
+    keyword="Get Time",
+    library=LIB_DATETIME,
+    description="Start timer",
+    config_mapping={"name": "format"},
+    return_variable="timer_start",
+))
+
+register_node(NodeMapping(
+    node_type="logging.timer_stop",
+    category=NodeCategory.LOGGING,
+    keyword="Get Time",
+    library=LIB_DATETIME,
+    description="Stop timer",
+    config_mapping={},
+    return_variable="timer_end",
+    post_keywords=["${duration}=    Subtract Time From Time    ${timer_end}    ${timer_start}"],
+))
+
+register_node(NodeMapping(
+    node_type="logging.notification",
+    category=NodeCategory.LOGGING,
+    keyword="Send Message",
+    library=LIB_EMAIL_IMAP,
+    description="Send notification",
+    config_mapping={
+        "message": "body",
+        "channel": "channel",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="logging.audit",
+    category=NodeCategory.LOGGING,
+    keyword="Log",
+    library=LIB_BUILTIN,
+    description="Audit log",
+    config_mapping={
+        "action": "message",
+    },
+    pre_keywords=["${audit}=    Create Dictionary    action=${config}[action]    timestamp=${OUTPUT_DIR}"],
+))
+
+register_node(NodeMapping(
+    node_type="logging.export",
+    category=NodeCategory.LOGGING,
+    keyword="Copy File",
+    library=LIB_FILESYSTEM,
+    description="Export logs",
+    config_mapping={
+        "path": "destination",
+    },
+    pre_keywords=["${log_file}=    Set Variable    ${OUTPUT_DIR}/log.html"],
+))
+
+
+# =============================================================================
+# CODE NODES (Custom Code Execution - like n8n)
+# =============================================================================
+
+register_node(NodeMapping(
+    node_type="code.javascript",
+    category=NodeCategory.CODE,
+    keyword="Execute JavaScript",
+    library=LIB_BUILTIN,
+    description="Execute custom JavaScript code. Access input via $input, return transformed data.",
+    config_mapping={
+        "code": "code",
+        "mode": "mode",
+    },
+    return_variable="js_result",
+))
+
+register_node(NodeMapping(
+    node_type="code.python",
+    category=NodeCategory.CODE,
+    keyword="Execute Python Code",
+    library=LIB_BUILTIN,
+    description="Execute custom Python code. Access input via input_data, set result variable.",
+    config_mapping={
+        "code": "code",
+        "mode": "mode",
+    },
+    return_variable="py_result",
+))
+
+
+# =============================================================================
+# PYTHON NODES
+# =============================================================================
+
+register_node(NodeMapping(
+    node_type="python.execute",
+    category=NodeCategory.PYTHON,
+    keyword="Evaluate",
+    library=LIB_BUILTIN,
+    description="Execute Python code",
+    config_mapping={"code": "expression"},
+    return_variable="python_result",
+))
+
+register_node(NodeMapping(
+    node_type="python.project",
+    category=NodeCategory.PYTHON,
+    keyword="Run Process",
+    library=LIB_PROCESS,
+    description="Run Python project",
+    config_mapping={
+        "project_path": "cwd",
+        "entrypoint": "command",
+        "args": "args",
+    },
+    return_variable="process_result",
+    pre_keywords=["${cmd}=    Set Variable    python ${config}[entrypoint]"],
+))
+
+register_node(NodeMapping(
+    node_type="python.pip_install",
+    category=NodeCategory.PYTHON,
+    keyword="Run Process",
+    library=LIB_PROCESS,
+    description="Install packages",
+    config_mapping={"packages": "args"},
+    pre_keywords=["${cmd}=    Set Variable    pip install"],
+))
+
+register_node(NodeMapping(
+    node_type="python.virtualenv",
+    category=NodeCategory.PYTHON,
+    keyword="Create Virtualenv",
+    library=LIB_PROCESS,
+    description="Create Python virtual environment with optional package installation",
+    config_mapping={
+        "path": "path",
+        "python_executable": "python_executable",
+        "install_packages": "packages",
+        "requirements_file": "requirements",
+    },
+    return_variable="venv_info",
+))
+
+register_node(NodeMapping(
+    node_type="python.activate_venv",
+    category=NodeCategory.PYTHON,
+    keyword="Activate Virtualenv",
+    library=LIB_BUILTIN,
+    description="Set virtual environment to use for subsequent Python nodes",
+    config_mapping={
+        "venv_path": "venv_path",
+        "verify": "verify",
+    },
+    return_variable="venv_status",
+))
+
+register_node(NodeMapping(
+    node_type="python.function",
+    category=NodeCategory.PYTHON,
+    keyword="Evaluate",
+    library=LIB_BUILTIN,
+    description="Define Python function",
+    config_mapping={"code": "expression"},
+))
+
+register_node(NodeMapping(
+    node_type="python.import_module",
+    category=NodeCategory.PYTHON,
+    keyword="Import Library",
+    library=LIB_BUILTIN,
+    description="Import Python module",
+    config_mapping={
+        "module": "name",
+        "alias": "alias",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="python.notebook",
+    category=NodeCategory.PYTHON,
+    keyword="Run Process",
+    library=LIB_PROCESS,
+    description="Run Jupyter notebook",
+    config_mapping={
+        "path": "args",
+        "output_path": "stdout",
+    },
+    pre_keywords=["${cmd}=    Set Variable    jupyter nbconvert --execute --to notebook"],
+))
+
+register_node(NodeMapping(
+    node_type="python.eval",
+    category=NodeCategory.PYTHON,
+    keyword="Evaluate",
+    library=LIB_BUILTIN,
+    description="Evaluate expression",
+    config_mapping={"expression": "expression"},
+    return_variable="eval_result",
+))
+
+
+# =============================================================================
+# AI NODES (SkuldAI Library - skuldbot.libs.ai)
+# =============================================================================
+
+# Librería SkuldAI con alias AI
+LIB_SKULD_AI = LibraryImport("skuldbot.libs.ai.SkuldAI", alias="AI")
+
+register_node(NodeMapping(
+    node_type="ai.llm_prompt",
+    category=NodeCategory.AI,
+    keyword="Send LLM Prompt",
+    library=LIB_SKULD_AI,
+    description="Send prompt to LLM and get response",
+    config_mapping={
+        "prompt": "prompt",
+        "system_prompt": "system_message",
+        "temperature": "temperature",
+        "max_tokens": "max_tokens",
+        "json_mode": "json_mode",
+    },
+    return_variable="llm_response",
+    pre_keywords=["Configure AI Provider    ${AI_PROVIDER}    ${AI_API_KEY}    ${AI_MODEL}"],
+))
+
+# --- AI Model (Configuration Node for n8n-style visual connections) ---
+register_node(NodeMapping(
+    node_type="ai.model",
+    category=NodeCategory.AI,
+    keyword="Configure AI Model",
+    library=LIB_SKULD_AI,
+    description="Configure LLM provider and model (OpenAI, Anthropic, Azure, AWS Bedrock, Groq, Ollama). Connect to AI Agent.",
+    config_mapping={
+        "provider": "provider",
+        "model": "model",
+        "temperature": "temperature",
+        "max_tokens": "max_tokens",
+        "api_key": "api_key",
+        "base_url": "base_url",
+        "api_version": "api_version",
+        "region": "region",
+    },
+    return_variable=None,  # Config node, no direct output
+))
+
+register_node(NodeMapping(
+    node_type="ai.agent",
+    category=NodeCategory.AI,
+    keyword="Run Agent With Tools",
+    library=LIB_SKULD_AI,
+    description="Run autonomous ReAct AI agent with tool execution. Connect AI Model, Embeddings, and Vector Memory nodes visually.",
+    config_mapping={
+        "goal": "goal",
+        "tools": "tools",  # JSON list of tool definitions from connected nodes
+        "system_prompt": "system_prompt",
+        "max_iterations": "max_iterations",
+        "name": "agent_name",
+    },
+    return_variable="agent_result",
+    pre_keywords=["Configure AI Provider    ${AI_PROVIDER}    ${AI_API_KEY}    ${AI_MODEL}"],
+))
+
+register_node(NodeMapping(
+    node_type="ai.extract_data",
+    category=NodeCategory.AI,
+    keyword="Extract Data From Text",
+    library=LIB_SKULD_AI,
+    description="Extract structured data using AI",
+    config_mapping={
+        "text": "text",
+        "schema": "schema",
+        "instructions": "instructions",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="ai.summarize",
+    category=NodeCategory.AI,
+    keyword="Summarize Text",
+    library=LIB_SKULD_AI,
+    description="Summarize text using AI",
+    config_mapping={
+        "text": "text",
+        "max_length": "max_length",
+        "style": "style",
+        "language": "language",
+    },
+    return_variable="summary",
+))
+
+register_node(NodeMapping(
+    node_type="ai.classify",
+    category=NodeCategory.AI,
+    keyword="Classify Text",
+    library=LIB_SKULD_AI,
+    description="Classify text into categories",
+    config_mapping={
+        "text": "text",
+        "categories": "categories",
+        "multi_label": "multi_label",
+        "include_confidence": "include_confidence",
+    },
+    return_variable="classification",
+))
+
+register_node(NodeMapping(
+    node_type="ai.translate",
+    category=NodeCategory.AI,
+    keyword="Translate Text",
+    library=LIB_SKULD_AI,
+    description="Translate text to another language",
+    config_mapping={
+        "text": "text",
+        "target_language": "target_language",
+        "source_language": "source_language",
+    },
+    return_variable="translation",
+))
+
+register_node(NodeMapping(
+    node_type="ai.sentiment",
+    category=NodeCategory.AI,
+    keyword="Analyze Sentiment",
+    library=LIB_SKULD_AI,
+    description="Analyze text sentiment",
+    config_mapping={
+        "text": "text",
+        "detailed": "detailed",
+    },
+    return_variable="sentiment",
+))
+
+register_node(NodeMapping(
+    node_type="ai.vision",
+    category=NodeCategory.AI,
+    keyword="Analyze Image",
+    library=LIB_SKULD_AI,
+    description="Analyze image using AI vision",
+    config_mapping={
+        "image_path": "image_path",
+        "prompt": "prompt",
+        "extract_text": "extract_text",
+    },
+    return_variable="vision_result",
+))
+
+register_node(NodeMapping(
+    node_type="ai.embeddings",
+    category=NodeCategory.AI,
+    keyword="Generate Embeddings",
+    library=LIB_SKULD_AI,
+    description="Configure embeddings model (OpenAI, Azure, Ollama, Cohere). Connect to AI Agent or Vector Memory for RAG.",
+    config_mapping={
+        "provider": "provider",
+        "model": "model",
+        "dimension": "dimension",
+        "api_key": "api_key",
+        "base_url": "base_url",
+    },
+    return_variable=None,  # Config node for visual connections
+))
+
+register_node(NodeMapping(
+    node_type="ai.repair_data",
+    category=NodeCategory.AI,
+    keyword="AI Repair Data",
+    library=LIB_SKULD_AI,
+    description="Intelligently repair data quality issues using AI",
+    config_mapping={
+        "data": "data",
+        "validation_report": "validation_report",
+        "context": "context",
+        "allow_format_normalization": "allow_format_normalization",
+        "allow_semantic_cleanup": "allow_semantic_cleanup",
+        "allow_value_inference": "allow_value_inference",
+        "allow_sensitive_repair": "allow_sensitive_repair",
+        "min_confidence": "min_confidence",
+    },
+    return_variable="repair_result",
+))
+
+register_node(NodeMapping(
+    node_type="ai.suggest_repairs",
+    category=NodeCategory.AI,
+    keyword="AI Suggest Data Repairs",
+    library=LIB_SKULD_AI,
+    description="Preview repair suggestions without applying (for human review)",
+    config_mapping={
+        "data": "data",
+        "validation_report": "validation_report",
+        "context": "context",
+    },
+    return_variable="repair_suggestions",
+))
+
+
+# =============================================================================
+# SECURITY NODES (SkuldVault Library - skuldbot.libs.vault)
+# =============================================================================
+
+# Librería SkuldVault con alias Vault
+LIB_SKULD_VAULT = LibraryImport("skuldbot.libs.vault.SkuldVault", alias="Vault")
+
+register_node(NodeMapping(
+    node_type="security.get_secret",
+    category=NodeCategory.SECURITY,
+    keyword="Get Secret",
+    library=LIB_SKULD_VAULT,
+    description="Get secret from vault",
+    config_mapping={
+        "name": "name",
+        "key": "key",
+    },
+    return_variable="secret_value",
+    pre_keywords=["Configure Vault    ${VAULT_PROVIDER}"],
+))
+
+register_node(NodeMapping(
+    node_type="security.set_secret",
+    category=NodeCategory.SECURITY,
+    keyword="Set Secret",
+    library=LIB_SKULD_VAULT,
+    description="Set secret in vault",
+    config_mapping={
+        "name": "name",
+        "value": "value",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="security.delete_secret",
+    category=NodeCategory.SECURITY,
+    keyword="Delete Secret",
+    library=LIB_SKULD_VAULT,
+    description="Delete secret from vault",
+    config_mapping={
+        "name": "name",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="security.list_secrets",
+    category=NodeCategory.SECURITY,
+    keyword="List Secrets",
+    library=LIB_SKULD_VAULT,
+    description="List available secrets",
+    config_mapping={},
+    return_variable="secret_names",
+))
+
+register_node(NodeMapping(
+    node_type="security.encrypt",
+    category=NodeCategory.SECURITY,
+    keyword="Evaluate",
+    library=LIB_BUILTIN,
+    description="Encrypt data",
+    config_mapping={"data": "expression"},
+    return_variable="encrypted_data",
+    pre_keywords=["Import Library    cryptography"],
+))
+
+register_node(NodeMapping(
+    node_type="security.decrypt",
+    category=NodeCategory.SECURITY,
+    keyword="Evaluate",
+    library=LIB_BUILTIN,
+    description="Decrypt data",
+    config_mapping={"data": "expression"},
+    return_variable="decrypted_data",
+))
+
+register_node(NodeMapping(
+    node_type="security.hash",
+    category=NodeCategory.SECURITY,
+    keyword="Hash Secret",
+    library=LIB_SKULD_VAULT,
+    description="Hash data securely",
+    config_mapping={
+        "value": "value",
+        "algorithm": "algorithm",
+    },
+    return_variable="hash_value",
+))
+
+register_node(NodeMapping(
+    node_type="security.mask_data",
+    category=NodeCategory.SECURITY,
+    keyword="Mask Secret In String",
+    library=LIB_SKULD_VAULT,
+    description="Mask sensitive data in string",
+    config_mapping={
+        "text": "text",
+        "secret_name": "secret_name",
+        "mask_char": "mask_char",
+    },
+    return_variable="masked_text",
+))
+
+register_node(NodeMapping(
+    node_type="security.validate_cert",
+    category=NodeCategory.SECURITY,
+    keyword="GET",
+    library=LIB_HTTP,
+    description="Validate SSL certificate",
+    config_mapping={"url": "url"},
+))
+
+
+# =============================================================================
+# HUMAN-IN-THE-LOOP NODES (SkuldHuman Library - skuldbot.libs.human)
+# =============================================================================
+
+# Librería SkuldHuman con alias Human
+LIB_SKULD_HUMAN = LibraryImport("skuldbot.libs.human.SkuldHuman", alias="Human")
+
+register_node(NodeMapping(
+    node_type="human.approval",
+    category=NodeCategory.HUMAN,
+    keyword="Request Approval",
+    library=LIB_SKULD_HUMAN,
+    description="Request human approval to continue",
+    config_mapping={
+        "title": "title",
+        "description": "description",
+        "data": "data",
+        "assignee": "assignee",
+        "priority": "priority",
+        "timeout_minutes": "timeout_minutes",
+    },
+    return_variable="approval_result",
+    pre_keywords=["Configure Human Tasks    ${HUMAN_MODE}    ${ORCHESTRATOR_URL}    ${ORCHESTRATOR_KEY}"],
+))
+
+register_node(NodeMapping(
+    node_type="human.input",
+    category=NodeCategory.HUMAN,
+    keyword="Request User Input",
+    library=LIB_SKULD_HUMAN,
+    description="Request structured input from user",
+    config_mapping={
+        "title": "title",
+        "fields": "fields",
+        "description": "description",
+        "assignee": "assignee",
+    },
+    return_variable="user_input",
+))
+
+register_node(NodeMapping(
+    node_type="human.review",
+    category=NodeCategory.HUMAN,
+    keyword="Request Data Review",
+    library=LIB_SKULD_HUMAN,
+    description="Request human review of data",
+    config_mapping={
+        "title": "title",
+        "data": "data",
+        "editable_fields": "editable_fields",
+        "instructions": "instructions",
+        "assignee": "assignee",
+    },
+    return_variable="reviewed_data",
+))
+
+register_node(NodeMapping(
+    node_type="human.exception",
+    category=NodeCategory.HUMAN,
+    keyword="Request Exception Handling",
+    library=LIB_SKULD_HUMAN,
+    description="Request human decision for exception",
+    config_mapping={
+        "title": "title",
+        "error_details": "error_details",
+        "context": "context",
+        "options": "options",
+        "assignee": "assignee",
+    },
+    return_variable="decision",
+))
+
+register_node(NodeMapping(
+    node_type="human.notification",
+    category=NodeCategory.HUMAN,
+    keyword="Send Human Notification",
+    library=LIB_SKULD_HUMAN,
+    description="Send notification to users",
+    config_mapping={
+        "recipients": "recipients",
+        "title": "title",
+        "message": "message",
+        "channel": "channel",
+        "require_acknowledgment": "require_acknowledgment",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="human.escalate",
+    category=NodeCategory.HUMAN,
+    keyword="Escalate Task",
+    library=LIB_SKULD_HUMAN,
+    description="Escalate task to another user/level",
+    config_mapping={
+        "task_id": "task_id",
+        "reason": "escalation_reason",
+        "new_assignee": "new_assignee",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="human.file_upload",
+    category=NodeCategory.HUMAN,
+    keyword="Request File Upload",
+    library=LIB_SKULD_HUMAN,
+    description="Request file upload from user",
+    config_mapping={
+        "title": "title",
+        "description": "description",
+        "allowed_types": "allowed_types",
+        "multiple": "multiple",
+        "assignee": "assignee",
+    },
+    return_variable="uploaded_files",
+))
+
+
+# =============================================================================
+# VOICE NODES (SkuldVoice Library - skuldbot.libs.voice)
+# =============================================================================
+
+# Librería SkuldVoice con alias Voice
+LIB_SKULD_VOICE = LibraryImport("skuldbot.libs.voice.SkuldVoice", alias="Voice")
+
+# Voice Trigger - Incoming calls
+register_node(NodeMapping(
+    node_type="trigger.voice_inbound",
+    category=NodeCategory.TRIGGER,
+    keyword="Handle Incoming Call",
+    library=LIB_SKULD_VOICE,
+    description="Webhook trigger for incoming voice calls (Twilio)",
+    config_mapping={
+        "account_sid": "account_sid",
+        "auth_token": "auth_token",
+        "phone_number": "phone_number",
+        "webhook_path": "webhook_path",
+        "greeting": "greeting",
+        "call_data": "call_data",
+    },
+    return_variable="call_info",
+    pre_keywords=["Configure Voice Provider    twilio_account_sid=${account_sid}    twilio_auth_token=${auth_token}    twilio_phone_number=${phone_number}"],
+))
+
+# Outbound call
+register_node(NodeMapping(
+    node_type="voice.call",
+    category=NodeCategory.VOICE,
+    keyword="Make Outbound Call",
+    library=LIB_SKULD_VOICE,
+    description="Make an outbound voice call",
+    config_mapping={
+        "to_number": "to_number",
+        "twiml_url": "twiml_url",
+        "twiml": "twiml",
+        "record": "record",
+        "timeout": "timeout",
+    },
+    return_variable="call_result",
+))
+
+# Speech-to-Text
+register_node(NodeMapping(
+    node_type="voice.listen",
+    category=NodeCategory.VOICE,
+    keyword="Transcribe Audio File",
+    library=LIB_SKULD_VOICE,
+    description="Transcribe audio to text (Speech-to-Text)",
+    config_mapping={
+        "audio_path": "audio_path",
+        "language": "language",
+    },
+    return_variable="transcription",
+))
+
+# Text-to-Speech
+register_node(NodeMapping(
+    node_type="voice.speak",
+    category=NodeCategory.VOICE,
+    keyword="Synthesize Speech",
+    library=LIB_SKULD_VOICE,
+    description="Convert text to speech audio (Text-to-Speech)",
+    config_mapping={
+        "text": "text",
+        "output_path": "output_path",
+        "voice": "voice",
+        "style": "style",
+    },
+    return_variable="speech_result",
+))
+
+# TwiML generation for Say
+register_node(NodeMapping(
+    node_type="voice.twiml_say",
+    category=NodeCategory.VOICE,
+    keyword="Generate TwiML Say",
+    library=LIB_SKULD_VOICE,
+    description="Generate TwiML to speak text in a call",
+    config_mapping={
+        "text": "text",
+        "voice": "voice",
+        "language": "language",
+    },
+    return_variable="twiml",
+))
+
+# TwiML generation for Gather (input)
+register_node(NodeMapping(
+    node_type="voice.twiml_gather",
+    category=NodeCategory.VOICE,
+    keyword="Generate TwiML Gather",
+    library=LIB_SKULD_VOICE,
+    description="Generate TwiML to gather user input (voice or DTMF)",
+    config_mapping={
+        "prompt_text": "prompt_text",
+        "action_url": "action_url",
+        "input_type": "input_type",
+        "timeout": "timeout",
+        "speech_timeout": "speech_timeout",
+    },
+    return_variable="twiml",
+))
+
+# End call
+register_node(NodeMapping(
+    node_type="voice.hangup",
+    category=NodeCategory.VOICE,
+    keyword="End Call",
+    library=LIB_SKULD_VOICE,
+    description="End the current voice call",
+    config_mapping={
+        "call_sid": "call_sid",
+        "farewell_message": "farewell_message",
+    },
+    return_variable="end_result",
+))
+
+# Transfer call
+register_node(NodeMapping(
+    node_type="voice.transfer",
+    category=NodeCategory.VOICE,
+    keyword="Transfer Call",
+    library=LIB_SKULD_VOICE,
+    description="Transfer call to another number or agent",
+    config_mapping={
+        "transfer_to": "transfer_to",
+        "call_sid": "call_sid",
+        "announce_message": "announce_message",
+    },
+    return_variable="transfer_result",
+))
+
+# Get call status
+register_node(NodeMapping(
+    node_type="voice.get_status",
+    category=NodeCategory.VOICE,
+    keyword="Get Call Status",
+    library=LIB_SKULD_VOICE,
+    description="Get the current status of a call",
+    config_mapping={
+        "call_sid": "call_sid",
+    },
+    return_variable="call_status",
+))
+
+# Get recording
+register_node(NodeMapping(
+    node_type="voice.get_recording",
+    category=NodeCategory.VOICE,
+    keyword="Get Call Recording",
+    library=LIB_SKULD_VOICE,
+    description="Get the recording URL for a call",
+    config_mapping={
+        "call_sid": "call_sid",
+    },
+    return_variable="recording",
+))
+
+# Conversation management
+register_node(NodeMapping(
+    node_type="voice.add_turn",
+    category=NodeCategory.VOICE,
+    keyword="Add Conversation Turn",
+    library=LIB_SKULD_VOICE,
+    description="Add a turn to the conversation history",
+    config_mapping={
+        "role": "role",
+        "text": "text",
+        "confidence": "confidence",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="voice.get_transcript",
+    category=NodeCategory.VOICE,
+    keyword="Get Conversation Transcript",
+    library=LIB_SKULD_VOICE,
+    description="Get the full conversation transcript",
+    config_mapping={
+        "format": "format",
+    },
+    return_variable="transcript",
+))
+
+register_node(NodeMapping(
+    node_type="voice.clear_conversation",
+    category=NodeCategory.VOICE,
+    keyword="Clear Conversation",
+    library=LIB_SKULD_VOICE,
+    description="Clear the conversation history",
+    config_mapping={},
+))
+
+# Context management
+register_node(NodeMapping(
+    node_type="voice.set_context",
+    category=NodeCategory.VOICE,
+    keyword="Set Call Context",
+    library=LIB_SKULD_VOICE,
+    description="Store context data during a call",
+    config_mapping={
+        "key": "key",
+        "value": "value",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="voice.get_context",
+    category=NodeCategory.VOICE,
+    keyword="Get Call Context",
+    library=LIB_SKULD_VOICE,
+    description="Retrieve context data from the call",
+    config_mapping={
+        "key": "key",
+    },
+    return_variable="context_value",
+))
+
+register_node(NodeMapping(
+    node_type="voice.get_call_info",
+    category=NodeCategory.VOICE,
+    keyword="Get Current Call Info",
+    library=LIB_SKULD_VOICE,
+    description="Get information about the current call",
+    config_mapping={},
+    return_variable="call_info",
+))
+
+
+# =============================================================================
+# INSURANCE NODES (FNOL, Policy, Claims)
+# =============================================================================
+
+# Note: Insurance nodes use generic keywords (HTTP, AI, etc.) internally
+# They are high-level abstractions for insurance-specific workflows
+
+register_node(NodeMapping(
+    node_type="insurance.fnol_record",
+    category=NodeCategory.INSURANCE,
+    keyword="Create FNOL Record",
+    library=None,  # Uses built-in keyword
+    description="Create canonical First Notice of Loss record",
+    config_mapping={
+        "caller_phone": "caller_phone",
+        "caller_name": "caller_name",
+        "policy_number": "policy_number",
+        "incident_type": "incident_type",
+        "incident_date": "incident_date",
+        "incident_location": "incident_location",
+        "incident_description": "incident_description",
+        "injuries": "injuries",
+        "police_report": "police_report",
+        "recording_url": "recording_url",
+        "transcript": "transcript",
+    },
+    return_variable="fnol_record",
+))
+
+# Lookup policy by multiple criteria (phone, name, DOB, etc.)
+register_node(NodeMapping(
+    node_type="insurance.lookup_policy",
+    category=NodeCategory.INSURANCE,
+    keyword="Lookup Insurance Policy",
+    library=None,  # Uses HTTP library internally
+    description="Find policy by phone, name, DOB, or other criteria (caller often doesn't have policy number)",
+    config_mapping={
+        "api_url": "api_url",
+        # Multiple search criteria - use whichever is available
+        "phone_number": "phone_number",        # Primary: from Twilio CallerID
+        "policyholder_name": "policyholder_name",  # Fallback 1
+        "date_of_birth": "date_of_birth",      # Fallback 2
+        "ssn_last_four": "ssn_last_four",      # Fallback 3 (regulated)
+        "address": "address",                   # Fallback 4
+        "vin": "vin",                          # For auto policies
+        "policy_number": "policy_number",      # If caller has it
+        "method": "method",
+        "headers": "headers",
+    },
+    return_variable="policy_lookup_result",
+))
+
+# Validate policy (after lookup, check if active and has coverage)
+register_node(NodeMapping(
+    node_type="insurance.validate_policy",
+    category=NodeCategory.INSURANCE,
+    keyword="Validate Insurance Policy",
+    library=None,  # Uses HTTP library internally
+    description="Validate policy is active and has coverage for claim type",
+    config_mapping={
+        "api_url": "api_url",
+        "policy_id": "policy_id",              # From lookup result
+        "policy_number": "policy_number",
+        "claim_type": "claim_type",            # auto, property, liability, health
+        "check_active": "check_active",        # Verify not expired/cancelled
+        "check_coverage": "check_coverage",    # Verify coverage type
+        "method": "method",
+        "headers": "headers",
+    },
+    return_variable="policy_validation",
+))
+
+register_node(NodeMapping(
+    node_type="insurance.extract_claim_data",
+    category=NodeCategory.INSURANCE,
+    keyword="Extract Claim Data From Transcript",
+    library=None,  # Uses AI library internally
+    description="Use AI to extract structured claim data from conversation",
+    config_mapping={
+        "transcript": "transcript",
+        "claim_type": "claim_type",
+        "llm_provider": "llm_provider",
+    },
+    return_variable="extracted_claim",
+))
+
+
+# =============================================================================
+# UTILITY FUNCTIONS
+# =============================================================================
+
+def get_all_nodes() -> List[NodeMapping]:
+    """Retorna todos los nodos registrados"""
+    return list(NODE_REGISTRY.values())
+
+
+def get_nodes_by_category(category: NodeCategory) -> List[NodeMapping]:
+    """Retorna nodos de una categoria especifica"""
+    return [n for n in NODE_REGISTRY.values() if n.category == category]
+
+
+def get_node_count() -> int:
+    """Retorna el numero total de nodos registrados"""
+    return len(NODE_REGISTRY)
+
+
+def get_category_summary() -> Dict[str, int]:
+    """Retorna resumen de nodos por categoria"""
+    summary = {}
+    for node in NODE_REGISTRY.values():
+        cat = node.category.value
+        summary[cat] = summary.get(cat, 0) + 1
+    return summary
+
+
+def generate_ai_planner_catalog() -> str:
+    """
+    Genera el catálogo de nodos para el AI Planner.
+    Este catálogo se usa en el system prompt para que el LLM conozca
+    todos los nodos disponibles.
+
+    Returns:
+        String formateado con todos los nodos agrupados por categoría
+    """
+    # Nombres legibles para categorías
+    category_labels = {
+        "trigger": "TRIGGERS",
+        "web": "WEB AUTOMATION",
+        "desktop": "DESKTOP AUTOMATION",
+        "files": "FILES & FOLDERS",
+        "excel": "EXCEL & CSV",
+        "email": "EMAIL",
+        "ms365": "MICROSOFT 365 (Email, Calendar via Entra ID)",
+        "api": "API & HTTP",
+        "database": "DATABASE",
+        "document": "DOCUMENTS (PDF, OCR)",
+        "ai": "AI & LLM (requires SkuldAI license)",
+        "vectordb": "VECTOR DATABASE (RAG, pgvector, Pinecone, Qdrant, ChromaDB, Supabase)",
+        "code": "CODE (JavaScript & Python - like n8n)",
+        "python": "PYTHON PROJECT EXECUTION",
+        "control": "CONTROL FLOW (Map, Filter, Reduce, Loops)",
+        "logging": "LOGGING & MONITORING",
+        "security": "SECURITY & SECRETS",
+        "human": "HUMAN-IN-THE-LOOP",
+        "compliance": "COMPLIANCE (requires SkuldCompliance license)",
+        "dataquality": "DATA QUALITY (requires SkuldDataQuality license)",
+        "voice": "VOICE/TELEPHONY (requires SkuldVoice - Twilio + Azure Speech)",
+        "insurance": "INSURANCE (FNOL & Claims)",
+        "data": "DATA INTEGRATION (Singer Taps & Targets)",
+    }
+
+    # Agrupar nodos por categoría
+    nodes_by_category: Dict[str, List[NodeMapping]] = {}
+    for node in NODE_REGISTRY.values():
+        cat = node.category.value
+        if cat not in nodes_by_category:
+            nodes_by_category[cat] = []
+        nodes_by_category[cat].append(node)
+
+    # Generar texto
+    lines = []
+    lines.append("AVAILABLE NODE CATEGORIES AND TYPES:")
+    lines.append("")
+
+    # Orden específico de categorías (las más usadas primero)
+    category_order = [
+        "trigger", "web", "email", "ms365", "files", "excel", "api", "database",
+        "document", "data", "code", "control", "logging", "ai", "vectordb", "voice",
+        "compliance", "dataquality", "insurance", "human", "security",
+        "python", "desktop"
+    ]
+
+    for cat in category_order:
+        if cat not in nodes_by_category:
+            continue
+
+        label = category_labels.get(cat, cat.upper())
+        lines.append(f"{label}:")
+
+        for node in sorted(nodes_by_category[cat], key=lambda n: n.node_type):
+            lines.append(f"- {node.node_type}: {node.description}")
+
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def get_ai_planner_catalog_json() -> List[Dict[str, Any]]:
+    """
+    Genera el catálogo de nodos en formato JSON para el AI Planner.
+
+    Returns:
+        Lista de diccionarios con información de cada nodo
+    """
+    catalog = []
+    for node in NODE_REGISTRY.values():
+        catalog.append({
+            "node_type": node.node_type,
+            "category": node.category.value,
+            "description": node.description,
+            "config_fields": list(node.config_mapping.keys()) if node.config_mapping else [],
+            "has_output": node.return_variable is not None,
+        })
+    return catalog
+
+
+# =============================================================================
+# COMPLIANCE NODES (SkuldCompliance Library - skuldbot.libs.compliance)
+# =============================================================================
+
+# Librería SkuldCompliance con alias Compliance
+LIB_SKULD_COMPLIANCE = LibraryImport("skuldbot.libs.compliance.SkuldCompliance", alias="Compliance")
+
+register_node(NodeMapping(
+    node_type="compliance.detect_sensitive",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Detect Sensitive Data",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Detect PII and PHI in data",
+    config_mapping={
+        "data": "data",
+        "regulations": "regulations",
+    },
+    return_variable="detection_result",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.detect_pii",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Detect PII",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Detect PII (Personal Identifiable Information)",
+    config_mapping={
+        "data": "data",
+    },
+    return_variable="pii_result",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.detect_phi",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Detect PHI",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Detect PHI (Protected Health Information)",
+    config_mapping={
+        "data": "data",
+    },
+    return_variable="phi_result",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.mask_data",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Mask Sensitive Data",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Mask sensitive data with asterisks",
+    config_mapping={
+        "data": "data",
+        "fields": "fields",
+        "mask_char": "mask_char",
+        "visible_chars": "visible_chars",
+    },
+    return_variable="masked_data",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.redact_data",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Redact Sensitive Data",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Completely remove sensitive data",
+    config_mapping={
+        "data": "data",
+        "fields": "fields",
+        "replacement": "replacement",
+    },
+    return_variable="redacted_data",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.pseudonymize",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Pseudonymize Data",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Replace sensitive data with consistent fake IDs",
+    config_mapping={
+        "data": "data",
+        "fields": "fields",
+        "prefix": "prefix",
+    },
+    return_variable="pseudonymized_data",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.hash_data",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Hash Sensitive Data",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Cryptographically hash sensitive data",
+    config_mapping={
+        "data": "data",
+        "fields": "fields",
+        "algorithm": "algorithm",
+        "salt": "salt",
+    },
+    return_variable="hashed_data",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.generalize_data",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Generalize Data",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Generalize data (ages to ranges, zip to partial)",
+    config_mapping={
+        "data": "data",
+        "rules": "rules",
+    },
+    return_variable="generalized_data",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.safe_harbor",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Apply HIPAA Safe Harbor",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Apply all HIPAA Safe Harbor de-identification methods",
+    config_mapping={
+        "data": "data",
+        "phi_fields": "phi_fields",
+    },
+    return_variable="deidentified_data",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.validate_hipaa",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Validate HIPAA Compliance",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Validate that data is HIPAA compliant",
+    config_mapping={
+        "data": "data",
+    },
+    return_variable="compliance_result",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.sensitive_gate",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Check Sensitive Data Gate",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Gate that blocks flow if sensitive data detected",
+    config_mapping={
+        "data": "data",
+        "block_on_pii": "block_on_pii",
+        "block_on_phi": "block_on_phi",
+    },
+    return_variable="gate_result",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.audit_log",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Log Compliance Event",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Log compliance audit event",
+    config_mapping={
+        "event_type": "event_type",
+        "data_classification": "data_classification",
+        "action": "action",
+        "user": "user",
+    },
+    return_variable="audit_entry",
+))
+
+register_node(NodeMapping(
+    node_type="compliance.classify_data",
+    category=NodeCategory.COMPLIANCE,
+    keyword="Classify Data Sensitivity",
+    library=LIB_SKULD_COMPLIANCE,
+    description="Classify data sensitivity level",
+    config_mapping={
+        "data": "data",
+    },
+    return_variable="classification",
+))
+
+
+# =============================================================================
+# DATA QUALITY NODES (SkuldDataQuality Library - skuldbot.libs.data_quality)
+# =============================================================================
+
+# Librería SkuldDataQuality con alias DataQuality
+LIB_SKULD_DATAQUALITY = LibraryImport("skuldbot.libs.data_quality.SkuldDataQuality", alias="DataQuality")
+
+register_node(NodeMapping(
+    node_type="dataquality.validate_schema",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Validate Schema",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate data against a schema",
+    config_mapping={
+        "data": "data",
+        "schema": "schema",
+    },
+    return_variable="schema_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.validate_not_null",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Validate Column Not Null",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate column has no null values",
+    config_mapping={
+        "data": "data",
+        "column": "column",
+        "threshold": "threshold",
+    },
+    return_variable="not_null_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.validate_unique",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Validate Column Unique",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate column has unique values",
+    config_mapping={
+        "data": "data",
+        "column": "column",
+    },
+    return_variable="unique_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.validate_in_set",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Validate Column In Set",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate column values are in allowed set",
+    config_mapping={
+        "data": "data",
+        "column": "column",
+        "allowed_values": "allowed_values",
+    },
+    return_variable="in_set_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.validate_between",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Validate Column Between",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate column values are within range",
+    config_mapping={
+        "data": "data",
+        "column": "column",
+        "min_value": "min_value",
+        "max_value": "max_value",
+    },
+    return_variable="between_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.validate_regex",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Validate Column Regex",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate column values match regex pattern",
+    config_mapping={
+        "data": "data",
+        "column": "column",
+        "pattern": "pattern",
+    },
+    return_variable="regex_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.validate_email",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Validate Email Format",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate column contains valid email addresses",
+    config_mapping={
+        "data": "data",
+        "column": "column",
+    },
+    return_variable="email_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.validate_date",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Validate Date Format",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate column contains valid dates",
+    config_mapping={
+        "data": "data",
+        "column": "column",
+        "format": "format",
+    },
+    return_variable="date_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.validate_row_count",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Validate Row Count",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate data has expected row count",
+    config_mapping={
+        "data": "data",
+        "min_rows": "min_rows",
+        "max_rows": "max_rows",
+    },
+    return_variable="row_count_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.profile_data",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Profile Data",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Generate automatic data profile with statistics",
+    config_mapping={
+        "data": "data",
+    },
+    return_variable="data_profile",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.run_suite",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Run Validation Suite",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Run multiple validations from expectation suite",
+    config_mapping={
+        "data": "data",
+        "suite": "suite",
+    },
+    return_variable="suite_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.generate_report",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Generate Quality Report",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Generate comprehensive data quality report",
+    config_mapping={
+        "data": "data",
+        "data_source": "data_source",
+    },
+    return_variable="quality_report",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.list_profiles",
+    category=NodeCategory.DATAQUALITY,
+    keyword="List Quality Profiles",
+    library=LIB_SKULD_DATAQUALITY,
+    description="List available quality profiles by vertical",
+    config_mapping={
+        "vertical": "vertical",
+    },
+    return_variable="profiles_list",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.get_profile",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Get Quality Profile",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Get a specific quality profile by name",
+    config_mapping={
+        "profile_name": "profile_id",
+    },
+    return_variable="profile",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.apply_profile",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Apply Quality Profile",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate data using a predefined quality profile",
+    config_mapping={
+        "data": "data",
+        "profile_name": "profile_id",
+        "fail_on_error": "strict",
+    },
+    return_variable="profile_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.validate_and_repair",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Validate With Profile And Repair",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Validate with profile and auto-repair with AI",
+    config_mapping={
+        "data": "data",
+        "profile_name": "profile_id",
+        "min_confidence": "min_confidence",
+    },
+    return_variable="repair_result",
+))
+
+register_node(NodeMapping(
+    node_type="dataquality.create_custom_profile",
+    category=NodeCategory.DATAQUALITY,
+    keyword="Create Custom Profile",
+    library=LIB_SKULD_DATAQUALITY,
+    description="Create a custom quality profile",
+    config_mapping={
+        "name": "profile_id",
+        "description": "description",
+        "vertical": "vertical",
+        "expectations": "expectations",
+    },
+    return_variable="custom_profile",
+))
+
+
+# =============================================================================
+# VECTOR DATABASE NODES
+# =============================================================================
+
+LIB_SKULD_VECTORDB = LibraryImport("skuldbot.libs.vectordb.SkuldVectorDB", alias="VectorDB")
+
+# --- Embeddings ---
+
+register_node(NodeMapping(
+    node_type="vectordb.configure_embeddings",
+    category=NodeCategory.VECTORDB,
+    keyword="Configure Embeddings Provider",
+    library=LIB_SKULD_VECTORDB,
+    description="Configure embeddings provider (OpenAI, Azure, Ollama)",
+    config_mapping={
+        "provider": "provider",
+        "api_key": "api_key",
+        "model": "model",
+        "base_url": "base_url",
+        "dimension": "dimension",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.generate_embedding",
+    category=NodeCategory.VECTORDB,
+    keyword="Generate Embedding",
+    library=LIB_SKULD_VECTORDB,
+    description="Generate embedding vector for text",
+    config_mapping={
+        "text": "text",
+    },
+    return_variable="embedding",
+))
+
+# --- pgvector (PostgreSQL) ---
+
+register_node(NodeMapping(
+    node_type="vectordb.pgvector_connect",
+    category=NodeCategory.VECTORDB,
+    keyword="Connect To PGVector",
+    library=LIB_SKULD_VECTORDB,
+    description="Connect to PostgreSQL with pgvector extension (local/on-premise)",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "user": "user",
+        "password": "password",
+        "table": "table",
+        "dimension": "dimension",
+        "ssl": "ssl",
+        "ssl_mode": "ssl_mode",
+        "create_table_if_not_exists": "create_table_if_not_exists",
+        "index_type": "index_type",
+        "pool_size": "pool_size",
+    },
+    return_variable="pgvector_connection",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.pgvector_upsert",
+    category=NodeCategory.VECTORDB,
+    keyword="PGVector Upsert",
+    library=LIB_SKULD_VECTORDB,
+    description="Insert or update documents in pgvector",
+    config_mapping={
+        "documents": "documents",
+        "auto_embed": "auto_embed",
+    },
+    return_variable="upsert_result",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.pgvector_query",
+    category=NodeCategory.VECTORDB,
+    keyword="PGVector Query",
+    library=LIB_SKULD_VECTORDB,
+    description="Semantic search in pgvector",
+    config_mapping={
+        "query": "query",
+        "top_k": "top_k",
+        "filter_metadata": "filter_metadata",
+        "min_score": "min_score",
+        "include_metadata": "include_metadata",
+        "include_content": "include_content",
+    },
+    return_variable="search_results",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.pgvector_delete",
+    category=NodeCategory.VECTORDB,
+    keyword="PGVector Delete",
+    library=LIB_SKULD_VECTORDB,
+    description="Delete documents from pgvector",
+    config_mapping={
+        "ids": "ids",
+        "filter_metadata": "filter_metadata",
+        "delete_all": "delete_all",
+    },
+    return_variable="delete_result",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.pgvector_stats",
+    category=NodeCategory.VECTORDB,
+    keyword="PGVector Get Stats",
+    library=LIB_SKULD_VECTORDB,
+    description="Get pgvector table statistics",
+    config_mapping={},
+    return_variable="pgvector_stats",
+))
+
+# --- Pinecone ---
+
+register_node(NodeMapping(
+    node_type="vectordb.pinecone_connect",
+    category=NodeCategory.VECTORDB,
+    keyword="Connect To Pinecone",
+    library=LIB_SKULD_VECTORDB,
+    description="Connect to Pinecone serverless vector database",
+    config_mapping={
+        "api_key": "api_key",
+        "index_name": "index_name",
+        "namespace": "namespace",
+        "dimension": "dimension",
+        "metric": "metric",
+        "create_if_not_exists": "create_if_not_exists",
+        "cloud": "cloud",
+        "region": "region",
+    },
+    return_variable="pinecone_connection",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.pinecone_upsert",
+    category=NodeCategory.VECTORDB,
+    keyword="Pinecone Upsert",
+    library=LIB_SKULD_VECTORDB,
+    description="Insert documents into Pinecone",
+    config_mapping={
+        "documents": "documents",
+        "namespace": "namespace",
+        "auto_embed": "auto_embed",
+        "batch_size": "batch_size",
+    },
+    return_variable="upsert_result",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.pinecone_query",
+    category=NodeCategory.VECTORDB,
+    keyword="Pinecone Query",
+    library=LIB_SKULD_VECTORDB,
+    description="Semantic search in Pinecone",
+    config_mapping={
+        "query": "query",
+        "top_k": "top_k",
+        "namespace": "namespace",
+        "filter_metadata": "filter_metadata",
+        "min_score": "min_score",
+        "include_metadata": "include_metadata",
+    },
+    return_variable="search_results",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.pinecone_delete",
+    category=NodeCategory.VECTORDB,
+    keyword="Pinecone Delete",
+    library=LIB_SKULD_VECTORDB,
+    description="Delete vectors from Pinecone",
+    config_mapping={
+        "ids": "ids",
+        "namespace": "namespace",
+        "filter_metadata": "filter_metadata",
+        "delete_all": "delete_all",
+    },
+    return_variable="delete_result",
+))
+
+# --- Qdrant ---
+
+register_node(NodeMapping(
+    node_type="vectordb.qdrant_connect",
+    category=NodeCategory.VECTORDB,
+    keyword="Connect To Qdrant",
+    library=LIB_SKULD_VECTORDB,
+    description="Connect to Qdrant vector database",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "api_key": "api_key",
+        "collection": "collection",
+        "dimension": "dimension",
+        "metric": "metric",
+        "create_if_not_exists": "create_if_not_exists",
+        "grpc_port": "grpc_port",
+        "prefer_grpc": "prefer_grpc",
+        "https": "https",
+    },
+    return_variable="qdrant_connection",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.qdrant_upsert",
+    category=NodeCategory.VECTORDB,
+    keyword="Qdrant Upsert",
+    library=LIB_SKULD_VECTORDB,
+    description="Insert documents into Qdrant",
+    config_mapping={
+        "documents": "documents",
+        "auto_embed": "auto_embed",
+        "batch_size": "batch_size",
+    },
+    return_variable="upsert_result",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.qdrant_query",
+    category=NodeCategory.VECTORDB,
+    keyword="Qdrant Query",
+    library=LIB_SKULD_VECTORDB,
+    description="Semantic search in Qdrant",
+    config_mapping={
+        "query": "query",
+        "top_k": "top_k",
+        "filter_metadata": "filter_metadata",
+        "min_score": "min_score",
+    },
+    return_variable="search_results",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.qdrant_delete",
+    category=NodeCategory.VECTORDB,
+    keyword="Qdrant Delete",
+    library=LIB_SKULD_VECTORDB,
+    description="Delete points from Qdrant",
+    config_mapping={
+        "ids": "ids",
+        "filter_metadata": "filter_metadata",
+    },
+    return_variable="delete_result",
+))
+
+# --- ChromaDB ---
+
+register_node(NodeMapping(
+    node_type="vectordb.chroma_connect",
+    category=NodeCategory.VECTORDB,
+    keyword="Connect To ChromaDB",
+    library=LIB_SKULD_VECTORDB,
+    description="Connect to ChromaDB (local/embedded)",
+    config_mapping={
+        "collection": "collection",
+        "persist_directory": "persist_directory",
+        "host": "host",
+        "port": "port",
+        "create_if_not_exists": "create_if_not_exists",
+    },
+    return_variable="chroma_connection",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.chroma_add",
+    category=NodeCategory.VECTORDB,
+    keyword="ChromaDB Add",
+    library=LIB_SKULD_VECTORDB,
+    description="Add documents to ChromaDB",
+    config_mapping={
+        "documents": "documents",
+        "auto_embed": "auto_embed",
+    },
+    return_variable="add_result",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.chroma_query",
+    category=NodeCategory.VECTORDB,
+    keyword="ChromaDB Query",
+    library=LIB_SKULD_VECTORDB,
+    description="Semantic search in ChromaDB",
+    config_mapping={
+        "query": "query",
+        "top_k": "top_k",
+        "filter_metadata": "filter_metadata",
+        "include_documents": "include_documents",
+        "include_embeddings": "include_embeddings",
+    },
+    return_variable="search_results",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.chroma_update",
+    category=NodeCategory.VECTORDB,
+    keyword="ChromaDB Update",
+    library=LIB_SKULD_VECTORDB,
+    description="Update documents in ChromaDB",
+    config_mapping={
+        "documents": "documents",
+        "auto_embed": "auto_embed",
+    },
+    return_variable="update_result",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.chroma_delete",
+    category=NodeCategory.VECTORDB,
+    keyword="ChromaDB Delete",
+    library=LIB_SKULD_VECTORDB,
+    description="Delete documents from ChromaDB",
+    config_mapping={
+        "ids": "ids",
+        "filter_metadata": "filter_metadata",
+    },
+    return_variable="delete_result",
+))
+
+# --- Supabase (pgvector as a service) ---
+
+register_node(NodeMapping(
+    node_type="vectordb.supabase_connect",
+    category=NodeCategory.VECTORDB,
+    keyword="Connect To Supabase",
+    library=LIB_SKULD_VECTORDB,
+    description="Connect to Supabase (pgvector as a service)",
+    config_mapping={
+        "url": "url",
+        "api_key": "api_key",
+        "table": "table",
+        "dimension": "dimension",
+        "create_table_if_not_exists": "create_table_if_not_exists",
+        "index_type": "index_type",
+    },
+    return_variable="supabase_connection",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.supabase_upsert",
+    category=NodeCategory.VECTORDB,
+    keyword="Supabase Upsert",
+    library=LIB_SKULD_VECTORDB,
+    description="Insert or update documents in Supabase",
+    config_mapping={
+        "documents": "documents",
+        "auto_embed": "auto_embed",
+    },
+    return_variable="upsert_result",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.supabase_query",
+    category=NodeCategory.VECTORDB,
+    keyword="Supabase Query",
+    library=LIB_SKULD_VECTORDB,
+    description="Semantic search in Supabase",
+    config_mapping={
+        "query": "query",
+        "top_k": "top_k",
+        "filter_metadata": "filter_metadata",
+        "min_score": "min_score",
+        "include_metadata": "include_metadata",
+        "include_content": "include_content",
+    },
+    return_variable="search_results",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.supabase_delete",
+    category=NodeCategory.VECTORDB,
+    keyword="Supabase Delete",
+    library=LIB_SKULD_VECTORDB,
+    description="Delete documents from Supabase",
+    config_mapping={
+        "ids": "ids",
+        "filter_metadata": "filter_metadata",
+        "delete_all": "delete_all",
+    },
+    return_variable="delete_result",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.supabase_stats",
+    category=NodeCategory.VECTORDB,
+    keyword="Supabase Get Stats",
+    library=LIB_SKULD_VECTORDB,
+    description="Get Supabase table statistics",
+    config_mapping={},
+    return_variable="supabase_stats",
+))
+
+# --- Vector Memory (for AI Agent RAG) ---
+
+register_node(NodeMapping(
+    node_type="vectordb.memory",
+    category=NodeCategory.VECTORDB,
+    keyword="Initialize Vector Memory",
+    library=LIB_SKULD_VECTORDB,
+    description="Initialize vector memory for AI Agent RAG",
+    config_mapping={
+        "provider": "provider",
+        "collection": "collection",
+        "memory_type": "memory_type",
+    },
+    return_variable="memory_info",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.store_memory",
+    category=NodeCategory.VECTORDB,
+    keyword="Store In Memory",
+    library=LIB_SKULD_VECTORDB,
+    description="Store content in vector memory",
+    config_mapping={
+        "content": "content",
+        "metadata": "metadata",
+        "doc_id": "doc_id",
+    },
+    return_variable="store_result",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.retrieve_memory",
+    category=NodeCategory.VECTORDB,
+    keyword="Retrieve From Memory",
+    library=LIB_SKULD_VECTORDB,
+    description="Retrieve relevant content from memory",
+    config_mapping={
+        "query": "query",
+        "top_k": "top_k",
+        "min_score": "min_score",
+        "filter_metadata": "filter_metadata",
+    },
+    return_variable="retrieved_docs",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.build_rag_context",
+    category=NodeCategory.VECTORDB,
+    keyword="Build RAG Context",
+    library=LIB_SKULD_VECTORDB,
+    description="Build RAG context for AI Agent prompt",
+    config_mapping={
+        "query": "query",
+        "top_k": "top_k",
+        "min_score": "min_score",
+        "max_context_length": "max_context_length",
+        "separator": "separator",
+    },
+    return_variable="rag_context",
+))
+
+# --- Document Loading ---
+
+register_node(NodeMapping(
+    node_type="vectordb.load_documents_text",
+    category=NodeCategory.VECTORDB,
+    keyword="Load Documents From Text",
+    library=LIB_SKULD_VECTORDB,
+    description="Split text into chunks for vectorization",
+    config_mapping={
+        "text": "text",
+        "chunk_size": "chunk_size",
+        "chunk_overlap": "chunk_overlap",
+        "metadata": "metadata",
+    },
+    return_variable="document_chunks",
+))
+
+register_node(NodeMapping(
+    node_type="vectordb.load_documents_file",
+    category=NodeCategory.VECTORDB,
+    keyword="Load Documents From File",
+    library=LIB_SKULD_VECTORDB,
+    description="Load and chunk a file for vectorization",
+    config_mapping={
+        "file_path": "file_path",
+        "chunk_size": "chunk_size",
+        "chunk_overlap": "chunk_overlap",
+    },
+    return_variable="document_chunks",
+))
+
+# --- Connection Management ---
+
+register_node(NodeMapping(
+    node_type="vectordb.close",
+    category=NodeCategory.VECTORDB,
+    keyword="Close Vector DB Connection",
+    library=LIB_SKULD_VECTORDB,
+    description="Close the vector database connection",
+    config_mapping={},
+))
+
+
+# =============================================================================
+# MS365 NODES (Microsoft 365 Integration)
+# =============================================================================
+
+LIB_SKULD_MS365 = LibraryImport("skuldbot.libs.ms365.SkuldMS365", alias="MS365")
+
+register_node(NodeMapping(
+    node_type="ms365.connection",
+    category=NodeCategory.MS365,
+    keyword="Configure MS365",
+    library=LIB_SKULD_MS365,
+    description="Configure Microsoft 365 connection (Entra ID credentials)",
+    config_mapping={
+        "tenant_id": "tenant_id",
+        "client_id": "client_id",
+        "client_secret": "client_secret",
+        "user_email": "user_email",
+    },
+))
+
+register_node(NodeMapping(
+    node_type="trigger.ms365_email",
+    category=NodeCategory.TRIGGER,
+    keyword="Listen For MS365 Email",
+    library=LIB_SKULD_MS365,
+    description="Trigger when new email arrives in Microsoft 365",
+    config_mapping={
+        "folder": "folder",
+        "filter_sender": "filter_sender",
+        "filter_subject": "filter_subject",
+    },
+    return_variable="trigger_email",
+))
+
+register_node(NodeMapping(
+    node_type="ms365.email_list",
+    category=NodeCategory.MS365,
+    keyword="List MS365 Emails",
+    library=LIB_SKULD_MS365,
+    description="List emails from a Microsoft 365 folder",
+    config_mapping={
+        "folder": "folder",
+        "filter": "filter",
+        "top": "top",
+        "unread_only": "unread_only",
+    },
+    return_variable="emails",
+))
+
+register_node(NodeMapping(
+    node_type="ms365.email_read",
+    category=NodeCategory.MS365,
+    keyword="Read MS365 Email",
+    library=LIB_SKULD_MS365,
+    description="Read a specific Microsoft 365 email by ID",
+    config_mapping={
+        "email_id": "email_id",
+    },
+    return_variable="email",
+))
+
+register_node(NodeMapping(
+    node_type="ms365.email_send",
+    category=NodeCategory.MS365,
+    keyword="Send MS365 Email",
+    library=LIB_SKULD_MS365,
+    description="Send an email via Microsoft 365",
+    config_mapping={
+        "to": "to",
+        "subject": "subject",
+        "body": "body",
+        "cc": "cc",
+        "bcc": "bcc",
+        "attachments": "attachments",
+    },
+    return_variable="send_result",
+))
+
+register_node(NodeMapping(
+    node_type="ms365.email_reply",
+    category=NodeCategory.MS365,
+    keyword="Reply MS365 Email",
+    library=LIB_SKULD_MS365,
+    description="Reply to a Microsoft 365 email",
+    config_mapping={
+        "email_id": "email_id",
+        "body": "body",
+        "reply_all": "reply_all",
+    },
+    return_variable="reply_result",
+))
+
+register_node(NodeMapping(
+    node_type="ms365.email_forward",
+    category=NodeCategory.MS365,
+    keyword="Forward MS365 Email",
+    library=LIB_SKULD_MS365,
+    description="Forward a Microsoft 365 email",
+    config_mapping={
+        "email_id": "email_id",
+        "to": "to",
+        "comment": "comment",
+    },
+    return_variable="forward_result",
+))
+
+register_node(NodeMapping(
+    node_type="ms365.email_move",
+    category=NodeCategory.MS365,
+    keyword="Move MS365 Email",
+    library=LIB_SKULD_MS365,
+    description="Move a Microsoft 365 email to another folder",
+    config_mapping={
+        "email_id": "email_id",
+        "folder": "destination_folder",
+    },
+    return_variable="move_result",
+))
+
+register_node(NodeMapping(
+    node_type="ms365.email_delete",
+    category=NodeCategory.MS365,
+    keyword="Delete MS365 Email",
+    library=LIB_SKULD_MS365,
+    description="Delete a Microsoft 365 email",
+    config_mapping={
+        "email_id": "email_id",
+    },
+    return_variable="delete_result",
+))
+
+register_node(NodeMapping(
+    node_type="ms365.email_download_attachment",
+    category=NodeCategory.MS365,
+    keyword="Download MS365 Attachment",
+    library=LIB_SKULD_MS365,
+    description="Download an attachment from a Microsoft 365 email",
+    config_mapping={
+        "email_id": "email_id",
+        "attachment_id": "attachment_id",
+        "save_path": "save_path",
+    },
+    return_variable="attachment_path",
+))
+
+register_node(NodeMapping(
+    node_type="ms365.calendar_list_events",
+    category=NodeCategory.MS365,
+    keyword="List MS365 Calendar Events",
+    library=LIB_SKULD_MS365,
+    description="List calendar events from Microsoft 365",
+    config_mapping={
+        "start_date": "start_date",
+        "end_date": "end_date",
+        "calendar": "calendar",
+    },
+    return_variable="events",
+))
+
+register_node(NodeMapping(
+    node_type="ms365.calendar_create_event",
+    category=NodeCategory.MS365,
+    keyword="Create MS365 Calendar Event",
+    library=LIB_SKULD_MS365,
+    description="Create a calendar event in Microsoft 365",
+    config_mapping={
+        "subject": "subject",
+        "start": "start",
+        "end": "end",
+        "body": "body",
+        "attendees": "attendees",
+        "location": "location",
+    },
+    return_variable="event",
+))
+
+
+# =============================================================================
+# DATA INTEGRATION NODES (Singer Taps & Targets)
+# =============================================================================
+
+LIB_SKULD_DATA = LibraryImport("skuldbot.libs.data.DataLibrary", alias="DataLib")
+
+# --- Data Taps (Extraction) ---
+
+register_node(NodeMapping(
+    node_type="data.tap.sqlserver",
+    category=NodeCategory.DATA,
+    keyword="Extract From SQL Server",
+    library=LIB_SKULD_DATA,
+    description="Extract data from SQL Server database",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "username": "username",
+        "password": "password",
+        "tables": "tables",
+        "query": "query",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.postgres",
+    category=NodeCategory.DATA,
+    keyword="Extract From PostgreSQL",
+    library=LIB_SKULD_DATA,
+    description="Extract data from PostgreSQL database",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "username": "username",
+        "password": "password",
+        "tables": "tables",
+        "query": "query",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.mysql",
+    category=NodeCategory.DATA,
+    keyword="Extract From MySQL",
+    library=LIB_SKULD_DATA,
+    description="Extract data from MySQL database",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "username": "username",
+        "password": "password",
+        "tables": "tables",
+        "query": "query",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.db2",
+    category=NodeCategory.DATA,
+    keyword="Extract From DB2",
+    library=LIB_SKULD_DATA,
+    description="Extract data from IBM DB2 database",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "username": "username",
+        "password": "password",
+        "tables": "tables",
+        "query": "query",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.oracle",
+    category=NodeCategory.DATA,
+    keyword="Extract From Oracle",
+    library=LIB_SKULD_DATA,
+    description="Extract data from Oracle database",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "service_name": "service_name",
+        "username": "username",
+        "password": "password",
+        "tables": "tables",
+        "query": "query",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.snowflake",
+    category=NodeCategory.DATA,
+    keyword="Extract From Snowflake",
+    library=LIB_SKULD_DATA,
+    description="Extract data from Snowflake data warehouse",
+    config_mapping={
+        "account": "account",
+        "warehouse": "warehouse",
+        "database": "database",
+        "schema": "schema",
+        "username": "username",
+        "password": "password",
+        "tables": "tables",
+        "query": "query",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.csv",
+    category=NodeCategory.DATA,
+    keyword="Extract From CSV",
+    library=LIB_SKULD_DATA,
+    description="Extract data from CSV file(s)",
+    config_mapping={
+        "source": "path",
+        "path": "path",
+        "delimiter": "delimiter",
+        "encoding": "encoding",
+        "header": "header",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.excel",
+    category=NodeCategory.DATA,
+    keyword="Extract From Excel",
+    library=LIB_SKULD_DATA,
+    description="Extract data from Excel file(s)",
+    config_mapping={
+        "source": "path",
+        "path": "path",
+        "sheet": "sheet",
+        "range": "range",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.sftp",
+    category=NodeCategory.DATA,
+    keyword="Extract From SFTP",
+    library=LIB_SKULD_DATA,
+    description="Extract files from SFTP server",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "username": "username",
+        "password": "password",
+        "path": "path",
+        "pattern": "pattern",
+    },
+    return_variable="extracted_files",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.s3",
+    category=NodeCategory.DATA,
+    keyword="Extract From S3",
+    library=LIB_SKULD_DATA,
+    description="Extract files from AWS S3 bucket",
+    config_mapping={
+        "bucket": "bucket",
+        "prefix": "prefix",
+        "aws_access_key": "aws_access_key",
+        "aws_secret_key": "aws_secret_key",
+        "region": "region",
+    },
+    return_variable="extracted_files",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.salesforce",
+    category=NodeCategory.DATA,
+    keyword="Extract From Salesforce",
+    library=LIB_SKULD_DATA,
+    description="Extract data from Salesforce CRM",
+    config_mapping={
+        "client_id": "client_id",
+        "client_secret": "client_secret",
+        "refresh_token": "refresh_token",
+        "objects": "objects",
+        "soql": "soql",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.rest_api",
+    category=NodeCategory.DATA,
+    keyword="Extract From REST API",
+    library=LIB_SKULD_DATA,
+    description="Extract data from REST API endpoint",
+    config_mapping={
+        "url": "url",
+        "method": "method",
+        "headers": "headers",
+        "auth_type": "auth_type",
+        "pagination": "pagination",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.hubspot",
+    category=NodeCategory.DATA,
+    keyword="Extract From REST API",
+    library=LIB_SKULD_DATA,
+    description="Extract data from HubSpot REST API",
+    config_mapping={
+        "url": "url",
+        "method": "method",
+        "headers": "headers",
+        "body": "body",
+        "auth_type": "auth_type",
+        "auth_value": "auth_value",
+        "pagination_type": "pagination_type",
+        "pagination_param": "pagination_param",
+        "data_path": "data_path",
+        "limit": "limit",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.zendesk",
+    category=NodeCategory.DATA,
+    keyword="Extract From REST API",
+    library=LIB_SKULD_DATA,
+    description="Extract data from Zendesk REST API",
+    config_mapping={
+        "url": "url",
+        "method": "method",
+        "headers": "headers",
+        "body": "body",
+        "auth_type": "auth_type",
+        "auth_value": "auth_value",
+        "pagination_type": "pagination_type",
+        "pagination_param": "pagination_param",
+        "data_path": "data_path",
+        "limit": "limit",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.jira",
+    category=NodeCategory.DATA,
+    keyword="Extract From REST API",
+    library=LIB_SKULD_DATA,
+    description="Extract data from Jira REST API",
+    config_mapping={
+        "url": "url",
+        "method": "method",
+        "headers": "headers",
+        "body": "body",
+        "auth_type": "auth_type",
+        "auth_value": "auth_value",
+        "pagination_type": "pagination_type",
+        "pagination_param": "pagination_param",
+        "data_path": "data_path",
+        "limit": "limit",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.github",
+    category=NodeCategory.DATA,
+    keyword="Extract From REST API",
+    library=LIB_SKULD_DATA,
+    description="Extract data from GitHub REST API",
+    config_mapping={
+        "url": "url",
+        "method": "method",
+        "headers": "headers",
+        "body": "body",
+        "auth_type": "auth_type",
+        "auth_value": "auth_value",
+        "pagination_type": "pagination_type",
+        "pagination_param": "pagination_param",
+        "data_path": "data_path",
+        "limit": "limit",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.quickbooks",
+    category=NodeCategory.DATA,
+    keyword="Extract From REST API",
+    library=LIB_SKULD_DATA,
+    description="Extract data from QuickBooks Online REST API",
+    config_mapping={
+        "url": "url",
+        "method": "method",
+        "headers": "headers",
+        "body": "body",
+        "auth_type": "auth_type",
+        "auth_value": "auth_value",
+        "pagination_type": "pagination_type",
+        "pagination_param": "pagination_param",
+        "data_path": "data_path",
+        "limit": "limit",
+    },
+    return_variable="extracted_data",
+))
+
+register_node(NodeMapping(
+    node_type="data.tap.dynamics365",
+    category=NodeCategory.DATA,
+    keyword="Extract From REST API",
+    library=LIB_SKULD_DATA,
+    description="Extract data from Dynamics 365 REST API",
+    config_mapping={
+        "url": "url",
+        "method": "method",
+        "headers": "headers",
+        "body": "body",
+        "auth_type": "auth_type",
+        "auth_value": "auth_value",
+        "pagination_type": "pagination_type",
+        "pagination_param": "pagination_param",
+        "data_path": "data_path",
+        "limit": "limit",
+    },
+    return_variable="extracted_data",
+))
+
+# --- Data Targets (Loading) ---
+
+register_node(NodeMapping(
+    node_type="data.target.sqlserver",
+    category=NodeCategory.DATA,
+    keyword="Load To SQL Server",
+    library=LIB_SKULD_DATA,
+    description="Load data to SQL Server database",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "username": "username",
+        "password": "password",
+        "table": "table",
+        "mode": "mode",
+    },
+    return_variable="load_result",
+))
+
+register_node(NodeMapping(
+    node_type="data.target.postgres",
+    category=NodeCategory.DATA,
+    keyword="Load To PostgreSQL",
+    library=LIB_SKULD_DATA,
+    description="Load data to PostgreSQL database",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "username": "username",
+        "password": "password",
+        "table": "table",
+        "mode": "mode",
+    },
+    return_variable="load_result",
+))
+
+register_node(NodeMapping(
+    node_type="data.target.mysql",
+    category=NodeCategory.DATA,
+    keyword="Load To MySQL",
+    library=LIB_SKULD_DATA,
+    description="Load data to MySQL database",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "username": "username",
+        "password": "password",
+        "table": "table",
+        "mode": "mode",
+    },
+    return_variable="load_result",
+))
+
+register_node(NodeMapping(
+    node_type="data.target.db2",
+    category=NodeCategory.DATA,
+    keyword="Load To DB2",
+    library=LIB_SKULD_DATA,
+    description="Load data to IBM DB2 database",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "database": "database",
+        "username": "username",
+        "password": "password",
+        "table": "table",
+        "mode": "mode",
+    },
+    return_variable="load_result",
+))
+
+register_node(NodeMapping(
+    node_type="data.target.oracle",
+    category=NodeCategory.DATA,
+    keyword="Load To Oracle",
+    library=LIB_SKULD_DATA,
+    description="Load data to Oracle database",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "service_name": "service_name",
+        "username": "username",
+        "password": "password",
+        "table": "table",
+        "mode": "mode",
+    },
+    return_variable="load_result",
+))
+
+register_node(NodeMapping(
+    node_type="data.target.snowflake",
+    category=NodeCategory.DATA,
+    keyword="Load To Snowflake",
+    library=LIB_SKULD_DATA,
+    description="Load data to Snowflake data warehouse",
+    config_mapping={
+        "account": "account",
+        "warehouse": "warehouse",
+        "database": "database",
+        "schema": "schema",
+        "username": "username",
+        "password": "password",
+        "table": "table",
+        "mode": "mode",
+    },
+    return_variable="load_result",
+))
+
+register_node(NodeMapping(
+    node_type="data.target.bigquery",
+    category=NodeCategory.DATA,
+    keyword="Load To BigQuery",
+    library=LIB_SKULD_DATA,
+    description="Load data to Google BigQuery",
+    config_mapping={
+        "project": "project",
+        "dataset": "dataset",
+        "table": "table",
+        "credentials_path": "credentials_path",
+        "mode": "mode",
+    },
+    return_variable="load_result",
+))
+
+register_node(NodeMapping(
+    node_type="data.target.csv",
+    category=NodeCategory.DATA,
+    keyword="Load To CSV",
+    library=LIB_SKULD_DATA,
+    description="Load data to CSV file",
+    config_mapping={
+        "target_path": "path",
+        "path": "path",
+        "delimiter": "delimiter",
+        "encoding": "encoding",
+    },
+    return_variable="load_result",
+))
+
+register_node(NodeMapping(
+    node_type="data.target.excel",
+    category=NodeCategory.DATA,
+    keyword="Load To Excel",
+    library=LIB_SKULD_DATA,
+    description="Load data to Excel file",
+    config_mapping={
+        "target_path": "path",
+        "path": "path",
+        "sheet": "sheet",
+    },
+    return_variable="load_result",
+))
+
+register_node(NodeMapping(
+    node_type="data.target.qbo",
+    category=NodeCategory.DATA,
+    keyword="Load To QBO",
+    library=LIB_SKULD_DATA,
+    description="Load data to QBO (QuickBooks OFX) file",
+    config_mapping={
+        "target_path": "path",
+        "path": "path",
+        "account_type": "account_type",
+        "account_id": "account_id",
+        "bank_id": "bank_id",
+        "currency": "currency",
+        "date_field": "date_field",
+        "amount_field": "amount_field",
+        "payee_field": "payee_field",
+        "memo_field": "memo_field",
+        "fitid_field": "fitid_field",
+        "type_field": "type_field",
+        "date_format": "date_format",
+        "intu_bid": "intu_bid",
+        "encoding": "encoding",
+    },
+    return_variable="load_result",
+))
+
+register_node(NodeMapping(
+    node_type="data.target.sftp",
+    category=NodeCategory.DATA,
+    keyword="Load To SFTP",
+    library=LIB_SKULD_DATA,
+    description="Upload files to SFTP server",
+    config_mapping={
+        "host": "host",
+        "port": "port",
+        "username": "username",
+        "password": "password",
+        "remote_path": "remote_path",
+    },
+    return_variable="upload_result",
+))
+
+register_node(NodeMapping(
+    node_type="data.target.s3",
+    category=NodeCategory.DATA,
+    keyword="Load To S3",
+    library=LIB_SKULD_DATA,
+    description="Upload files to AWS S3 bucket",
+    config_mapping={
+        "bucket": "bucket",
+        "prefix": "prefix",
+        "aws_access_key": "aws_access_key",
+        "aws_secret_key": "aws_secret_key",
+        "region": "region",
+    },
+    return_variable="upload_result",
+))
+
+
+# Print summary when module loads (for debugging)
+if __name__ == "__main__":
+    print(f"Total nodes registered: {get_node_count()}")
+    print("\nBy category:")
+    for cat, count in sorted(get_category_summary().items()):
+        print(f"  {cat}: {count}")

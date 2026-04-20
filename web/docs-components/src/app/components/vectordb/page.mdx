@@ -1,0 +1,216 @@
+export const metadata = {
+  title: 'Vector DB / RAG',
+  description: 'Build RAG applications. Store embeddings, semantic search, and long-term memory for AI agents.',
+}
+
+export const sections = [
+  { title: 'Configure Embeddings', id: 'vectordb-configure' },
+  { title: 'Memory', id: 'vectordb-memory' },
+  { title: 'Upsert', id: 'vectordb-upsert' },
+  { title: 'Query', id: 'vectordb-query' },
+  { title: 'Delete', id: 'vectordb-delete' },
+]
+
+Build RAG (Retrieval-Augmented Generation) applications. Store embeddings, perform semantic search, and provide long-term memory for AI agents. {{ className: 'lead' }}
+
+<Note>
+  Supported vector databases: **Pinecone**, **Chroma**, **Qdrant**, **Weaviate**, **Milvus**, and local file-based storage. Load Documents node supports [Storage Provider](/components/storage) for ingesting documents from any cloud storage.
+</Note>
+
+## What is RAG?
+
+RAG enhances AI responses by retrieving relevant context from a knowledge base before generating answers.
+
+<FlowDiagram items={[
+  { label: "User Query", sublabel: "What is our refund policy?", type: "default" },
+  { label: "Embed Query", sublabel: "[0.1, 0.2...]", type: "primary" },
+  { label: "Search VectorDB", sublabel: "Find similar", type: "warning" },
+  { label: "Retrieve Docs", sublabel: "Top 3 matches", type: "warning" },
+  { label: "AI Model", sublabel: "Context + Query → Answer", type: "success" }
+]} />
+
+---
+
+<NodeHeader id="vectordb-configure" icon="Settings" label="Configure Embeddings" description="Set up embeddings provider" bgColor="#fce7f3" textColor="#be185d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.configure_embeddings`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="provider" type="select" required>
+    **Provider** — `openai`, `cohere`, `huggingface`, `local`.
+  </Property>
+  <Property name="model" type="text">
+    **Model** — Embedding model (e.g., `text-embedding-3-small`).
+  </Property>
+  <Property name="api_key" type="text">
+    **API Key** — Use `${vault.OPENAI_API_KEY}`.
+  </Property>
+  <Property name="dimensions" type="number">
+    **Dimensions** — Vector dimensions. Auto-detected if empty.
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="vectordb-memory" icon="Brain" label="Memory" description="Long-term memory for AI agents" bgColor="#fce7f3" textColor="#be185d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.memory`
+  </Property>
+</Properties>
+
+<NodeHeader id="vectordb-upsert" icon="Upload" label="Upsert" description="Store vectors in database" bgColor="#fce7f3" textColor="#be185d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.upsert`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="documents" type="textarea" required>
+    **Documents** — Array of documents to store. Each needs `text` and optional `metadata`.
+  </Property>
+  <Property name="collection" type="text" required>
+    **Collection** — Target collection/index name.
+  </Property>
+</Properties>
+
+### Example
+
+```json
+{
+  "documents": "[{\"id\": \"doc1\", \"text\": \"Our refund policy...\", \"metadata\": {\"source\": \"policy.pdf\", \"page\": 5}}]",
+  "collection": "knowledge_base"
+}
+```
+
+### Output
+
+```json
+{
+  "upserted": 1,
+  "collection": "knowledge_base"
+}
+```
+
+---
+
+<NodeHeader id="vectordb-query" icon="Search" label="Query" description="Semantic search in vector database" bgColor="#fce7f3" textColor="#be185d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.query`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="query" type="text" required>
+    **Query** — Search query text.
+  </Property>
+  <Property name="collection" type="text" required>
+    **Collection** — Collection to search.
+  </Property>
+  <Property name="top_k" type="number">
+    **Top K** — Number of results to return. Default: 5.
+  </Property>
+  <Property name="filter" type="textarea">
+    **Filter** — Metadata filter as JSON.
+  </Property>
+</Properties>
+
+### Output
+
+```json
+{
+  "results": [
+    {
+      "id": "doc1",
+      "text": "Our refund policy allows returns within 30 days...",
+      "score": 0.92,
+      "metadata": {"source": "policy.pdf", "page": 5}
+    },
+    {
+      "id": "doc2",
+      "text": "For refunds, contact customer support...",
+      "score": 0.85,
+      "metadata": {"source": "faq.md"}
+    }
+  ]
+}
+```
+
+---
+
+<NodeHeader id="vectordb-delete" icon="Trash2" label="Delete Document" description="Remove from vector store" bgColor="#ede9fe" textColor="#6d28d9" />
+
+<Properties>
+  <Property name="type" type="string">
+    `vectordb.delete`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="ids" type="textarea">
+    **IDs** — Array of document IDs to delete.
+  </Property>
+  <Property name="filter" type="textarea">
+    **Filter** — Delete by metadata filter.
+  </Property>
+  <Property name="collection" type="text" required>
+    **Collection** — Target collection.
+  </Property>
+</Properties>
+
+---
+
+## Complete RAG Example
+
+<Diagram 
+  flow="vertical"
+  groups={[
+    {
+      id: "config",
+      label: "Configuration (run once)",
+      direction: "row",
+      nodes: [
+        { id: "model", label: "ai.model", sublabel: "GPT-4", type: "primary" },
+        { id: "emb", label: "vectordb.configure_emb", type: "primary" }
+      ]
+    },
+    {
+      id: "query",
+      label: "Per-query Flow",
+      direction: "row",
+      nodes: [
+        { id: "receive", label: "Receive Query", sublabel: "refund policy", type: "default" },
+        { id: "search", label: "vectordb.query", sublabel: "Semantic search", type: "warning" }
+      ]
+    },
+    {
+      id: "answer",
+      label: "Generate Answer",
+      direction: "row",
+      nodes: [
+        { id: "context", label: "Build Context", sublabel: "Top 3 docs", type: "warning" },
+        { id: "ai", label: "ai.task", sublabel: "Answer with context", type: "success" }
+      ]
+    }
+  ]}
+/>
+
+---
+

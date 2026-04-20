@@ -1,0 +1,173 @@
+export const metadata = {
+  title: 'Human-in-the-Loop',
+  description: 'Add human review to your automations. Approvals, reviews, and escalations.',
+}
+
+export const sections = [
+  { title: 'Request Approval', id: 'human-approval' },
+  { title: 'Request Input', id: 'human-input' },
+  { title: 'Data Review', id: 'human-review' },
+  { title: 'Handle Exception', id: 'human-exception' },
+  { title: 'Notify User', id: 'human-notification' },
+  { title: 'Common Patterns', id: 'hitl-patterns' },
+]
+
+# Human-in-the-Loop
+
+Add human review to your automations. Approvals, reviews, and escalations for critical decisions. {{ className: 'lead' }}
+
+<Note>
+  **5 components**. Human tasks create notifications and **pause the workflow** until the user takes action. This is critical for regulated industries where AI decisions require human oversight.
+</Note>
+
+### Why HITL Matters
+
+In enterprise automation, not everything should be fully automatic:
+
+| Scenario | Why HITL |
+|----------|----------|
+| Claim over $10,000 | Regulatory requirement for supervisor review |
+| AI confidence below 80% | Low-confidence AI decisions need human verification |
+| PII data export | Compliance requires explicit approval before sending PII externally |
+| Bot encounters unknown scenario | Human decides: retry, skip, or abort |
+| Financial transactions | Segregation of duties requires approval chain |
+
+### Evidence Pack Integration
+
+Every HITL interaction is recorded in the Evidence Pack:
+- Who was notified and when
+- What data was presented
+- What decision was made
+- Who approved/rejected and when
+- Time to respond
+
+---
+
+<NodeHeader id="human-approval" icon="UserCheck" label="Request Approval" description="Wait for human approval" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `human.approval`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **title** (`text`, required) — Request title
+- **description** (`textarea`, required) — Details for the approver
+- **approvers** (`text`) — Email addresses of approvers
+- **timeout_minutes** (`number`, default: `60`) — Timeout in minutes
+
+---
+
+<NodeHeader id="human-input" icon="MessageSquare" label="Request Input" description="Request user input" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `human.input`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **prompt** (`textarea`, required) — Question or instruction
+- **input_type** (`select`, default: `text`) — Input type:
+  - `text` — Text
+  - `number` — Number
+  - `choice` — Choice
+  - `file` — File
+- **options** (`text`) — Options if input type is Choice
+
+---
+
+<NodeHeader id="human-review" icon="Eye" label="Data Review" description="Present data for review" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `human.review`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **title** (`text`, required) — Review title
+- **data** (`textarea`, required) — Data to review
+- **actions** (`text`, default: `approve,reject,edit`) — Available actions
+
+---
+
+<NodeHeader id="human-exception" icon="AlertTriangle" label="Handle Exception" description="Human handles exception" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `human.exception`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **error** (`textarea`, required) — Error details
+- **options** (`text`, default: `retry,skip,abort`) — Resolution options
+
+---
+
+<NodeHeader id="human-notification" icon="Bell" label="Notify User" description="Send notification to user" bgColor="#fef3c7" textColor="#92400e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `human.notification`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **recipient** (`text`, required) — Recipient
+- **message** (`textarea`, required) — Message
+- **priority** (`select`, default: `normal`) — Priority:
+  - `low` — Low
+  - `normal` — Normal
+  - `high` — High
+  - `urgent` — Urgent
+
+### Output
+
+<Properties>
+  <Property name="delivered" type="boolean">Notification was delivered.</Property>
+</Properties>
+
+---
+
+## Common Patterns {{ id: 'hitl-patterns' }}
+
+### AI Decision with Human Fallback
+
+<FlowDiagram items={[
+  { label: "ai.classify", sublabel: "Classify document", type: "warning" },
+  { label: "control.if", sublabel: "Confidence > 80%?", type: "default" },
+  { label: "human.review", sublabel: "Manual review", type: "warning" },
+  { label: "logging.audit", sublabel: "Log decision", type: "success" }
+]} />
+
+When AI confidence is high, the bot proceeds automatically. When low, a human reviews the classification and makes the final call. Both paths are logged in the Evidence Pack.
+
+### Approval Chain (Multi-Level)
+
+For high-value operations that require multiple approvals:
+
+<FlowDiagram items={[
+  { label: "insurance.fnol_record", sublabel: "FNOL created", type: "primary" },
+  { label: "human.approval", sublabel: "Claims adjuster", type: "warning" },
+  { label: "control.if", sublabel: "Amount > $50K?", type: "default" },
+  { label: "human.approval", sublabel: "Manager review", type: "warning" },
+  { label: "email.send", sublabel: "Notify claimant", type: "success" }
+]} />
+
+### Exception Handling with Human Recovery
+
+When a bot encounters an unexpected error, instead of failing silently, escalate to a human:
+
+<FlowDiagram items={[
+  { label: "api.http_request", sublabel: "Call external API", type: "primary" },
+  { label: "human.exception", sublabel: "Human decides: retry/skip/abort", type: "warning" },
+  { label: "human.notification", sublabel: "Alert team", type: "success" }
+]} />
+
+Connect the **error** (orange) output of any node to `human.exception`. The human sees the error details and chooses: retry the operation, skip it and continue, or abort the workflow.
+
+---
+

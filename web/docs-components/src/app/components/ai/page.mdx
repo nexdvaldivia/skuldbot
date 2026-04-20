@@ -1,0 +1,659 @@
+export const metadata = {
+  title: 'AI / LLM',
+  description: 'Integrate AI into your automations with intelligent processing capabilities.',
+}
+
+export const sections = [
+  { title: 'AI Model', id: 'ai-model' },
+  { title: 'AI Embeddings', id: 'ai-embeddings' },
+  { title: 'AI Agent', id: 'ai-agent' },
+  { title: 'AI Extract Data', id: 'ai-extract-data' },
+  { title: 'AI Summarize', id: 'ai-summarize' },
+  { title: 'AI Classify', id: 'ai-classify' },
+  { title: 'AI Translate', id: 'ai-translate' },
+  { title: 'Sentiment Analysis', id: 'ai-sentiment' },
+  { title: 'AI Vision', id: 'ai-vision' },
+  { title: 'AI Repair Data', id: 'ai-repair-data' },
+  { title: 'AI Suggest Repairs', id: 'ai-suggest-repairs' },
+]
+
+# AI / LLM
+
+Integrate AI into your automations with intelligent processing capabilities. {{ className: 'lead' }}
+
+<Note>
+  **11 components**. All AI task nodes require a connected **ai.model** node to configure the LLM provider. Supports OpenAI, Anthropic, Azure, Ollama, Google, AWS Bedrock, Groq, and Mistral. AI Vision supports [Storage Provider](/components/storage) for cloud-hosted images.
+</Note>
+
+---
+
+<NodeHeader id="ai-model" icon="Brain" label="AI Model" description="Configure AI/LLM model. Connect to AI Agent." bgColor="#fae8ff" textColor="#86198f" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.model`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="provider" type="select" required>
+    LLM Provider: `openai`, `anthropic`, `azure`, `ollama`, `google`, `aws`, `groq`, `mistral`.
+  </Property>
+  <Property name="model" type="select" required>
+    Model to use (varies by provider).
+  </Property>
+  <Property name="api_key" type="text">
+    API Key. **Store in Vault** for security.
+  </Property>
+  <Property name="temperature" type="number">
+    Creativity (0-2). Default: `0.7`.
+  </Property>
+  <Property name="max_tokens" type="number">
+    Max response length.
+  </Property>
+</Properties>
+
+### Models by Provider
+
+| Provider | Models |
+|----------|--------|
+| **OpenAI** | `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`, `gpt-4`, `gpt-3.5-turbo`, `o1-preview`, `o1-mini` |
+| **Anthropic** | `claude-3-5-sonnet-20241022`, `claude-3-5-haiku-20241022`, `claude-3-opus-20240229` |
+| **Azure** | Custom deployment name |
+| **Ollama** | `llama3.2`, `llama3.1`, `mistral`, `mixtral`, `codellama`, `phi3`, `qwen2.5` |
+| **Google** | `gemini-1.5-pro`, `gemini-1.5-flash`, `gemini-2.0-flash-exp` |
+
+### Output
+
+<Properties>
+  <Property name="provider" type="string">Provider name.</Property>
+  <Property name="model" type="string">Model being used.</Property>
+  <Property name="ready" type="boolean">Model configured and ready.</Property>
+</Properties>
+
+---
+
+<NodeHeader id="ai-embeddings" icon="Waypoints" label="Embeddings" description="Configure embeddings model. Connect to Vector Memory or AI Agent." bgColor="#fae8ff" textColor="#86198f" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.embeddings`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="provider" type="select" required>
+    Provider: `openai`, `azure`, `ollama`, `cohere`, `huggingface`, `google`, `aws`.
+  </Property>
+  <Property name="model" type="select" required>
+    Embedding model (varies by provider).
+  </Property>
+  <Property name="api_key" type="text">
+    API Key.
+  </Property>
+  <Property name="dimension" type="number">
+    Vector dimension. Default: `1536`.
+  </Property>
+  <Property name="batch_size" type="number">
+    Batch size. Default: `100`.
+  </Property>
+</Properties>
+
+### Models by Provider
+
+| Provider | Models |
+|----------|--------|
+| **OpenAI** | `text-embedding-3-small` (1536d), `text-embedding-3-large` (3072d), `text-embedding-ada-002` |
+| **Ollama** | `nomic-embed-text` (768d), `mxbai-embed-large` (1024d), `all-minilm` (384d) |
+| **Cohere** | `embed-english-v3.0` (1024d), `embed-multilingual-v3.0` (1024d) |
+| **Google** | `textembedding-gecko@003` (768d), `text-embedding-004` (768d) |
+| **AWS** | `amazon.titan-embed-text-v1` (1536d), `amazon.titan-embed-text-v2:0` (1024d) |
+
+### Output
+
+<Properties>
+  <Property name="provider" type="string">Provider name.</Property>
+  <Property name="model" type="string">Model being used.</Property>
+  <Property name="dimension" type="number">Vector dimension.</Property>
+  <Property name="ready" type="boolean">Embeddings ready.</Property>
+</Properties>
+
+---
+
+<NodeHeader id="ai-agent" icon="BrainCircuit" label="AI Agent" description="Autonomous ReAct agent with tool execution. Connect an AI Model node to configure the LLM." bgColor="#fae8ff" textColor="#86198f" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.agent`
+  </Property>
+</Properties>
+
+<Note>
+  The AI Agent is the most powerful component in SkuldBot. It can **reason**, **decide**, and **execute** any combination of the 280+ available tools autonomously. Unlike fixed workflows, the agent adapts its behavior based on context.
+</Note>
+
+### How It Works
+
+The agent follows a **ReAct loop** (Reason + Act):
+
+1. **Observe** — Read the current state and goal
+2. **Reason** — Decide what to do next
+3. **Act** — Call a tool (any connected node)
+4. **Observe** — Read the tool result
+5. **Repeat** — Until the goal is achieved or max iterations reached
+
+### Configuration
+
+<Properties>
+  <Property name="name" type="text">
+    Agent name. Used in logs and Evidence Pack.
+  </Property>
+  <Property name="goal" type="textarea" required>
+    Goal / Task. Describe what the agent should accomplish. Be specific — the more context you give, the better the agent performs.
+  </Property>
+  <Property name="system_prompt" type="textarea">
+    System prompt that defines the agent's behavior and constraints. Default: "You are a helpful assistant that can use tools to accomplish tasks."
+  </Property>
+  <Property name="max_iterations" type="number">
+    Maximum reasoning iterations before stopping. Default: `10`. Increase for complex multi-step tasks.
+  </Property>
+</Properties>
+
+### Connections
+
+The AI Agent has **4 input handles** at the bottom:
+
+| Handle | Color | Connects To | Required |
+|--------|-------|-------------|:--------:|
+| **Model** | Blue | `ai.model` node | Yes |
+| **Embed** | — | `ai.embeddings` node | No |
+| **Memory** | — | `vectordb.memory` node | No |
+| **Tools** | Violet | Any other node (top handle) | Yes (at least 1) |
+
+<Collapsible title="What can be a tool?">
+
+Almost **every node in SkuldBot** can be used as a tool for the agent. Each node has a violet square handle at the top — drag from it to the agent's Tools handle.
+
+Available as tools:
+- **Web**: Open browser, navigate, click, type, screenshot, extract text
+- **Excel**: Create, read, write, format, chart, filter, vlookup
+- **Email**: Send, read, reply, search, download attachments
+- **Files**: Read, write, copy, move, delete, list, zip
+- **Database**: Query, insert, update, delete, transactions
+- **API**: HTTP GET/POST/PUT/DELETE, GraphQL, SOAP
+- **Documents**: PDF read/write/merge, OCR, Word, HTML to PDF
+- **Desktop**: Open apps, click, type, hotkeys, screenshots
+- **Code**: Run JavaScript or Python
+- **AI tasks**: Extract data, classify, summarize, translate, sentiment
+- **Human**: Request approval, input, review
+- **Data**: Singer taps/targets (23+ connectors)
+- **Voice**: Call, speak, listen, transfer
+- **Storage**: Upload, download, sync across providers
+
+**Not available** as tools (they are configuration nodes):
+- Triggers (they start the flow, not tools)
+- AI Model / Embeddings (configuration, connect to Model/Embed handles instead)
+- Vector Memory (connect to Memory handle instead)
+
+</Collapsible>
+
+### Example: Invoice Processing Agent
+
+```json
+{
+  "nodes": [
+    {
+      "id": "model-1",
+      "type": "ai.model",
+      "config": {
+        "provider": "openai",
+        "model": "gpt-4o",
+        "api_key": "${vault.OPENAI_API_KEY}",
+        "temperature": 0.1
+      }
+    },
+    {
+      "id": "agent-1",
+      "type": "ai.agent",
+      "config": {
+        "name": "Invoice Processor",
+        "goal": "Read the PDF invoice, extract the vendor name, invoice number, date, line items, and total amount. Write the data to the Excel spreadsheet.",
+        "system_prompt": "You are a precise data extraction agent. Always verify extracted data before writing.",
+        "max_iterations": 10
+      }
+    },
+    {
+      "id": "tool-pdf",
+      "type": "document.pdf_read",
+      "config": { "file_path": "${INVOICE_PATH}" }
+    },
+    {
+      "id": "tool-extract",
+      "type": "ai.extract_data",
+      "config": {
+        "schema": "{\"vendor\": \"string\", \"invoice_number\": \"string\", \"date\": \"string\", \"line_items\": \"array\", \"total\": \"number\"}"
+      }
+    },
+    {
+      "id": "tool-excel",
+      "type": "excel.write_range",
+      "config": {
+        "file_path": "invoices.xlsx",
+        "sheet": "Sheet1",
+        "range": "A1"
+      }
+    }
+  ]
+}
+```
+
+In this example, the agent:
+1. Uses `document.pdf_read` to read the invoice PDF
+2. Uses `ai.extract_data` to extract structured fields
+3. Uses `excel.write_range` to write the data to a spreadsheet
+4. Decides the order and handles errors automatically
+
+### Example: Customer Support Agent with Memory
+
+```json
+{
+  "nodes": [
+    {
+      "id": "model-1",
+      "type": "ai.model",
+      "config": { "provider": "anthropic", "model": "claude-3-5-sonnet-20241022" }
+    },
+    {
+      "id": "embeddings-1",
+      "type": "ai.embeddings",
+      "config": { "provider": "openai", "model": "text-embedding-3-small" }
+    },
+    {
+      "id": "memory-1",
+      "type": "vectordb.memory",
+      "config": {
+        "provider": "chroma",
+        "collection": "support_knowledge",
+        "memory_type": "both",
+        "top_k": 5
+      }
+    },
+    {
+      "id": "agent-1",
+      "type": "ai.agent",
+      "config": {
+        "name": "Support Agent",
+        "goal": "Answer the customer question using the knowledge base. If you can't find the answer, search emails for relevant information.",
+        "max_iterations": 8
+      }
+    },
+    {
+      "id": "tool-search-email",
+      "type": "email.search",
+      "config": { "folder": "Support" }
+    },
+    {
+      "id": "tool-reply",
+      "type": "email.send",
+      "config": {}
+    }
+  ]
+}
+```
+
+The agent automatically retrieves relevant context from the vector memory (RAG) before responding, and stores important interactions for future reference.
+
+### Output
+
+<Properties>
+  <Property name="result" type="string">Final agent response or result after completing the goal.</Property>
+  <Property name="tool_calls" type="array">
+    List of every tool call made during execution. Each entry includes:
+    - `tool`: Tool name (node type)
+    - `input`: Parameters passed to the tool
+    - `output`: Tool result
+    - `iteration`: Which iteration the call happened in
+  </Property>
+  <Property name="iterations" type="number">Total number of reasoning iterations used.</Property>
+  <Property name="reasoning_trace" type="array">
+    Step-by-step trace of the agent's reasoning. Each entry includes:
+    - `thought`: What the agent was thinking
+    - `action`: What it decided to do
+    - `observation`: What it observed after the action
+  </Property>
+</Properties>
+
+### Best Practices
+
+<Collapsible title="Writing effective goals">
+
+**Good goals** are specific and measurable:
+- "Read the Excel file at /data/claims.xlsx, find all claims with status 'pending' older than 30 days, and send a summary email to claims@company.com"
+- "Extract the patient name, DOB, and diagnosis from the medical record PDF, then create a FHIR resource"
+
+**Bad goals** are vague:
+- "Process the file" (which file? process how?)
+- "Handle the data" (what data? what does "handle" mean?)
+
+</Collapsible>
+
+<Collapsible title="How many tools to connect">
+
+- **3-5 tools**: Best for focused tasks. Agent is fast and reliable.
+- **5-10 tools**: Good for complex workflows. Agent may need more iterations.
+- **10+ tools**: The agent can handle it, but increase `max_iterations` to 15-20 and be very specific in the goal.
+
+The agent only calls tools that are relevant. Connecting 20 tools doesn't mean it will use all 20 — it picks what it needs.
+
+</Collapsible>
+
+<Collapsible title="Agent vs Fixed Flow — when to use which">
+
+| Use **Fixed Flow** when | Use **AI Agent** when |
+|--------------------------|----------------------|
+| Steps are always the same | Steps vary based on content |
+| Speed is critical | Accuracy/reasoning is critical |
+| No decision-making needed | Decisions depend on data |
+| Simple A→B→C pipeline | Complex multi-tool orchestration |
+| Compliance requires exact steps | Goal-oriented, flexible execution |
+
+You can **combine both**: use a fixed flow for the main pipeline and embed an AI Agent node for the parts that require reasoning.
+
+</Collapsible>
+
+### Evidence Pack Integration
+
+Every agent execution generates a complete audit trail in the Evidence Pack:
+- All reasoning steps (thought, action, observation)
+- Every tool call with inputs and outputs
+- LLM prompts and responses (redacted if containing PII/PHI)
+- Token usage and latency per call
+- Confidence scores for decisions
+
+---
+
+<NodeHeader id="ai-extract_data" icon="ScanText" label="AI Extract Data" description="Extract structured data from text. Connect AI Model node to configure LLM." bgColor="#fae8ff" textColor="#86198f" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.extract_data`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="input" type="textarea" required>
+    Input text.
+  </Property>
+  <Property name="schema" type="textarea" required>
+    Output Schema (JSON). E.g., `{"name": "string", "email": "string", "amount": "number"}`
+  </Property>
+  <Property name="instructions" type="textarea">
+    Additional extraction hints.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="extracted" type="object">Extracted data matching schema.</Property>
+</Properties>
+
+---
+
+<NodeHeader id="ai-summarize" icon="FileText" label="AI Summarize" description="Summarize text content. Connect AI Model node to configure LLM." bgColor="#fae8ff" textColor="#86198f" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.summarize`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="input" type="textarea" required>
+    Input text.
+  </Property>
+  <Property name="style" type="select">
+    Style: `concise`, `detailed`, `bullets`, `executive`. Default: `concise`.
+  </Property>
+  <Property name="max_length" type="number">
+    Max length (words).
+  </Property>
+  <Property name="language" type="text">
+    Output language.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="summary" type="string">Summarized text.</Property>
+</Properties>
+
+---
+
+<NodeHeader id="ai-classify" icon="ListTree" label="AI Classify" description="Classify text into categories. Connect AI Model node to configure LLM." bgColor="#fae8ff" textColor="#86198f" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.classify`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="input" type="textarea" required>
+    Input text.
+  </Property>
+  <Property name="categories" type="text" required>
+    Categories (comma separated). E.g., `spam, not_spam`.
+  </Property>
+  <Property name="multi_label" type="boolean">
+    Allow multiple labels. Default: `false`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="category" type="string">Classified category.</Property>
+  <Property name="confidence" type="number">Confidence score (0-1).</Property>
+  <Property name="all_scores" type="object">Confidence for each category.</Property>
+</Properties>
+
+---
+
+<NodeHeader id="ai-translate" icon="Languages" label="AI Translate" description="Translate text to another language. Connect AI Model node to configure LLM." bgColor="#fae8ff" textColor="#86198f" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.translate`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="input" type="textarea" required>
+    Input text.
+  </Property>
+  <Property name="target_language" type="text" required>
+    Target language. E.g., Spanish, French, German.
+  </Property>
+  <Property name="source_language" type="text">
+    Source language. Auto-detect if empty.
+  </Property>
+  <Property name="preserve_formatting" type="boolean">
+    Preserve formatting. Default: `true`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="translated" type="string">Translated text.</Property>
+  <Property name="detected_language" type="string">Detected source language.</Property>
+</Properties>
+
+---
+
+<NodeHeader id="ai-sentiment" icon="ThumbsUp" label="Sentiment Analysis" description="Analyze text sentiment. Connect AI Model node to configure LLM." bgColor="#fae8ff" textColor="#86198f" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.sentiment`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="input" type="textarea" required>
+    Input text.
+  </Property>
+  <Property name="detailed" type="boolean">
+    Detailed analysis (includes emotions). Default: `false`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="sentiment" type="string">positive, negative, or neutral.</Property>
+  <Property name="score" type="number">Sentiment score (-1 to 1).</Property>
+  <Property name="emotions" type="object">Detected emotions (if detailed).</Property>
+</Properties>
+
+---
+
+<NodeHeader id="ai-vision" icon="ScanEye" label="AI Vision" description="Analyze images with AI. Connect AI Model node (must support vision)." bgColor="#fae8ff" textColor="#86198f" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.vision`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="image_path" type="text" required>
+    Image path.
+  </Property>
+  <Property name="prompt" type="textarea" required>
+    Question about image. E.g., "What is in this image?"
+  </Property>
+  <Property name="detail" type="select">
+    Detail level: `auto`, `low` (faster), `high` (more detail). Default: `auto`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="description" type="string">AI analysis of the image.</Property>
+</Properties>
+
+---
+
+<NodeHeader id="ai-repair_data" icon="Wrench" label="AI Repair Data" description="Intelligently repair data quality issues. Connect AI Model node to configure LLM." bgColor="#fae8ff" textColor="#86198f" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.repair_data`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="data" type="textarea" required>
+    Data to repair. Pass output from an Excel Read or other data node.
+  </Property>
+  <Property name="validation_report" type="textarea" required>
+    Validation report from a Data Quality node.
+  </Property>
+  <Property name="context" type="select">
+    Context: `general`, `insurance`, `healthcare` (HIPAA), `finance`. Default: `general`.
+  </Property>
+  <Property name="allow_format_normalization" type="boolean">
+    Allow format normalization. Default: `true`.
+  </Property>
+  <Property name="allow_semantic_cleanup" type="boolean">
+    Allow semantic cleanup. Default: `true`.
+  </Property>
+  <Property name="allow_value_inference" type="boolean">
+    Allow value inference (CAUTION). Default: `false`.
+  </Property>
+  <Property name="allow_sensitive_repair" type="boolean">
+    Allow sensitive field repair. Default: `false`.
+  </Property>
+  <Property name="min_confidence" type="number">
+    Minimum confidence (0.0-1.0). Default: `0.9`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="status" type="string">Result status: repaired, partially_fixed, failed.</Property>
+  <Property name="original_quality" type="number">Original data quality score.</Property>
+  <Property name="repaired_quality" type="number">Quality score after repairs.</Property>
+  <Property name="improvement" type="number">Quality improvement percentage.</Property>
+  <Property name="repaired_data" type="array">Data with applied repairs.</Property>
+  <Property name="repairs" type="array">List of applied repairs with confidence scores.</Property>
+  <Property name="issues_fixed" type="number">Number of issues fixed.</Property>
+</Properties>
+
+---
+
+<NodeHeader id="ai-suggest_repairs" icon="Lightbulb" label="AI Suggest Repairs" description="Preview repair suggestions for human review. Connect AI Model node." bgColor="#fae8ff" textColor="#86198f" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ai.suggest_repairs`
+  </Property>
+</Properties>
+
+### Configuration
+
+<Properties>
+  <Property name="data" type="textarea" required>
+    Data to analyze.
+  </Property>
+  <Property name="validation_report" type="textarea" required>
+    Validation report.
+  </Property>
+  <Property name="context" type="select">
+    Context: `general`, `insurance`, `healthcare`, `finance`. Default: `general`.
+  </Property>
+</Properties>
+
+### Output
+
+<Properties>
+  <Property name="suggestion_count" type="number">Total number of suggestions.</Property>
+  <Property name="high_confidence" type="array">High confidence suggestions (≥ 0.9).</Property>
+  <Property name="medium_confidence" type="array">Medium confidence suggestions (0.7-0.9).</Property>
+  <Property name="low_confidence" type="array">Low confidence suggestions (&lt; 0.7).</Property>
+  <Property name="estimated_quality_after_repair" type="number">Estimated quality if all repairs applied.</Property>
+</Properties>
+
+---
+
+## Example Pipeline
+
+<FlowDiagram items={[
+  { label: "ai.model", sublabel: "OpenAI GPT-4o", type: "primary" },
+  { label: "ai.extract_data", sublabel: "Invoice fields", type: "warning" },
+  { label: "ai.classify", sublabel: "Document type", type: "success" }
+]} />
+

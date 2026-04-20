@@ -1,0 +1,208 @@
+export const metadata = {
+  title: 'Document Processing',
+  description: 'Process PDFs, images, and documents. OCR, text extraction, and document manipulation.',
+}
+
+export const sections = [
+  { title: 'Read PDF', id: 'document-pdf_read' },
+  { title: 'Merge PDFs', id: 'document-pdf_merge' },
+  { title: 'Split PDF', id: 'document-pdf_split' },
+  { title: 'PDF to Image', id: 'document-pdf_to_image' },
+  { title: 'OCR Extract', id: 'document-ocr' },
+  { title: 'Read Word', id: 'document-word_read' },
+  { title: 'Write Word', id: 'document-word_write' },
+  { title: 'HTML to PDF', id: 'document-html_to_pdf' },
+  { title: 'Fill PDF Form', id: 'document-pdf_fill_form' },
+]
+
+# Document Processing
+
+Process PDFs, images, and documents. OCR text extraction, PDF generation, and document manipulation. {{ className: 'lead' }}
+
+<Note>
+  **9 components**. For AI-powered extraction (invoices, receipts, forms), combine these nodes with [AI Extract](/components/ai#ai-extract_data). All document nodes support [Storage Provider](/components/storage) connection — read PDFs from S3, Azure Blob, SharePoint, or any cloud storage.
+</Note>
+
+---
+
+<NodeHeader id="document-pdf_read" icon="FileText" label="Read PDF" description="Extract text from PDF" bgColor="#fef9c3" textColor="#854d0e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `document.pdf_read`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **path** (`text`, required) — PDF file path
+- **pages** (`text`) — Page range (e.g., `1-5`, `1,3,5`). Default: all pages.
+
+---
+
+<NodeHeader id="document-pdf_merge" icon="FilePlus" label="Merge PDFs" description="Combine multiple PDFs" bgColor="#fef9c3" textColor="#854d0e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `document.pdf_merge`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **files** (`textarea`, required) — PDF files as JSON array (e.g., `["file1.pdf", "file2.pdf"]`)
+- **output** (`text`, required) — Output path for merged PDF
+
+---
+
+<NodeHeader id="document-pdf_split" icon="Scissors" label="Split PDF" description="Split PDF into pages" bgColor="#fef9c3" textColor="#854d0e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `document.pdf_split`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **path** (`text`, required) — PDF path to split
+- **pages** (`text`, required) — Pages to extract (e.g., `1-5`, `1,3,5`)
+- **output** (`text`, required) — Output path
+
+---
+
+<NodeHeader id="document-pdf_to_image" icon="Image" label="PDF to Image" description="Convert PDF to images" bgColor="#fef9c3" textColor="#854d0e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `document.pdf_to_image`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **path** (`text`, required) — PDF path
+- **output_dir** (`text`, required) — Output directory for images
+- **format** (`select`, default: `png`) — Image format:
+  - `png` — PNG
+  - `jpg` — JPEG
+
+---
+
+<NodeHeader id="document-ocr" icon="ScanLine" label="OCR Extract" description="Extract text with OCR" bgColor="#fef9c3" textColor="#854d0e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `document.ocr`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **path** (`text`, required) — Image path
+- **language** (`select`, default: `eng`) — OCR language:
+  - `eng` — English
+  - `spa` — Spanish
+  - `deu` — German
+  - `fra` — French
+
+**Output Example:**
+
+```json
+{
+  "text": "Extracted text from image...",
+  "confidence": 0.92
+}
+```
+
+---
+
+<NodeHeader id="document-word_read" icon="FileType" label="Read Word" description="Read Word document" bgColor="#fef9c3" textColor="#854d0e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `document.word_read`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **path** (`text`, required) — Word document path (.doc, .docx)
+
+---
+
+<NodeHeader id="document-word_write" icon="FileType2" label="Write Word" description="Create Word document" bgColor="#fef9c3" textColor="#854d0e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `document.word_write`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **path** (`text`, required) — Output path
+- **content** (`textarea`, required) — Document content
+
+---
+
+<NodeHeader id="document-html_to_pdf" icon="FileDown" label="HTML to PDF" description="Convert HTML to PDF" bgColor="#fef9c3" textColor="#854d0e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `document.html_to_pdf`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **html** (`textarea`, required) — HTML content or URL
+- **output** (`text`, required) — Output PDF path
+
+**Example:**
+
+```json
+{
+  "type": "document.html_to_pdf",
+  "config": {
+    "html": "<html><body><h1>Invoice #${order.id}</h1><p>Total: $${order.total}</p></body></html>",
+    "output": "./output/invoice_${order.id}.pdf"
+  }
+}
+```
+
+---
+
+<NodeHeader id="document-pdf_fill_form" icon="PenTool" label="Fill PDF Form" description="Fill PDF form fields" bgColor="#fef9c3" textColor="#854d0e" />
+
+<Properties>
+  <Property name="type" type="string">
+    `document.pdf_fill_form`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **path** (`text`, required) — PDF form path
+- **fields** (`textarea`, required) — Field values as JSON
+- **output** (`text`, required) — Output path
+
+**Example:**
+
+```json
+{
+  "type": "document.pdf_fill_form",
+  "config": {
+    "path": "./forms/application.pdf",
+    "fields": "{\"name\": \"${customer.name}\", \"date\": \"${today}\", \"amount\": \"${order.total}\"}",
+    "output": "./output/filled_application.pdf"
+  }
+}
+```
+
+---
+
+## Complete Example: Invoice Processing
+
+<FlowDiagram items={[
+  { label: "files.list", sublabel: "./inbox/*.pdf", type: "default" },
+  { label: "control.loop", sublabel: "Each invoice", type: "warning" },
+  { label: "document.ocr", sublabel: "${file.path}", type: "primary" },
+  { label: "ai.extract_data", sublabel: "Invoice data", type: "primary" },
+  { label: "database.insert", type: "success" },
+  { label: "files.move", sublabel: "./processed/", type: "pill" }
+]} />
+
+---
+

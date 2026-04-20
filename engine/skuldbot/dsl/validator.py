@@ -21,7 +21,17 @@ class DSLValidator:
     # Configuration node types (sub-nodes that provide config to other nodes)
     # These nodes don't participate in execution flow, they provide configuration
     # via visual connections (e.g., AI Model -> AI Agent, MS365 Connection -> Email Trigger)
-    CONFIG_NODES = {"ai.model", "ai.embeddings", "ms365.connection", "vectordb.memory"}
+    CONFIG_NODES = {
+        # AI config nodes (provide model/embeddings to agents, not in execution flow)
+        "ai.model", "ai.embeddings",
+        # Service connection nodes (provide credentials via connection handle)
+        "ms365.connection", "storage.provider",
+        # Vector DB config nodes (provide memory/embeddings config)
+        "vectordb.memory", "vectordb.configure_embeddings",
+        # Vault provider nodes (provide secrets to TOTP/Get Secret via vault handle)
+        "secrets.orchestrator_vault", "secrets.azure_keyvault", "secrets.aws_secrets",
+        "secrets.gcp_secret_manager", "secrets.hashicorp_vault", "secrets.local_vault",
+    }
     # Fields that normally carry credentials/secrets and must not be plaintext in DSL.
     SENSITIVE_EXACT_KEYS = {
         "password",

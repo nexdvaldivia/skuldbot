@@ -1,0 +1,233 @@
+/**
+ * SkuldBot Orchestrator secrets manifest.
+ *
+ * Adapted from Nexion's deployment manifest pattern, with SkuldBot-specific
+ * secret names and categories. This gives a single source of truth for
+ * required/optional secrets across cloud providers.
+ */
+
+export type SupportedCloud = 'azure' | 'aws' | 'gcp' | 'generic';
+
+export interface SecretManifestItem {
+  name: string;
+  category:
+    | 'infrastructure'
+    | 'security'
+    | 'control_plane'
+    | 'storage'
+    | 'evidence'
+    | 'sso'
+    | 'ai'
+    | 'monitoring'
+    | 'compliance'
+    | 'runner';
+  description: string;
+  format:
+    | 'string'
+    | 'uuid'
+    | 'url'
+    | 'connection_string'
+    | 'random_base64'
+    | 'json'
+    | 'pem'
+    | 'token';
+  generated: boolean;
+  condition?: string;
+  rotationDays?: number;
+  example?: string;
+  defaultValue?: string;
+}
+
+export const REQUIRED_SECRETS: SecretManifestItem[] = [
+  {
+    name: 'skuldbot-database-password',
+    category: 'infrastructure',
+    description: 'PostgreSQL password for Orchestrator database.',
+    format: 'string',
+    generated: false,
+  },
+  {
+    name: 'skuldbot-jwt-secret',
+    category: 'security',
+    description: 'JWT signing secret for access tokens (256+ bits).',
+    format: 'random_base64',
+    generated: true,
+    rotationDays: 90,
+  },
+  {
+    name: 'skuldbot-jwt-refresh-secret',
+    category: 'security',
+    description: 'JWT signing secret for refresh tokens.',
+    format: 'random_base64',
+    generated: true,
+    rotationDays: 90,
+  },
+  {
+    name: 'skuldbot-license-key',
+    category: 'control_plane',
+    description: 'License key used for Control Plane validation.',
+    format: 'string',
+    generated: false,
+  },
+  {
+    name: 'skuldbot-control-plane-api-key',
+    category: 'control_plane',
+    description: 'Orchestrator API key for Control Plane ingestion and sync.',
+    format: 'token',
+    generated: false,
+  },
+  {
+    name: 'skuldbot-evidence-encryption-secret',
+    category: 'evidence',
+    description: 'Master secret for evidence encryption key derivation.',
+    format: 'random_base64',
+    generated: true,
+    rotationDays: 180,
+  },
+];
+
+export const OPTIONAL_SECRETS: SecretManifestItem[] = [
+  {
+    name: 'skuldbot-s3-secret-access-key',
+    category: 'storage',
+    description: 'S3/MinIO secret access key for artifact storage.',
+    format: 'string',
+    generated: false,
+    condition: "storage_provider in ['s3','minio']",
+  },
+  {
+    name: 'skuldbot-azure-storage-connection-string',
+    category: 'storage',
+    description: 'Azure Storage connection string for artifact storage.',
+    format: 'connection_string',
+    generated: false,
+    condition: "storage_provider == 'azure'",
+  },
+  {
+    name: 'skuldbot-gcs-credentials-json',
+    category: 'storage',
+    description: 'GCP service account JSON for artifact storage.',
+    format: 'json',
+    generated: false,
+    condition: "storage_provider == 'gcp'",
+  },
+  {
+    name: 'skuldbot-sso-client-secret',
+    category: 'sso',
+    description: 'OIDC/SAML client secret for enterprise SSO.',
+    format: 'string',
+    generated: false,
+    condition: 'sso_enabled == true',
+  },
+  {
+    name: 'skuldbot-openai-api-key',
+    category: 'ai',
+    description: 'OpenAI API key for managed LLM workloads.',
+    format: 'token',
+    generated: false,
+    condition: "managed_ai_provider == 'openai'",
+  },
+  {
+    name: 'skuldbot-anthropic-api-key',
+    category: 'ai',
+    description: 'Anthropic API key for managed LLM workloads.',
+    format: 'token',
+    generated: false,
+    condition: "managed_ai_provider == 'anthropic'",
+  },
+  {
+    name: 'skuldbot-siem-api-key',
+    category: 'monitoring',
+    description: 'API key for SIEM export integrations.',
+    format: 'token',
+    generated: false,
+    condition: 'siem_enabled == true',
+  },
+  {
+    name: 'skuldbot-hsm-signing-key',
+    category: 'compliance',
+    description: 'External HSM/KMS key reference for evidence signatures.',
+    format: 'string',
+    generated: false,
+    condition: "evidence_signing_provider in ['hsm','kms']",
+  },
+  {
+    name: 'skuldbot-runner-bootstrap-token',
+    category: 'runner',
+    description: 'Bootstrap token for runner enrollment.',
+    format: 'token',
+    generated: true,
+    rotationDays: 30,
+  },
+];
+
+export function getRequiredSecretNames(): string[] {
+  return REQUIRED_SECRETS.map((item) => item.name);
+}
+
+export function getOptionalSecretNames(): string[] {
+  return OPTIONAL_SECRETS.map((item) => item.name);
+}
+
+export function getSecretsByCategory(
+  category: SecretManifestItem['category'],
+  includeOptional = true,
+): SecretManifestItem[] {
+  const all = includeOptional
+    ? [...REQUIRED_SECRETS, ...OPTIONAL_SECRETS]
+    : [...REQUIRED_SECRETS];
+  return all.filter((item) => item.category === category);
+}
+
+export function getAutoGeneratedSecrets(includeOptional = true): SecretManifestItem[] {
+  const all = includeOptional
+    ? [...REQUIRED_SECRETS, ...OPTIONAL_SECRETS]
+    : [...REQUIRED_SECRETS];
+  return all.filter((item) => item.generated);
+}
+
+/**
+ * Convert base name to cloud-specific secret naming convention.
+ */
+export function getSecretNameForCloud(baseName: string, cloud: SupportedCloud): string {
+  if (cloud === 'azure' || cloud === 'generic') {
+    if (baseName.startsWith('skuldbot/')) {
+      return baseName.replace('skuldbot/', 'skuldbot-');
+    }
+    return baseName;
+  }
+
+  if (cloud === 'aws') {
+    if (baseName.startsWith('skuldbot-')) {
+      return baseName.replace(/^skuldbot-/, 'skuldbot/');
+    }
+    if (!baseName.startsWith('skuldbot/')) {
+      return `skuldbot/${baseName}`;
+    }
+    return baseName;
+  }
+
+  if (cloud === 'gcp') {
+    if (baseName.startsWith('skuldbot/')) {
+      return baseName.replace('skuldbot/', 'skuldbot_').replace(/-/g, '_');
+    }
+    return baseName.replace(/-/g, '_');
+  }
+
+  return baseName;
+}
+
+export function getAllSecretsForCloud(
+  cloud: SupportedCloud,
+  includeOptional = false,
+): Array<SecretManifestItem & { cloudName: string; originalName: string }> {
+  const all = includeOptional
+    ? [...REQUIRED_SECRETS, ...OPTIONAL_SECRETS]
+    : [...REQUIRED_SECRETS];
+
+  return all.map((item) => ({
+    ...item,
+    originalName: item.name,
+    cloudName: getSecretNameForCloud(item.name, cloud),
+  }));
+}

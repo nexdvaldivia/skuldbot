@@ -1,0 +1,25 @@
+{
+  "version": "1.0",
+  "project": {
+    "id": "5b6df1d5-1f05-4cc6-807c-ae05e18011b5",
+    "name": "PDF Transfers Agent Starter",
+    "description": "Starter Studio project: extract bank transfers from PDFs with AI Agent and export CSV",
+    "created": "2026-03-10T00:00:00Z",
+    "updated": "2026-04-08T20:16:26.966557+00:00",
+    "author": "SkuldBot"
+  },
+  "settings": {
+    "defaultBrowser": "chromium",
+    "defaultHeadless": false,
+    "logLevel": "INFO",
+    "autoSave": {
+      "enabled": true,
+      "intervalMs": 5000
+    },
+    "versionHistory": {
+      "enabled": true,
+      "maxVersions": 50
+    }
+  },
+  "bots": []
+}

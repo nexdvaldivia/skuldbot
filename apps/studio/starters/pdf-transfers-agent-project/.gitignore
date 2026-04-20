@@ -1,0 +1,14 @@
+# SkuldBot
+.skuldbot/cache/
+.skuldbot/env.local
+*.log
+output/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp

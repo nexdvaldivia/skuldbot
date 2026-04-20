@@ -1,0 +1,536 @@
+export const metadata = {
+  title: 'Microsoft 365',
+  description: 'Deep Microsoft 365 integration. Outlook, Calendar, OneDrive, Teams, and SharePoint.',
+}
+
+export const sections = [
+  { title: 'MS365 Connection', id: 'ms365-connection' },
+  { title: 'List Emails', id: 'ms365-email_list' },
+  { title: 'Get Email', id: 'ms365-email_get' },
+  { title: 'Search Emails', id: 'ms365-email_search' },
+  { title: 'Get Attachments', id: 'ms365-email_get_attachments' },
+  { title: 'Download Attachment', id: 'ms365-email_download_attachment' },
+  { title: 'Send Email', id: 'ms365-email_send' },
+  { title: 'Reply to Email', id: 'ms365-email_reply' },
+  { title: 'Forward Email', id: 'ms365-email_forward' },
+  { title: 'Create Draft', id: 'ms365-email_draft' },
+  { title: 'Move Email', id: 'ms365-email_move' },
+  { title: 'Copy Email', id: 'ms365-email_copy' },
+  { title: 'Delete Email', id: 'ms365-email_delete' },
+  { title: 'Mark Read/Unread', id: 'ms365-email_mark_read' },
+  { title: 'Flag Email', id: 'ms365-email_flag' },
+  { title: 'Set Categories', id: 'ms365-email_categories' },
+  { title: 'Set Importance', id: 'ms365-email_importance' },
+  { title: 'List Folders', id: 'ms365-folder_list' },
+  { title: 'Create Folder', id: 'ms365-folder_create' },
+  { title: 'Delete Folder', id: 'ms365-folder_delete' },
+]
+
+# Microsoft 365
+
+Deep Microsoft 365 integration via Microsoft Graph API. Outlook email, Calendar, OneDrive, Teams, and SharePoint. {{ className: 'lead' }}
+
+<Note>
+  **20 components** for email operations plus folder management. Requires Azure AD app registration. For basic email (SMTP/IMAP), see [Email](/components/email) instead. Attachment download/send nodes support [Storage Provider](/components/storage) for cloud file access.
+</Note>
+
+### When to Use MS365 vs Email
+
+| Use **MS365** when | Use **Email** when |
+|---------------------|-------------------|
+| Your org uses Microsoft 365 / Exchange Online | You use Gmail, generic SMTP, or IMAP |
+| You need categories, flags, importance | You just need send/read/reply |
+| You need OData filters and Microsoft Search | Basic subject/sender filters are enough |
+| You need folder management | No folder operations needed |
+| You need Graph API features (Calendar, Teams later) | Only email operations |
+
+### Azure AD Setup
+
+To use MS365 components, register an app in Azure AD:
+
+1. Go to **Azure Portal** > **Azure Active Directory** > **App registrations** > **New registration**
+2. Name: "SkuldBot Automation" (or your preference)
+3. Supported account type: **Single tenant** (your org only)
+4. After registration, note the **Application (client) ID** and **Directory (tenant) ID**
+5. Go to **Certificates & secrets** > **New client secret** > copy the value
+6. Go to **API permissions** > **Add permission** > **Microsoft Graph** > **Application permissions**
+7. Add: `Mail.Read`, `Mail.ReadWrite`, `Mail.Send`
+8. Click **Grant admin consent**
+9. Store credentials in SkuldBot Vault:
+   - Tenant ID
+   - Client ID
+   - Client Secret
+
+---
+
+<NodeHeader id="ms365-connection" icon="Plug" label="MS365 Connection" description="Configure Microsoft 365 authentication" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ms365.connection`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **tenant_id** (`text`, required) — Azure AD Tenant ID
+- **client_id** (`text`, required) — Client (App) ID
+- **client_secret** (`password`, required) — Client secret (use `${vault.ms365_secret}`)
+- **user_email** (`text`) — Target mailbox email address
+
+**Output:**
+- **status** (`string`) — Connection status
+- **authenticated** (`boolean`) — Whether authentication succeeded
+
+---
+
+## Email Read Operations
+
+<NodeHeader id="ms365-email_list" icon="Mail" label="List Emails" description="List emails from a Microsoft 365 folder" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ms365.email_list`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **folder** (`select`, default: `inbox`) — Mail folder: `inbox`, `sentitems`, `drafts`, `archive`, `deleteditems`, `junkemail`
+- **top** (`number`, default: `10`) — Max results
+- **filter** (`text`) — OData filter expression (e.g., `isRead eq false`)
+- **search** (`text`) — Search query (e.g., `subject:invoice`)
+- **order_by** (`select`, default: `receivedDateTime desc`) — Sort order
+
+**Output:**
+- **emails** (`array`) — List of emails with id, subject, from, to, bodyPreview, receivedDateTime, isRead, hasAttachments, importance
+- **count** (`number`) — Number of emails returned
+
+---
+
+<NodeHeader id="ms365-email_get" icon="FileText" label="Get Email" description="Get a single email by ID with full details" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ms365.email_get`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **message_id** (`text`, required) — Message ID
+- **include_body** (`boolean`, default: `true`) — Include body
+- **include_attachments** (`boolean`, default: `false`) — Include attachments
+
+**Output:**
+- **id** (`string`) — Email message ID
+- **subject** (`string`) — Email subject
+- **from** (`object`) — Sender info `{ name, email }`
+- **to** (`array`) — To recipients
+- **cc** (`array`) — CC recipients
+- **bcc** (`array`) — BCC recipients
+- **body** (`object`) — Email body `{ content, contentType }`
+- **receivedDateTime** (`string`) — When received
+- **hasAttachments** (`boolean`) — Has attachments
+- **attachments** (`array`) — Attachment list if requested
+
+---
+
+<NodeHeader id="ms365-email_search" icon="Search" label="Search Emails" description="Search emails using Microsoft Search" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ms365.email_search`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **query** (`text`, required) — Search query (e.g., `from:john@example.com subject:urgent`)
+- **folder** (`select`, default: `inbox`) — Folder: `inbox`, `sentitems`, `all`
+- **top** (`number`, default: `25`) — Max results
+
+**Output:**
+- **emails** (`array`) — Matching emails
+- **count** (`number`) — Number of results
+
+---
+
+<NodeHeader id="ms365-email_get_attachments" icon="Paperclip" label="Get Attachments" description="Get list of attachments from an email" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ms365.email_get_attachments`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **message_id** (`text`, required) — Message ID
+
+**Output:**
+- **attachments** (`array`) — List of attachments with id, name, size, contentType
+- **count** (`number`) — Number of attachments
+
+---
+
+<NodeHeader id="ms365-email_download_attachment" icon="Download" label="Download Attachment" description="Download an email attachment to file" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ms365.email_download_attachment`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **message_id** (`text`, required) — Message ID
+- **attachment_id** (`text`, required) — Attachment ID
+- **save_path** (`text`) — Save path (e.g., `/downloads/file.pdf`)
+
+**Output:**
+- **savedPath** (`string`) — Path where file was saved
+- **name** (`string`) — Attachment filename
+- **size** (`number`) — File size in bytes
+- **contentType** (`string`) — MIME type
+
+---
+
+## Email Send Operations
+
+<NodeHeader id="ms365-email_send" icon="Send" label="Send Email" description="Send a new email via Microsoft 365" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ms365.email_send`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **to** (`text`, required) — To recipients
+- **cc** (`text`) — CC recipients
+- **bcc** (`text`) — BCC recipients
+- **subject** (`text`, required) — Subject
+- **body** (`textarea`, required) — Body content
+- **body_type** (`select`, default: `html`) — Body type: `html`, `text`
+- **importance** (`select`, default: `normal`) — Importance: `low`, `normal`, `high`
+- **attachments** (`text`) — Comma-separated file paths
+- **save_to_sent** (`boolean`, default: `true`) — Save to Sent Items
+
+**Output:**
+- **status** (`string`) — Send status
+- **messageId** (`string`) — Sent message ID
+
+---
+
+<NodeHeader id="ms365-email_reply" icon="Reply" label="Reply to Email" description="Reply to an existing email" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ms365.email_reply`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **message_id** (`text`, required) — Message ID
+- **body** (`textarea`, required) — Reply body
+- **reply_all** (`boolean`, default: `false`) — Reply all
+- **body_type** (`select`, default: `html`) — Body type: `html`, `text`
+- **attachments** (`text`) — Comma-separated file paths
+
+**Output:**
+- **status** (`string`) — Reply status
+
+---
+
+<NodeHeader id="ms365-email_forward" icon="Forward" label="Forward Email" description="Forward an email to other recipients" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ms365.email_forward`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **message_id** (`text`, required) — Message ID
+- **to** (`text`, required) — Forward to
+- **comment** (`textarea`) — Comment
+
+**Output:**
+- **status** (`string`) — Forward status
+- **originalMessageId** (`string`) — Original message ID
+- **to** (`array`) — Forward recipients
+- **timestamp** (`string`) — When forwarded
+
+---
+
+<NodeHeader id="ms365-email_draft" icon="FilePen" label="Create Draft" description="Create an email draft" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ms365.email_draft`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **to** (`text`, required) — To recipients
+- **cc** (`text`) — CC recipients
+- **subject** (`text`, required) — Subject
+- **body** (`textarea`, required) — Body
+- **body_type** (`select`, default: `html`) — Body type: `html`, `text`
+
+**Output:**
+- **id** (`string`) — Draft message ID
+- **subject** (`string`) — Draft subject
+- **webLink** (`string`) — Link to draft in Outlook
+
+---
+
+## Email Management Operations
+
+<NodeHeader id="ms365-email_move" icon="FolderInput" label="Move Email" description="Move an email to another folder" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ms365.email_move`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **message_id** (`text`, required) — Message ID
+- **destination_folder** (`select`, required) — Destination: `inbox`, `archive`, `deleteditems`, `junkemail`, `drafts`
+
+**Output:**
+- **id** (`string`) — Message ID in new location
+- **parentFolderId** (`string`) — New folder ID
+
+---
+
+<NodeHeader id="ms365-email_copy" icon="Copy" label="Copy Email" description="Copy an email to another folder" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ms365.email_copy`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **message_id** (`text`, required) — Message ID
+- **destination_folder** (`select`, required) — Destination: `inbox`, `archive`, `drafts`
+
+**Output:**
+- **id** (`string`) — Copied message ID
+- **parentFolderId** (`string`) — Destination folder ID
+
+---
+
+<NodeHeader id="ms365-email_delete" icon="Trash2" label="Delete Email" description="Delete an email (soft or permanent)" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ms365.email_delete`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **message_id** (`text`, required) — Message ID
+- **permanent** (`boolean`, default: `false`) — Permanent delete (if unchecked, moves to Deleted Items)
+
+**Output:**
+- **status** (`string`) — Delete status
+- **messageId** (`string`) — Deleted message ID
+- **permanent** (`boolean`) — Whether permanently deleted
+
+---
+
+<NodeHeader id="ms365-email_mark_read" icon="MailCheck" label="Mark Read/Unread" description="Mark an email as read or unread" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ms365.email_mark_read`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **message_id** (`text`, required) — Message ID
+- **is_read** (`boolean`, default: `true`) — Mark as read
+
+**Output:**
+- **id** (`string`) — Message ID
+- **isRead** (`boolean`) — New read status
+
+---
+
+<NodeHeader id="ms365-email_flag" icon="Flag" label="Flag Email" description="Set follow-up flag on an email" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ms365.email_flag`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **message_id** (`text`, required) — Message ID
+- **flag_status** (`select`, default: `flagged`) — Flag status: `flagged`, `complete`, `notFlagged`
+
+**Output:**
+- **id** (`string`) — Message ID
+- **flag** (`string`) — New flag status
+
+---
+
+<NodeHeader id="ms365-email_categories" icon="Tags" label="Set Categories" description="Set categories on an email" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ms365.email_categories`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **message_id** (`text`, required) — Message ID
+- **categories** (`text`, required) — Categories (e.g., `Important, Client, Follow-up`)
+
+**Output:**
+- **id** (`string`) — Message ID
+- **categories** (`array`) — Applied categories
+
+---
+
+<NodeHeader id="ms365-email_importance" icon="AlertCircle" label="Set Importance" description="Set importance level on an email" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ms365.email_importance`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **message_id** (`text`, required) — Message ID
+- **importance** (`select`, default: `high`) — Importance: `low`, `normal`, `high`
+
+**Output:**
+- **id** (`string`) — Message ID
+- **importance** (`string`) — New importance level
+
+---
+
+## Folder Operations
+
+<NodeHeader id="ms365-folder_list" icon="FolderTree" label="List Folders" description="List mail folders" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ms365.folder_list`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **parent_folder_id** (`text`) — Parent folder ID (leave empty for root folders)
+
+**Output:**
+- **folders** (`array`) — List of folders with id, displayName, totalItemCount, unreadItemCount
+- **count** (`number`) — Number of folders
+
+---
+
+<NodeHeader id="ms365-folder_create" icon="FolderPlus" label="Create Folder" description="Create a new mail folder" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ms365.folder_create`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **display_name** (`text`, required) — Folder name
+- **parent_folder_id** (`text`) — Parent folder ID (leave empty for root level)
+
+**Output:**
+- **id** (`string`) — Created folder ID
+- **displayName** (`string`) — Folder name
+
+---
+
+<NodeHeader id="ms365-folder_delete" icon="FolderMinus" label="Delete Folder" description="Delete a mail folder" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `ms365.folder_delete`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **folder_id** (`text`, required) — Folder ID
+
+**Output:**
+- **status** (`string`) — Delete status
+- **folderId** (`string`) — Deleted folder ID
+
+---
+
+## Required Graph API Permissions
+
+| Operation | Permission | Type |
+|-----------|------------|------|
+| Read emails | `Mail.Read` | Application |
+| Send emails | `Mail.Send` | Application |
+| Manage emails (move, delete, flag) | `Mail.ReadWrite` | Application |
+| Calendar access | `Calendars.ReadWrite` | Application |
+| OneDrive files | `Files.ReadWrite` | Application |
+| Teams messaging | `ChannelMessage.Send` | Application |
+
+<Note>
+  Use **Application permissions** (not Delegated) for bot automation. Application permissions allow the bot to act without a signed-in user, which is required for scheduled/unattended execution.
+</Note>
+
+---
+
+## Common Patterns
+
+### Enterprise Email Processing Pipeline
+
+<FlowDiagram items={[
+  { label: "ms365.connection", sublabel: "Authenticate", type: "default" },
+  { label: "ms365.email_list", sublabel: "Unread invoices", type: "primary" },
+  { label: "ms365.email_get_attachments", sublabel: "List PDFs", type: "default" },
+  { label: "ms365.email_download_attachment", sublabel: "Save to disk", type: "default" },
+  { label: "ai.extract_data", sublabel: "Extract fields", type: "warning" },
+  { label: "ms365.email_move", sublabel: "To: Processed", type: "success" }
+]} />
+
+### Email Triage with AI Classification
+
+<FlowDiagram items={[
+  { label: "ms365.email_search", sublabel: "Unread inbox", type: "primary" },
+  { label: "ai.classify", sublabel: "urgent/normal/spam", type: "warning" },
+  { label: "ms365.email_categories", sublabel: "Apply category", type: "default" },
+  { label: "ms365.email_importance", sublabel: "Set priority", type: "default" },
+  { label: "ms365.email_flag", sublabel: "Flag urgent", type: "success" }
+]} />
+
+Use AI to classify incoming emails, then automatically categorize, prioritize, and flag them in Outlook. Your team sees a pre-triaged inbox.
+
+### Draft Review Workflow (HITL)
+
+<FlowDiagram items={[
+  { label: "ai.agent", sublabel: "Generate response", type: "warning" },
+  { label: "ms365.email_draft", sublabel: "Create draft", type: "default" },
+  { label: "human.review", sublabel: "Review draft", type: "warning" },
+  { label: "ms365.email_send", sublabel: "Send approved", type: "success" }
+]} />
+
+The AI Agent generates a response, saves it as a draft in Outlook, a human reviews and approves, then the bot sends it. Combines AI speed with human oversight.
+
+### OData Filter Examples
+
+Use OData filters in `ms365.email_list` for precise queries:
+
+| Filter | Description |
+|--------|-------------|
+| `isRead eq false` | Unread emails only |
+| `hasAttachments eq true` | Emails with attachments |
+| `importance eq 'high'` | High importance only |
+| `from/emailAddress/address eq 'ceo@company.com'` | From specific sender |
+| `receivedDateTime ge 2025-01-01T00:00:00Z` | After a specific date |
+| `subject eq 'Invoice'` | Exact subject match |
+| `contains(subject, 'urgent')` | Subject contains word |
+
+Combine with `and`: `isRead eq false and hasAttachments eq true and importance eq 'high'`
+
+---
+

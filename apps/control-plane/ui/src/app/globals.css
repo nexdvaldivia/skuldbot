@@ -1,0 +1,355 @@
+@import "tailwindcss";
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * SKULD DESIGN SYSTEM - Control Plane
+ * Primary: Brand Emerald #35D399
+ * Based on Refactoring UI principles
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+:root {
+  /* ─────────────────────────────────────────────────────────────────────────
+   * BRAND EMERALD - Primary Color (#35D399)
+   * Use for: buttons, links, active states, focus rings
+   * ───────────────────────────────────────────────────────────────────────── */
+  --brand-50: #ecfdf5;
+  --brand-100: #d1fae5;
+  --brand-200: #a7f3d0;
+  --brand-300: #6ee7b7;
+  --brand-400: #35d399;
+  --brand-500: #10b981;
+  --brand-600: #059669;
+  --brand-700: #047857;
+  --brand-800: #065f46;
+  --brand-900: #064e3b;
+  --brand-950: #022c22;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * INDIGO - Secondary/Accent Color
+   * ───────────────────────────────────────────────────────────────────────── */
+  --indigo-50: #eef2ff;
+  --indigo-100: #e0e7ff;
+  --indigo-200: #c7d2fe;
+  --indigo-300: #a5b4fc;
+  --indigo-400: #818cf8;
+  --indigo-500: #6366f1;
+  --indigo-600: #4f46e5;
+  --indigo-700: #4338ca;
+  --indigo-800: #3730a3;
+  --indigo-900: #312e81;
+  --indigo-950: #1e1b4b;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * ZINC - Neutral Colors
+   * Use for: backgrounds, text, borders, cards
+   * ───────────────────────────────────────────────────────────────────────── */
+  --zinc-50: #fafafa;
+  --zinc-100: #f4f4f5;
+  --zinc-200: #e4e4e7;
+  --zinc-300: #d4d4d8;
+  --zinc-400: #a1a1aa;
+  --zinc-500: #71717a;
+  --zinc-600: #52525b;
+  --zinc-700: #3f3f46;
+  --zinc-800: #27272a;
+  --zinc-900: #18181b;
+  --zinc-950: #09090b;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * STATUS COLORS
+   * ───────────────────────────────────────────────────────────────────────── */
+
+  /* Success (uses brand green) */
+  --success-50: #ecfdf5;
+  --success-100: #d1fae5;
+  --success-500: #35d399;
+  --success-600: #10b981;
+  --success-700: #059669;
+
+  /* Warning - Amber */
+  --warning-50: #fffbeb;
+  --warning-100: #fef3c7;
+  --warning-200: #fde68a;
+  --warning-400: #fbbf24;
+  --warning-500: #f59e0b;
+  --warning-600: #d97706;
+  --warning-700: #b45309;
+
+  /* Error/Destructive - Red */
+  --error-50: #fef2f2;
+  --error-100: #fee2e2;
+  --error-200: #fecaca;
+  --error-400: #f87171;
+  --error-500: #ef4444;
+  --error-600: #dc2626;
+  --error-700: #b91c1c;
+
+  /* Info - Sky */
+  --info-50: #f0f9ff;
+  --info-100: #e0f2fe;
+  --info-200: #bae6fd;
+  --info-400: #38bdf8;
+  --info-500: #0ea5e9;
+  --info-600: #0284c7;
+  --info-700: #0369a1;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * SEMANTIC TOKENS - Light Mode
+   * ───────────────────────────────────────────────────────────────────────── */
+  --background: #ffffff;
+  --foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --card: #ffffff;
+  --card-foreground: #18181b;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --primary: #35d399;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --accent: #d1fae5;
+  --accent-foreground: #064e3b;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --success: #35d399;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #ffffff;
+  --info: #0ea5e9;
+  --info-foreground: #ffffff;
+  --ring: #35d399;
+  --radius: 0.5rem;
+}
+
+@theme inline {
+  /* ─────────────────────────────────────────────────────────────────────────
+   * SEMANTIC COLORS - Tailwind Integration
+   * All values must be direct hex - var() does not work in Tailwind v4 @theme
+   * ───────────────────────────────────────────────────────────────────────── */
+  --color-background: #ffffff;
+  --color-foreground: #18181b;
+  --color-muted: #f4f4f5;
+  --color-muted-foreground: #71717a;
+  --color-card: #ffffff;
+  --color-card-foreground: #18181b;
+  --color-border: #e4e4e7;
+  --color-input: #e4e4e7;
+  --color-primary: #35d399;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #f4f4f5;
+  --color-secondary-foreground: #18181b;
+  --color-accent: #d1fae5;
+  --color-accent-foreground: #064e3b;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+  --color-success: #35d399;
+  --color-success-foreground: #ffffff;
+  --color-warning: #f59e0b;
+  --color-warning-foreground: #ffffff;
+  --color-info: #0ea5e9;
+  --color-info-foreground: #ffffff;
+  --color-ring: #35d399;
+  --radius: 0.5rem;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * BRAND SCALE - Primary Color (#35D399)
+   * ───────────────────────────────────────────────────────────────────────── */
+  --color-brand-50: #ecfdf5;
+  --color-brand-100: #d1fae5;
+  --color-brand-200: #a7f3d0;
+  --color-brand-300: #6ee7b7;
+  --color-brand-400: #35d399;
+  --color-brand-500: #10b981;
+  --color-brand-600: #059669;
+  --color-brand-700: #047857;
+  --color-brand-800: #065f46;
+  --color-brand-900: #064e3b;
+  --color-brand-950: #022c22;
+  --color-brand: #35d399;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * INDIGO SCALE - Secondary/Accent
+   * ───────────────────────────────────────────────────────────────────────── */
+  --color-indigo-50: #eef2ff;
+  --color-indigo-100: #e0e7ff;
+  --color-indigo-200: #c7d2fe;
+  --color-indigo-300: #a5b4fc;
+  --color-indigo-400: #818cf8;
+  --color-indigo-500: #6366f1;
+  --color-indigo-600: #4f46e5;
+  --color-indigo-700: #4338ca;
+  --color-indigo-800: #3730a3;
+  --color-indigo-900: #312e81;
+  --color-indigo-950: #1e1b4b;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * ZINC SCALE - Neutral Colors
+   * ───────────────────────────────────────────────────────────────────────── */
+  --color-zinc-50: #fafafa;
+  --color-zinc-100: #f4f4f5;
+  --color-zinc-200: #e4e4e7;
+  --color-zinc-300: #d4d4d8;
+  --color-zinc-400: #a1a1aa;
+  --color-zinc-500: #71717a;
+  --color-zinc-600: #52525b;
+  --color-zinc-700: #3f3f46;
+  --color-zinc-800: #27272a;
+  --color-zinc-900: #18181b;
+  --color-zinc-950: #09090b;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * STATUS COLORS - Success (Brand Emerald)
+   * ───────────────────────────────────────────────────────────────────────── */
+  --color-success-50: #ecfdf5;
+  --color-success-100: #d1fae5;
+  --color-success-500: #35d399;
+  --color-success-600: #10b981;
+  --color-success-700: #059669;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * STATUS COLORS - Warning (Amber)
+   * ───────────────────────────────────────────────────────────────────────── */
+  --color-warning-50: #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-200: #fde68a;
+  --color-warning-400: #fbbf24;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d97706;
+  --color-warning-700: #b45309;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * STATUS COLORS - Error (Red)
+   * ───────────────────────────────────────────────────────────────────────── */
+  --color-error-50: #fef2f2;
+  --color-error-100: #fee2e2;
+  --color-error-200: #fecaca;
+  --color-error-400: #f87171;
+  --color-error-500: #ef4444;
+  --color-error-600: #dc2626;
+  --color-error-700: #b91c1c;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * STATUS COLORS - Info (Sky)
+   * ───────────────────────────────────────────────────────────────────────── */
+  --color-info-50: #f0f9ff;
+  --color-info-100: #e0f2fe;
+  --color-info-200: #bae6fd;
+  --color-info-400: #38bdf8;
+  --color-info-500: #0ea5e9;
+  --color-info-600: #0284c7;
+  --color-info-700: #0369a1;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * TYPOGRAPHY - Montserrat + JetBrains Mono
+   * ───────────────────────────────────────────────────────────────────────── */
+  --font-sans: var(--font-montserrat);
+  --font-mono: var(--font-mono);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * SHADOWS - Elevation System
+   * ───────────────────────────────────────────────────────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1), 0 8px 10px rgba(0, 0, 0, 0.04);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * BORDER RADIUS
+   * ───────────────────────────────────────────────────────────────────────── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #09090b;
+    --foreground: #fafafa;
+    --muted: #27272a;
+    --muted-foreground: #a1a1aa;
+    --card: #18181b;
+    --card-foreground: #fafafa;
+    --border: #27272a;
+    --input: #27272a;
+    --primary: #35d399;
+    --primary-foreground: #09090b;
+    --secondary: #27272a;
+    --secondary-foreground: #fafafa;
+    --accent: #064e3b;
+    --accent-foreground: #d1fae5;
+  }
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-montserrat), 'Montserrat', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--muted);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #35d399;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #10b981;
+}
+
+/* Glass morphism */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.glass-dark {
+  background: rgba(9, 9, 11, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Gradient backgrounds */
+.gradient-hero {
+  background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 50%, #fafafa 100%);
+}
+
+.gradient-primary {
+  background: linear-gradient(135deg, #35d399 0%, #10b981 50%, #059669 100%);
+}
+
+.gradient-subtle {
+  background: linear-gradient(135deg, #fafafa 0%, #ecfdf5 100%);
+}
+
+/* Text selection */
+::selection {
+  background: #a7f3d0;
+  color: #064e3b;
+}

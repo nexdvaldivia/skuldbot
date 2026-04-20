@@ -1,0 +1,153 @@
+@import url('https://rsms.me/inter/inter.css');
+@import "tailwindcss";
+
+@theme {
+  --color-background: hsl(210 20% 98%);
+  --color-foreground: hsl(215 25% 17%);
+  --color-card: hsl(210 20% 99%);
+  --color-card-foreground: hsl(215 25% 17%);
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(215 25% 17%);
+  --color-primary: hsl(156 100% 32%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(210 18% 96%);
+  --color-secondary-foreground: hsl(215 20% 25%);
+  --color-muted: hsl(210 18% 95%);
+  --color-muted-foreground: hsl(215 15% 50%);
+  --color-accent: hsl(210 18% 94%);
+  --color-accent-foreground: hsl(215 20% 25%);
+  --color-destructive: hsl(0 84.2% 60.2%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-border: hsl(214 20% 88%);
+  --color-input: hsl(214 20% 88%);
+  --color-ring: hsl(156 100% 32%);
+  --radius: 0.5rem;
+}
+
+:root {
+  /* CSS Variables for hsl() usage in components */
+  --background: 210 20% 98%;
+  --foreground: 215 25% 17%;
+  --card: 210 20% 99%;
+  --card-foreground: 215 25% 17%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 215 25% 17%;
+  --primary: 156 100% 32%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 18% 96%;
+  --secondary-foreground: 215 20% 25%;
+  --muted: 210 18% 95%;
+  --muted-foreground: 215 15% 50%;
+  --accent: 210 18% 94%;
+  --accent-foreground: 215 20% 25%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --success: 142 76% 36%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+  --border: 214 20% 88%;
+  --input: 214 20% 88%;
+  --ring: 156 100% 32%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+html {
+  font-family: 'Inter var', 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  margin: 0;
+  padding: 0;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.3);
+}
+
+/* Selection */
+::selection {
+  background: hsl(var(--primary) / 0.15);
+  color: hsl(var(--primary));
+}
+
+/* Status indicators */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-online {
+  background-color: hsl(var(--success));
+  box-shadow: 0 0 0 3px hsl(var(--success) / 0.2);
+}
+
+.status-offline {
+  background-color: hsl(var(--muted-foreground));
+  box-shadow: 0 0 0 3px hsl(var(--muted-foreground) / 0.2);
+}
+
+.status-busy {
+  background-color: hsl(var(--warning));
+  box-shadow: 0 0 0 3px hsl(var(--warning) / 0.2);
+}
+
+/* Animations */
+@keyframes pulse-status {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-pulse-status {
+  animation: pulse-status 2s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out forwards;
+}
+
+@keyframes scale-in {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out forwards;
+}

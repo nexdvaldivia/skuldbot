@@ -1,0 +1,9 @@
+{
+  "version": "1.0",
+  "created_at": "2026-03-12T14:56:11.060841+00:00",
+  "last_accessed": "2026-03-12T14:56:11.061639+00:00",
+  "salt": "5F7Cf12NgPdf+G1XvN3lTeK5shUsNFh/txT6XnmX0jw=",
+  "iterations": 600000,
+  "algorithm": "AES-256-GCM",
+  "kdf": "PBKDF2-SHA256"
+}

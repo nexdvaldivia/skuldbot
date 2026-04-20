@@ -1,0 +1,171 @@
+export const metadata = {
+  title: 'Data Quality',
+  description: 'Validate and ensure data quality. Schema validation, data profiling, and quality reports.',
+}
+
+export const sections = [
+  { title: 'Validate Data', id: 'dataquality-validate' },
+  { title: 'Profile Data', id: 'dataquality-profile_data' },
+  { title: 'Generate Quality Report', id: 'dataquality-generate_report' },
+]
+
+Validate and ensure data quality. Schema validation, data profiling, and quality reports. {{ className: 'lead' }}
+
+---
+
+<NodeHeader id="dataquality-validate" icon="ShieldCheck" label="Validate Data" description="Configure field-by-field data validation rules with visual builder" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `dataquality.validate`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **data** (`textarea`, required) — Data to validate. Supports expressions like `${previous_node.records}`
+- **rules** (`validation-builder`) — Validation rules for each field
+- **fail_on_error** (`boolean`, default: `true`) — Fail on validation error
+
+**Output:**
+- **valid** (`boolean`) — Whether all validations passed
+- **validated_data** (`object`) — The validated data
+- **errors** (`array`) — List of validation errors
+- **error_count** (`number`) — Number of validation errors
+
+**Usage Example:**
+
+```json
+{
+  "type": "dataquality.validate",
+  "config": {
+    "data": "${database.customer_records}",
+    "rules": [
+      {"field": "email", "type": "email", "required": true},
+      {"field": "age", "type": "number", "min": 0, "max": 150},
+      {"field": "phone", "type": "pattern", "regex": "^\\d{10}$"}
+    ],
+    "fail_on_error": true
+  }
+}
+```
+
+**Output Example:**
+
+```json
+{
+  "valid": false,
+  "validated_data": [...],
+  "errors": [
+    {"field": "email", "error": "Invalid email format", "value": "invalid-email", "row": 5},
+    {"field": "age", "error": "Value must be >= 0", "value": -5, "row": 12}
+  ],
+  "error_count": 2
+}
+```
+
+---
+
+<NodeHeader id="dataquality-profile_data" icon="BarChart3" label="Profile Data" description="Generate automatic data profile with statistics" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `dataquality.profile_data`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **data** (`textarea`, required) — Data to profile. Supports expressions.
+
+**Output:**
+- **row_count** (`number`) — Total number of rows
+- **column_count** (`number`) — Total number of columns
+- **columns** (`object`) — Column-by-column statistics (nulls, types, unique values)
+
+**Output Example:**
+
+```json
+{
+  "row_count": 1000,
+  "column_count": 5,
+  "columns": {
+    "id": {
+      "type": "integer",
+      "unique_count": 1000,
+      "null_count": 0,
+      "min": 1,
+      "max": 1000
+    },
+    "email": {
+      "type": "string",
+      "unique_count": 998,
+      "null_count": 2,
+      "pattern_match": {"email": 0.99}
+    },
+    "amount": {
+      "type": "number",
+      "mean": 150.25,
+      "median": 120.00,
+      "std": 45.30,
+      "null_count": 5,
+      "min": 0,
+      "max": 5000
+    }
+  }
+}
+```
+
+---
+
+<NodeHeader id="dataquality-generate_report" icon="FileBarChart" label="Generate Quality Report" description="Generate comprehensive data quality report" bgColor="#dbeafe" textColor="#1e40af" />
+
+<Properties>
+  <Property name="type" type="string">
+    `dataquality.generate_report`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **data** (`textarea`, required) — Data to analyze. Supports expressions.
+- **data_source** (`text`, default: `unknown`) — Data source name for the report
+
+**Output:**
+- **timestamp** (`string`) — Report generation timestamp
+- **data_source** (`string`) — Name of data source
+- **total_rows** (`number`) — Total rows analyzed
+- **validations_run** (`number`) — Total validations executed
+- **success_rate** (`number`) — Overall validation success rate
+
+**Output Example:**
+
+```json
+{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "data_source": "Customer Database",
+  "total_rows": 10000,
+  "validations_run": 50000,
+  "success_rate": 0.987,
+  "summary": {
+    "passed": 49350,
+    "failed": 650,
+    "warnings": 120
+  },
+  "by_column": {
+    "email": {"passed": 9800, "failed": 200},
+    "phone": {"passed": 9500, "failed": 500}
+  }
+}
+```
+
+---
+
+## Data Quality Pipeline Example
+
+<FlowDiagram items={[
+  { label: "database.query", sublabel: "Extract data", type: "default" },
+  { label: "dataquality.profile_data", sublabel: "Analyze statistics", type: "primary" },
+  { label: "dataquality.validate", sublabel: "Apply rules", type: "warning" },
+  { label: "dataquality.generate_report", sublabel: "Create report", type: "success" }
+]} />
+
+---
+

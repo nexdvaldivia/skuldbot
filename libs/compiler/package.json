@@ -1,0 +1,28 @@
+{
+  "name": "@skuldbot/compiler",
+  "version": "0.1.0",
+  "description": "SkuldBot DSL Compiler - buildCFG, classification propagation, policy evaluation, execution plan",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "test": "jest",
+    "lint": "eslint src --ext .ts"
+  },
+  "keywords": [
+    "skuldbot",
+    "compiler",
+    "rpa",
+    "workflow"
+  ],
+  "author": "Khipus",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

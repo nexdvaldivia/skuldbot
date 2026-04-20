@@ -1,0 +1,15 @@
+# Orchestrator - Backend y UI de Gestión
+
+**Estado**: 🔜 Por implementar
+
+## Estructura
+
+- `api/` - NestJS backend con PostgreSQL
+- `ui/` - Next.js frontend con dashboards
+
+Este directorio contendrá el backend centralizado y la UI web de gestión.
+
+
+
+
+

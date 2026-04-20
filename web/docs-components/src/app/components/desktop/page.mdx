@@ -1,0 +1,268 @@
+export const metadata = {
+  title: 'Desktop Automation',
+  description: 'Automate Windows applications. Click, type, send hotkeys, and interact with any desktop program.',
+}
+
+export const sections = [
+  { title: 'Open Application', id: 'desktop-open_app' },
+  { title: 'Desktop Click', id: 'desktop-click' },
+  { title: 'Type Text', id: 'desktop-type_text' },
+  { title: 'Send Hotkey', id: 'desktop-hotkey' },
+  { title: 'Get Window', id: 'desktop-get_window' },
+  { title: 'Minimize Window', id: 'desktop-minimize' },
+  { title: 'Maximize Window', id: 'desktop-maximize' },
+  { title: 'Close Window', id: 'desktop-close_window' },
+  { title: 'Desktop Screenshot', id: 'desktop-screenshot' },
+  { title: 'Click Image', id: 'desktop-image_click' },
+  { title: 'Wait for Image', id: 'desktop-wait_image' },
+  { title: 'Copy to Clipboard', id: 'desktop-clipboard_copy' },
+]
+
+Automate Windows applications. Click, type, send hotkeys, and interact with any desktop program. {{ className: 'lead' }}
+
+<Note>
+  Desktop automation uses **PyAutoGUI** and **Windows UI Automation** under the hood. Perfect for legacy apps that don't have APIs. Screenshot, image_click, and wait_image nodes support [Storage Provider](/components/storage) for cloud-based image references and evidence capture.
+</Note>
+
+---
+
+<NodeHeader id="desktop-open_app" icon="AppWindow" label="Open Application" description="Launch an application" bgColor="#f3e8ff" textColor="#7e22ce" />
+
+<Properties>
+  <Property name="type" type="string">
+    `desktop.open_app`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **path** (`text`, required) — Application path (e.g., `notepad`, `excel`, or full path)
+- **args** (`text`) — Command-line arguments
+
+**Example:**
+
+```json
+{
+  "type": "desktop.open_app",
+  "config": {
+    "path": "C:\\Program Files\\Legacy App\\app.exe",
+    "args": "--config production"
+  }
+}
+```
+
+---
+
+<NodeHeader id="desktop-click" icon="MousePointer" label="Desktop Click" description="Click at coordinates or element" bgColor="#f3e8ff" textColor="#7e22ce" />
+
+<Properties>
+  <Property name="type" type="string">
+    `desktop.click`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **locator** (`text`) — Element locator (e.g., `name:Button1`)
+- **x** (`number`) — X coordinate
+- **y** (`number`) — Y coordinate
+
+**Example - Click at coordinates:**
+
+```json
+{
+  "type": "desktop.click",
+  "config": {
+    "x": 500,
+    "y": 300
+  }
+}
+```
+
+**Example - Click by locator:**
+
+```json
+{
+  "type": "desktop.click",
+  "config": {
+    "locator": "name:Save Button"
+  }
+}
+```
+
+---
+
+<NodeHeader id="desktop-type_text" icon="Keyboard" label="Type Text" description="Type text with keyboard" bgColor="#f3e8ff" textColor="#7e22ce" />
+
+<Properties>
+  <Property name="type" type="string">
+    `desktop.type_text`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **text** (`text`, required) — Text to type
+- **interval** (`number`, default: `50`) — Key interval in milliseconds
+
+---
+
+<NodeHeader id="desktop-hotkey" icon="Command" label="Send Hotkey" description="Press keyboard shortcut" bgColor="#f3e8ff" textColor="#7e22ce" />
+
+<Properties>
+  <Property name="type" type="string">
+    `desktop.hotkey`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **keys** (`text`, required) — Key combination (e.g., `ctrl+c`, `alt+f4`, `ctrl+shift+s`)
+
+**Common Hotkeys:**
+
+| Hotkey | Action |
+|--------|--------|
+| `ctrl+s` | Save |
+| `ctrl+c` | Copy |
+| `ctrl+v` | Paste |
+| `ctrl+z` | Undo |
+| `ctrl+a` | Select All |
+| `alt+f4` | Close Window |
+| `enter` | Confirm |
+| `escape` | Cancel |
+
+---
+
+<NodeHeader id="desktop-get_window" icon="Square" label="Get Window" description="Find and focus window" bgColor="#f3e8ff" textColor="#7e22ce" />
+
+<Properties>
+  <Property name="type" type="string">
+    `desktop.get_window`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **title** (`text`, required) — Window title
+- **partial_match** (`boolean`, default: `true`) — Allow partial title match
+
+---
+
+<NodeHeader id="desktop-minimize" icon="Minus" label="Minimize Window" description="Minimize active window" bgColor="#f3e8ff" textColor="#7e22ce" />
+
+<Properties>
+  <Property name="type" type="string">
+    `desktop.minimize`
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="desktop-maximize" icon="Maximize2" label="Maximize Window" description="Maximize active window" bgColor="#f3e8ff" textColor="#7e22ce" />
+
+<Properties>
+  <Property name="type" type="string">
+    `desktop.maximize`
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="desktop-close_window" icon="XSquare" label="Close Window" description="Close active window" bgColor="#f3e8ff" textColor="#7e22ce" />
+
+<Properties>
+  <Property name="type" type="string">
+    `desktop.close_window`
+  </Property>
+</Properties>
+
+---
+
+<NodeHeader id="desktop-screenshot" icon="Monitor" label="Desktop Screenshot" description="Capture screen region" bgColor="#f3e8ff" textColor="#7e22ce" />
+
+<Properties>
+  <Property name="type" type="string">
+    `desktop.screenshot`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **path** (`text`, required) — Save path for screenshot
+- **region** (`text`) — Region to capture (format: `x,y,width,height`). Leave empty for full screen.
+
+**Example:**
+
+```json
+{
+  "type": "desktop.screenshot",
+  "config": {
+    "path": "./evidence/screen.png",
+    "region": "100,200,400,300"
+  }
+}
+```
+
+---
+
+<NodeHeader id="desktop-image_click" icon="Image" label="Click Image" description="Find and click image on screen" bgColor="#f3e8ff" textColor="#7e22ce" />
+
+<Properties>
+  <Property name="type" type="string">
+    `desktop.image_click`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **image_path** (`text`, required) — Path to reference image
+- **confidence** (`number`, default: `0.9`) — Match confidence (0-1)
+
+**Example:**
+
+```json
+{
+  "type": "desktop.image_click",
+  "config": {
+    "image_path": "./images/save_button.png",
+    "confidence": 0.85
+  }
+}
+```
+
+---
+
+<NodeHeader id="desktop-wait_image" icon="ScanSearch" label="Wait for Image" description="Wait for image to appear" bgColor="#f3e8ff" textColor="#7e22ce" />
+
+<Properties>
+  <Property name="type" type="string">
+    `desktop.wait_image`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **image_path** (`text`, required) — Path to reference image
+- **timeout** (`number`, default: `30000`) — Timeout in milliseconds
+
+---
+
+<NodeHeader id="desktop-clipboard_copy" icon="Copy" label="Copy to Clipboard" description="Copy text to clipboard" bgColor="#f3e8ff" textColor="#7e22ce" />
+
+<Properties>
+  <Property name="type" type="string">
+    `desktop.clipboard_copy`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **text** (`text`, required) — Text to copy to clipboard
+
+---
+
+## Desktop Automation Flow Example
+
+<FlowDiagram items={[
+  { label: "desktop.open_app", sublabel: "Launch ERP", type: "default" },
+  { label: "desktop.wait_image", sublabel: "Login screen", type: "warning" },
+  { label: "desktop.type_text", sublabel: "Username", type: "primary" },
+  { label: "desktop.hotkey", sublabel: "Tab", type: "primary" },
+  { label: "desktop.type_text", sublabel: "Password", type: "primary" },
+  { label: "desktop.image_click", sublabel: "Login button", type: "success" }
+]} />
+
+---
+

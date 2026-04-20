@@ -1,0 +1,42 @@
+{
+  "version": "1.0",
+  "project": {
+    "id": "3a2e6e1c-4c53-4d11-8f67-4b65f31b9f76",
+    "name": "PDF Statements to QBO",
+    "description": "Extract transactions from bank statement PDFs with LLM and export CSV + QBO",
+    "created": "2026-04-10T00:00:00Z",
+    "updated": "2026-04-10T00:00:00Z",
+    "author": "SkuldBot"
+  },
+  "settings": {
+    "defaultBrowser": "chromium",
+    "defaultHeadless": false,
+    "logLevel": "INFO",
+    "autoSave": {
+      "enabled": true,
+      "intervalMs": 5000
+    },
+    "versionHistory": {
+      "enabled": true,
+      "maxVersions": 50
+    }
+  },
+  "bots": [
+    {
+      "id": "bot-pdf-statements-to-qbo",
+      "name": "PDF Statements to QBO",
+      "path": "bots/pdf-statements-to-qbo",
+      "description": "Process a folder of PDFs, extract transactions with AI, write CSV and QBO",
+      "tags": [
+        "pdf",
+        "qbo",
+        "quickbooks",
+        "llm",
+        "finance"
+      ],
+      "created": "2026-04-10T00:00:00Z",
+      "updated": "2026-04-10T00:00:00Z"
+    }
+  ]
+}
+

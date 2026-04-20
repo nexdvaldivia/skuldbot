@@ -1,0 +1,296 @@
+export const metadata = {
+  title: 'Insurance',
+  description: 'Insurance-specific automation. FNOL processing, policy management, and claims handling.',
+}
+
+export const sections = [
+  { title: 'Create FNOL Record', id: 'insurance-fnol_record' },
+  { title: 'Lookup Policy', id: 'insurance-lookup_policy' },
+  { title: 'Validate Policy', id: 'insurance-validate_policy' },
+  { title: 'Extract Claim Data', id: 'insurance-extract_claim_data' },
+  { title: 'FNOL Pipeline Example', id: 'example-fnol-processing-pipeline' },
+  { title: 'Common Patterns', id: 'common-patterns' },
+  { title: 'Compliance Notes', id: 'compliance-notes' },
+]
+
+# Insurance
+
+Insurance-specific automation. FNOL processing, policy management, and claims handling. {{ className: 'lead' }}
+
+<Note>
+  **4 components** designed for P&C insurance workflows. These integrate with common policy admin systems and produce audit-ready output for regulatory compliance. Combine with [AI](/components/ai) nodes for intelligent claim extraction and with [Compliance](/components/compliance) for PII/PHI protection.
+</Note>
+
+<Warning>
+  Insurance workflows process sensitive policyholder data (PII). Always include `compliance.protect_pii` nodes and enable Evidence Pack generation. Use Vault for all API credentials. See [Compliance](/components/compliance) for details.
+</Warning>
+
+---
+
+<NodeHeader id="insurance-fnol_record" icon="FileText" label="Create FNOL Record" description="Create canonical First Notice of Loss record" bgColor="#fce7f3" textColor="#9d174d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `insurance.fnol_record`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **caller_phone** (`text`, required) — Caller phone number
+- **caller_name** (`text`) — Caller name
+- **policy_number** (`text`) — Associated policy number
+- **incident_type** (`select`, required) — Incident type:
+  - `auto` — Auto/Vehicle
+  - `property` — Property
+  - `liability` — Liability
+  - `health` — Health
+  - `workers_comp` — Workers Compensation
+  - `other` — Other
+- **incident_date** (`text`) — Date of incident
+- **incident_location** (`text`) — Location of incident
+- **incident_description** (`textarea`, required) — Description of the incident
+- **injuries** (`boolean`, default: `false`) — Injuries reported
+- **police_report** (`text`) — Police report number
+- **recording_url** (`text`) — Call recording URL
+- **transcript** (`textarea`) — Call transcript
+
+**Output:**
+- **fnol_id** (`string`) — Unique FNOL record ID
+- **fnol_record** (`object`) — Complete FNOL record object
+- **created_at** (`string`) — Record creation timestamp
+
+---
+
+<NodeHeader id="insurance-lookup_policy" icon="Search" label="Lookup Policy" description="Find policy by phone, name, DOB (caller often doesn't have policy number)" bgColor="#fce7f3" textColor="#9d174d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `insurance.lookup_policy`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **api_url** (`text`, required) — Policy Lookup API URL
+- **phone_number** (`text`) — Phone number (from CallerID)
+- **policyholder_name** (`text`) — Policyholder name
+- **date_of_birth** (`text`) — Date of birth (YYYY-MM-DD)
+- **ssn_last_four** (`text`) — SSN last 4 digits
+- **address** (`text`) — Address
+- **vin** (`text`) — Vehicle VIN (for auto)
+- **policy_number** (`text`) — Policy number (if known)
+- **method** (`select`, default: `POST`) — HTTP method: `GET`, `POST`
+- **headers** (`textarea`) — Headers as JSON
+
+**Output:**
+- **found** (`boolean`) — Policy was found
+- **policy_id** (`string`) — Policy internal ID
+- **policy_number** (`string`) — Policy number
+- **policyholder_name** (`string`) — Policyholder name
+- **match_method** (`string`) — How policy was found (phone, name_dob, etc.)
+- **raw_response** (`object`) — Raw API response
+
+---
+
+<NodeHeader id="insurance-validate_policy" icon="ShieldCheck" label="Validate Policy" description="Check if policy is active and has coverage for claim type" bgColor="#fce7f3" textColor="#9d174d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `insurance.validate_policy`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **api_url** (`text`, required) — Policy Validation API URL
+- **policy_id** (`text`) — Policy ID (from lookup)
+- **policy_number** (`text`) — Policy number
+- **claim_type** (`select`) — Claim type to validate:
+  - `auto` — Auto/Vehicle
+  - `property` — Property
+  - `liability` — Liability
+  - `health` — Health
+  - `any` — Any Coverage
+- **check_active** (`boolean`, default: `true`) — Check policy is active
+- **check_coverage** (`boolean`, default: `true`) — Verify coverage type
+- **method** (`select`, default: `POST`) — HTTP method: `GET`, `POST`
+- **headers** (`textarea`) — Headers as JSON
+
+**Output:**
+- **valid** (`boolean`) — Policy is valid for this claim type
+- **is_active** (`boolean`) — Policy is currently active
+- **has_coverage** (`boolean`) — Policy has coverage for claim type
+- **policyholder_name** (`string`) — Policyholder name
+- **coverage_type** (`string`) — Type of coverage
+
+---
+
+<NodeHeader id="insurance-extract_claim_data" icon="FileSearch" label="Extract Claim Data" description="Use AI to extract structured claim data from conversation" bgColor="#fce7f3" textColor="#9d174d" />
+
+<Properties>
+  <Property name="type" type="string">
+    `insurance.extract_claim_data`
+  </Property>
+</Properties>
+
+**Configuration:**
+- **transcript** (`textarea`, required) — Conversation transcript
+- **claim_type** (`select`) — Expected claim type:
+  - `auto` — Auto/Vehicle
+  - `property` — Property
+  - `any` — Any/Auto-detect
+- **llm_provider** (`select`, default: `openai`) — LLM provider:
+  - `openai` — OpenAI
+  - `anthropic` — Anthropic Claude
+  - `azure_openai` — Azure OpenAI
+
+**Output:**
+- **extracted_data** (`object`) — Structured claim data
+- **confidence** (`number`) — Extraction confidence (0-1)
+- **missing_fields** (`array`) — Fields that couldn't be extracted
+
+---
+
+## Example: FNOL Processing Pipeline
+
+A typical First Notice of Loss workflow combines multiple SkuldBot components:
+
+```json
+{
+  "nodes": [
+    {
+      "id": "trigger",
+      "type": "trigger.voice_inbound",
+      "config": { "queue": "fnol-line" }
+    },
+    {
+      "id": "lookup",
+      "type": "insurance.lookup_policy",
+      "config": {
+        "api_url": "https://policy-api.internal/v1/lookup",
+        "phone_number": "${trigger.output.callerPhone}",
+        "headers": "{\"Authorization\": \"Bearer ${vault.POLICY_API_KEY}\"}"
+      }
+    },
+    {
+      "id": "validate",
+      "type": "insurance.validate_policy",
+      "config": {
+        "api_url": "https://policy-api.internal/v1/validate",
+        "policy_id": "${lookup.output.policy_id}",
+        "claim_type": "auto",
+        "check_active": true,
+        "check_coverage": true
+      }
+    },
+    {
+      "id": "extract",
+      "type": "insurance.extract_claim_data",
+      "config": {
+        "transcript": "${trigger.output.transcript}",
+        "claim_type": "auto"
+      }
+    },
+    {
+      "id": "protect",
+      "type": "compliance.protect_pii",
+      "config": { "data": "${extract.output.extracted_data}" }
+    },
+    {
+      "id": "fnol",
+      "type": "insurance.fnol_record",
+      "config": {
+        "caller_phone": "${trigger.output.callerPhone}",
+        "caller_name": "${extract.output.extracted_data.caller_name}",
+        "policy_number": "${lookup.output.policy_number}",
+        "incident_type": "auto",
+        "incident_description": "${extract.output.extracted_data.description}",
+        "recording_url": "${trigger.output.recordingUrl}",
+        "transcript": "${trigger.output.transcript}"
+      }
+    }
+  ]
+}
+```
+
+This pipeline: receives an inbound call, looks up the caller's policy by phone number, validates coverage, uses AI to extract claim details from the conversation transcript, protects PII, and creates the FNOL record — all with a complete Evidence Pack for audit.
+
+---
+
+## Common Patterns
+
+### FNOL with Human Approval for High-Value Claims
+
+<FlowDiagram items={[
+  { label: "trigger.voice_inbound", sublabel: "Incoming call", type: "primary" },
+  { label: "insurance.lookup_policy", sublabel: "Find policy", type: "warning" },
+  { label: "insurance.extract_claim_data", sublabel: "AI extraction", type: "warning" },
+  { label: "control.if", sublabel: "Amount > $10,000?", type: "default" },
+  { label: "human.approval", sublabel: "Supervisor review", type: "warning" },
+  { label: "insurance.fnol_record", sublabel: "Create FNOL", type: "success" }
+]} />
+
+For claims above a threshold, route to a human supervisor for approval before creating the FNOL. The Evidence Pack records both the AI decision and the human approval.
+
+### Batch Claims Processing from Email
+
+<FlowDiagram items={[
+  { label: "trigger.schedule", sublabel: "Every 30 min", type: "primary" },
+  { label: "email.read", sublabel: "Unread claims", type: "default" },
+  { label: "email.download_attachment", sublabel: "Get documents", type: "default" },
+  { label: "document.ocr", sublabel: "Extract text", type: "warning" },
+  { label: "insurance.extract_claim_data", sublabel: "AI extraction", type: "warning" },
+  { label: "insurance.fnol_record", sublabel: "Create each FNOL", type: "success" }
+]} />
+
+---
+
+## Compliance Notes
+
+- **Evidence Pack**: Every insurance workflow execution generates an immutable Evidence Pack with full audit trail — timestamps, decisions, data lineage, and screenshots
+- **PII Protection**: Policyholder data (name, SSN, DOB, phone) must be redacted in logs. Use `compliance.protect_pii` before any logging or external API call
+- **Data Residency**: For US insurance, ensure policy API calls and data storage comply with state-specific regulations
+- **Retention**: Insurance records typically require 10+ year retention. Configure Evidence Pack retention accordingly
+
+---
+
+## Example: Voice FNOL Workflow (Visual)
+
+<Diagram 
+  flow="vertical"
+  groups={[
+    {
+      id: "trigger",
+      label: "Trigger",
+      nodes: [{ id: "voice", label: "trigger.voice_inbound", sublabel: "Incoming call", type: "primary" }]
+    },
+    {
+      id: "identify",
+      label: "Identify Caller",
+      direction: "row",
+      nodes: [
+        { id: "lookup", label: "insurance.lookup_policy", sublabel: "By CallerID", type: "warning" },
+        { id: "validate", label: "insurance.validate_policy", sublabel: "Check active", type: "warning" }
+      ]
+    },
+    {
+      id: "collect",
+      label: "Collect Information",
+      direction: "row",
+      nodes: [
+        { id: "speak", label: "voice.speak", sublabel: "Ask questions", type: "warning" },
+        { id: "listen", label: "voice.listen", sublabel: "Record answers", type: "warning" }
+      ]
+    },
+    {
+      id: "process",
+      label: "Process",
+      direction: "row",
+      nodes: [
+        { id: "extract", label: "insurance.extract_claim_data", sublabel: "AI extraction", type: "warning" },
+        { id: "fnol", label: "insurance.fnol_record", sublabel: "Create FNOL", type: "success" }
+      ]
+    }
+  ]}
+/>
+
+---
+

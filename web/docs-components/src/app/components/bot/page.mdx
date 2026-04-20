@@ -1,0 +1,362 @@
+export const metadata = {
+  title: 'Bot Subprocess Nodes',
+  description: 'Invoke other bots as subprocesses for modular, reusable automation design',
+}
+
+<NodeHeader id="bot-subprocess" icon="Settings2" label="Bot Subprocess" description="Break down complex automations into modular, reusable bots that can call each other" bgColor="#fce7f3" textColor="#be185d" />
+
+This category enables:
+
+- **Single Responsibility**: Each bot does one thing well
+- **Reusability**: Use the same validation bot across multiple workflows
+- **Maintainability**: Update logic in one place
+- **Testing**: Test each bot in isolation
+- **Parallel Processing**: Execute multiple bots concurrently
+
+---
+
+## Architecture Overview
+
+<Diagram 
+  groups={[
+    {
+      id: "main",
+      label: "Main Bot",
+      direction: "column",
+      nodes: [
+        { id: "trigger", label: "Trigger", type: "default" },
+        { id: "getInvoice", label: "Get Invoice", type: "default" },
+        { id: "botCall", label: "bot.call", sublabel: "Validator Bot", type: "primary" },
+        { id: "useResult", label: "Use Result", type: "success" }
+      ]
+    },
+    {
+      id: "validator",
+      label: "Validator Bot (Subprocess)",
+      direction: "column",
+      nodes: [
+        { id: "botInput", label: "bot.input", sublabel: "params", type: "pill" },
+        { id: "validate", label: "Validate Logic", type: "default" },
+        { id: "botOutput", label: "bot.output", sublabel: "result", type: "pill" }
+      ]
+    }
+  ]}
+/>
+
+---
+
+## Nodes Reference
+
+### bot.call
+
+<NodeHeader id="call-bot" icon="Package" label="Call Bot" description="Invoke another bot as a subprocess, passing parameters and receiving results" bgColor="#fce7f3" textColor="#be185d" />
+
+**Configuration:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `bot_id` | bot-select | Yes | Bot to call from this project |
+| `parameters` | JSON | No | Parameters to pass (supports expressions) |
+| `wait_for_completion` | boolean | No | Wait for result (default: true) |
+| `timeout_seconds` | number | No | Max wait time (default: 300) |
+| `retry_count` | number | No | Retry attempts on failure |
+| `retry_delay_seconds` | number | No | Delay between retries |
+| `fail_on_error` | boolean | No | Stop parent if subbot fails |
+| `inherit_context` | boolean | No | Pass vault/env to subbot |
+
+**Output:**
+
+```json
+{
+  "result": { /* returned by bot.output */ },
+  "success": true,
+  "error": null,
+  "execution_id": "exec_a1b2c3d4",
+  "duration_ms": 1234,
+  "retry_attempts": 0
+}
+```
+
+**Example - Sync Call:**
+
+```json
+{
+  "type": "bot.call",
+  "config": {
+    "bot_id": "validate-email-bot",
+    "parameters": {
+      "email": "${data.customerEmail}",
+      "strict": true
+    },
+    "timeout_seconds": 30,
+    "fail_on_error": true
+  }
+}
+```
+
+**Example - Async (Fire & Forget):**
+
+```json
+{
+  "type": "bot.call",
+  "config": {
+    "bot_id": "send-notification-bot",
+    "parameters": {
+      "message": "Process completed",
+      "channel": "slack"
+    },
+    "wait_for_completion": false
+  }
+}
+```
+
+---
+
+### bot.input
+
+<NodeHeader id="bot-input" icon="LogIn" label="Bot Input" description="Define input parameters for a bot when called as a subprocess" bgColor="#fce7f3" textColor="#be185d" />
+
+Use this **instead of a trigger** for bots designed to be called by other bots.
+
+**Configuration:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `parameters` | JSON | Yes | Parameter schema definition |
+| `validate_inputs` | boolean | No | Validate types/required (default: true) |
+| `fail_on_invalid` | boolean | No | Fail if validation fails (default: true) |
+
+**Parameter Schema Format:**
+
+```json
+[
+  {
+    "name": "email",
+    "type": "string",
+    "required": true,
+    "description": "Email address to validate"
+  },
+  {
+    "name": "items",
+    "type": "array",
+    "required": false,
+    "default": []
+  },
+  {
+    "name": "maxRetries",
+    "type": "number",
+    "required": false,
+    "default": 3
+  }
+]
+```
+
+**Output:**
+
+```json
+{
+  "params": {
+    "email": "user@example.com",
+    "items": [],
+    "maxRetries": 3
+  },
+  "caller_bot_id": "main-workflow-bot",
+  "caller_execution_id": "exec_xyz789",
+  "validation_passed": true,
+  "validation_errors": []
+}
+```
+
+---
+
+### bot.output
+
+<NodeHeader id="bot-output" icon="LogOut" label="Bot Output" description="Define what a subprocess bot returns to its caller" bgColor="#fce7f3" textColor="#be185d" />
+
+The return value is available in the calling bot's `bot.call` output as `${CallBot.result}`.
+
+**Configuration:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `return_value` | JSON | Yes | Value to return (supports expressions) |
+| `status` | select | No | Exit status: success, error, warning |
+| `message` | text | No | Human-readable status message |
+
+**Example:**
+
+```json
+{
+  "type": "bot.output",
+  "config": {
+    "return_value": {
+      "valid": "${validation.passed}",
+      "score": "${validation.score}",
+      "errors": "${validation.errors}",
+      "processedAt": "${NOW}"
+    },
+    "status": "success",
+    "message": "Validation completed: ${validation.score}%"
+  }
+}
+```
+
+---
+
+### bot.queue
+
+<NodeHeader id="bot-queue" icon="ListTodo" label="Queue Bot Calls" description="Execute multiple bot calls in parallel with concurrency control" bgColor="#fce7f3" textColor="#be185d" />
+
+Perfect for batch processing scenarios.
+
+**Configuration:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `bot_id` | bot-select | Yes | Bot to call for each item |
+| `items` | expression | Yes | Array of items to process |
+| `parameter_mapping` | JSON | Yes | Map item fields to bot parameters |
+| `concurrency` | number | No | Max parallel executions (default: 3) |
+| `fail_fast` | boolean | No | Stop all on first failure |
+| `collect_results` | boolean | No | Gather results into array |
+| `timeout_per_item` | number | No | Timeout per item (seconds) |
+
+**Parameter Mapping Example:**
+
+```json
+{
+  "invoice_id": "${item.id}",
+  "amount": "${item.total}",
+  "customer": "${item.customer.name}"
+}
+```
+
+**Output:**
+
+```json
+{
+  "results": [
+    { "valid": true, "invoice_id": "INV-001" },
+    { "valid": true, "invoice_id": "INV-002" },
+    { "valid": false, "invoice_id": "INV-003", "error": "Invalid amount" }
+  ],
+  "total": 3,
+  "succeeded": 2,
+  "failed": 1,
+  "errors": [
+    { "index": 2, "error": "Invalid amount" }
+  ],
+  "duration_ms": 4521
+}
+```
+
+---
+
+## Execution Flow
+
+<FlowDiagram items={[
+  { label: "Main Bot", sublabel: "bot.call(id, params)", type: "primary" },
+  { label: "Engine", sublabel: "Start subprocess", type: "default" },
+  { label: "Subbot", sublabel: "bot.input → Process → bot.output", type: "warning" },
+  { label: "Engine", sublabel: "Return result", type: "default" },
+  { label: "Main Bot", sublabel: "${CallBot.result}", type: "success" }
+]} />
+
+---
+
+## Use Cases
+
+### 1. Email Validation Service
+
+Create a reusable email validation bot:
+
+<Diagram 
+  groups={[
+    {
+      id: "subbot",
+      label: "validate-email Subbot",
+      direction: "row",
+      nodes: [
+        { id: "input", label: "bot.input", sublabel: "email, strict", type: "pill" },
+        { id: "format", label: "Check Format", sublabel: "regex", type: "default" },
+        { id: "domain", label: "Check Domain", sublabel: "DNS lookup", type: "default" },
+        { id: "disposable", label: "Check Disposable", type: "default" },
+        { id: "output", label: "bot.output", sublabel: "valid, reason, score", type: "pill" }
+      ]
+    }
+  ]}
+/>
+
+**Usage in main bot:**
+
+```json
+{
+  "type": "bot.call",
+  "config": {
+    "bot_id": "validate-email",
+    "parameters": {
+      "email": "${form.email}",
+      "strict": true
+    }
+  }
+}
+```
+
+### 2. Batch Invoice Processing
+
+Process 1000 invoices with 5 parallel workers:
+
+```json
+{
+  "type": "bot.queue",
+  "config": {
+    "bot_id": "process-single-invoice",
+    "items": "${database.invoices}",
+    "parameter_mapping": {
+      "invoice_id": "${item.id}",
+      "vendor": "${item.vendor}",
+      "amount": "${item.total}"
+    },
+    "concurrency": 5,
+    "fail_fast": false,
+    "timeout_per_item": 120
+  }
+}
+```
+
+### 3. Multi-Step Approval Workflow
+
+<FlowDiagram items={[
+  { label: "Main Workflow", type: "primary" },
+  { label: "validate-request", sublabel: "→ valid: true", type: "default" },
+  { label: "check-budget", sublabel: "→ approved: true", type: "default" },
+  { label: "get-approvers", sublabel: "→ approvers[]", type: "default" },
+  { label: "send-notifications", sublabel: "async (fire & forget)", type: "success" }
+]} />
+
+---
+
+## Enterprise Features
+
+| Feature | Description |
+|---------|-------------|
+| **Timeout Control** | Configurable per-call timeout prevents runaway subbots |
+| **Retry with Backoff** | Automatic retry with exponential backoff on failures |
+| **Fail-Fast Mode** | Stop batch processing on first error |
+| **Context Inheritance** | Pass vault secrets and env vars to subbots |
+| **Execution Tracking** | Unique execution IDs for audit trails |
+| **Async Execution** | Fire-and-forget for non-blocking operations |
+| **Concurrency Control** | Limit parallel executions to prevent resource exhaustion |
+| **Parameter Validation** | Schema-based input validation with type checking |
+
+---
+
+## Best Practices
+
+1. **Keep Subbots Focused**: Each subbot should do one thing well
+2. **Define Clear Contracts**: Use `bot.input` schema to document expected parameters
+3. **Handle Errors Gracefully**: Use `fail_on_error: false` when appropriate
+4. **Set Reasonable Timeouts**: Prevent hung processes from blocking workflows
+5. **Use Async for Notifications**: Fire-and-forget for non-critical side effects
+6. **Limit Concurrency**: Match concurrency to available resources
+7. **Log Meaningful Messages**: Use `bot.output` message for debugging

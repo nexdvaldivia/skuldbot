@@ -1,0 +1,44 @@
+[package]
+name = "skuldbot-studio"
+version = "0.1.0"
+description = "SkuldBot Studio - Visual RPA Editor"
+authors = ["Skuld, LLC"]
+license = "Proprietary"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+tauri-build = { version = "1.5", features = [] }
+
+[dependencies]
+tauri = { version = "1.5", features = [ "shell-open", "dialog-all", "fs-all"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["full"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.6", features = ["v4"] }
+slug = "0.1"
+dirs = "5.0"
+reqwest = { version = "0.11", features = ["json"] }
+hostname = "0.4"
+once_cell = "1.19"
+rand = "0.8"
+keyring = "2.0"
+sha2 = "0.10"
+async-trait = "0.1"
+regex = "1.10"
+thiserror = "1.0"
+urlencoding = "2.1"
+
+# Desktop editor dependencies (simplified)
+rusqlite = { version = "0.31", features = ["bundled"] }  # Local project storage
+anyhow = "1.0"  # Error handling
+
+[features]
+# this feature is used for production builds or when `devPath` points to the filesystem
+# DO NOT REMOVE!!
+custom-protocol = ["tauri/custom-protocol"]
+
+
+

@@ -1,0 +1,408 @@
+export const metadata = {
+  title: 'Files & Folders',
+  description: 'Complete file system operations. Read, write, copy, move, delete files and folders. ZIP compression and folder monitoring.',
+}
+
+export const sections = [
+  { title: 'Read File', id: 'files-read' },
+  { title: 'Write File', id: 'files-write' },
+  { title: 'Copy File', id: 'files-copy' },
+  { title: 'Move File', id: 'files-move' },
+  { title: 'Delete File', id: 'files-delete' },
+  { title: 'Create Folder', id: 'files-create_folder' },
+  { title: 'List Files', id: 'files-list' },
+  { title: 'File Exists', id: 'files-exists' },
+  { title: 'Create ZIP', id: 'files-zip' },
+  { title: 'Extract ZIP', id: 'files-unzip' },
+  { title: 'Get File Info', id: 'files-get_info' },
+  { title: 'Watch Folder', id: 'files-watch' },
+  { title: 'Presigned URL', id: 'files-presigned_url' },
+]
+
+<NodeHeader id="files-overview" icon="FolderOpen" label="Files & Folders" description="Complete file system operations through the unified Storage Provider abstraction" bgColor="#fef3c7" textColor="#b45309" />
+
+Read, write, copy, move, delete files and folders. ZIP compression and folder monitoring.
+
+---
+
+## Storage Provider Required
+
+**All file operations require a Storage Provider connection.** This ensures consistent behavior whether you're working with local files, AWS S3, Azure Blob, or any other storage backend.
+
+<Diagram 
+  groups={[
+    {
+      id: "providers",
+      label: "Storage Providers",
+      direction: "column",
+      nodes: [
+        { id: "local", label: "Local Filesystem", type: "default" },
+        { id: "s3", label: "AWS S3", type: "default" },
+        { id: "azure", label: "Azure Blob", type: "default" },
+        { id: "gcs", label: "Google Cloud", type: "default" },
+        { id: "sftp", label: "SFTP / FTP", type: "default" },
+      ]
+    },
+    {
+      id: "config",
+      label: "Configuration",
+      nodes: [
+        { id: "provider", label: "storage.provider", type: "pill" }
+      ]
+    },
+    {
+      id: "operations",
+      label: "File Operations",
+      direction: "column",
+      nodes: [
+        { id: "read", label: "files.read", type: "success" },
+        { id: "write", label: "files.write", type: "success" },
+        { id: "list", label: "files.list", type: "success" },
+        { id: "copy", label: "files.copy", type: "success" },
+      ]
+    }
+  ]}
+/>
+
+<Note>
+**Local files?** Use `storage.provider` with type "Local" and set the base path.
+
+**Cloud files?** Use `storage.provider` with S3, Azure, GCS, etc. and configure credentials.
+</Note>
+
+See the [Storage Provider](/components/storage) documentation for configuration details.
+
+---
+
+<NodeHeader id="files-read" icon="FileInput" label="Read File" description="Reads the contents of a file from any storage provider" bgColor="#fef3c7" textColor="#b45309" />
+
+<FlowDiagram items={[
+  { label: "storage.provider", sublabel: "AWS S3", type: "primary" },
+  { label: "files.read", sublabel: "Path: /data/config.json", type: "warning" },
+  { label: "Output", sublabel: "content, size, provider", type: "success" }
+]} />
+
+### Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `path` | text | Yes | File path (relative to provider's base path) |
+| `encoding` | select | No | `utf-8` (default), `ascii`, `latin-1`, `binary` |
+
+### Output
+
+```json
+{
+  "content": "File contents here...",
+  "path": "/data/report.txt",
+  "size": 1024,
+  "provider": "my-s3-bucket"
+}
+```
+
+---
+
+<NodeHeader id="files-write" icon="FileOutput" label="Write File" description="Writes content to a file in any storage provider" bgColor="#fef3c7" textColor="#b45309" />
+
+### Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `path` | text | Yes | Destination file path |
+| `content` | textarea | Yes | Text to write. Supports expressions: `${prev.data}` |
+| `append` | boolean | No | Append to existing file (default: false) |
+| `content_type` | text | No | MIME type (auto-detected if not specified) |
+
+### Output
+
+```json
+{
+  "path": "/output/report.csv",
+  "size": 2048,
+  "status": "success"
+}
+```
+
+---
+
+<NodeHeader id="files-copy" icon="Copy" label="Copy File" description="Copies a file within the same storage provider" bgColor="#fef3c7" textColor="#b45309" />
+
+For cross-provider copy, use [storage.transfer](/components/storage#storage-transfer).
+
+### Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `source` | text | Yes | Source file path |
+| `destination` | text | Yes | Destination path |
+
+### Output
+
+```json
+{
+  "source": "/data/original.pdf",
+  "destination": "/backup/original.pdf",
+  "copied": true
+}
+```
+
+---
+
+<NodeHeader id="files-move" icon="FolderInput" label="Move File" description="Moves or renames a file within the same storage provider" bgColor="#fef3c7" textColor="#b45309" />
+
+For cross-provider move, use [storage.transfer](/components/storage#storage-transfer).
+
+### Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `source` | text | Yes | Source file path |
+| `destination` | text | Yes | Destination path |
+
+### Output
+
+```json
+{
+  "source": "/inbox/doc.pdf",
+  "destination": "/processed/doc.pdf",
+  "moved": true
+}
+```
+
+---
+
+<NodeHeader id="files-delete" icon="Trash2" label="Delete File" description="Deletes a file or directory" bgColor="#fef3c7" textColor="#b45309" />
+
+### Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `path` | text | Yes | File or folder path to delete |
+| `recursive` | boolean | No | Delete folder contents recursively (default: false) |
+
+### Output
+
+```json
+{
+  "path": "/temp/old-file.txt",
+  "deleted": true
+}
+```
+
+---
+
+<NodeHeader id="files-create_folder" icon="FolderPlus" label="Create Folder" description="Creates a new directory, including parent directories if needed" bgColor="#fef3c7" textColor="#b45309" />
+
+### Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `path` | text | Yes | Folder path to create |
+
+### Output
+
+```json
+{
+  "path": "/data/reports/2024",
+  "created": true
+}
+```
+
+---
+
+<NodeHeader id="files-list" icon="FolderOpen" label="List Files" description="Lists files in a directory with optional pattern filtering" bgColor="#fef3c7" textColor="#b45309" />
+
+### Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `path` | text | Yes | Directory path to list |
+| `pattern` | text | No | Filter pattern (e.g., `*.csv`, `report_*`) |
+| `recursive` | boolean | No | Include subdirectories (default: false) |
+
+### Output
+
+```json
+{
+  "files": [
+    { "name": "report.csv", "path": "/data/report.csv", "size": 1024 },
+    { "name": "data.json", "path": "/data/data.json", "size": 512 }
+  ],
+  "count": 2
+}
+```
+
+---
+
+<NodeHeader id="files-exists" icon="FileSearch" label="File Exists" description="Checks if a file or folder exists" bgColor="#fef3c7" textColor="#b45309" />
+
+### Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `path` | text | Yes | Path to check |
+
+### Output
+
+```json
+{
+  "exists": true
+}
+```
+
+---
+
+<NodeHeader id="files-get_info" icon="FileText" label="Get File Info" description="Gets detailed metadata about a file" bgColor="#fef3c7" textColor="#b45309" />
+
+### Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `path` | text | Yes | File path |
+
+### Output
+
+```json
+{
+  "name": "report.pdf",
+  "path": "/data/report.pdf",
+  "size": 102400,
+  "extension": ".pdf",
+  "created": "2024-01-15T10:30:00Z",
+  "modified": "2024-01-15T14:45:00Z",
+  "content_type": "application/pdf",
+  "etag": "abc123..."
+}
+```
+
+---
+
+<NodeHeader id="files-zip" icon="Archive" label="Create ZIP" description="Creates a ZIP archive from files or directories" bgColor="#fef3c7" textColor="#b45309" />
+
+### Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `source` | text | Yes | File or folder to compress |
+| `destination` | text | Yes | Output ZIP file path |
+| `compression_level` | select | No | `store`, `default`, `best` |
+
+### Output
+
+```json
+{
+  "path": "/archives/backup.zip",
+  "size": 51200,
+  "files_count": 15,
+  "compression": "default"
+}
+```
+
+---
+
+<NodeHeader id="files-unzip" icon="FolderArchive" label="Extract ZIP" description="Extracts a ZIP archive to a directory" bgColor="#fef3c7" textColor="#b45309" />
+
+### Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `source` | text | Yes | ZIP file path |
+| `destination` | text | Yes | Directory to extract to |
+
+### Output
+
+```json
+{
+  "path": "/extracted/",
+  "files": ["/extracted/doc1.pdf", "/extracted/doc2.pdf"],
+  "files_count": 2
+}
+```
+
+---
+
+<NodeHeader id="files-watch" icon="Eye" label="Watch Folder" description="Monitors a folder for file changes (local only)" bgColor="#fef3c7" textColor="#b45309" />
+
+<Note>
+**Local Only:** `files.watch` only works with local filesystem. Cloud storage providers (S3, Azure, etc.) do not support real-time file watching.
+</Note>
+
+### Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `path` | text | Yes | Directory to watch |
+| `pattern` | text | No | File pattern (e.g., `*.csv`) |
+| `timeout` | number | No | Max wait time in seconds (default: 60) |
+
+### Output
+
+```json
+{
+  "changed_file": "/inbox/new_invoice.pdf",
+  "event": "created",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "timeout_reached": false
+}
+```
+
+Events: `created`, `modified`, `deleted`, `none`
+
+---
+
+<NodeHeader id="files-presigned_url" icon="Link" label="Presigned URL" description="Generates a temporary access URL for a file (cloud only)" bgColor="#fef3c7" textColor="#b45309" />
+
+<Note>
+**Cloud Only:** `files.presigned_url` only works with cloud storage providers (S3, Azure Blob, GCS). Local filesystem does not support presigned URLs.
+</Note>
+
+### Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `path` | text | Yes | File path in cloud storage |
+| `expiration` | number | No | URL validity in seconds (default: 3600) |
+
+### Output
+
+```json
+{
+  "url": "https://bucket.s3.amazonaws.com/file.pdf?X-Amz-Signature=...",
+  "expires_at": "2024-01-15T11:30:00Z"
+}
+```
+
+---
+
+## Cross-Provider Operations
+
+For operations between different storage providers, use the dedicated transfer nodes:
+
+| Operation | Node | Description |
+|-----------|------|-------------|
+| Copy between providers | [storage.transfer](/components/storage#storage-transfer) | Transfer file from one provider to another |
+| Sync directories | [storage.sync](/components/storage#storage-sync) | Sync entire directories between providers |
+
+<Diagram 
+  groups={[
+    {
+      id: "source",
+      label: "Source",
+      nodes: [{ id: "s3", label: "AWS S3", type: "primary" }]
+    },
+    {
+      id: "transfer",
+      label: "Transfer",
+      nodes: [{ id: "transfer", label: "storage.transfer", type: "pill" }]
+    },
+    {
+      id: "dest",
+      label: "Destination",
+      nodes: [{ id: "azure", label: "Azure Blob", type: "success" }]
+    }
+  ]}
+/>
+
+<Note>
+Use `storage.transfer` for one-time file transfers and `storage.sync` for keeping directories in sync.
+</Note>
