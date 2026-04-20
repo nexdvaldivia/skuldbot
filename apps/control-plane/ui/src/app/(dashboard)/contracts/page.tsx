@@ -44,7 +44,6 @@ function ContractsPageContent() {
   const [contracts, setContracts] = useState<ContractGroupSummary[]>([]);
   const [acceptances, setAcceptances] = useState<ContractAcceptance[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadFailed, setLoadFailed] = useState(false);
 
   const tabFromUrl = searchParams.get('tab') as ContractsTab | null;
   const [activeTab, setActiveTab] = useState<ContractsTab>(
@@ -84,7 +83,6 @@ function ContractsPageContent() {
         });
     } catch (err) {
       console.error('Failed to fetch contracts data:', err);
-      setLoadFailed(true);
       toast({ title: 'Error', description: 'Failed to load contracts data. Please try again.', variant: 'error' });
     } finally {
       setLoading(false);
@@ -113,15 +111,6 @@ function ContractsPageContent() {
     );
   }
 
-  if (loadFailed) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <AlertCircle className="w-12 h-12 text-rose-500" />
-        <p className="text-zinc-600">Failed to load contracts data.</p>
-        <Button onClick={() => { setLoadFailed(false); fetchData(); }}>Retry</Button>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-8">
