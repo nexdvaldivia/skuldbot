@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -371,11 +372,10 @@ export class MarketplaceController {
   @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_APPROVE)
   async approvePartner(
     @Param('id') id: string,
-    @Body() body: { approvedBy?: string },
     @CurrentUser() currentUser: User,
     @Req() request: Request,
   ): Promise<Partner> {
-    const approvedBy = body.approvedBy ?? currentUser.email ?? currentUser.id;
+    const approvedBy = this.resolveAuthenticatedActor(currentUser);
     return this.marketplaceService.approvePartner(
       id,
       approvedBy,
@@ -389,11 +389,11 @@ export class MarketplaceController {
   @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_APPROVE)
   async rejectPartner(
     @Param('id') id: string,
-    @Body() body: { rejectedBy?: string; reason?: string },
+    @Body() body: { reason?: string },
     @CurrentUser() currentUser: User,
     @Req() request: Request,
   ): Promise<Partner> {
-    const rejectedBy = body.rejectedBy ?? currentUser.email ?? currentUser.id;
+    const rejectedBy = this.resolveAuthenticatedActor(currentUser);
     return this.marketplaceService.rejectPartner(
       id,
       rejectedBy,
@@ -408,11 +408,10 @@ export class MarketplaceController {
   @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_APPROVE)
   async activatePartner(
     @Param('id') id: string,
-    @Body() body: { activatedBy?: string },
     @CurrentUser() currentUser: User,
     @Req() request: Request,
   ): Promise<Partner> {
-    const activatedBy = body.activatedBy ?? currentUser.email ?? currentUser.id;
+    const activatedBy = this.resolveAuthenticatedActor(currentUser);
     return this.marketplaceService.activatePartner(
       id,
       activatedBy,
@@ -426,11 +425,11 @@ export class MarketplaceController {
   @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_APPROVE)
   async suspendPartner(
     @Param('id') id: string,
-    @Body() body: { suspendedBy?: string; reason?: string },
+    @Body() body: { reason?: string },
     @CurrentUser() currentUser: User,
     @Req() request: Request,
   ): Promise<Partner> {
-    const suspendedBy = body.suspendedBy ?? currentUser.email ?? currentUser.id;
+    const suspendedBy = this.resolveAuthenticatedActor(currentUser);
     return this.marketplaceService.suspendPartner(
       id,
       suspendedBy,
@@ -445,11 +444,11 @@ export class MarketplaceController {
   @RequirePermissions(CP_PERMISSIONS.MARKETPLACE_APPROVE)
   async terminatePartner(
     @Param('id') id: string,
-    @Body() body: { terminatedBy?: string; reason?: string },
+    @Body() body: { reason?: string },
     @CurrentUser() currentUser: User,
     @Req() request: Request,
   ): Promise<Partner> {
-    const terminatedBy = body.terminatedBy ?? currentUser.email ?? currentUser.id;
+    const terminatedBy = this.resolveAuthenticatedActor(currentUser);
     return this.marketplaceService.terminatePartner(
       id,
       terminatedBy,
@@ -611,6 +610,14 @@ export class MarketplaceController {
     return this.marketplaceService.getMarketplaceAnalytics(
       this.resolveAuditActor(currentUser, request),
     );
+  }
+
+  private resolveAuthenticatedActor(currentUser: User): string {
+    const actor = currentUser?.email ?? currentUser?.id;
+    if (!actor) {
+      throw new BadRequestException('Authenticated actor identity is required');
+    }
+    return actor;
   }
 
   private resolveAuditActor(
