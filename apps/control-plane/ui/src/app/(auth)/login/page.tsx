@@ -27,7 +27,6 @@ export default function LoginPage() {
       });
       router.push('/dashboard');
     } catch (err) {
-      console.error('Login error:', err);
       const message = err instanceof Error ? err.message : 'Invalid email or password';
 
       // Check if it's a connection error
