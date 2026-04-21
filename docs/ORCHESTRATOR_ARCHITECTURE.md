@@ -121,6 +121,13 @@ Dashboards OOTB (throughput, duración p50/p95, SLA compliance, runner utilizati
 - **RNF7 — Rotation & lifecycle de secretos**: rotación sin downtime. No key monolítico (aprender de n8n CVE-2025-68613).
 - **RNF8 — Sandboxing real**: Flows no corren `vm2` (abandonware con CVEs). Usar isolated-vm (V8 isolates) o Firecracker/gVisor para jobs no-trusted.
 - **RNF9 — Resilience**: chaos testing obligatorio pre-prod. Circuit breakers por provider. Bulkhead isolation entre tenants.
+- **RNF10 — BYO-LLM first-class (no opcional)**:
+  - Todo nodo `ai.*` declara explícitamente el `provider` (OpenAI / Anthropic / Azure OpenAI / AWS Bedrock / GCP Vertex / Ollama / LM Studio / custom on-prem). No hay "default central" de Skuld.
+  - **Routing policy-aware** obligatorio: datos clasificados `PHI/PII/PCI/CONFIDENTIAL` **solo** pueden enviarse a providers marcados `BYOM` o `LOCAL` (nunca a OpenAI/Anthropic public cloud salvo con BAA firmado + classification `INTERNAL/PUBLIC`).
+  - Runner ejecuta el LLM call con **credenciales del tenant**, nunca con credenciales de Skuld. Skuld central no es intermediario del payload — el payload PHI no atraviesa infraestructura Skuld.
+  - Evidence Pack registra por cada decision: `modelProvider`, `modelName`, `endpoint`, `tokensUsed`, `dataResidencyRegion`, `BAASignedFlag`, `promptHash`, `responseHash`.
+  - Fallback configurable per-tenant si el provider BYOM está down: degradar a LOCAL edge, o fallar el run, nunca fallback silencioso a cloud pública.
+  - Diferenciador vs n8n/UiPath/ElectroNeek: ninguno tiene BYO-LLM *policy-aware* nativo en el runtime.
 
 ---
 
@@ -241,6 +248,197 @@ Dashboards OOTB (throughput, duración p50/p95, SLA compliance, runner utilizati
     └──────────────────────────────────────────────────────────────────────┘
 ```
 
+### 4.1-B Vista Ejecutiva (1 página, 12 módulos)
+
+Diagrama de bloques oficial del Orchestrator en formato SVG (autoría Lico, aprobado 2026-04-21). Los 12 bloques son el rollup ejecutivo de los 22 módulos detallados en Sección 5. Renderable en `docs/assets/orchestrator-blocks.svg`.
+
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1120" viewBox="0 0 1800 1120">
+  <defs>
+    <style>
+      .title { font: 700 28px 'Segoe UI', Arial, sans-serif; fill: #0f172a; }
+      .subtitle { font: 500 15px 'Segoe UI', Arial, sans-serif; fill: #334155; }
+      .zone { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 2; rx: 14; }
+      .module { fill: #ffffff; stroke: #94a3b8; stroke-width: 1.8; rx: 10; }
+      .mtext { font: 600 13px 'Segoe UI', Arial, sans-serif; fill: #0f172a; }
+      .msub { font: 500 11px 'Segoe UI', Arial, sans-serif; fill: #475569; }
+      .actor { fill: #eef2ff; stroke: #818cf8; stroke-width: 1.6; rx: 10; }
+      .store { fill: #ecfeff; stroke: #0891b2; stroke-width: 1.6; rx: 10; }
+      .edge { stroke: #334155; stroke-width: 1.8; fill: none; marker-end: url(#arrow); }
+      .edge2 { stroke: #64748b; stroke-width: 1.4; fill: none; marker-end: url(#arrow); }
+      .callout { fill: #fefce8; stroke: #eab308; stroke-width: 1.4; rx: 8; }
+      .ctext { font: 600 12px 'Segoe UI', Arial, sans-serif; fill: #713f12; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+  </defs>
+
+  <text x="40" y="44" class="title">SkuldBot Orchestrator - Arquitectura Ejecutiva (12 Modulos)</text>
+  <text x="40" y="70" class="subtitle">Flow Engine + Bot Engine + Agentic Runtime | Contrato unico: bot.call | Cloud-agnostic | Compliance-first</text>
+
+  <rect x="40" y="110" width="250" height="64" class="actor"/>
+  <text x="58" y="140" class="mtext">Studio (Tauri + React)</text>
+  <text x="58" y="158" class="msub">DSL / Compile / Publish</text>
+
+  <rect x="320" y="110" width="250" height="64" class="actor"/>
+  <text x="338" y="140" class="mtext">Admin UI (Orchestrator)</text>
+  <text x="338" y="158" class="msub">Ops / Runners / Jobs</text>
+
+  <rect x="600" y="110" width="260" height="64" class="actor"/>
+  <text x="618" y="140" class="mtext">External Systems</text>
+  <text x="618" y="158" class="msub">Webhook / MQ / Storage / APIs</text>
+
+  <rect x="40" y="200" width="1220" height="770" class="zone"/>
+  <text x="58" y="230" class="mtext">Customer Orchestrator (in tenant subscription / on-prem)</text>
+
+  <rect x="70" y="260" width="270" height="92" class="module"/>
+  <text x="84" y="286" class="mtext">1) API Gateway + Auth/RBAC</text>
+  <text x="84" y="304" class="msub">M1 Identity | M2 RBAC | M3 Tenancy</text>
+
+  <rect x="360" y="260" width="270" height="92" class="module"/>
+  <text x="374" y="286" class="mtext">2) Bot Registry / Versionado</text>
+  <text x="374" y="304" class="msub">M4 Bot Registry | M5 Compiler/Package</text>
+
+  <rect x="650" y="260" width="270" height="92" class="module"/>
+  <text x="664" y="286" class="mtext">12) Scheduler / Triggers</text>
+  <text x="664" y="304" class="msub">M9 Trigger/Scheduler + M19 EventBus</text>
+
+  <rect x="940" y="260" width="290" height="92" class="module"/>
+  <text x="954" y="286" class="mtext">3) Run Lifecycle Manager</text>
+  <text x="954" y="304" class="msub">M6 Run Manager (state machine)</text>
+
+  <rect x="70" y="380" width="270" height="100" class="module"/>
+  <text x="84" y="406" class="mtext">4) Dispatch + Queue Manager</text>
+  <text x="84" y="424" class="msub">M7 Dispatch Router</text>
+  <text x="84" y="440" class="msub">M8 Transport(BullMQ) + Business Queues</text>
+
+  <rect x="360" y="380" width="270" height="100" class="module"/>
+  <text x="374" y="406" class="mtext">7) Service Worker Pool Manager</text>
+  <text x="374" y="424" class="msub">M21 SW lifecycle, autoscale, isolation</text>
+  <text x="374" y="440" class="msub">Flow engine workers (containers)</text>
+
+  <rect x="650" y="380" width="270" height="100" class="module"/>
+  <text x="664" y="406" class="mtext">5) Runner Manager</text>
+  <text x="664" y="424" class="msub">M10 Runner Registry + M12 Power Manager</text>
+  <text x="664" y="440" class="msub">Pools, capabilities, 9 power providers</text>
+
+  <rect x="940" y="380" width="290" height="100" class="module"/>
+  <text x="954" y="406" class="mtext">6) Session Broker</text>
+  <text x="954" y="424" class="msub">M11 RDP session assignment / cleanup</text>
+  <text x="954" y="440" class="msub">Per-job isolation, PII scrub policy</text>
+
+  <rect x="70" y="510" width="270" height="100" class="module"/>
+  <text x="84" y="536" class="mtext">8) Secrets &amp; Credential Broker</text>
+  <text x="84" y="554" class="msub">M13 Vault plugins (BYO secrets)</text>
+  <text x="84" y="570" class="msub">Never expose secrets to frontend</text>
+
+  <rect x="360" y="510" width="270" height="100" class="module"/>
+  <text x="374" y="536" class="mtext">9) Policy / Compliance Engine</text>
+  <text x="374" y="554" class="msub">M16 Policy Packs compile+runtime</text>
+  <text x="374" y="570" class="msub">M22 BYOM Routing &amp; Provider Registry</text>
+
+  <rect x="650" y="510" width="270" height="100" class="module"/>
+  <text x="664" y="536" class="mtext">10) Evidence &amp; Audit Engine</text>
+  <text x="664" y="554" class="msub">M15 Evidence Pack (WORM signed)</text>
+  <text x="664" y="570" class="msub">Audit trail separado (operacional)</text>
+
+  <rect x="940" y="510" width="290" height="100" class="module"/>
+  <text x="954" y="536" class="mtext">11) Observability</text>
+  <text x="954" y="554" class="msub">M18 OTLP traces, metrics, logs, audit</text>
+  <text x="954" y="570" class="msub">CorrelationId end-to-end</text>
+
+  <rect x="70" y="640" width="1160" height="66" class="callout"/>
+  <text x="90" y="668" class="ctext">Invariante: Flow -> Orchestrator Dispatch -> Bot Job -> Runner -> Result -> Flow</text>
+  <text x="90" y="688" class="ctext">Prohibido: Flow -> Runner directo | Contrato unico de invocacion: bot.call</text>
+
+  <rect x="1280" y="200" width="480" height="500" class="zone"/>
+  <text x="1298" y="230" class="mtext">Execution Plane</text>
+
+  <rect x="1310" y="260" width="420" height="110" class="module"/>
+  <text x="1326" y="288" class="mtext">Service Workers (Flow Runtime)</text>
+  <text x="1326" y="308" class="msub">Containers / K8s jobs | stateless compute</text>
+  <text x="1326" y="326" class="msub">Receives flow runs from M21 + M7</text>
+
+  <rect x="1310" y="395" width="420" height="130" class="module"/>
+  <text x="1326" y="423" class="mtext">Desktop Runners (Bot Runtime)</text>
+  <text x="1326" y="443" class="msub">Windows/macOS/Linux | UI automation</text>
+  <text x="1326" y="461" class="msub">RDP/Citrix/SAP/Legacy | session-isolated</text>
+  <text x="1326" y="479" class="msub">Managed by M10/M11/M12</text>
+
+  <rect x="1310" y="550" width="420" height="120" class="module"/>
+  <text x="1326" y="578" class="mtext">Runner Agent</text>
+  <text x="1326" y="598" class="msub">register / heartbeat / poll / claim / execute</text>
+  <text x="1326" y="616" class="msub">Returns status, output, artifacts, evidence refs</text>
+
+  <rect x="40" y="990" width="1720" height="100" class="zone"/>
+  <text x="58" y="1018" class="mtext">Data Plane (tenant-owned)</text>
+
+  <rect x="260" y="1028" width="220" height="44" class="store"/>
+  <text x="278" y="1056" class="mtext">PostgreSQL</text>
+
+  <rect x="500" y="1028" width="220" height="44" class="store"/>
+  <text x="518" y="1056" class="mtext">Redis / BullMQ</text>
+
+  <rect x="740" y="1028" width="280" height="44" class="store"/>
+  <text x="758" y="1056" class="mtext">Object Storage (WORM)</text>
+
+  <rect x="1040" y="1028" width="250" height="44" class="store"/>
+  <text x="1058" y="1056" class="mtext">Vault / KMS</text>
+
+  <rect x="1310" y="1028" width="280" height="44" class="store"/>
+  <text x="1328" y="1056" class="mtext">OTLP / Monitoring Backend</text>
+
+  <path d="M290,142 L70,296" class="edge"/>
+  <path d="M570,142 L70,296" class="edge2"/>
+  <path d="M860,142 L650,296" class="edge2"/>
+  <path d="M340,306 L360,306" class="edge"/>
+  <path d="M630,306 L650,306" class="edge"/>
+  <path d="M920,306 L940,306" class="edge"/>
+  <path d="M1085,352 L1085,380" class="edge"/>
+  <path d="M340,430 L360,430" class="edge"/>
+  <path d="M630,430 L650,430" class="edge"/>
+  <path d="M920,430 L940,430" class="edge"/>
+  <path d="M205,480 L205,510" class="edge2"/>
+  <path d="M495,480 L495,510" class="edge2"/>
+  <path d="M785,480 L785,510" class="edge2"/>
+  <path d="M1085,480 L1085,510" class="edge2"/>
+  <path d="M630,430 L1310,315" class="edge"/>
+  <path d="M1230,430 L1310,460" class="edge"/>
+  <path d="M1230,430 L1310,610" class="edge2"/>
+  <path d="M1520,550 L920,430" class="edge2"/>
+  <path d="M1085,610 L1085,1028" class="edge2"/>
+  <path d="M785,610 L860,1028" class="edge2"/>
+  <path d="M205,610 L370,1028" class="edge2"/>
+  <path d="M495,610 L605,1028" class="edge2"/>
+  <path d="M995,610 L1450,1028" class="edge2"/>
+
+  <text x="1350" y="1094" class="subtitle">© 2026 Skuld, LLC</text>
+</svg>
+```
+
+**Mapeo 12 bloques ejecutivos ↔ 22 módulos detallados:**
+
+| # | Bloque Ejecutivo | Módulos detallados (Sec. 5) |
+|---|---|---|
+| 1 | API Gateway + Auth/RBAC | M1 Identity + M2 RBAC + M3 Tenancy |
+| 2 | Bot Registry / Versionado | M4 Bot Registry + M5 Compiler & Package Registry |
+| 3 | Run Lifecycle Manager | M6 Run Manager |
+| 4 | Dispatch + Queue Manager | M7 Dispatch Router + M8 Queue Manager (transport + business) |
+| 5 | Runner Manager | M10 Runner Registry + M12 Power Manager |
+| 6 | Session Broker | M11 Session Broker |
+| 7 | Service Worker Pool Manager | M21 |
+| 8 | Secrets & Credential Broker | M13 Credential Vault |
+| 9 | Policy / Compliance Engine | M16 Policy Engine + M22 BYOM Routing (first-class) |
+| 10 | Evidence & Audit Engine | M15 Evidence Pack (WORM firmado) + parte audit de M18 |
+| 11 | Observability | M18 Observability (OTLP + Prometheus + correlation) |
+| 12 | Scheduler / Triggers | M9 Trigger & Scheduler + M19 Webhook & Event Bus |
+
+Módulos en sección 5 que **no aparecen en los 12 ejecutivos** (son entregables de cross-cutting o fases posteriores, conscientemente diferidos del rollup ejecutivo):
+- M14 Artifact Storage — utility infra subyacente (bajo Data Plane en el diagrama)
+- M17 HITL — parte de Policy Engine en vista ejecutiva (fase 6 UI)
+- M20 Insights & Analytics — fase 6 UX
+
 ### 4.2 Contextos de confianza
 
 - **Public zone**: Studio, Web UI, External API gateway, webhooks.
@@ -249,9 +447,9 @@ Dashboards OOTB (throughput, duración p50/p95, SLA compliance, runner utilizati
 
 ---
 
-## 5. Módulos del Orchestrator (20 módulos)
+## 5. Módulos del Orchestrator (22 módulos)
 
-Cada módulo es un NestJS module con ownership claro, entity(s) dedicadas, endpoints propios, tests de integración, runbook.
+Cada módulo es un NestJS module con ownership claro, entity(s) dedicadas, endpoints propios, tests de integración, runbook. Los 22 módulos se presentan ejecutivamente como 12 bloques (ver Sec. 4.1-B); el detalle técnico queda acá.
 
 ### Control Modules
 
@@ -372,6 +570,44 @@ Responsabilidades: dashboards OOTB (throughput, duración, SLA, utilization, err
 Estado actual: ❌ no existe.
 Archivos a crear: `insights/` módulo completo (Fase 6).
 
+### Runtime & Provider Modules
+
+#### M21. **Service Worker Pool Manager**
+Nota: elevado a módulo propio tras revisión (originalmente dentro de M7 Dispatch). Los Service Workers son ephemeral containers para Flow Engine (80% de runs), lifecycle distinto a Desktop Runners (VMs long-lived con RDP).
+Responsabilidades:
+- Pool management (min/max replicas, auto-scaling por queue depth).
+- Container lifecycle: Docker (dev), Kubernetes Jobs / Azure Container Apps / AWS Fargate (prod).
+- Health + readiness probes por worker.
+- Job claim + execute + shutdown (ephemeral: 1 job = 1 container).
+- Resource limits (CPU, memory) por pool.
+- Graceful drain en deploys (terminar jobs in-flight antes de shutdown).
+Estado actual: ❌ no existe. Falta completo.
+Archivos a crear:
+- `orchestrator/api/src/service-workers/sw-pool-manager.service.ts`
+- `orchestrator/api/src/service-workers/entities/service-worker-pool.entity.ts`
+- `orchestrator/api/src/service-workers/container-orchestrator/` (adapters: docker, k8s, aca, fargate)
+- `docker/service-worker/Dockerfile` (imagen: Node + engine Python embedded)
+
+#### M22. **BYOM Routing & Provider Registry**
+Responsabilidades: primary class del diferenciador BYO-LLM.
+- **Provider Registry per-tenant**: catálogo de LLM providers configurados (OpenAI, Anthropic, Azure OpenAI, AWS Bedrock, GCP Vertex, Ollama self-hosted, LM Studio, custom on-prem endpoints) con sus credenciales (vía Credential Vault M13), endpoints, modelos habilitados, data residency region.
+- **Routing Decision Engine**: recibe `dataClassification` (PHI/PII/PCI/CONFIDENTIAL/INTERNAL/PUBLIC) + `nodeType` (ai.llm_prompt, ai.embeddings) + policy context → devuelve provider + endpoint + credencial + budget/quota remaining.
+- **Policy enforcement**: integrado con Policy Engine (M16). Si el ExecutionPlan tiene datos clasificados `PHI` y el flow intenta provider cloud público → **compile-time error** (no se publica el bot). Runtime double-check antes de cada call.
+- **Health check + fallback**: probe por provider (uptime, latencia, error rate). Fallback configurable per-tenant: (a) degradar a LOCAL edge LLM, (b) fallar el run, (c) retry en provider alterno compatible. **Nunca fallback silencioso a provider cloud público si la data es clasificada**.
+- **Usage tracking**: tokens usados, latencia, costo estimado — emitido a Observability (M18) y Billing (CP, congelado pero hooks listos).
+- **BAA / DPA tracking**: flag `BAASignedFlag` por provider-tenant (si el provider tiene BAA con el tenant). Controla qué providers pueden procesar PHI.
+- **Diferenciador estructural**: ni n8n ni UiPath ni ElectroNeek tienen BYOM policy-aware nativo. Los addons LLM que existen en esos productos asumen LLM centralizado.
+- **Studio ya expone el catálogo BYOM**: nodos `ai.llm_prompt`/`ai.embeddings` con multi-provider configurable (`studio/src/data/nodeTemplates.ts`).
+Estado actual: ⚠️ **Studio tiene la UI; Orchestrator debe implementar Registry + Routing + Policy enforcement de 0.**
+Archivos a crear:
+- `orchestrator/api/src/byom/byom-registry.service.ts`
+- `orchestrator/api/src/byom/byom-router.service.ts`
+- `orchestrator/api/src/byom/entities/llm-provider.entity.ts`
+- `orchestrator/api/src/byom/entities/llm-provider-usage.entity.ts`
+- `orchestrator/api/src/byom/providers/` (adapters: openai, anthropic, azure-openai, bedrock, vertex, ollama, lm-studio, custom-http)
+- `orchestrator/api/src/byom/policy-bridge.ts` (integración con M16)
+- `packages/compiler/src/validators/byom-compliance.ts` (compile-time check de PHI→provider)
+
 ---
 
 ## 6. Data Model — Entities Clave
@@ -433,30 +669,37 @@ Archivos a crear: `insights/` módulo completo (Fase 6).
 
 Clasificación: ✅ completo / ⚠️ parcial o stub / ❌ falta por completo
 
-| Módulo | Estado | Gap principal |
+Fuentes del estado: audit directo del código + confirmación de Lico (2026-04-21) sobre estado real de Compliance día 1.
+
+| Módulo | Estado | Evidencia / Gap principal |
 |---|---|---|
 | M1 Identity & Access | ⚠️ | Base OIDC/SAML implementado; MFA obligatoria y JIT provisioning faltan |
 | M2 RBAC & Policies | ⚠️ | Role/Permission existen; folder inheritance + custom org roles faltan |
 | M3 Tenancy | ⚠️ | tenantId en todas las entities; folder hierarchy multi-level falta |
 | M4 Bot Registry | ✅ | OK |
-| M5 Compiler & Package | ⚠️ | **Crítico**: .skb packaging real + registry por feed + promote pipeline faltan |
-| M6 Run Manager | ✅ | Entity+lifecycle modelado; state machine persistida falta |
-| M7 Dispatch Router | ⚠️ | **Crítico**: `simulateExecution()` mock. Engine routing flow/bot falta |
+| M5 Compiler & Package | ⚠️ | **Crítico**: `.skb` packaging real + registry por feed + promote pipeline faltan |
+| M6 Run Manager | ✅ | Entity+lifecycle modelado (1,181 LOC run.entity.ts); state machine persistida falta |
+| M7 Dispatch Router | ⚠️ | **Crítico**: `simulateExecution()` mock vigente en `orchestrator/api/src/dispatch/runs.processor.ts`. Engine routing flow/bot falta |
 | M8 Queue Manager | ⚠️ | BullMQ transport funciona; Transactional Queues (business) faltan |
 | M9 Trigger & Scheduler | ⚠️ | Cron/Interval/Webhook OK; Event/File/Email stubs; HA + misfire recovery faltan |
 | M10 Runner Registry | ✅ | Machine Templates + licencia por slot faltan |
 | M11 Session Broker | ❌ | Falta completo |
-| M12 Power Manager | ⚠️ | **Crítico**: 9 provider stubs que loggean; Azure + Agent HTTP a implementar real |
+| M12 Power Manager | ⚠️ | **Crítico**: 9 provider stubs que loggean (`orchestrator/api/src/dispatch/infra-power.service.ts`); Azure + Agent HTTP a implementar real |
 | M13 Credential Vault | ⚠️ | Base funcional; plugin SDK público + 3-4 providers (CyberArk/Thycotic/BeyondTrust) faltan |
 | M14 Artifact Storage | ✅ | WORM enforcement por container falta |
-| M15 Evidence Pack | ⚠️ | **Crítico**: TSA simulado; integrar RFC 3161 real |
-| M16 Policy Engine | ❌ | Falta completo (compile-time + runtime evaluation) |
+| M15 Evidence Pack | ⚠️ | **Infrastructure sólida presente** (`orchestrator/api/src/evidence/`: writer, integrity, signature, retention, custody, attestation, PDF, SIEM subdirs + `evidence-pack.service.ts` + `evidence.controller.ts`). **Gap crítico**: TSA simulado (`signature.service.ts` retorna `"simulated-tsa"`). Integrar RFC 3161 real (FreeTSA / DigiCert / self-hosted) + hash chain entre packs + firma con KMS |
+| M16 Policy Engine | ⚠️ | **Compile-time existe y funciona** (`packages/compiler/src/policy/evaluate.ts` + `packages/compiler/src/types/policy.ts`). **Runtime parcial**: `orchestrator/api/src/policies/policies.service.ts` es **in-memory** (no persistencia enterprise — un restart del Orchestrator pierde state). Portar a entity persistida + versionado + audit de cambios. Y crear los 5 packs canónicos (HIPAA/SOC2/PCI/GDPR/Finance) como seeds |
 | M17 HITL | ⚠️ | Entity existe; UI + notificación faltan |
 | M18 Observability | ❌ | **Crítico**: OTLP + Prometheus + App Insights + correlation middleware faltan |
 | M19 Webhook & Event Bus | ⚠️ | Inbound parcial; outbound + Event Bus interno faltan |
 | M20 Insights & Analytics | ❌ | Falta completo (Fase 6) |
+| **M21 Service Worker Pool Manager** | ❌ | Falta completo. Existe `orchestrator/api/src/dispatch/` pero sin pool de containers. Docker/K8s adapters por construir |
+| **M22 BYOM Routing & Provider Registry** | ⚠️ | **Studio expone catálogo** (`studio/src/data/nodeTemplates.ts`: OpenAI/Anthropic/Azure OpenAI/Ollama/AWS Bedrock como providers en `ai.model`/`ai.llm_prompt`). **Orchestrator**: Registry + Router + Policy enforcement faltan completos. Provider adapters en runtime Python por implementar |
 
-**Total**: 2 ✅ completos, 11 ⚠️ parciales, 7 ❌ faltantes.
+**Total**: 2 ✅ completos, **14 ⚠️ parciales** (incluyendo 2 con infraestructura sólida pero TSA/persistencia pendientes), **6 ❌ faltantes**.
+
+**Nota sobre Compliance día 1** — hallazgo importante del audit:
+- Lo que parecía ❌ falta en M15/M16 en realidad está ⚠️ parcial: **hay infraestructura sólida** (writer/integrity/signature/retention en evidence, compile-time evaluator en policy, API endpoints en orchestrator). **Los gaps son concretos y acotados**: TSA simulado (fix: RFC 3161 real), policies in-memory (fix: persistencia). Esto acelera Fase 1 del Plan Unificado considerablemente — **no partimos de cero**, partimos de 70% y subimos el 30% que falta a enterprise-grade.
 
 ---
 
@@ -468,14 +711,18 @@ Clasificación: ✅ completo / ⚠️ parcial o stub / ❌ falta por completo
 | M18 Observability | Fase 0 | Se despliega con el Orchestrator desde día 0 |
 | M5 Packager, M7 Dispatch real (eliminar simulateExecution) | Fase 1 | Bloqueadores críticos del E2E |
 | M8 Queue Manager (BullMQ 3-colas) | Fase 1 | Necesario para dispatch real |
+| **M21 Service Worker Pool Manager** | Fase 1 | Ejecución real de flows requiere pool de SW desde Fase 1 (no "1 container de prueba") |
+| **M22 BYOM Routing & Provider Registry + compile-time policy check** | Fase 1 | Diferenciador BYO-LLM first-class; Studio ya expone catálogo, Orchestrator debe enforcement desde el primer run |
 | M6 Run lifecycle persistido, M19 Event Bus | Fase 1 | Core de ejecución y trazabilidad |
-| M15 Evidence Pack con TSA real | Fase 1 | Compliance desde día 1 |
+| M15 Evidence Pack con TSA real | Fase 1 | Compliance desde día 1 (ya hay 70% de infraestructura — fix TSA + hash chain) |
+| M16 Policy Engine (persistencia) | Fase 1 | Mover de in-memory a entity persistida + seed 5 packs canónicos |
 | M11 Session Broker | Fase 2 | Desktop runners serios |
 | M12 Power Manager real (Azure + Agent HTTP) | Fase 3 | Stubs → real |
 | M9 Scheduler HA + misfire recovery, retry policies formalizados | Fase 4 | Hardening |
 | M12 Power Manager (AWS/GCP/VMware/Hyper-V/Proxmox/WoL/IPMI) | Fase 5 | Multi-cloud + on-prem |
 | M8 Transactional Queues (business layer) | Fase 4 | Después de queues base estables |
-| M16 Policy Engine | Fase 1-4 | Compile-time en Fase 1; runtime hardening en Fase 4 |
+| M16 Policy Engine runtime hardening | Fase 4 | Runtime interceptors + chaos testing |
+| M22 BYOM health check + fallback policies + usage tracking | Fase 4 | Hardening después de routing básico |
 | M17 HITL UI, M20 Insights & Analytics | Fase 6 | UX completa |
 
 ---
