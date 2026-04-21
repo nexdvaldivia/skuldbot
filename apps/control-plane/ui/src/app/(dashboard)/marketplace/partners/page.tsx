@@ -251,7 +251,7 @@ export default function PartnersPage() {
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-full sm:w-[160px]">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
