@@ -18,10 +18,9 @@ export default function SendForSigningPage() {
   useEffect(() => {
     (async () => {
       try {
-        const data = await contractsApi.getTemplate(templateId) as Record<string, unknown>;
+        const data = (await contractsApi.getTemplate(templateId)) as Record<string, unknown>;
         setTemplate(data);
-      } catch (err) {
-        console.error('Failed to load template:', err);
+      } catch {
         toast({ title: 'Error', description: 'Failed to load template.', variant: 'error' });
       } finally {
         setLoading(false);
@@ -48,7 +47,8 @@ export default function SendForSigningPage() {
         <div>
           <h1 className="text-xl font-bold text-zinc-900">Send for Signing</h1>
           <p className="text-sm text-zinc-500">
-            {(template?.display_name as string) || 'Template'} — v{(template?.version as string) || '?'}
+            {(template?.displayName as string) || 'Template'} — v
+            {(template?.version as string) || '?'}
           </p>
         </div>
       </div>
@@ -65,7 +65,8 @@ export default function SendForSigningPage() {
             <Send className="w-12 h-12 text-zinc-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-zinc-900 mb-2">Send Contract for Signing</h3>
             <p className="text-zinc-500">
-              The signing wizard with recipient selection, variable resolution, and envelope creation will be available in the next update.
+              The signing wizard with recipient selection, variable resolution, and envelope
+              creation will be available in the next update.
             </p>
           </div>
         </CardContent>

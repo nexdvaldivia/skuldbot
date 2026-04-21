@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, FileText, Send, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { contractsApi } from '@/lib/api';
@@ -19,10 +18,9 @@ export default function TemplateEditorPage() {
   useEffect(() => {
     (async () => {
       try {
-        const data = await contractsApi.getTemplate(templateId) as Record<string, unknown>;
+        const data = (await contractsApi.getTemplate(templateId)) as Record<string, unknown>;
         setTemplate(data);
-      } catch (err) {
-        console.error('Failed to load template:', err);
+      } catch {
         toast({ title: 'Error', description: 'Failed to load template.', variant: 'error' });
       } finally {
         setLoading(false);
@@ -49,7 +47,7 @@ export default function TemplateEditorPage() {
           <div className="h-6 w-px bg-zinc-200" />
           <div>
             <h1 className="text-xl font-bold text-zinc-900">
-              {(template?.display_name as string) || 'Template Editor'}
+              {(template?.displayName as string) || 'Template Editor'}
             </h1>
             <p className="text-sm text-zinc-500">
               v{(template?.version as string) || '?'} — {(template?.status as string) || 'unknown'}
@@ -78,7 +76,8 @@ export default function TemplateEditorPage() {
             <FileText className="w-12 h-12 text-zinc-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-zinc-900 mb-2">PDF Contract Editor</h3>
             <p className="text-zinc-500">
-              The full PDF editor with signature field positioning, variable binding, and preview will be available in the next update.
+              The full PDF editor with signature field positioning, variable binding, and preview
+              will be available in the next update.
             </p>
           </div>
         </CardContent>

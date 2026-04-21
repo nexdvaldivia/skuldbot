@@ -10,12 +10,10 @@ import {
   FileText,
   Plus,
   Eye,
-  AlertCircle,
   Clock,
   CheckCircle2,
   FileCheck,
   PenTool,
-  Download,
   Layers,
   Edit2,
   Settings,
@@ -34,9 +32,24 @@ import {
   ContractTypeLookupItem,
 } from '@/lib/api';
 
-type ContractsTab = 'templates' | 'sent' | 'acceptances' | 'signatories' | 'legal_info' | 'policies' | 'lookups';
+type ContractsTab =
+  | 'templates'
+  | 'sent'
+  | 'acceptances'
+  | 'signatories'
+  | 'legal_info'
+  | 'policies'
+  | 'lookups';
 
-const VALID_TABS: ContractsTab[] = ['templates', 'sent', 'acceptances', 'signatories', 'legal_info', 'policies', 'lookups'];
+const VALID_TABS: ContractsTab[] = [
+  'templates',
+  'sent',
+  'acceptances',
+  'signatories',
+  'legal_info',
+  'policies',
+  'lookups',
+];
 
 function ContractsPageContent() {
   const router = useRouter();
@@ -47,7 +60,7 @@ function ContractsPageContent() {
 
   const tabFromUrl = searchParams.get('tab') as ContractsTab | null;
   const [activeTab, setActiveTab] = useState<ContractsTab>(
-    tabFromUrl && VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'templates'
+    tabFromUrl && VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'templates',
   );
 
   const [includeArchived, setIncludeArchived] = useState(false);
@@ -58,32 +71,42 @@ function ContractsPageContent() {
   const lookupsRequestIdRef = useRef(0);
 
   const contractTypeLookupMap = useMemo(() => {
-    if (!lookups?.contract_types) return new Map<string, ContractTypeLookupItem>();
-    return new Map(lookups.contract_types.map((ct) => [ct.code, ct]));
+    if (!lookups?.contractTypes) return new Map<string, ContractTypeLookupItem>();
+    return new Map(lookups.contractTypes.map((ct) => [ct.code, ct]));
   }, [lookups]);
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const [contractsRes, acceptancesArr] = await Promise.all([
-        contractsApi.listContractsGrouped({ include_archived: includeArchived }),
-        contractsApi.listAcceptances({ is_active: true }),
+        contractsApi.listContractsGrouped({ includeArchived }),
+        contractsApi.listAcceptances(),
       ]);
       setContracts(contractsRes.contracts);
       setAcceptances(acceptancesArr);
 
       const requestId = ++lookupsRequestIdRef.current;
       setLookupsState('loading');
-      contractsApi.getMetadataLookups(false)
+      contractsApi
+        .getMetadataLookups(false)
         .then((data) => {
-          if (requestId === lookupsRequestIdRef.current) { setLookups(data); setLookupsState('ready'); }
+          if (requestId === lookupsRequestIdRef.current) {
+            setLookups(data);
+            setLookupsState('ready');
+          }
         })
         .catch(() => {
-          if (requestId === lookupsRequestIdRef.current) { setLookups(null); setLookupsState('error'); }
+          if (requestId === lookupsRequestIdRef.current) {
+            setLookups(null);
+            setLookupsState('error');
+          }
         });
-    } catch (err) {
-      console.error('Failed to fetch contracts data:', err);
-      toast({ title: 'Error', description: 'Failed to load contracts data. Please try again.', variant: 'error' });
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to load contracts data. Please try again.',
+        variant: 'error',
+      });
     } finally {
       setLoading(false);
     }
@@ -98,8 +121,8 @@ function ContractsPageContent() {
   };
 
   const handleEditDraft = (contract: ContractGroupSummary) => {
-    if (contract.draft_version) {
-      router.push(`/contracts/templates/${contract.draft_version.id}`);
+    if (contract.draftVersion) {
+      router.push(`/contracts/templates/${contract.draftVersion.id}`);
     }
   };
 
@@ -110,7 +133,6 @@ function ContractsPageContent() {
       </div>
     );
   }
-
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 lg:px-8 lg:py-8 space-y-8">
@@ -133,15 +155,23 @@ function ContractsPageContent() {
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 bg-zinc-100 rounded-lg w-fit">
-        {([
-          { key: 'templates' as ContractsTab, icon: FileText, label: `Contracts (${contracts.length})` },
+        {[
+          {
+            key: 'templates' as ContractsTab,
+            icon: FileText,
+            label: `Contracts (${contracts.length})`,
+          },
           { key: 'sent' as ContractsTab, icon: PenTool, label: 'Sent for Signing' },
-          { key: 'acceptances' as ContractsTab, icon: FileCheck, label: `Acceptances (${acceptances.length})` },
+          {
+            key: 'acceptances' as ContractsTab,
+            icon: FileCheck,
+            label: `Acceptances (${acceptances.length})`,
+          },
           { key: 'signatories' as ContractsTab, icon: PenTool, label: 'Skuld Signatures' },
           { key: 'legal_info' as ContractsTab, icon: Building2, label: 'Skuld Legal Information' },
           { key: 'policies' as ContractsTab, icon: Shield, label: 'Policies' },
           { key: 'lookups' as ContractsTab, icon: Settings, label: 'Lookups' },
-        ]).map(({ key, icon: Icon, label }) => (
+        ].map(({ key, icon: Icon, label }) => (
           <Button
             key={key}
             variant="ghost"
@@ -182,18 +212,18 @@ function ContractsPageContent() {
               >
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    {contract.active_version ? (
+                    {contract.activeVersion ? (
                       <Badge className="bg-emerald-100 text-emerald-700">
                         <span className="flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3" />
-                          Active v{contract.active_version.version}
+                          Active v{contract.activeVersion.version}
                         </span>
                       </Badge>
-                    ) : contract.draft_version ? (
+                    ) : contract.draftVersion ? (
                       <Badge className="bg-zinc-100 text-zinc-700">
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          Draft v{contract.draft_version.version}
+                          Draft v{contract.draftVersion.version}
                         </span>
                       </Badge>
                     ) : (
@@ -201,30 +231,39 @@ function ContractsPageContent() {
                     )}
                     <div className="flex items-center gap-1 text-xs text-zinc-400">
                       <Layers className="w-3 h-3" />
-                      {contract.total_versions} version{contract.total_versions !== 1 ? 's' : ''}
+                      {contract.totalVersions} version{contract.totalVersions !== 1 ? 's' : ''}
                     </div>
                   </div>
                   <CardTitle className="text-lg mt-2 group-hover:text-blue-600 transition-colors">
-                    {contract.display_name}
+                    {contract.displayName}
                   </CardTitle>
                   <p className="text-xs text-zinc-500">
-                    {CONTRACT_TYPE_LABELS[contract.contract_type] || contract.contract_type}
+                    {CONTRACT_TYPE_LABELS[contract.contractType] || contract.contractType}
                   </p>
                   {(() => {
                     if (lookupsState === 'loading') {
                       return <div className="h-5 w-16 bg-zinc-100 rounded animate-pulse mt-1" />;
                     }
                     if (lookupsState === 'error') return null;
-                    const lookup = contractTypeLookupMap.get(contract.contract_type);
+                    const lookup = contractTypeLookupMap.get(contract.contractType);
                     if (!lookup) return null;
                     return (
                       <div className="flex flex-wrap items-center gap-1 mt-1">
-                        <Badge className={lookup.contract_scope === 'product' ? 'bg-violet-100 text-violet-700' : 'bg-blue-100 text-blue-700'}>
-                          {lookup.contract_scope === 'product' ? 'Product' : 'Global'}
+                        <Badge
+                          className={
+                            lookup.contractScope === 'product'
+                              ? 'bg-violet-100 text-violet-700'
+                              : 'bg-blue-100 text-blue-700'
+                          }
+                        >
+                          {lookup.contractScope === 'product' ? 'Product' : 'Global'}
                         </Badge>
-                        {lookup.contract_scope === 'product' && lookup.product_scopes?.map((p) => (
-                          <Badge key={p} className="bg-zinc-100 text-zinc-600 text-[10px]">{p}</Badge>
-                        ))}
+                        {lookup.contractScope === 'product' &&
+                          lookup.productScopes?.map((p) => (
+                            <Badge key={p} className="bg-zinc-100 text-zinc-600 text-[10px]">
+                              {p}
+                            </Badge>
+                          ))}
                       </div>
                     );
                   })()}
@@ -236,19 +275,21 @@ function ContractsPageContent() {
                   )}
 
                   <div className="space-y-2">
-                    {contract.is_required && (
+                    {contract.isRequired && (
                       <Badge className="bg-violet-100 text-violet-700">Required for all</Badge>
                     )}
-                    {contract.required_for_plans?.length ? (
+                    {contract.requiredForPlans?.length ? (
                       <div className="flex flex-wrap gap-1">
-                        {contract.required_for_plans.map((plan) => (
-                          <Badge key={plan} className="bg-blue-100 text-blue-700">{plan}</Badge>
+                        {contract.requiredForPlans.map((plan) => (
+                          <Badge key={plan} className="bg-blue-100 text-blue-700">
+                            {plan}
+                          </Badge>
                         ))}
                       </div>
                     ) : null}
-                    {contract.compliance_frameworks?.length ? (
+                    {contract.complianceFrameworks?.length ? (
                       <div className="flex flex-wrap gap-1">
-                        {contract.compliance_frameworks.map((framework) => (
+                        {contract.complianceFrameworks.map((framework) => (
                           <Badge key={framework} className="bg-amber-100 text-amber-700">
                             {framework.toUpperCase()}
                           </Badge>
@@ -258,11 +299,15 @@ function ContractsPageContent() {
                   </div>
 
                   <div className="flex flex-wrap gap-2 text-xs">
-                    {contract.requires_signature && (
-                      <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded">Requires Signature</span>
+                    {contract.requiresSignature && (
+                      <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded">
+                        Requires Signature
+                      </span>
                     )}
-                    {contract.requires_countersignature && (
-                      <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded">Requires Countersign</span>
+                    {contract.requiresCountersignature && (
+                      <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded">
+                        Requires Countersign
+                      </span>
                     )}
                   </div>
 
@@ -271,16 +316,22 @@ function ContractsPageContent() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={(e) => { e.stopPropagation(); handleViewContract(contract); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewContract(contract);
+                        }}
                       >
                         <Eye className="w-4 h-4" />
                         View Versions
                       </Button>
-                      {contract.draft_version && (
+                      {contract.draftVersion && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={(e) => { e.stopPropagation(); handleEditDraft(contract); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditDraft(contract);
+                          }}
                           className="text-blue-600 hover:text-blue-700"
                         >
                           <Edit2 className="w-4 h-4" />
@@ -291,7 +342,10 @@ function ContractsPageContent() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={(e) => { e.stopPropagation(); router.push(`/contracts/${contract.name}?settings=true`); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/contracts/${contract.name}?settings=true`);
+                      }}
                       title="Contract Settings"
                       className="text-zinc-400 hover:text-zinc-600"
                     >
@@ -319,9 +373,7 @@ function ContractsPageContent() {
 
       {/* Sent for Signing Tab */}
       {activeTab === 'sent' && (
-        <div className="text-center py-12 text-zinc-500">
-          Sent envelopes coming soon.
-        </div>
+        <div className="text-center py-12 text-zinc-500">Sent envelopes coming soon.</div>
       )}
 
       {/* Acceptances Tab */}
@@ -332,12 +384,24 @@ function ContractsPageContent() {
               <table className="w-full">
                 <thead className="bg-zinc-50 border-b border-zinc-200">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase">Contract</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase">Accepted By</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase">Method</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase">
+                      Contract
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase">
+                      Accepted By
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase">
+                      Method
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase">
+                      Date
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-200">
@@ -345,30 +409,30 @@ function ContractsPageContent() {
                     <tr key={acceptance.id} className="hover:bg-zinc-50">
                       <td className="px-4 py-3">
                         <div className="font-medium text-zinc-900">
-                          {acceptance.template?.display_name || 'Unknown'}
+                          {acceptance.template?.displayName || 'Unknown'}
                         </div>
                         <div className="text-xs text-zinc-500">v{acceptance.template?.version}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="text-sm text-zinc-900">{acceptance.accepted_by_name}</div>
-                        <div className="text-xs text-zinc-500">{acceptance.accepted_by_email}</div>
+                        <div className="text-sm text-zinc-900">{acceptance.acceptedByName}</div>
+                        <div className="text-xs text-zinc-500">{acceptance.acceptedByEmail}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <Badge className="bg-zinc-100 text-zinc-700">{acceptance.acceptance_method}</Badge>
+                        <Badge className="bg-zinc-100 text-zinc-700">
+                          {acceptance.acceptanceMethod}
+                        </Badge>
                       </td>
                       <td className="px-4 py-3 text-sm text-zinc-600">
-                        {new Date(acceptance.accepted_at).toLocaleDateString()}
+                        {new Date(acceptance.acceptedAt).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-1">
-                          {acceptance.is_active ? (
+                          {!acceptance.revokedAt ? (
                             <Badge className="bg-emerald-100 text-emerald-700">Active</Badge>
-                          ) : acceptance.revoked_at ? (
-                            <Badge className="bg-red-100 text-red-700">Revoked</Badge>
                           ) : (
-                            <Badge className="bg-zinc-100 text-zinc-700">Inactive</Badge>
+                            <Badge className="bg-red-100 text-red-700">Revoked</Badge>
                           )}
-                          {acceptance.countersigned_at && (
+                          {acceptance.countersignedAt && (
                             <Badge className="bg-violet-100 text-violet-700">Countersigned</Badge>
                           )}
                         </div>
@@ -386,8 +450,12 @@ function ContractsPageContent() {
               {acceptances.length === 0 && (
                 <div className="text-center py-12">
                   <FileCheck className="w-12 h-12 text-zinc-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-zinc-900 mb-2">No contract acceptances</h3>
-                  <p className="text-zinc-500">Contract acceptances will appear here when clients accept contracts.</p>
+                  <h3 className="text-lg font-medium text-zinc-900 mb-2">
+                    No contract acceptances
+                  </h3>
+                  <p className="text-zinc-500">
+                    Contract acceptances will appear here when clients accept contracts.
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -416,7 +484,13 @@ function ContractsPageContent() {
 
 export default function ContractsPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-zinc-400" /></div>}>
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center p-8">
+          <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+        </div>
+      }
+    >
       <ContractsPageContent />
     </Suspense>
   );

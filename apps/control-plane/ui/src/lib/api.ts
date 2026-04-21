@@ -1141,11 +1141,11 @@ export interface ContractTypeLookupItem {
   code: string;
   name: string;
   description: string | null;
-  is_active: boolean;
-  sort_order: number;
-  contract_level: string;
-  contract_scope: string;
-  product_scopes?: string[] | null;
+  isActive: boolean;
+  sortOrder: number;
+  contractLevel: string;
+  contractScope: string;
+  productScopes?: string[] | null;
 }
 
 export interface ContractLookupItem {
@@ -1153,96 +1153,111 @@ export interface ContractLookupItem {
   code: string;
   name: string;
   description: string | null;
-  is_active: boolean;
-  sort_order: number;
+  isActive: boolean;
+  sortOrder: number;
 }
 
 export interface ContractMetadataLookupsResponse {
-  contract_types: ContractTypeLookupItem[];
+  contractTypes: ContractTypeLookupItem[];
   jurisdictions: ContractLookupItem[];
-  compliance_frameworks: ContractLookupItem[];
+  complianceFrameworks: ContractLookupItem[];
 }
 
 export interface ContractGroupSummary {
   id: string;
   name: string;
-  display_name: string;
-  contract_type: string;
+  displayName: string;
+  contractType: string;
   summary: string | null;
-  is_required: boolean;
-  requires_signature: boolean;
-  requires_countersignature: boolean;
-  legal_jurisdiction: string | null;
-  compliance_frameworks: string[] | null;
-  required_for_plans: string[] | null;
-  required_for_addons: string[] | null;
-  required_for_verticals: string[] | null;
-  total_versions: number;
-  active_version: { id: string; version: string; effective_date: string | null; pdf_url: string | null; has_pdf: boolean } | null;
-  draft_version: { id: string; version: string; created_at: string | null } | null;
-  latest_version: { id: string; version: string; status: ContractStatus } | null;
+  isRequired: boolean;
+  requiresSignature: boolean;
+  requiresCountersignature: boolean;
+  legalJurisdiction: string | null;
+  complianceFrameworks: string[] | null;
+  requiredForPlans: string[] | null;
+  requiredForAddons: string[] | null;
+  requiredForVerticals: string[] | null;
+  totalVersions: number;
+  activeVersion: {
+    id: string;
+    version: string;
+    effectiveDate: string | null;
+    pdfUrl: string | null;
+    hasPdf: boolean;
+  } | null;
+  draftVersion: { id: string; version: string; createdAt: string | null } | null;
+  latestVersion: { id: string; version: string; status: ContractStatus } | null;
 }
 
 export interface ContractAcceptance {
   id: string;
-  template_id: string;
-  client_id: string;
-  accepted_at: string;
-  acceptance_method: string;
-  accepted_by_name: string;
-  accepted_by_email: string;
-  accepted_by_title: string | null;
-  ip_address: string;
-  countersigned_at: string | null;
-  countersigned_by: string | null;
-  content_snapshot_hash: string;
-  effective_date: string;
-  expiration_date: string | null;
-  is_active: boolean;
-  revoked_at: string | null;
-  revocation_reason: string | null;
-  created_at: string;
-  signed_pdf_url: string | null;
-  skuld_signatory_name?: string;
-  skuld_resolution_source?: string;
-  template: { id: string; display_name: string; version: string } | null;
+  templateId: string | null;
+  clientId: string;
+  acceptedAt: string;
+  acceptanceMethod: string;
+  acceptedByName: string;
+  acceptedByEmail: string;
+  acceptedByTitle: string | null;
+  ipAddress: string;
+  countersignedAt: string | null;
+  countersignedBy: string | null;
+  contentSnapshotHash: string;
+  effectiveDate: string;
+  expirationDate: string | null;
+  revokedAt: string | null;
+  revocationReason: string | null;
+  createdAt: string;
+  signedPdfUrl: string | null;
+  skuldSignatoryName?: string;
+  skuldResolutionSource?: string;
+  template?: { id: string; displayName: string; version: string } | null;
 }
 
 export const contractsApi = {
   // Grouped view
-  listContractsGrouped: (params?: { contract_type?: string; include_archived?: boolean }) => {
+  listContractsGrouped: (params?: { contractType?: string; includeArchived?: boolean }) => {
     const sp = new URLSearchParams();
-    if (params?.contract_type) sp.append('contract_type', params.contract_type);
-    if (params?.include_archived) sp.append('include_archived', 'true');
+    if (params?.contractType) sp.append('contractType', params.contractType);
+    if (params?.includeArchived) sp.append('includeArchived', 'true');
     const q = sp.toString();
-    return fetchApi<{ contracts: ContractGroupSummary[]; total: number }>(`/api/contracts/grouped${q ? `?${q}` : ''}`);
+    return fetchApi<{ contracts: ContractGroupSummary[]; total: number }>(
+      `/api/contracts/grouped${q ? `?${q}` : ''}`,
+    );
   },
 
   // Acceptances
-  listAcceptances: (params?: { client_id?: string; is_active?: boolean }) => {
+  listAcceptances: (params?: { clientId?: string; tenantId?: string; contractId?: string }) => {
     const sp = new URLSearchParams();
-    if (params?.client_id) sp.append('client_id', params.client_id);
-    if (params?.is_active !== undefined) sp.append('is_active', params.is_active.toString());
+    if (params?.clientId) sp.append('clientId', params.clientId);
+    if (params?.tenantId) sp.append('tenantId', params.tenantId);
+    if (params?.contractId) sp.append('contractId', params.contractId);
     const q = sp.toString();
     return fetchApi<ContractAcceptance[]>(`/api/contracts/acceptances${q ? `?${q}` : ''}`);
   },
 
   // Metadata lookups
   getMetadataLookups: (includeInactive = false) =>
-    fetchApi<ContractMetadataLookupsResponse>(`/api/contracts/lookups${includeInactive ? '?include_inactive=true' : ''}`),
+    fetchApi<ContractMetadataLookupsResponse>(
+      `/api/contracts/lookups${includeInactive ? '?includeInactive=true' : ''}`,
+    ),
 
   // Templates
-  listTemplates: (params?: { contract_type?: string; status?: ContractStatus; include_archived?: boolean }) => {
+  listTemplates: (params?: {
+    contractType?: string;
+    status?: ContractStatus;
+    includeArchived?: boolean;
+  }) => {
     const sp = new URLSearchParams();
-    if (params?.contract_type) sp.append('contract_type', params.contract_type);
+    if (params?.contractType) sp.append('contractType', params.contractType);
     if (params?.status) sp.append('status', params.status);
-    if (params?.include_archived) sp.append('include_archived', 'true');
+    if (params?.includeArchived) sp.append('includeArchived', 'true');
     const q = sp.toString();
-    return fetchApi<{ templates: unknown[]; total: number }>(`/api/contracts/templates${q ? `?${q}` : ''}`);
+    return fetchApi<{ templates: unknown[]; total: number }>(
+      `/api/contracts/templates${q ? `?${q}` : ''}`,
+    );
   },
 
-  getTemplate: (templateId: string) =>
-    fetchApi<unknown>(`/api/contracts/templates/${templateId}`),
+  getTemplate: (templateId: string) => fetchApi<unknown>(`/api/contracts/templates/${templateId}`),
 
   createTemplate: (data: Record<string, unknown>) =>
     fetchApi<unknown>('/api/contracts/templates', { method: 'POST', body: JSON.stringify(data) }),
@@ -1257,23 +1272,27 @@ export const contractsApi = {
     fetchApi<unknown>(`/api/contracts/templates/${templateId}`, { method: 'DELETE' }),
 
   // Contract versions
-  listContractVersions: (contractName: string, params?: { include_archived?: boolean }) => {
+  listContractVersions: (contractName: string, params?: { includeArchived?: boolean }) => {
     const sp = new URLSearchParams();
-    if (params?.include_archived) sp.append('include_archived', 'true');
+    if (params?.includeArchived) sp.append('includeArchived', 'true');
     const q = sp.toString();
     return fetchApi<unknown>(`/api/contracts/by-name/${contractName}/versions${q ? `?${q}` : ''}`);
   },
 
   // Signatories
   listContractSignatories: (activeOnly = true) =>
-    fetchApi<unknown[]>(`/api/contracts/signatories${activeOnly ? '?active_only=true' : '?active_only=false'}`),
+    fetchApi<unknown[]>(
+      `/api/contracts/signatories${activeOnly ? '?activeOnly=true' : '?activeOnly=false'}`,
+    ),
 
   // Signatory policies
-  listSignatoryPolicies: (params?: { contract_type?: string }) => {
+  listSignatoryPolicies: (params?: { contractType?: string }) => {
     const sp = new URLSearchParams();
-    if (params?.contract_type) sp.append('contract_type', params.contract_type);
+    if (params?.contractType) sp.append('contractType', params.contractType);
     const q = sp.toString();
-    return fetchApi<{ policies: unknown[]; total: number }>(`/api/contracts/signatory-policies${q ? `?${q}` : ''}`);
+    return fetchApi<{ policies: unknown[]; total: number }>(
+      `/api/contracts/signatory-policies${q ? `?${q}` : ''}`,
+    );
   },
 
   // Validation
