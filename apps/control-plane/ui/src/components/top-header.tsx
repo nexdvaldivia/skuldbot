@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Bell, Search, Command, ChevronDown, LogOut, Settings, Menu } from 'lucide-react';
@@ -12,8 +11,6 @@ interface TopHeaderProps {
 }
 
 export function TopHeader({ sidebarCollapsed, onMenuClick }: TopHeaderProps) {
-  const pathname = usePathname();
-  const router = useRouter();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -47,7 +44,7 @@ export function TopHeader({ sidebarCollapsed, onMenuClick }: TopHeaderProps) {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   return (

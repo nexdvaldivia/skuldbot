@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { SkuldLogo } from '@/components/ui/skuld-logo';
@@ -33,7 +33,6 @@ const navigation = [
 
 export function Navbar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -67,7 +66,7 @@ export function Navbar() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   return (
