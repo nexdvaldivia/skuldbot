@@ -30,50 +30,21 @@ import {
   Archive,
   XCircle,
   History,
-  FileType,
   PenTool,
   Loader2,
   Scale,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { contractsApi, ContractStatus, CONTRACT_TYPE_LABELS } from '@/lib/api';
-
-interface ContractVersionSummary {
-  id: string;
-  version: string;
-  versionNotes: string | null;
-  status: ContractStatus;
-  effectiveDate: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-  pdfUrl: string | null;
-  hasPdf: boolean;
-  pdfPageCount: number | null;
-  supersedesId: string | null;
-}
-
-interface ContractVersionsResponse {
-  contractId: string;
-  contractName: string;
-  displayName: string;
-  contractType: string;
-  summary: string | null;
-  isRequired: boolean;
-  requiresSignature: boolean;
-  requiresCountersignature: boolean;
-  legalJurisdiction: string | null;
-  complianceFrameworks: string[] | null;
-  versions: ContractVersionSummary[];
-  totalVersions: number;
-}
+import {
+  contractsApi,
+  ContractStatus,
+  ContractVersionChainNode,
+  ContractVersionChainResponse,
+} from '@/lib/api';
 
 const STATUS_CONFIG: Record<
   ContractStatus,
-  {
-    label: string;
-    color: string;
-    icon: typeof CheckCircle2;
-  }
+  { label: string; color: string; icon: typeof CheckCircle2 }
 > = {
   draft: { label: 'Draft', color: 'bg-zinc-100 text-zinc-700', icon: Clock },
   active: { label: 'Active', color: 'bg-emerald-100 text-emerald-700', icon: CheckCircle2 },
@@ -84,9 +55,9 @@ const STATUS_CONFIG: Record<
 function ContractVersionsContent() {
   const params = useParams();
   const router = useRouter();
-  const contractName = params.name as string;
+  const templateKey = decodeURIComponent(params.name as string);
 
-  const [contract, setContract] = useState<ContractVersionsResponse | null>(null);
+  const [contract, setContract] = useState<ContractVersionChainResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [includeArchived, setIncludeArchived] = useState(false);
 
@@ -94,17 +65,16 @@ function ContractVersionsContent() {
   const [newVersion, setNewVersion] = useState('');
   const [versionNotes, setVersionNotes] = useState('');
   const [creatingVersion, setCreatingVersion] = useState(false);
-  const [sourceVersionId, setSourceVersionId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [deprecateConfirm, setDeprecateConfirm] = useState<ContractVersionSummary | null>(null);
-  const [archiveConfirm, setArchiveConfirm] = useState<ContractVersionSummary | null>(null);
+  const [deprecateConfirm, setDeprecateConfirm] = useState<ContractVersionChainNode | null>(null);
+  const [archiveConfirm, setArchiveConfirm] = useState<ContractVersionChainNode | null>(null);
 
   const fetchContract = useCallback(async () => {
     try {
       setLoading(true);
-      const data = (await contractsApi.listContractVersions(encodeURIComponent(contractName), {
+      const data = await contractsApi.listContractVersions(encodeURIComponent(templateKey), {
         includeArchived,
-      })) as ContractVersionsResponse;
+      });
       setContract(data);
     } catch {
       toast({
@@ -115,19 +85,19 @@ function ContractVersionsContent() {
     } finally {
       setLoading(false);
     }
-  }, [contractName, includeArchived]);
+  }, [templateKey, includeArchived]);
 
   useEffect(() => {
     fetchContract();
   }, [fetchContract]);
 
-  const handlePublish = async (version: ContractVersionSummary) => {
+  const handlePublish = async (version: ContractVersionChainNode) => {
     try {
       setActionLoading(version.id);
       await contractsApi.publishTemplate(version.id);
       toast({
         title: 'Published',
-        description: `Version ${version.version} is now active.`,
+        description: `Version ${version.versionNumber} is now active.`,
         variant: 'success',
       });
       fetchContract();
@@ -145,7 +115,7 @@ function ContractVersionsContent() {
       await contractsApi.deprecateTemplate(deprecateConfirm.id);
       toast({
         title: 'Deprecated',
-        description: `Version ${deprecateConfirm.version} has been deprecated.`,
+        description: `Version ${deprecateConfirm.versionNumber} has been deprecated.`,
         variant: 'success',
       });
       fetchContract();
@@ -164,7 +134,7 @@ function ContractVersionsContent() {
       await contractsApi.archiveTemplate(archiveConfirm.id);
       toast({
         title: 'Archived',
-        description: `Version ${archiveConfirm.version} has been archived.`,
+        description: `Version ${archiveConfirm.versionNumber} has been archived.`,
         variant: 'success',
       });
       fetchContract();
@@ -177,14 +147,14 @@ function ContractVersionsContent() {
   };
 
   const handleCreateNewVersion = async () => {
-    if (!newVersion.trim() || !sourceVersionId) return;
+    if (!newVersion.trim()) return;
     try {
       setCreatingVersion(true);
       await contractsApi.createTemplate({
-        name: contractName,
-        displayName: contract?.displayName || contractName,
-        contractType: contract?.contractType || 'custom',
-        version: newVersion.trim(),
+        templateKey,
+        title: contract?.title || templateKey,
+        versionNumber: Number(newVersion),
+        changeLog: versionNotes || null,
       });
       toast({
         title: 'Created',
@@ -199,18 +169,11 @@ function ContractVersionsContent() {
       setNewVersionDialog(false);
       setNewVersion('');
       setVersionNotes('');
-      setSourceVersionId(null);
     }
   };
 
-  const openNewVersionDialog = (version: ContractVersionSummary) => {
-    setSourceVersionId(version.id);
-    const parts = version.version.split('.');
-    if (parts.length >= 2) {
-      setNewVersion(`${parts[0]}.${parseInt(parts[1] || '0') + 1}`);
-    } else {
-      setNewVersion(`${version.version}.1`);
-    }
+  const openNewVersionDialog = (version: ContractVersionChainNode) => {
+    setNewVersion(String(version.versionNumber + 1));
     setNewVersionDialog(true);
   };
 
@@ -255,12 +218,12 @@ function ContractVersionsContent() {
               <Scale className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-zinc-900">{contract.displayName}</h1>
-              <div className="flex items-center gap-2 text-sm text-zinc-500">
-                <span>{CONTRACT_TYPE_LABELS[contract.contractType] || contract.contractType}</span>
+              <h1 className="text-xl font-bold text-zinc-900">{contract.title}</h1>
+              <div className="flex items-center gap-2 text-sm text-zinc-500 font-mono">
+                {contract.templateKey}
                 <span>•</span>
                 <span>
-                  {contract.totalVersions} version{contract.totalVersions !== 1 ? 's' : ''}
+                  {contract.versions.length} version{contract.versions.length !== 1 ? 's' : ''}
                 </span>
               </div>
             </div>
@@ -280,29 +243,17 @@ function ContractVersionsContent() {
         </div>
       </div>
 
-      {/* Contract Info */}
-      {contract.summary && (
-        <Card>
-          <CardContent className="py-4">
-            <p className="text-sm text-zinc-600">{contract.summary}</p>
-            <div className="flex flex-wrap gap-2 mt-3">
-              {contract.isRequired && (
-                <Badge className="bg-violet-100 text-violet-700">Required for all</Badge>
-              )}
-              {contract.requiresSignature && (
-                <Badge className="bg-blue-100 text-blue-700">Requires Signature</Badge>
-              )}
-              {contract.requiresCountersignature && (
-                <Badge className="bg-violet-100 text-violet-700">Requires Countersign</Badge>
-              )}
-              {contract.legalJurisdiction && (
-                <Badge className="bg-zinc-100 text-zinc-700">{contract.legalJurisdiction}</Badge>
-              )}
-              {contract.complianceFrameworks?.map((fw) => (
-                <Badge key={fw} className="bg-amber-100 text-amber-700">
-                  {fw.toUpperCase()}
-                </Badge>
-              ))}
+      {/* Integrity warnings */}
+      {(contract.integrity.hasBrokenLinks || contract.integrity.hasVersionGaps) && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="py-3">
+            <div className="flex items-center gap-2 text-sm text-amber-700">
+              <AlertCircle className="w-4 h-4" />
+              <span>
+                {contract.integrity.hasBrokenLinks && 'Broken version links detected. '}
+                {contract.integrity.hasVersionGaps &&
+                  `Version gaps detected. Expected next: ${contract.integrity.expectedNextVersion}.`}
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -338,13 +289,7 @@ function ContractVersionsContent() {
                   Status
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase">
-                  Changes
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase">
-                  PDF
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase">
-                  Effective Date
+                  Published
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase">
                   Created
@@ -364,7 +309,7 @@ function ContractVersionsContent() {
                   <tr key={version.id} className="hover:bg-zinc-50">
                     <td className="px-4 py-3">
                       <span className="font-mono font-medium text-zinc-900">
-                        v{version.version}
+                        v{version.versionNumber}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -373,28 +318,13 @@ function ContractVersionsContent() {
                         {cfg.label}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-zinc-600 line-clamp-1">
-                        {version.versionNotes || '—'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {version.hasPdf ? (
-                        <Badge className="bg-emerald-100 text-emerald-700">
-                          <FileType className="w-3 h-3 mr-1" />
-                          {version.pdfPageCount || '?'} pages
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-zinc-100 text-zinc-700">No PDF</Badge>
-                      )}
-                    </td>
                     <td className="px-4 py-3 text-sm text-zinc-600">
-                      {version.effectiveDate
-                        ? new Date(version.effectiveDate).toLocaleDateString()
+                      {version.publishedAt
+                        ? new Date(version.publishedAt).toLocaleDateString()
                         : '—'}
                     </td>
                     <td className="px-4 py-3 text-sm text-zinc-600">
-                      {version.createdAt ? new Date(version.createdAt).toLocaleDateString() : '—'}
+                      {new Date(version.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
@@ -497,22 +427,22 @@ function ContractVersionsContent() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New Version</DialogTitle>
-            <DialogDescription>
-              Create a new draft version based on the selected version.
-            </DialogDescription>
+            <DialogDescription>Create a new draft version for this template.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="version">Version Number</Label>
               <Input
                 id="version"
+                type="number"
+                min="1"
                 value={newVersion}
                 onChange={(e) => setNewVersion(e.target.value)}
-                placeholder="e.g., 2.0"
+                placeholder="e.g., 2"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="notes">What changed? (optional)</Label>
+              <Label htmlFor="notes">Change log (optional)</Label>
               <Textarea
                 id="notes"
                 value={versionNotes}
@@ -543,8 +473,8 @@ function ContractVersionsContent() {
           <DialogHeader>
             <DialogTitle>Deprecate Version</DialogTitle>
             <DialogDescription>
-              Are you sure you want to deprecate version {deprecateConfirm?.version}? It will no
-              longer accept new signatures.
+              Are you sure you want to deprecate version {deprecateConfirm?.versionNumber}? It will
+              no longer accept new signatures.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -564,8 +494,8 @@ function ContractVersionsContent() {
           <DialogHeader>
             <DialogTitle>Archive Version</DialogTitle>
             <DialogDescription>
-              Are you sure you want to archive version {archiveConfirm?.version}? This action cannot
-              be undone.
+              Are you sure you want to archive version {archiveConfirm?.versionNumber}? This action
+              cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

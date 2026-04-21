@@ -1163,30 +1163,52 @@ export interface ContractMetadataLookupsResponse {
   complianceFrameworks: ContractLookupItem[];
 }
 
+export interface ContractVersionSummary {
+  id: string;
+  versionNumber: number;
+  status: ContractStatus;
+  publishedAt: string | null;
+  deprecatedAt: string | null;
+  archivedAt: string | null;
+  updatedAt: string;
+}
+
 export interface ContractGroupSummary {
   id: string;
-  name: string;
-  displayName: string;
-  contractType: string;
-  summary: string | null;
-  isRequired: boolean;
-  requiresSignature: boolean;
-  requiresCountersignature: boolean;
-  legalJurisdiction: string | null;
-  complianceFrameworks: string[] | null;
-  requiredForPlans: string[] | null;
-  requiredForAddons: string[] | null;
-  requiredForVerticals: string[] | null;
+  templateKey: string;
+  title: string;
+  description: string | null;
+  status: ContractStatus;
   totalVersions: number;
-  activeVersion: {
-    id: string;
-    version: string;
-    effectiveDate: string | null;
-    pdfUrl: string | null;
-    hasPdf: boolean;
-  } | null;
-  draftVersion: { id: string; version: string; createdAt: string | null } | null;
-  latestVersion: { id: string; version: string; status: ContractStatus } | null;
+  activeVersion: ContractVersionSummary | null;
+  draftVersion: ContractVersionSummary | null;
+  latestVersion: ContractVersionSummary | null;
+  updatedAt: string;
+}
+
+export interface ContractVersionChainNode {
+  id: string;
+  versionNumber: number;
+  status: ContractStatus;
+  supersedesVersionId: string | null;
+  publishedAt: string | null;
+  deprecatedAt: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContractVersionChainResponse {
+  templateId: string;
+  templateKey: string;
+  title: string;
+  versions: ContractVersionChainNode[];
+  integrity: {
+    hasBrokenLinks: boolean;
+    brokenNodeIds: string[];
+    hasVersionGaps: boolean;
+    expectedNextVersion: number;
+  };
 }
 
 export interface ContractAcceptance {
@@ -1215,12 +1237,11 @@ export interface ContractAcceptance {
 
 export const contractsApi = {
   // Grouped view
-  listContractsGrouped: (params?: { contractType?: string; includeArchived?: boolean }) => {
+  listContractsGrouped: (params?: { includeArchived?: boolean }) => {
     const sp = new URLSearchParams();
-    if (params?.contractType) sp.append('contractType', params.contractType);
     if (params?.includeArchived) sp.append('includeArchived', 'true');
     const q = sp.toString();
-    return fetchApi<{ contracts: ContractGroupSummary[]; total: number }>(
+    return fetchApi<{ templates: ContractGroupSummary[]; total: number }>(
       `/api/contracts/grouped${q ? `?${q}` : ''}`,
     );
   },
@@ -1272,11 +1293,13 @@ export const contractsApi = {
     fetchApi<unknown>(`/api/contracts/templates/${templateId}`, { method: 'DELETE' }),
 
   // Contract versions
-  listContractVersions: (contractName: string, params?: { includeArchived?: boolean }) => {
+  listContractVersions: (templateKey: string, params?: { includeArchived?: boolean }) => {
     const sp = new URLSearchParams();
     if (params?.includeArchived) sp.append('includeArchived', 'true');
     const q = sp.toString();
-    return fetchApi<unknown>(`/api/contracts/by-name/${contractName}/versions${q ? `?${q}` : ''}`);
+    return fetchApi<ContractVersionChainResponse>(
+      `/api/contracts/by-name/${templateKey}/version-chain${q ? `?${q}` : ''}`,
+    );
   },
 
   // Signatories

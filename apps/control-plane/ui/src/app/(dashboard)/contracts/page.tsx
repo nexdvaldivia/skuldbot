@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Suspense, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -23,14 +23,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  contractsApi,
-  ContractAcceptance,
-  CONTRACT_TYPE_LABELS,
-  ContractGroupSummary,
-  ContractMetadataLookupsResponse,
-  ContractTypeLookupItem,
-} from '@/lib/api';
+import { contractsApi, ContractAcceptance, ContractGroupSummary } from '@/lib/api';
 
 type ContractsTab =
   | 'templates'
@@ -65,16 +58,6 @@ function ContractsPageContent() {
 
   const [includeArchived, setIncludeArchived] = useState(false);
 
-  // Lookups for scope badges
-  const [lookups, setLookups] = useState<ContractMetadataLookupsResponse | null>(null);
-  const [lookupsState, setLookupsState] = useState<'loading' | 'ready' | 'error'>('loading');
-  const lookupsRequestIdRef = useRef(0);
-
-  const contractTypeLookupMap = useMemo(() => {
-    if (!lookups?.contractTypes) return new Map<string, ContractTypeLookupItem>();
-    return new Map(lookups.contractTypes.map((ct) => [ct.code, ct]));
-  }, [lookups]);
-
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -82,25 +65,8 @@ function ContractsPageContent() {
         contractsApi.listContractsGrouped({ includeArchived }),
         contractsApi.listAcceptances(),
       ]);
-      setContracts(contractsRes.contracts);
-      setAcceptances(acceptancesArr);
-
-      const requestId = ++lookupsRequestIdRef.current;
-      setLookupsState('loading');
-      contractsApi
-        .getMetadataLookups(false)
-        .then((data) => {
-          if (requestId === lookupsRequestIdRef.current) {
-            setLookups(data);
-            setLookupsState('ready');
-          }
-        })
-        .catch(() => {
-          if (requestId === lookupsRequestIdRef.current) {
-            setLookups(null);
-            setLookupsState('error');
-          }
-        });
+      setContracts(contractsRes.templates ?? []);
+      setAcceptances(acceptancesArr ?? []);
     } catch {
       toast({
         title: 'Error',
@@ -117,7 +83,7 @@ function ContractsPageContent() {
   }, [fetchData]);
 
   const handleViewContract = (contract: ContractGroupSummary) => {
-    router.push(`/contracts/${contract.name}`);
+    router.push(`/contracts/${encodeURIComponent(contract.templateKey)}`);
   };
 
   const handleEditDraft = (contract: ContractGroupSummary) => {
@@ -206,7 +172,7 @@ function ContractsPageContent() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {contracts.map((contract) => (
               <Card
-                key={contract.name}
+                key={contract.id}
                 className="relative transition-all duration-200 hover:shadow-lg cursor-pointer group"
                 onClick={() => handleViewContract(contract)}
               >
@@ -216,14 +182,14 @@ function ContractsPageContent() {
                       <Badge className="bg-emerald-100 text-emerald-700">
                         <span className="flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3" />
-                          Active v{contract.activeVersion.version}
+                          Active v{contract.activeVersion.versionNumber}
                         </span>
                       </Badge>
                     ) : contract.draftVersion ? (
                       <Badge className="bg-zinc-100 text-zinc-700">
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          Draft v{contract.draftVersion.version}
+                          Draft v{contract.draftVersion.versionNumber}
                         </span>
                       </Badge>
                     ) : (
@@ -235,81 +201,15 @@ function ContractsPageContent() {
                     </div>
                   </div>
                   <CardTitle className="text-lg mt-2 group-hover:text-blue-600 transition-colors">
-                    {contract.displayName}
+                    {contract.title}
                   </CardTitle>
-                  <p className="text-xs text-zinc-500">
-                    {CONTRACT_TYPE_LABELS[contract.contractType] || contract.contractType}
-                  </p>
-                  {(() => {
-                    if (lookupsState === 'loading') {
-                      return <div className="h-5 w-16 bg-zinc-100 rounded animate-pulse mt-1" />;
-                    }
-                    if (lookupsState === 'error') return null;
-                    const lookup = contractTypeLookupMap.get(contract.contractType);
-                    if (!lookup) return null;
-                    return (
-                      <div className="flex flex-wrap items-center gap-1 mt-1">
-                        <Badge
-                          className={
-                            lookup.contractScope === 'product'
-                              ? 'bg-violet-100 text-violet-700'
-                              : 'bg-blue-100 text-blue-700'
-                          }
-                        >
-                          {lookup.contractScope === 'product' ? 'Product' : 'Global'}
-                        </Badge>
-                        {lookup.contractScope === 'product' &&
-                          lookup.productScopes?.map((p) => (
-                            <Badge key={p} className="bg-zinc-100 text-zinc-600 text-[10px]">
-                              {p}
-                            </Badge>
-                          ))}
-                      </div>
-                    );
-                  })()}
+                  <p className="text-xs text-zinc-400 font-mono">{contract.templateKey}</p>
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  {contract.summary && (
-                    <p className="text-sm text-zinc-600 line-clamp-2">{contract.summary}</p>
+                  {contract.description && (
+                    <p className="text-sm text-zinc-600 line-clamp-2">{contract.description}</p>
                   )}
-
-                  <div className="space-y-2">
-                    {contract.isRequired && (
-                      <Badge className="bg-violet-100 text-violet-700">Required for all</Badge>
-                    )}
-                    {contract.requiredForPlans?.length ? (
-                      <div className="flex flex-wrap gap-1">
-                        {contract.requiredForPlans.map((plan) => (
-                          <Badge key={plan} className="bg-blue-100 text-blue-700">
-                            {plan}
-                          </Badge>
-                        ))}
-                      </div>
-                    ) : null}
-                    {contract.complianceFrameworks?.length ? (
-                      <div className="flex flex-wrap gap-1">
-                        {contract.complianceFrameworks.map((framework) => (
-                          <Badge key={framework} className="bg-amber-100 text-amber-700">
-                            {framework.toUpperCase()}
-                          </Badge>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    {contract.requiresSignature && (
-                      <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded">
-                        Requires Signature
-                      </span>
-                    )}
-                    {contract.requiresCountersignature && (
-                      <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded">
-                        Requires Countersign
-                      </span>
-                    )}
-                  </div>
 
                   <div className="flex items-center justify-between pt-2 border-t border-zinc-100">
                     <div className="flex items-center gap-2">
@@ -344,7 +244,9 @@ function ContractsPageContent() {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        router.push(`/contracts/${contract.name}?settings=true`);
+                        router.push(
+                          `/contracts/${encodeURIComponent(contract.templateKey)}?settings=true`,
+                        );
                       }}
                       title="Contract Settings"
                       className="text-zinc-400 hover:text-zinc-600"
