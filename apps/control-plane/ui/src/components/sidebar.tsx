@@ -14,6 +14,7 @@ import {
   Store,
   Settings,
   Activity,
+  FileText,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -41,16 +42,8 @@ const mainSections: NavSection[] = [
     title: 'Core Operations',
     items: [
       { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, exact: true },
-      {
-        name: 'Clients',
-        href: '/clients',
-        icon: Building2,
-        children: [
-          { name: 'Directory', href: '/clients' },
-          { name: 'Orchestrators', href: '/tenants' },
-        ],
-      },
-      { name: 'Orchestrator Fleet', href: '/tenants', icon: Server },
+      { name: 'Clients', href: '/clients', icon: Building2 },
+      { name: 'Orchestrators', href: '/tenants', icon: Server },
       { name: 'Licenses', href: '/licenses', icon: Key },
     ],
   },
@@ -66,6 +59,7 @@ const mainSections: NavSection[] = [
           { name: 'Revenue Share', href: '/billing/revenue-share' },
         ],
       },
+      { name: 'Contracts', href: '/contracts', icon: FileText },
     ],
   },
   {
@@ -119,6 +113,7 @@ const platformSection: NavSection = {
       icon: Settings,
       children: [
         { name: 'General', href: '/settings' },
+        { name: 'Security', href: '/settings/security' },
         { name: 'Integrations', href: '/settings/integrations' },
       ],
     },
