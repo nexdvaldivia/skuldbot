@@ -50,18 +50,18 @@ export class Tenant {
   @Column({ type: 'varchar', length: 120, unique: true })
   slug: string;
 
-  @Column({ type: 'enum', enum: TenantEnvironment, default: TenantEnvironment.PRODUCTION })
+  @Column({ type: 'varchar', length: 50, default: TenantEnvironment.PRODUCTION })
   environment: TenantEnvironment;
 
   @Column({
     name: 'deployment_type',
-    type: 'enum',
-    enum: TenantDeploymentType,
+    type: 'varchar',
+    length: 50,
     default: TenantDeploymentType.SAAS,
   })
   deploymentType: TenantDeploymentType;
 
-  @Column({ type: 'enum', enum: TenantStatus, default: TenantStatus.PROVISIONING })
+  @Column({ type: 'varchar', length: 50, default: TenantStatus.PROVISIONING })
   status: TenantStatus;
 
   @Column({ name: 'db_host', type: 'varchar', length: 255, nullable: true })

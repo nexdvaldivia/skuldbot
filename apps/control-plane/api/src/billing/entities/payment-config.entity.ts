@@ -45,8 +45,8 @@ export class PaymentConfig {
   id: string;
 
   @Column({
-    type: 'enum',
-    enum: ProductType,
+    type: 'varchar',
+    length: 50,
     unique: true,
   })
   productType: ProductType;

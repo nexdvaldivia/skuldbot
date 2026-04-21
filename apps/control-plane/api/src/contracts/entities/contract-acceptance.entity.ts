@@ -73,8 +73,8 @@ export class ContractAcceptance {
 
   @Column({
     name: 'acceptance_method',
-    type: 'enum',
-    enum: ContractAcceptanceMethod,
+    type: 'varchar',
+    length: 40,
     default: ContractAcceptanceMethod.ESIGN,
   })
   acceptanceMethod: ContractAcceptanceMethod;

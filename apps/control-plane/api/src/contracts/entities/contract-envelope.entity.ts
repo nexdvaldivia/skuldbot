@@ -62,8 +62,8 @@ export class ContractEnvelope {
   subject: string;
 
   @Column({
-    type: 'enum',
-    enum: ContractEnvelopeStatus,
+    type: 'varchar',
+    length: 40,
     default: ContractEnvelopeStatus.DRAFT,
   })
   status: ContractEnvelopeStatus;

@@ -74,8 +74,8 @@ export class RevenueShareRecord {
 
   // Status
   @Column({
-    type: 'enum',
-    enum: ['calculated', 'approved', 'transferred', 'paid', 'failed'],
+    type: 'varchar',
+    length: 30,
     default: 'calculated',
   })
   @Index()
@@ -165,8 +165,8 @@ export class PartnerPayout {
 
   // Status
   @Column({
-    type: 'enum',
-    enum: ['pending', 'processing', 'completed', 'failed'],
+    type: 'varchar',
+    length: 30,
     default: 'pending',
   })
   @Index()

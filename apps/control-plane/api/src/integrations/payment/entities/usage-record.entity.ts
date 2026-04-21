@@ -71,8 +71,8 @@ export class UsageRecordEntity {
   billingPeriod: string;
 
   @Column({
-    type: 'enum',
-    enum: UsageRecordStatus,
+    type: 'varchar',
+    length: 30,
     default: UsageRecordStatus.PENDING,
   })
   status: UsageRecordStatus;

@@ -51,8 +51,8 @@ export class Contract {
   version: number;
 
   @Column({
-    type: 'enum',
-    enum: ContractStatus,
+    type: 'varchar',
+    length: 40,
     default: ContractStatus.DRAFT,
   })
   status: ContractStatus;

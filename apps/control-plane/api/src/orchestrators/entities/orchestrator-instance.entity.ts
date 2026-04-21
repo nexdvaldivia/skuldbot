@@ -34,8 +34,8 @@ export class OrchestratorInstance {
   version: string | null;
 
   @Column({
-    type: 'enum',
-    enum: OrchestratorLifecycleStatus,
+    type: 'varchar',
+    length: 40,
     default: OrchestratorLifecycleStatus.REGISTERED,
   })
   @Index()

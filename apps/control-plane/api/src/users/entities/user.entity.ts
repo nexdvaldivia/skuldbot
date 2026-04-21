@@ -43,10 +43,10 @@ export class User {
   @Column({ name: 'last_name' })
   lastName: string;
 
-  @Column({ type: 'enum', enum: UserRole, default: UserRole.CLIENT_USER })
+  @Column({ type: 'varchar', length: 50, default: UserRole.CLIENT_USER })
   role: UserRole;
 
-  @Column({ type: 'enum', enum: UserStatus, default: UserStatus.PENDING })
+  @Column({ type: 'varchar', length: 50, default: UserStatus.PENDING })
   status: UserStatus;
 
   @Column({ name: 'client_id', type: 'uuid', nullable: true })

@@ -36,8 +36,8 @@ export class ContractTemplateVersion {
   supersedesVersionId: string | null;
 
   @Column({
-    type: 'enum',
-    enum: ContractTemplateStatus,
+    type: 'varchar',
+    length: 40,
     default: ContractTemplateStatus.DRAFT,
   })
   status: ContractTemplateStatus;

@@ -26,8 +26,8 @@ export class ContractRequirement {
   addonCode: string | null;
 
   @Column({
-    type: 'enum',
-    enum: ContractRequirementAction,
+    type: 'varchar',
+    length: 60,
   })
   action: ContractRequirementAction;
 

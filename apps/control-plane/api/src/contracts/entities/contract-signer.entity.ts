@@ -47,8 +47,8 @@ export class ContractSigner {
   sortOrder: number;
 
   @Column({
-    type: 'enum',
-    enum: ContractSignerStatus,
+    type: 'varchar',
+    length: 40,
     default: ContractSignerStatus.PENDING,
   })
   status: ContractSignerStatus;

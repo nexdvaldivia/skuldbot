@@ -65,8 +65,8 @@ export class TenantSubscription {
 
   // Payment Method
   @Column({
-    type: 'enum',
-    enum: PaymentMethodType,
+    type: 'varchar',
+    length: 50,
     default: PaymentMethodType.ACH_DEBIT,
   })
   paymentMethodType: PaymentMethodType;
@@ -86,8 +86,8 @@ export class TenantSubscription {
 
   // Subscription Status
   @Column({
-    type: 'enum',
-    enum: SubscriptionStatus,
+    type: 'varchar',
+    length: 50,
     default: SubscriptionStatus.TRIALING,
   })
   @Index()
@@ -194,15 +194,15 @@ export class PaymentHistory {
   currency: string;
 
   @Column({
-    type: 'enum',
-    enum: PaymentMethodType,
+    type: 'varchar',
+    length: 50,
   })
   paymentMethod: PaymentMethodType;
 
   // Status
   @Column({
-    type: 'enum',
-    enum: ['pending', 'processing', 'succeeded', 'failed', 'refunded', 'disputed'],
+    type: 'varchar',
+    length: 30,
     default: 'pending',
   })
   @Index()

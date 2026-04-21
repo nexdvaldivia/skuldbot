@@ -66,8 +66,8 @@ export class ContractRenewalRequirement {
   deadline: Date;
 
   @Column({
-    type: 'enum',
-    enum: ContractRenewalRequirementStatus,
+    type: 'varchar',
+    length: 40,
     default: ContractRenewalRequirementStatus.PENDING,
   })
   status: ContractRenewalRequirementStatus;

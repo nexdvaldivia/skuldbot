@@ -36,8 +36,8 @@ export class CpRole {
 
   @Column({
     name: 'scope_type',
-    type: 'enum',
-    enum: CpRoleScopeType,
+    type: 'varchar',
+    length: 30,
     default: CpRoleScopeType.PLATFORM,
   })
   scopeType: CpRoleScopeType;

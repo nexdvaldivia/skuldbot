@@ -48,8 +48,8 @@ export class InvoiceEntity {
   stripeSubscriptionId: string | null;
 
   @Column({
-    type: 'enum',
-    enum: InvoiceStatusEnum,
+    type: 'varchar',
+    length: 30,
     default: InvoiceStatusEnum.DRAFT,
   })
   status: InvoiceStatusEnum;

@@ -61,15 +61,15 @@ export class SubscriptionEntity {
   stripePriceId: string | null;
 
   @Column({
-    type: 'enum',
-    enum: SubscriptionStatusEnum,
+    type: 'varchar',
+    length: 50,
     default: SubscriptionStatusEnum.INCOMPLETE,
   })
   status: SubscriptionStatusEnum;
 
   @Column({
-    type: 'enum',
-    enum: BillingInterval,
+    type: 'varchar',
+    length: 20,
     default: BillingInterval.MONTHLY,
   })
   billingInterval: BillingInterval;

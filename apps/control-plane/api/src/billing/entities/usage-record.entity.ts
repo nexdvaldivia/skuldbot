@@ -65,8 +65,8 @@ export class UsageRecord {
 
   // Processing state
   @Column({
-    type: 'enum',
-    enum: ['pending', 'processed', 'billed', 'failed'],
+    type: 'varchar',
+    length: 30,
     default: 'pending',
   })
   @Index()
@@ -121,8 +121,8 @@ export class UsageBatch {
   receivedAt: Date;
 
   @Column({
-    type: 'enum',
-    enum: ['received', 'processing', 'processed', 'failed'],
+    type: 'varchar',
+    length: 30,
     default: 'received',
   })
   status: 'received' | 'processing' | 'processed' | 'failed';
@@ -210,8 +210,8 @@ export class UsageIngestDeadLetter {
   payload: Record<string, unknown>;
 
   @Column({
-    type: 'enum',
-    enum: ['pending', 'replayed', 'discarded'],
+    type: 'varchar',
+    length: 30,
     default: 'pending',
   })
   status: 'pending' | 'replayed' | 'discarded';

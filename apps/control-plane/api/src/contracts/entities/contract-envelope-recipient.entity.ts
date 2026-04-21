@@ -48,8 +48,8 @@ export class ContractEnvelopeRecipient {
   sortOrder: number;
 
   @Column({
-    type: 'enum',
-    enum: ContractEnvelopeRecipientStatus,
+    type: 'varchar',
+    length: 40,
     default: ContractEnvelopeRecipientStatus.PENDING,
   })
   status: ContractEnvelopeRecipientStatus;
@@ -77,8 +77,8 @@ export class ContractEnvelopeRecipient {
 
   @Column({
     name: 'signature_type',
-    type: 'enum',
-    enum: ContractSignatureType,
+    type: 'varchar',
+    length: 40,
     nullable: true,
   })
   signatureType: ContractSignatureType | null;
